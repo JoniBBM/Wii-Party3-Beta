@@ -1,0 +1,840 @@
+{% extends "base.html" %}
+
+{% block title %}Ablaufplan bearbeiten - {{ folder.name }}{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* Admin Dashboard Theme - Dark Professional */
+    .admin-dashboard-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        min-height: 100vh;
+        color: white;
+        position: relative;
+        padding: 0;
+        margin: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-dashboard-container::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(-45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%),
+                    linear-gradient(-45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%);
+        background-size: 60px 60px;
+        background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+        animation: movePattern 20s linear infinite;
+        opacity: 0.15;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    @keyframes movePattern {
+        0% { transform: translateX(0px) translateY(0px); }
+        100% { transform: translateX(60px) translateY(60px); }
+    }
+
+    .admin-content {
+        position: relative;
+        z-index: 2;
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .admin-content .container {
+        max-width: 1200px;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    /* Header styling */
+    .admin-content h2 {
+        color: white;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    /* Card styling */
+    .card {
+        background: rgba(44, 62, 80, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        color: white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .card-header {
+        background: rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px 18px 0 0;
+        padding: 1.5rem 2rem;
+    }
+
+    .card-header h5, .card-header h6 {
+        margin: 0;
+        font-weight: 700;
+        color: white;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* Progress bar styling */
+    .progress {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        height: 10px;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+        background: linear-gradient(45deg, #1abc9c, #16a085);
+    }
+
+    /* Button styling */
+    .btn {
+        border-radius: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        border: none;
+        padding: 8px 16px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-success {
+        background: linear-gradient(45deg, #27ae60, #229954);
+        color: white;
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(45deg, #229954, #1e8449);
+        color: white;
+        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        color: white;
+        box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
+    }
+
+    .btn-secondary:hover {
+        background: linear-gradient(45deg, #7f8c8d, #6c7b7d);
+        color: white;
+        box-shadow: 0 8px 20px rgba(149, 165, 166, 0.4);
+    }
+
+    .btn-outline-secondary {
+        border: 2px solid #95a5a6;
+        color: #95a5a6;
+        background: transparent;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #95a5a6;
+        color: white;
+        box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
+    }
+
+    .btn-outline-success {
+        border: 2px solid #27ae60;
+        color: #27ae60;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: #27ae60;
+        color: white;
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .btn-outline-danger {
+        border: 2px solid #e74c3c;
+        color: #e74c3c;
+        background: transparent;
+    }
+
+    .btn-outline-danger:hover {
+        background: #e74c3c;
+        color: white;
+        box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+
+    /* Badge styling */
+    .badge {
+        border-radius: 15px;
+        padding: 0.4rem 0.6rem;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .badge-success {
+        background: linear-gradient(45deg, #27ae60, #229954);
+        color: white;
+    }
+
+    .badge-warning {
+        background: linear-gradient(45deg, #f1c40f, #f39c12);
+        color: #2c3e50;
+    }
+
+    .badge-secondary {
+        background: rgba(149, 165, 166, 0.8);
+        color: white;
+    }
+
+    /* Text colors */
+    .text-muted {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+
+    .text-info {
+        color: #1abc9c !important;
+    }
+
+    .text-primary {
+        color: #3498db !important;
+    }
+
+    /* Sortable list styling */
+    .sortable-list {
+        min-height: 100px;
+        padding: 15px;
+        border: 2px dashed rgba(255, 255, 255, 0.3);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .sortable-list.drag-over {
+        border-color: #3498db;
+        background: rgba(52, 152, 219, 0.1);
+    }
+
+    .sequence-item {
+        margin-bottom: 15px;
+        cursor: move;
+    }
+
+    .item-content {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+    }
+
+    .item-content:hover {
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .item-content.completed {
+        background: rgba(39, 174, 96, 0.2);
+        border-color: rgba(39, 174, 96, 0.4);
+    }
+
+    .item-content.current {
+        background: rgba(241, 196, 15, 0.2);
+        border-color: rgba(241, 196, 15, 0.4);
+    }
+
+    .drag-handle {
+        color: rgba(255, 255, 255, 0.6);
+        margin-right: 15px;
+        cursor: move;
+        font-size: 1.2rem;
+    }
+
+    .item-info {
+        flex-grow: 1;
+    }
+
+    .item-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .item-number {
+        display: inline-block;
+        min-width: 30px;
+        height: 30px;
+        line-height: 30px;
+        text-align: center;
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        color: white;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .item-description {
+        font-size: 0.9em;
+        color: rgba(255, 255, 255, 0.7);
+        margin-top: 8px;
+        font-style: italic;
+    }
+
+    /* Available items styling */
+    .available-items {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .available-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 15px;
+        margin-bottom: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .available-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .available-item span {
+        flex-grow: 1;
+        margin-left: 10px;
+        font-size: 0.9em;
+        color: white;
+    }
+
+    .add-item-btn {
+        opacity: 0.7;
+        transition: all 0.3s ease;
+    }
+
+    .available-item:hover .add-item-btn {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    /* Sortable effects */
+    .sortable-ghost {
+        opacity: 0.4;
+        transform: rotate(2deg);
+    }
+
+    .sortable-chosen {
+        transform: scale(1.05) rotate(2deg);
+        z-index: 999;
+    }
+
+    /* Custom scrollbar */
+    .available-items::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .available-items::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+    }
+
+    .available-items::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+    }
+
+    .available-items::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    @media (max-width: 768px) {
+        .admin-content .container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .card-body, .card-header {
+            padding: 1.5rem;
+        }
+
+        .col-md-4 {
+            margin-top: 2rem;
+        }
+
+        .item-content {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .drag-handle {
+            margin-right: 0;
+            margin-bottom: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard-container">
+    <div class="admin-content">
+        <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-list-ol text-info"></i> Ablaufplan für "{{ folder.name }}"</h2>
+        <div>
+            {% if sequence and sequence.is_active %}
+                <span class="badge badge-success mr-2">
+                    <i class="fas fa-play"></i> Aktiv
+                </span>
+            {% endif %}
+            <a href="{{ url_for('admin.manage_folders') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück zu Ordnern
+            </a>
+        </div>
+    </div>
+
+    {% if sequence %}
+        <!-- Fortschrittsanzeige -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6>Fortschritt</h6>
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-info" 
+                                 style="width: {{ sequence.get_progress_percentage() }}%">
+                                {{ sequence.get_progress_percentage() }}%
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            {{ sequence.current_position + 1 }} von {{ sequence.sequence_list|length }} abgeschlossen
+                        </small>
+                    </div>
+                    <div class="col-md-4 text-right">
+                        {% if not sequence.is_active %}
+                            <form method="post" action="{{ url_for('admin.activate_sequence', folder_id=folder.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-play"></i> Plan aktivieren
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{{ url_for('admin.deactivate_sequence', folder_id=folder.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-outline-secondary">
+                                    <i class="fas fa-pause"></i> Plan deaktivieren
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Drag & Drop Sequenz -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-sort"></i> Ablaufplan - Per Drag & Drop sortieren</h5>
+                    <button id="save-sequence" class="btn btn-success" disabled>
+                        <i class="fas fa-save"></i> Reihenfolge speichern
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if sequence and sequence.sequence_list %}
+                        <div id="sequence-list" class="sortable-list">
+                            {% for item in sequence.sequence_list %}
+                            <div class="sequence-item" data-id="{{ item.id }}" data-type="{{ item.type }}">
+                                <div class="item-content 
+                                    {% if loop.index0 < sequence.current_position %}completed
+                                    {% elif loop.index0 == sequence.current_position %}current
+                                    {% endif %}">
+                                    <div class="drag-handle">
+                                        <i class="fas fa-grip-vertical"></i>
+                                    </div>
+                                    <div class="item-info">
+                                        <div class="item-header">
+                                            <span class="item-number">{{ loop.index }}</span>
+                                            {% if item.type == 'minigame' %}
+                                                <i class="fas fa-gamepad text-primary"></i>
+                                            {% else %}
+                                                <i class="fas fa-question-circle text-info"></i>
+                                            {% endif %}
+                                            <strong>{{ item.name }}</strong>
+                                            {% if loop.index0 < sequence.current_position %}
+                                                <span class="badge badge-success ml-2">Abgeschlossen</span>
+                                            {% elif loop.index0 == sequence.current_position %}
+                                                <span class="badge badge-warning ml-2">Aktuell</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if item.description %}
+                                            <div class="item-description">{{ item.description }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div id="sequence-list" class="sortable-list">
+                            <!-- Wird per JavaScript befüllt -->
+                        </div>
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-arrow-right fa-2x mb-3"></i>
+                            <p>Ziehe Items aus der rechten Liste hierher, um einen Ablaufplan zu erstellen.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Verfügbare Items -->
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-list"></i> Verfügbare Items</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Minispiele -->
+                    {% if available_minigames %}
+                        <h6 class="text-primary"><i class="fas fa-gamepad"></i> Minispiele</h6>
+                        <div class="available-items mb-3">
+                            {% for minigame in available_minigames %}
+                            <div class="available-item" data-id="{{ minigame.id }}" data-type="minigame" 
+                                 data-name="{{ minigame.name }}" data-description="{{ minigame.description or '' }}">
+                                <i class="fas fa-gamepad text-primary"></i>
+                                <span>{{ minigame.name }}</span>
+                                <button class="btn btn-sm btn-outline-success add-item-btn" type="button">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Fragen -->
+                    {% if available_questions %}
+                        <h6 class="text-info"><i class="fas fa-question-circle"></i> Fragen</h6>
+                        <div class="available-items">
+                            {% for question in available_questions %}
+                            <div class="available-item" data-id="{{ question.id }}" data-type="question"
+                                 data-name="{{ question.name }}" data-description="{{ question.question or question.description or '' }}">
+                                <i class="fas fa-question-circle text-info"></i>
+                                <span>{{ question.name }}</span>
+                                <button class="btn btn-sm btn-outline-success add-item-btn" type="button">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if not available_minigames and not available_questions %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-2x mb-3"></i>
+                            <p>Keine Items in diesem Ordner gefunden.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Form für Speicherung -->
+<form id="save-form" method="post" action="{{ url_for('admin.update_sequence', folder_id=folder.id) }}" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" id="sequence-data" name="sequence_data" value="">
+</form>
+
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const sequenceList = document.getElementById('sequence-list');
+    const saveButton = document.getElementById('save-sequence');
+    const saveForm = document.getElementById('save-form');
+    const sequenceDataInput = document.getElementById('sequence-data');
+    
+    let hasChanges = false;
+    
+    // Sortable initialisieren
+    const sortable = new Sortable(sequenceList, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        handle: '.drag-handle',
+        onEnd: function() {
+            updateSequence();
+            hasChanges = true;
+            saveButton.disabled = false;
+        }
+    });
+    
+    // Add Item Buttons
+    document.querySelectorAll('.add-item-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const item = this.closest('.available-item');
+            addItemToSequence(
+                item.dataset.id,
+                item.dataset.type,
+                item.dataset.name,
+                item.dataset.description
+            );
+        });
+    });
+    
+    // Save Button
+    saveButton.addEventListener('click', function() {
+        const sequenceData = getSequenceData();
+        sequenceDataInput.value = JSON.stringify(sequenceData);
+        
+        // Setze hasChanges zurück vor dem Speichern um beforeunload-Warning zu vermeiden
+        hasChanges = false;
+        
+        saveForm.submit();
+    });
+    
+    function addItemToSequence(id, type, name, description) {
+        // Prüfe ob Item bereits in Sequenz
+        const existing = sequenceList.querySelector(`[data-id="${id}"][data-type="${type}"]`);
+        if (existing) {
+            // Highlight existing item
+            existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            existing.style.transform = 'scale(1.1)';
+            setTimeout(() => existing.style.transform = '', 500);
+            return;
+        }
+        
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'sequence-item';
+        itemDiv.dataset.id = id;
+        itemDiv.dataset.type = type;
+        
+        const iconClass = type === 'minigame' ? 'fas fa-gamepad text-primary' : 'fas fa-question-circle text-info';
+        const nextNumber = sequenceList.children.length + 1;
+        
+        itemDiv.innerHTML = `
+            <div class="item-content">
+                <div class="drag-handle">
+                    <i class="fas fa-grip-vertical"></i>
+                </div>
+                <div class="item-info">
+                    <div class="item-header">
+                        <span class="item-number">${nextNumber}</span>
+                        <i class="${iconClass}"></i>
+                        <strong>${name}</strong>
+                        <button class="btn btn-sm btn-outline-danger ml-auto remove-item-btn" type="button">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    ${description ? `<div class="item-description">${description}</div>` : ''}
+                </div>
+            </div>
+        `;
+        
+        // Remove Button Event
+        itemDiv.querySelector('.remove-item-btn').addEventListener('click', function() {
+            itemDiv.remove();
+            updateSequence();
+            hasChanges = true;
+            saveButton.disabled = false;
+        });
+        
+        sequenceList.appendChild(itemDiv);
+        updateSequence();
+        hasChanges = true;
+        saveButton.disabled = false;
+        
+        // Scroll to new item
+        itemDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    function updateSequence() {
+        // Update Nummern
+        const items = sequenceList.querySelectorAll('.sequence-item');
+        items.forEach((item, index) => {
+            const numberSpan = item.querySelector('.item-number');
+            if (numberSpan) {
+                numberSpan.textContent = index + 1;
+            }
+        });
+    }
+    
+    function getSequenceData() {
+        const items = sequenceList.querySelectorAll('.sequence-item');
+        const sequence = [];
+        
+        items.forEach(item => {
+            const name = item.querySelector('strong').textContent;
+            const description = item.querySelector('.item-description')?.textContent || '';
+            
+            sequence.push({
+                id: item.dataset.id,
+                type: item.dataset.type,
+                name: name,
+                description: description
+            });
+        });
+        
+        return sequence;
+    }
+    
+    
+    // Live-Updates für Sequence-Fortschritt
+    let sequenceProgressInterval;
+    
+    function updateSequenceProgress() {
+        fetch('/admin/api/sequence_status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.has_sequence && data.sequence_list) {
+                    updateSequenceProgressUI(data);
+                }
+            })
+            .catch(error => {
+                console.error('Fehler beim Laden der Sequence-Fortschritt:', error);
+            });
+    }
+    
+    function updateSequenceProgressUI(data) {
+        // Progress Bar aktualisieren
+        const progressBar = document.querySelector('.progress-bar');
+        if (progressBar) {
+            progressBar.style.width = data.progress_percentage + '%';
+            progressBar.textContent = data.progress_percentage + '%';
+        }
+        
+        // Position Text aktualisieren
+        const progressContainer = document.querySelector('.progress').parentElement;
+        const positionText = progressContainer ? progressContainer.querySelector('small') : null;
+        if (positionText) {
+            positionText.textContent = `${data.current_position + 1} von ${data.total_items} abgeschlossen`;
+        }
+        
+        // Status Badge aktualisieren
+        const statusBadge = document.querySelector('.badge');
+        if (statusBadge) {
+            if (data.is_active) {
+                statusBadge.className = 'badge badge-success mr-2';
+                statusBadge.innerHTML = '<i class="fas fa-play"></i> Aktiv';
+            } else {
+                statusBadge.className = 'badge badge-secondary mr-2';
+                statusBadge.innerHTML = '<i class="fas fa-pause"></i> Inaktiv';
+            }
+        }
+        
+        // Sequenz-Items aktualisieren (completed/current Status)
+        const sequenceItems = document.querySelectorAll('.sequence-item');
+        sequenceItems.forEach((item, index) => {
+            const itemContent = item.querySelector('.item-content');
+            if (itemContent) {
+                // Entferne alle Status-Klassen
+                itemContent.classList.remove('completed', 'current');
+                
+                // Entferne alte Badges
+                const oldBadges = itemContent.querySelectorAll('.badge');
+                oldBadges.forEach(badge => badge.remove());
+                
+                // Setze neuen Status basierend auf current_position
+                if (index < data.current_position) {
+                    // Abgeschlossen
+                    itemContent.classList.add('completed');
+                    const itemHeader = itemContent.querySelector('.item-header');
+                    if (itemHeader) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge badge-success ml-2';
+                        badge.textContent = 'Abgeschlossen';
+                        itemHeader.appendChild(badge);
+                    }
+                } else if (index === data.current_position) {
+                    // Aktuell
+                    itemContent.classList.add('current');
+                    const itemHeader = itemContent.querySelector('.item-header');
+                    if (itemHeader) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge badge-warning ml-2';
+                        badge.textContent = 'Aktuell';
+                        itemHeader.appendChild(badge);
+                    }
+                }
+                // Items nach current_position bleiben ohne Badge (noch nicht erreicht)
+            }
+        });
+    }
+    
+    // Live-Updates starten
+    function startSequenceProgressUpdates() {
+        // Initiales Update
+        updateSequenceProgress();
+        
+        // Regelmäßige Updates alle 3 Sekunden
+        sequenceProgressInterval = setInterval(updateSequenceProgress, 3000);
+    }
+    
+    function stopSequenceProgressUpdates() {
+        if (sequenceProgressInterval) {
+            clearInterval(sequenceProgressInterval);
+            sequenceProgressInterval = null;
+        }
+    }
+    
+    // Starte Live-Updates
+    startSequenceProgressUpdates();
+    
+    // Stoppe Updates wenn Seite verlassen wird
+    window.addEventListener('beforeunload', function() {
+        stopSequenceProgressUpdates();
+    });
+    
+    // Pause Updates wenn Tab nicht aktiv ist (Performance)
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopSequenceProgressUpdates();
+        } else {
+            // Resume updates wenn Tab wieder aktiv
+            startSequenceProgressUpdates();
+        }
+    });
+    
+    // Initial sequence update
+    updateSequence();
+});
+</script>
+{% endblock %}

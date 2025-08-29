@@ -1,0 +1,9 @@
+{
+  "name": "Standard-Spiel",
+  "description": "Standard-Spielrunde für allgemeine Verwendung",
+  "minigame_folder_name": "Default",
+  "is_active": true,
+  "created_at": "2025-08-26T13:16:34.239157",
+  "saved_at": "2025-08-27T05:06:01.525116",
+  "version": "2.0"
+}

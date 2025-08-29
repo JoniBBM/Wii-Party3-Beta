@@ -1,0 +1,687 @@
+/* Basis-Styling */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+}
+
+/* Spielbrett-Container */
+.game-container {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    margin: 20px auto;
+    background: radial-gradient(ellipse at center, #B3E5FC 0%, #4FC3F7 50%, #0288D1 100%);
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25);
+    display: block;
+}
+
+/* Info-Panel oben */
+.game-info-panel {
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 80px;
+}
+
+.team-status {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    max-width: 70%;
+}
+
+.team-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 3px solid;
+    border-radius: 5px;
+    padding: 5px 10px;
+    background-color: white;
+    font-size: 0.9rem;
+}
+
+.team-name {
+    font-weight: bold;
+}
+
+.game-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Würfel */
+.dice {
+    width: 50px;
+    height: 50px;
+    background-color: white;
+    border: 2px solid #333;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.dice.rolling {
+    animation: diceRoll 0.2s infinite;
+}
+
+@keyframes diceRoll {
+    0% { transform: rotate(-10deg); }
+    50% { transform: rotate(10deg); }
+    100% { transform: rotate(-10deg); }
+}
+
+/* Spielbrett-Styling */
+.board-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(to bottom, #87CEEB, #1E90FF);
+    height: 600px;
+    perspective: 1000px;
+}
+
+.game-board {
+    position: relative;
+    transform: rotateX(30deg);
+    transform-style: preserve-3d;
+    margin: 50px auto;
+    width: 800px;
+    height: 500px;
+}
+
+/* Insel-Hintergrund */
+.island {
+    position: absolute;
+    width: 90%;
+    height: 90%;
+    left: 5%;
+    top: 5%;
+    background: radial-gradient(ellipse at center, #8BC34A 0%, #689F38 70%, #558B2F 100%);
+    border-radius: 50%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    z-index: 1;
+    transform: translateZ(-5px);
+}
+
+/* Spielfeld-Styling */
+.board-field {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    transform: translateZ(0);
+    transition: transform 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.board-field:hover {
+    transform: translateZ(5px) scale(1.1);
+    z-index: 5;
+}
+
+.board-field.start {
+    box-shadow: 0 0 10px 2px rgba(0, 255, 255, 0.5);
+}
+
+.board-field.goal {
+    box-shadow: 0 0 10px 2px rgba(255, 215, 0, 0.7);
+}
+
+.board-field.minigame {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(206, 147, 216, 0.7); }
+    70% { box-shadow: 0 0 0 5px rgba(206, 147, 216, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(206, 147, 216, 0); }
+}
+
+.field-number {
+    color: rgba(0, 0, 0, 0.7);
+    font-size: 10px;
+    font-weight: bold;
+}
+
+/* Pfade zwischen Feldern */
+.path-segment {
+    position: absolute;
+    height: 5px;
+    background-color: #ffeb3b;
+    border-radius: 2px;
+    transform-origin: left center;
+    z-index: 1;
+}
+
+/* Team-Tokens */
+.team-token {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: red;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    z-index: 3;
+    transform: translateZ(10px);
+    transition: all 0.5s ease;
+}
+
+.team-token.moving {
+    animation: jump 0.5s;
+}
+
+@keyframes jump {
+    0% { transform: translateZ(10px); }
+    50% { transform: translateZ(30px); }
+    100% { transform: translateZ(10px); }
+}
+
+/* Banner System (team_dashboard style) */
+.announcement-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(8px);
+}
+
+.announcement-banner.show {
+    display: flex;
+    animation: bannerFadeIn 0.5s ease-out;
+}
+
+.announcement-banner.hide {
+    animation: bannerFadeOut 0.5s ease-out forwards;
+}
+
+@keyframes bannerFadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bannerFadeOut {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.9); }
+}
+
+.banner-content {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 3rem;
+    text-align: center;
+    color: white;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    margin: 0 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.banner-content::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* Banner type specific colors */
+.results-banner .banner-content {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+}
+
+.dice-banner .banner-content {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+}
+
+.question-banner .banner-content {
+    background: linear-gradient(135deg, #e83e8c 0%, #d91a72 100%);
+}
+
+.barrier-banner .banner-content {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.release-banner .banner-content {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+}
+
+.barrier-failed-banner .banner-content {
+    background: linear-gradient(135deg, #fd7e14 0%, #e55300 100%);
+}
+
+.info-banner .banner-content {
+    background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%);
+}
+
+.turn-banner .banner-content {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.round-end-banner .banner-content {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+}
+
+.field-banner .banner-content {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    color: #333;
+}
+
+.banner-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+    animation: bannerIconPulse 2s ease-in-out infinite;
+}
+
+@keyframes bannerIconPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.banner-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.banner-subtitle {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+}
+
+.banner-description {
+    font-size: 1.1rem;
+    opacity: 0.8;
+    font-style: italic;
+}
+
+.banner-results {
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.result-item {
+    padding: 0.5rem;
+    margin: 0.3rem 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 1.1rem;
+}
+
+
+/* Fullscreen styles for dice result display */
+:fullscreen .dice-result-display,
+:-webkit-full-screen .dice-result-display,
+:-moz-full-screen .dice-result-display,
+:-ms-fullscreen .dice-result-display,
+body:has(#game-canvas-container:fullscreen) .dice-result-display,
+body:has(#game-canvas-container:-webkit-full-screen) .dice-result-display,
+body:has(#game-canvas-container:-moz-full-screen) .dice-result-display,
+body:has(#game-canvas-container:-ms-fullscreen) .dice-result-display {
+    z-index: 2147483645 !important; /* Below banners */
+    position: fixed !important;
+}
+
+/* Ensure banner content is properly centered and sized in fullscreen */
+:fullscreen .game-status-banner .status-banner-content,
+:-webkit-full-screen .game-status-banner .status-banner-content,
+:-moz-full-screen .game-status-banner .status-banner-content,
+body:has(#game-canvas-container:fullscreen) .game-status-banner .status-banner-content,
+body:has(#game-canvas-container:-webkit-full-screen) .game-status-banner .status-banner-content,
+body:has(#game-canvas-container:-moz-full-screen) .game-status-banner .status-banner-content {
+    max-width: 600px !important;
+    margin: 0 auto !important;
+    padding: 2.5rem !important;
+    font-size: 1.2em !important;
+}
+
+/* macOS-style Notification System */
+.notification-container {
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    z-index: 999999;
+    max-width: 700px;
+    pointer-events: none;
+}
+
+/* Höchster z-index für Vollbildmodus */
+#game-canvas-container:fullscreen .notification-container,
+#game-canvas-container:-webkit-full-screen .notification-container,
+#game-canvas-container:-moz-full-screen .notification-container,
+body:has(#game-canvas-container:fullscreen) .notification-container,
+body:has(#game-canvas-container:-webkit-full-screen) .notification-container,
+body:has(#game-canvas-container:-moz-full-screen) .notification-container {
+    z-index: 2147483647 !important;
+}
+
+.notification {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 24px;
+    padding: 32px 40px;
+    margin-bottom: 20px;
+    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.15), 
+                0 4px 16px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    color: #333;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 28px;
+    line-height: 1.4;
+    position: relative;
+    overflow: hidden;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.notification.hide {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.notification-dice {
+    border-left: 8px solid #007AFF;
+}
+
+.notification-dice::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007AFF 0%, #5AC8FA 100%);
+}
+
+/* Sonderfeld Notification Styles */
+.notification-catapult-forward {
+    border-left: 8px solid #4CAF50;
+}
+
+.notification-catapult-forward::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+}
+
+.notification-catapult-backward {
+    border-left: 8px solid #F44336;
+}
+
+.notification-catapult-backward::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #F44336 0%, #E57373 100%);
+}
+
+.notification-player-swap {
+    border-left: 8px solid #2196F3;
+}
+
+.notification-player-swap::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2196F3 0%, #64B5F6 100%);
+}
+
+.notification-barrier-set {
+    border-left: 8px solid #FF9800;
+}
+
+.notification-barrier-set::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #FF9800 0%, #FFB74D 100%);
+}
+
+.notification-barrier-released {
+    border-left: 8px solid #4CAF50;
+}
+
+.notification-barrier-released::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%);
+}
+
+.notification-barrier-failed {
+    border-left: 8px solid #F44336;
+}
+
+.notification-barrier-failed::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #F44336 0%, #EF5350 100%);
+}
+
+.notification-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.notification-icon {
+    font-size: 36px;
+    margin-right: 20px;
+    opacity: 0.8;
+}
+
+.notification-title {
+    font-weight: 600;
+    font-size: 30px;
+    color: #1c1c1e;
+}
+
+.notification-message {
+    color: #48484a;
+    font-size: 26px;
+    line-height: 1.3;
+}
+
+.notification-dice-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding: 16px 24px;
+    background: rgba(0, 122, 255, 0.08);
+    border-radius: 16px;
+    border: 2px solid rgba(0, 122, 255, 0.15);
+}
+
+.dice-visual {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.dice-cube {
+    width: 48px;
+    height: 48px;
+    background: #fff;
+    border: 2px solid #007AFF;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 24px;
+    color: #007AFF;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dice-total {
+    font-weight: 600;
+    color: #007AFF;
+    font-size: 32px;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    .notification {
+        background: rgba(30, 30, 30, 0.95);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: #f2f2f7;
+    }
+    
+    .notification-title {
+        color: #ffffff;
+    }
+    
+    .notification-message {
+        color: #98989d;
+    }
+    
+    .dice-cube {
+        background: #1c1c1e;
+        border-color: #007AFF;
+        color: #007AFF;
+    }
+}
+
+/* Animation for dice rolling */
+@keyframes diceRolling {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+}
+
+.notification .dice-cube.rolling {
+    animation: diceRolling 0.15s ease-in-out infinite;
+}
+
+/* Progress bar for auto-hide */
+.notification-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007AFF 0%, #5AC8FA 100%);
+    transform-origin: left;
+    transform: scaleX(1);
+    transition: transform linear;
+}
+
+/* Responsive Design */
+@media (max-width: 900px) {
+    .game-board {
+        transform: scale(0.8) rotateX(30deg);
+    }
+    
+    .game-container {
+        width: 700px;
+        height: 525px;
+    }
+    
+    .status-banner-content {
+        padding: 1.5rem;
+        margin: 0 15px;
+    }
+    
+    .status-banner-title {
+        font-size: 1.5rem;
+    }
+    
+    .status-banner-message {
+        font-size: 1rem;
+    }
+    
+    .notification-container {
+        top: 20px;
+        right: 20px;
+        max-width: 600px;
+    }
+    
+    .notification {
+        padding: 24px 32px;
+        font-size: 26px;
+    }
+}
+
+@media (max-width: 700px) {
+    .game-board {
+        transform: scale(0.6) rotateX(30deg);
+    }
+    
+    .game-container {
+        width: 600px;
+        height: 450px;
+    }
+    
+    .status-banner-content {
+        padding: 1.25rem;
+        margin: 0 10px;
+    }
+    
+    .status-banner-icon {
+        font-size: 2.5rem;
+    }
+    
+    .status-banner-title {
+        font-size: 1.3rem;
+    }
+    
+    .status-banner-message {
+        font-size: 0.95rem;
+    }
+}
