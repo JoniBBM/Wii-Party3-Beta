@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Wii Party U Deluxe{% endblock %}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Global smooth page loading for all pages */
+        body {
+            animation: fadeIn 0.2s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        /* Prevent flash of white background */
+        body, html {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="{{ url_for('main.index') }}">Wii Party U Deluxe</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('main.index') }}">Startseite</a>
+                </li>
+                {% if current_user.is_authenticated and user_type_in_context == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('main.game_board') }}">Spielbrett</a>
+                </li>
+                {% endif %}
+                {% if current_user.is_authenticated and user_type_in_context == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('admin.admin_dashboard') }}">Admin Dashboard</a>
+                </li>
+                {% endif %}
+                {% if current_user.is_authenticated and user_type_in_context == 'team' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('teams.team_dashboard') }}">Mein Team Dashboard</a>
+                </li>
+                {% endif %}
+                 <li class="nav-item">
+                    {# Korrigierter Link zum Team Dashboard - für alle sichtbar, leitet ggf. zum Login weiter #}
+                    <a class="nav-link" href="{{ url_for('teams.team_dashboard') }}">Team Dashboard</a>
+                </li>
+            </ul>
+            <ul class="navbar-nav">
+                {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <span class="navbar-text mr-3">
+                            Eingeloggt als: {{ current_user.username if user_type_in_context == 'admin' else current_user.name }} ({{ user_type_in_context | title }})
+                        </span>
+                    </li>
+                    {% if user_type_in_context == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.logout') }}">Admin Logout</a>
+                    </li>
+                    {% elif user_type_in_context == 'team' %}
+                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('teams.team_logout') }}">Team Logout</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.login') }}">Admin Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('teams.team_login') }}">Team Login</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    {% block content %}{% endblock %}
+
+    <footer class="text-center mt-5 mb-3">
+        <p>&copy; {{ now_year }} Wii Party U Deluxe. Alle Rechte vorbehalten.</p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

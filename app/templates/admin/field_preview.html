@@ -1,0 +1,1217 @@
+{% extends "base.html" %}
+
+{% block title %}Spielfeld-Vorschau - Admin Dashboard{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* Admin Dashboard Theme - Dark Professional */
+    .admin-dashboard-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        min-height: 100vh;
+        color: white;
+        position: relative;
+        padding: 0;
+        margin: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-dashboard-container::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(-45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%),
+                    linear-gradient(-45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%);
+        background-size: 60px 60px;
+        background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+        animation: movePattern 20s linear infinite;
+        opacity: 0.15;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    @keyframes movePattern {
+        0% { transform: translateX(0px) translateY(0px); }
+        100% { transform: translateX(60px) translateY(60px); }
+    }
+
+    .admin-content {
+        position: relative;
+        z-index: 2;
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .admin-content .container-fluid {
+        max-width: 100%;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    /* Header styling */
+    .admin-content h1 {
+        color: white;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    /* Alert styling */
+    .alert {
+        border-radius: 15px;
+        border: none;
+        padding: 1rem 1.5rem;
+        backdrop-filter: blur(10px);
+        font-weight: 500;
+        margin-bottom: 1.5rem;
+    }
+
+    .alert-success {
+        background: rgba(39, 174, 96, 0.2);
+        border: 1px solid rgba(39, 174, 96, 0.3);
+        color: white;
+    }
+
+    .alert-danger {
+        background: rgba(231, 76, 60, 0.2);
+        border: 1px solid rgba(231, 76, 60, 0.3);
+        color: white;
+    }
+
+    .alert-warning {
+        background: rgba(241, 196, 15, 0.2);
+        border: 1px solid rgba(241, 196, 15, 0.3);
+        color: white;
+    }
+
+    .alert-info {
+        background: rgba(26, 188, 156, 0.2);
+        border: 1px solid rgba(26, 188, 156, 0.3);
+        color: white;
+    }
+
+    /* Button styling */
+    .btn {
+        border-radius: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        border: none;
+        padding: 12px 20px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        color: white;
+        box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
+    }
+
+    .btn-secondary:hover {
+        background: linear-gradient(45deg, #7f8c8d, #6c7b7d);
+        color: white;
+        box-shadow: 0 8px 20px rgba(149, 165, 166, 0.4);
+    }
+
+    .btn-info {
+        background: linear-gradient(45deg, #1abc9c, #16a085);
+        color: white;
+        box-shadow: 0 5px 15px rgba(26, 188, 156, 0.3);
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(45deg, #16a085, #138d75);
+        color: white;
+        box-shadow: 0 8px 20px rgba(26, 188, 156, 0.4);
+    }
+
+    .btn-success {
+        background: linear-gradient(45deg, #27ae60, #229954);
+        color: white;
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(45deg, #229954, #1e8449);
+        color: white;
+        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        color: white;
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #2980b9, #21618c);
+        color: white;
+        box-shadow: 0 8px 20px rgba(52, 152, 219, 0.4);
+    }
+
+    .btn-group {
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    /* Card styling */
+    .card {
+        background: rgba(44, 62, 80, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        color: white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .card-header {
+        background: rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px 18px 0 0;
+        padding: 1.5rem 2rem;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-weight: 700;
+        color: white;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* Game board styling */
+    .game-board {
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 2rem 0;
+        backdrop-filter: blur(10px);
+        box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .board-grid {
+        display: grid;
+        gap: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 10px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .field {
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(5px);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .field::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .field:hover::before {
+        left: 100%;
+    }
+
+    .field:hover {
+        transform: scale(1.05);
+        border-color: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+        z-index: 10;
+    }
+
+    .field-icon {
+        font-size: 1.2rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3));
+    }
+
+    .field-number {
+        font-weight: bold;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        margin: 2px;
+    }
+
+    /* Modal styling */
+    .modal-content {
+        background: rgba(44, 62, 80, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 18px;
+        backdrop-filter: blur(15px);
+        color: white;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px 18px 0 0;
+    }
+
+    .modal-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0 0 18px 18px;
+    }
+
+    .modal-title {
+        color: white;
+        font-weight: 700;
+    }
+
+    /* Form controls in modal */
+    .form-control {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        color: white;
+        padding: 10px 15px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(26, 188, 156, 0.5);
+        box-shadow: 0 0 0 3px rgba(26, 188, 156, 0.1);
+        color: white;
+    }
+
+    .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .form-check-input {
+        width: 1.25em;
+        height: 1.25em;
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 6px;
+    }
+
+    .form-check-input:checked {
+        background-color: #1abc9c;
+        border-color: #1abc9c;
+    }
+
+    .form-check-label {
+        color: rgba(255, 255, 255, 0.9);
+        margin-left: 0.5rem;
+    }
+
+    /* Range slider */
+    input[type="range"] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 8px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.2);
+        outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #1abc9c, #16a085);
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Close button for alerts */
+    .close {
+        color: rgba(255, 255, 255, 0.8);
+        text-shadow: none;
+        opacity: 0.8;
+    }
+
+    .close:hover {
+        color: white;
+        opacity: 1;
+    }
+
+    /* Loading spinner */
+    .spinner-border {
+        color: white;
+    }
+
+    /* Board info styling */
+    .board-info {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .board-info h6 {
+        color: #1abc9c;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .board-info small {
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    @media (max-width: 768px) {
+        .admin-content .container-fluid {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .game-board {
+            padding: 1rem;
+        }
+
+        .board-grid {
+            gap: 1px;
+            padding: 5px;
+        }
+
+        .field {
+            border-radius: 5px;
+        }
+
+        .field-number {
+            width: 20px;
+            height: 20px;
+            font-size: 0.8rem;
+        }
+
+        .field-icon {
+            font-size: 1rem;
+        }
+
+        .btn-group {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .btn-group .btn {
+            border-radius: 0;
+            margin-bottom: 1px;
+        }
+
+        .btn-group .btn:first-child {
+            border-radius: 10px 10px 0 0;
+        }
+
+        .btn-group .btn:last-child {
+            border-radius: 0 0 10px 10px;
+            margin-bottom: 0;
+        }
+
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard-container">
+    <div class="admin-content">
+        <div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-eye"></i> Spielfeld-Vorschau</h1>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('admin.manage_fields') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Zurück zur Verwaltung
+                    </a>
+                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#previewSettingsModal">
+                        <i class="fas fa-cog"></i> Einstellungen
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="refreshPreview()">
+                        <i class="fas fa-sync-alt"></i> Aktualisieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Nachrichten -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <!-- Spielfeld-Visualisierung -->
+        <div class="col-lg-9">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chess-board"></i> Spielfeld ({{ max_fields }} Felder)
+                        </h5>
+                        <div class="preview-controls">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="showFieldNumbers" checked>
+                                <label class="form-check-label text-white" for="showFieldNumbers">
+                                    Feld-Nummern
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="showFieldTypes" checked>
+                                <label class="form-check-label text-white" for="showFieldTypes">
+                                    Feld-Typen
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="highlightConflicts" {% if conflicts %}checked{% endif %}>
+                                <label class="form-check-label text-white" for="highlightConflicts">
+                                    Konflikte hervorheben
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="field-board-container" id="fieldBoardContainer">
+                        <div class="field-board" id="fieldBoard">
+                            <!-- Felder werden hier dynamisch generiert -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiken und Legende -->
+        <div class="col-lg-3">
+            <!-- Schnell-Statistiken -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> Schnell-Statistiken
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="stat-item mb-2">
+                        <strong>Gesamt Felder:</strong>
+                        <span class="badge badge-primary float-right">{{ preview_data.total_fields if preview_data else max_fields }}</span>
+                    </div>
+                    <div class="stat-item mb-2">
+                        <strong>Sonderfelder:</strong>
+                        <span class="badge badge-success float-right" id="special-fields-count">0</span>
+                    </div>
+                    <div class="stat-item mb-2">
+                        <strong>Normale Felder:</strong>
+                        <span class="badge badge-secondary float-right" id="normal-fields-count">0</span>
+                    </div>
+                    {% if conflicts %}
+                    <div class="stat-item mb-2">
+                        <strong>Konflikte:</strong>
+                        <span class="badge badge-warning float-right">{{ conflicts|length }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Farb-Legende -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-palette"></i> Farb-Legende
+                    </h6>
+                </div>
+                <div class="card-body p-2">
+                    <div id="colorLegend">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feld-Verteilung -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Feld-Verteilung
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="distributionChart">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sonderfeld-Positionen -->
+            {% if special_positions %}
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-map-marker-alt"></i> Sonderfeld-Positionen
+                    </h6>
+                </div>
+                <div class="card-body p-2">
+                    <div class="special-positions-list">
+                        {% for field_type, positions in special_positions.items() %}
+                            {% if positions and field_type not in ['start', 'goal', 'normal'] %}
+                            <div class="position-group mb-2">
+                                <small class="font-weight-bold">{{ field_type }}:</small>
+                                <div class="position-tags">
+                                    {% for pos in positions[:10] %}
+                                        <span class="badge badge-sm mr-1" style="background-color: {{ color_mapping.get(field_type, {}).get('color', '#6c757d') }};">
+                                            {{ pos }}
+                                        </span>
+                                    {% endfor %}
+                                    {% if positions|length > 10 %}
+                                        <span class="text-muted small">+{{ positions|length - 10 }} weitere</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vorschau-Einstellungen Modal -->
+<div class="modal fade" id="previewSettingsModal" tabindex="-1" role="dialog" aria-labelledby="previewSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewSettingsModalLabel">
+                    <i class="fas fa-cog"></i> Vorschau-Einstellungen
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="previewSettingsForm">
+                    <div class="form-group">
+                        <label for="maxFieldsInput">Anzahl Felder:</label>
+                        <input type="number" class="form-control" id="maxFieldsInput" 
+                               value="{{ max_fields }}" min="10" max="100">
+                        <small class="form-text text-muted">
+                            Standard: 73 Felder (0-72)
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Anzeige-Optionen:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="settingsShowNumbers" checked>
+                            <label class="form-check-label" for="settingsShowNumbers">
+                                Feld-Nummern anzeigen
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="settingsShowTypes" checked>
+                            <label class="form-check-label" for="settingsShowTypes">
+                                Feld-Typ-Icons anzeigen
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="settingsHighlightConflicts">
+                            <label class="form-check-label" for="settingsHighlightConflicts">
+                                Konflikte hervorheben
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="settingsShowTooltips" checked>
+                            <label class="form-check-label" for="settingsShowTooltips">
+                                Tooltips anzeigen
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fieldSizeRange">Feld-Größe:</label>
+                        <input type="range" class="form-control-range" id="fieldSizeRange" 
+                               min="20" max="60" value="40">
+                        <small class="form-text text-muted">
+                            Größe der einzelnen Felder in Pixeln
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" onclick="applyPreviewSettings()">
+                    Anwenden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.field-board-container {
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    overflow-x: auto;
+    min-height: 600px;
+    backdrop-filter: blur(10px);
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.2);
+}
+
+.field-board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 10px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.field-item {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(5px);
+}
+
+.field-item:hover {
+    transform: scale(1.2);
+    z-index: 10;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 1);
+}
+
+.field-item.conflict {
+    border: 3px solid #dc3545 !important;
+    animation: pulse-conflict 2s infinite;
+}
+
+@keyframes pulse-conflict {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.field-number {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    font-size: 8px;
+    font-weight: bold;
+    padding: 1px 3px;
+    border-radius: 3px;
+    min-width: 12px;
+    text-align: center;
+}
+
+.field-icon {
+    font-size: 16px;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid #333;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.legend-text {
+    font-size: 0.9em;
+    flex-grow: 1;
+    color: white;
+}
+
+.legend-count {
+    font-size: 0.8em;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.distribution-bar {
+    height: 20px;
+    margin-bottom: 5px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: #e9ecef;
+}
+
+.distribution-fill {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.7em;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.stat-item {
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 5px;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0 !important;
+}
+
+.position-group {
+    border-left: 3px solid #007bff;
+    padding-left: 8px;
+}
+
+.position-tags {
+    margin-top: 3px;
+}
+
+.badge-sm {
+    font-size: 0.6em;
+    padding: 2px 4px;
+}
+
+.preview-controls .form-check {
+    margin-right: 15px;
+}
+
+.preview-controls .form-check-input {
+    margin-top: 0.2rem;
+}
+
+@media (max-width: 768px) {
+    .field-board {
+        gap: 4px;
+    }
+    
+    .field-item {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .field-icon {
+        font-size: 12px;
+    }
+    
+    .field-number {
+        font-size: 6px;
+    }
+}
+</style>
+
+<script>
+// Globale Variablen
+let fieldConfigs = {};
+let previewData = {{ preview_data|tojson if preview_data else '{}' }};
+let maxFields = {{ max_fields }};
+let showNumbers = true;
+let showTypes = true;
+let highlightConflicts = {{ 'true' if conflicts else 'false' }};
+let showTooltips = true;
+let fieldSize = 40;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Lade Feld-Konfigurationen
+    loadFieldConfigs();
+    
+    // Erstelle initiale Vorschau
+    generateFieldBoard();
+    
+    // Event Listeners für Kontrollkästchen
+    setupEventListeners();
+    
+    // Erstelle Legende und Statistiken
+    updateLegend();
+    updateStatistics();
+    updateDistributionChart();
+});
+
+function loadFieldConfigs() {
+    // Lade Konfigurationen vom Server
+    fetch('/admin/api/field_colors')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                fieldConfigs = data.color_mapping;
+                generateFieldBoard();
+                updateLegend();
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Feld-Konfigurationen:', error);
+            // Fallback-Konfigurationen
+            fieldConfigs = {
+                'start': { color: '#4FC3F7', icon: '🏁', display_name: 'Start', enabled: true },
+                'goal': { color: '#FFB74D', icon: '🎯', display_name: 'Ziel', enabled: true },
+                'normal': { color: '#81C784', icon: '⬜', display_name: 'Normal', enabled: true }
+            };
+            generateFieldBoard();
+            updateLegend();
+        });
+}
+
+function generateFieldBoard() {
+    const boardContainer = document.getElementById('fieldBoard');
+    boardContainer.innerHTML = '';
+    
+    const conflicts = {{ conflicts|tojson if conflicts else '[]' }};
+    const conflictPositions = conflicts.map(c => c.position);
+    
+    // Nutze Backend-berechnete Daten anstatt Frontend-Duplikation
+    const fields = previewData.fields || [];
+    
+    for (let i = 0; i < Math.min(fields.length, maxFields); i++) {
+        const fieldData = fields[i];
+        const position = fieldData.position;
+        const fieldType = fieldData.field_type;
+        
+        // Verwende Backend-Daten als primäre Quelle
+        const config = {
+            color: fieldData.color,
+            icon: fieldData.icon,
+            display_name: fieldData.display_name,
+            enabled: fieldData.enabled
+        };
+        
+        const fieldElement = document.createElement('div');
+        fieldElement.className = 'field-item';
+        fieldElement.style.backgroundColor = config.color;
+        fieldElement.style.width = fieldSize + 'px';
+        fieldElement.style.height = fieldSize + 'px';
+        fieldElement.dataset.position = position;
+        fieldElement.dataset.fieldType = fieldType;
+        
+        // Konflikt hervorheben
+        if (highlightConflicts && conflictPositions.includes(position)) {
+            fieldElement.classList.add('conflict');
+        }
+        
+        // Feld-Nummer
+        if (showNumbers) {
+            const numberElement = document.createElement('div');
+            numberElement.className = 'field-number';
+            numberElement.textContent = position;
+            fieldElement.appendChild(numberElement);
+        }
+        
+        // Feld-Icon
+        if (showTypes && config.icon) {
+            const iconElement = document.createElement('div');
+            iconElement.className = 'field-icon';
+            iconElement.textContent = config.icon;
+            iconElement.style.fontSize = (fieldSize * 0.4) + 'px';
+            fieldElement.appendChild(iconElement);
+        }
+        
+        // Tooltip
+        if (showTooltips) {
+            fieldElement.title = `Position ${position}: ${config.display_name}`;
+        }
+        
+        // Click Handler für Details
+        fieldElement.addEventListener('click', function() {
+            showFieldDetails(position, fieldType, config);
+        });
+        
+        boardContainer.appendChild(fieldElement);
+    }
+}
+
+function getFieldTypeAtPosition(position) {
+    // Nutze Backend-berechnete Daten anstatt eigene Logik
+    const fields = previewData.fields || [];
+    const fieldData = fields.find(f => f.position === position);
+    return fieldData ? fieldData.field_type : 'normal';
+}
+
+function setupEventListeners() {
+    document.getElementById('showFieldNumbers').addEventListener('change', function() {
+        showNumbers = this.checked;
+        generateFieldBoard();
+    });
+    
+    document.getElementById('showFieldTypes').addEventListener('change', function() {
+        showTypes = this.checked;
+        generateFieldBoard();
+    });
+    
+    document.getElementById('highlightConflicts').addEventListener('change', function() {
+        highlightConflicts = this.checked;
+        generateFieldBoard();
+    });
+}
+
+function updateLegend() {
+    const legendContainer = document.getElementById('colorLegend');
+    legendContainer.innerHTML = '';
+    
+    // Nutze Backend-berechnete Zählungen
+    const fieldCounts = previewData.counts || {};
+    
+    // Sortiere nach Anzahl
+    const sortedTypes = Object.entries(fieldCounts)
+        .sort(([,a], [,b]) => b - a);
+    
+    sortedTypes.forEach(([fieldType, count]) => {
+        // Finde die entsprechenden Feld-Daten im Backend
+        const fieldData = previewData.fields ? previewData.fields.find(f => f.field_type === fieldType) : null;
+        const config = fieldData || {
+            color: '#CCCCCC',
+            icon: '?',
+            display_name: fieldType,
+            enabled: true
+        };
+        
+        const legendItem = document.createElement('div');
+        legendItem.className = 'legend-item';
+        
+        const percentage = ((count / maxFields) * 100).toFixed(1);
+        
+        legendItem.innerHTML = `
+            <div class="legend-color" style="background-color: ${config.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.7em;">
+                ${config.icon || '?'}
+            </div>
+            <div class="legend-text">
+                <strong>${config.display_name}</strong>
+                <br><small class="text-muted">${fieldType}</small>
+            </div>
+            <div class="legend-count">
+                ${count} (${percentage}%)
+            </div>
+        `;
+        
+        if (!config.enabled) {
+            legendItem.style.opacity = '0.5';
+        }
+        
+        legendContainer.appendChild(legendItem);
+    });
+}
+
+function updateStatistics() {
+    // Nutze Backend-berechnete Zählungen
+    const fieldCounts = previewData.counts || {};
+    
+    let specialCount = 0;
+    let normalCount = fieldCounts['normal'] || 0;
+    
+    // Zähle alle Sonderfelder (nicht start, goal, normal)
+    Object.entries(fieldCounts).forEach(([fieldType, count]) => {
+        if (fieldType !== 'normal' && fieldType !== 'start' && fieldType !== 'goal') {
+            specialCount += count;
+        }
+    });
+    
+    document.getElementById('special-fields-count').textContent = specialCount;
+    document.getElementById('normal-fields-count').textContent = normalCount;
+}
+
+function updateDistributionChart() {
+    const chartContainer = document.getElementById('distributionChart');
+    chartContainer.innerHTML = '';
+    
+    // Nutze Backend-berechnete Zählungen
+    const fieldCounts = previewData.counts || {};
+    
+    // Erstelle Balkendiagramm
+    Object.entries(fieldCounts)
+        .sort(([,a], [,b]) => b - a)
+        .forEach(([fieldType, count]) => {
+            // Finde entsprechende Feld-Daten im Backend
+            const fieldData = previewData.fields ? previewData.fields.find(f => f.field_type === fieldType) : null;
+            const config = fieldData || { color: '#CCCCCC', display_name: fieldType };
+            const percentage = (count / maxFields) * 100;
+            
+            const barContainer = document.createElement('div');
+            barContainer.className = 'distribution-bar';
+            
+            const barFill = document.createElement('div');
+            barFill.className = 'distribution-fill';
+            barFill.style.width = percentage + '%';
+            barFill.style.backgroundColor = config.color;
+            barFill.textContent = count;
+            barFill.title = `${config.display_name}: ${count} Felder (${percentage.toFixed(1)}%)`;
+            
+            barContainer.appendChild(barFill);
+            chartContainer.appendChild(barContainer);
+        });
+}
+
+function showFieldDetails(position, fieldType, config) {
+    const details = `
+        <strong>Position:</strong> ${position}<br>
+        <strong>Typ:</strong> ${config.display_name}<br>
+        <strong>Technischer Name:</strong> ${fieldType}<br>
+        <strong>Farbe:</strong> ${config.color}<br>
+        <strong>Status:</strong> ${config.enabled ? 'Aktiviert' : 'Deaktiviert'}
+    `;
+    
+    // Zeige Details in einem Alert (kann später durch Modal ersetzt werden)
+    const modal = document.createElement('div');
+    modal.className = 'alert alert-info alert-dismissible fade show position-fixed';
+    modal.style.top = '20px';
+    modal.style.right = '20px';
+    modal.style.zIndex = '9999';
+    modal.style.maxWidth = '300px';
+    modal.innerHTML = `
+        <h6>Feld-Details</h6>
+        ${details}
+        <button type="button" class="close" onclick="this.parentElement.remove()">
+            <span>&times;</span>
+        </button>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Automatisch nach 5 Sekunden entfernen
+    setTimeout(() => {
+        if (modal.parentElement) {
+            modal.remove();
+        }
+    }, 5000);
+}
+
+function refreshPreview() {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lädt...';
+    btn.disabled = true;
+    
+    // Lade aktuelle Feld-Daten vom Backend
+    fetch(`/admin/api/field_data?max_fields=${maxFields}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Aktualisiere previewData mit aktuellen Backend-Daten
+                previewData = data.preview_data;
+                
+                // Regeneriere alles mit neuen Daten
+                generateFieldBoard();
+                updateLegend();
+                updateStatistics();
+                updateDistributionChart();
+            } else {
+                console.error('Fehler beim Laden der aktuellen Feld-Daten:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Netzwerkfehler beim Laden der Feld-Daten:', error);
+        })
+        .finally(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        });
+}
+
+function applyPreviewSettings() {
+    maxFields = parseInt(document.getElementById('maxFieldsInput').value) || 73;
+    showNumbers = document.getElementById('settingsShowNumbers').checked;
+    showTypes = document.getElementById('settingsShowTypes').checked;
+    highlightConflicts = document.getElementById('settingsHighlightConflicts').checked;
+    showTooltips = document.getElementById('settingsShowTooltips').checked;
+    fieldSize = parseInt(document.getElementById('fieldSizeRange').value) || 40;
+    
+    // Update Checkboxes in Header
+    document.getElementById('showFieldNumbers').checked = showNumbers;
+    document.getElementById('showFieldTypes').checked = showTypes;
+    document.getElementById('highlightConflicts').checked = highlightConflicts;
+    
+    // Regeneriere Vorschau
+    generateFieldBoard();
+    updateLegend();
+    updateStatistics();
+    updateDistributionChart();
+    
+    // Schließe Modal
+    $('#previewSettingsModal').modal('hide');
+}
+
+// Range Slider Update
+document.addEventListener('DOMContentLoaded', function() {
+    const rangeSlider = document.getElementById('fieldSizeRange');
+    if (rangeSlider) {
+        rangeSlider.addEventListener('input', function() {
+            const value = this.value;
+            this.title = `Feld-Größe: ${value}px`;
+        });
+    }
+});
+</script>
+{% endblock %}

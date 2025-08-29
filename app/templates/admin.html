@@ -1,0 +1,3899 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Wii Party U Deluxe{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* Admin Dashboard Theme - Dark Professional */
+    .admin-dashboard-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        min-height: 100vh;
+        color: white;
+        position: relative;
+        padding: 0;
+        margin: 0;
+        /* Fix scrolling issues */
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-dashboard-container::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(-45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%),
+                    linear-gradient(-45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%);
+        background-size: 60px 60px;
+        background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+        animation: movePattern 20s linear infinite;
+        opacity: 0.15;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    @keyframes movePattern {
+        0% { transform: translateX(0px) translateY(0px); }
+        100% { transform: translateX(60px) translateY(60px); }
+    }
+
+    .admin-content {
+        position: relative;
+        z-index: 2;
+        padding: 1rem 0;
+        min-height: 100vh;
+    }
+
+    .admin-content .container {
+        max-width: 1200px;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    .admin-header {
+        background: rgba(44, 62, 80, 0.2);
+        border-radius: 20px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 3rem;
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        position: relative;
+    }
+
+    .admin-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(45deg, #ecf0f1, #bdc3c7, #ecf0f1);
+        background-size: 200% 200%;
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .admin-header p {
+        color: #bdc3c7;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    /* Improved spacing and layout */
+    .row {
+        margin-left: -15px;
+        margin-right: -15px;
+        margin-bottom: 2rem;
+    }
+
+    .col-md-4,
+    .col-md-6,
+    .col-md-8,
+    .col-md-12 {
+        padding-left: 15px;
+        padding-right: 15px;
+        margin-bottom: 2rem;
+    }
+
+    /* Card styling with better spacing */
+    .card {
+        background: rgba(44, 62, 80, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        color: white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .card-body {
+        padding: 2rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card-header {
+        background: rgba(231, 76, 60, 0.2) !important;
+        border-bottom: 1px solid rgba(231, 76, 60, 0.3);
+        border-radius: 18px 18px 0 0 !important;
+        padding: 1.5rem 2rem;
+        flex-shrink: 0;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .card-header.bg-success {
+        background: rgba(39, 174, 96, 0.2) !important;
+        border-bottom: 1px solid rgba(39, 174, 96, 0.3);
+    }
+
+    .card-header.bg-primary {
+        background: rgba(52, 152, 219, 0.2) !important;
+        border-bottom: 1px solid rgba(52, 152, 219, 0.3);
+    }
+
+    .card-header.bg-warning {
+        background: rgba(241, 196, 15, 0.2) !important;
+        border-bottom: 1px solid rgba(241, 196, 15, 0.3);
+    }
+
+    .card-header.bg-info {
+        background: rgba(26, 188, 156, 0.2) !important;
+        border-bottom: 1px solid rgba(26, 188, 156, 0.3);
+    }
+
+    .card-title {
+        color: white;
+        font-weight: 600;
+    }
+
+    .card-text {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Button styling */
+    .btn {
+        border-radius: 25px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-outline-success {
+        border: 2px solid #27ae60;
+        color: #27ae60;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: #27ae60;
+        color: white;
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .btn-outline-primary {
+        border: 2px solid #3498db;
+        color: #3498db;
+        background: transparent;
+    }
+
+    .btn-outline-primary:hover {
+        background: #3498db;
+        color: white;
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .btn-outline-warning {
+        border: 2px solid #f1c40f;
+        color: #f1c40f;
+        background: transparent;
+    }
+
+    .btn-outline-warning:hover {
+        background: #f1c40f;
+        color: #2c3e50;
+        box-shadow: 0 5px 15px rgba(241, 196, 15, 0.3);
+    }
+
+    .btn-outline-info {
+        border: 2px solid #1abc9c;
+        color: #1abc9c;
+        background: transparent;
+    }
+
+    .btn-outline-info:hover {
+        background: #1abc9c;
+        color: white;
+        box-shadow: 0 5px 15px rgba(26, 188, 156, 0.3);
+    }
+
+    .btn-outline-danger {
+        border: 2px solid #e74c3c;
+        color: #e74c3c;
+        background: transparent;
+    }
+
+    .btn-outline-danger:hover {
+        background: #e74c3c;
+        color: white;
+        box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    .btn-warning {
+        background: linear-gradient(45deg, #f39c12, #e67e22);
+        color: white;
+        box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+    }
+
+    .btn-warning:hover {
+        background: linear-gradient(45deg, #e67e22, #d35400);
+        color: white;
+        box-shadow: 0 8px 20px rgba(243, 156, 18, 0.4);
+    }
+
+    .btn-info {
+        background: linear-gradient(45deg, #1abc9c, #16a085);
+        color: white;
+        box-shadow: 0 5px 15px rgba(26, 188, 156, 0.3);
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(45deg, #16a085, #138d75);
+        color: white;
+        box-shadow: 0 8px 20px rgba(26, 188, 156, 0.4);
+    }
+
+    .btn-success {
+        background: linear-gradient(45deg, #27ae60, #2ecc71) !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3) !important;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(45deg, #229954, #27ae60) !important;
+        color: white !important;
+        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    /* Badge styling */
+    .badge {
+        border-radius: 15px;
+        padding: 0.5rem 0.8rem;
+        font-weight: 600;
+    }
+
+    .badge-info {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+    }
+
+    .badge-secondary {
+        background: rgba(149, 165, 166, 0.8);
+    }
+
+    .badge-success {
+        background: linear-gradient(45deg, #27ae60, #229954);
+    }
+
+    .badge-warning {
+        background: linear-gradient(45deg, #f1c40f, #f39c12);
+        color: #2c3e50;
+    }
+
+    .badge-danger {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+    }
+
+    /* Progress bar styling */
+    .progress {
+        background: rgba(44, 62, 80, 0.3);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        border-radius: 10px;
+    }
+
+    /* Alert styling */
+    .alert {
+        border: none;
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        border-left: 4px solid;
+    }
+
+    .alert-success {
+        background: rgba(39, 174, 96, 0.15);
+        color: #a8e6cf;
+        border-left-color: #27ae60;
+    }
+
+    .alert-danger {
+        background: rgba(231, 76, 60, 0.15);
+        color: #ffcccb;
+        border-left-color: #e74c3c;
+    }
+
+    .alert-warning {
+        background: rgba(241, 196, 15, 0.15);
+        color: #fff3cd;
+        border-left-color: #f1c40f;
+    }
+
+    .alert-info {
+        background: rgba(52, 152, 219, 0.15);
+        color: #a8d8ea;
+        border-left-color: #3498db;
+    }
+
+    /* Text colors */
+    .text-warning {
+        color: #f39c12 !important;
+    }
+
+    .text-muted {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+
+    /* Floating elements - positioned better */
+    .floating-elements {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    .floating-element {
+        position: absolute;
+        background: rgba(231, 76, 60, 0.08);
+        border-radius: 50%;
+        animation: float 20s infinite linear;
+    }
+
+    .floating-element:nth-child(1) {
+        width: 120px;
+        height: 120px;
+        top: 15%;
+        left: 85%;
+        animation-delay: 0s;
+    }
+
+    .floating-element:nth-child(2) {
+        width: 80px;
+        height: 80px;
+        top: 65%;
+        right: 8%;
+        animation-delay: -7s;
+    }
+
+    .floating-element:nth-child(3) {
+        width: 60px;
+        height: 60px;
+        top: 35%;
+        left: 3%;
+        animation-delay: -14s;
+    }
+
+    @keyframes float {
+        0% {
+            transform: translateY(0px) rotate(0deg);
+            opacity: 0.4;
+        }
+        33% {
+            transform: translateY(-30px) rotate(120deg);
+            opacity: 0.6;
+        }
+        66% {
+            transform: translateY(-60px) rotate(240deg);
+            opacity: 0.4;
+        }
+        100% {
+            transform: translateY(0px) rotate(360deg);
+            opacity: 0.4;
+        }
+    }
+
+    /* Better spacing for content sections */
+    .content-section {
+        margin-bottom: 3rem;
+    }
+
+    .content-section:last-child {
+        margin-bottom: 2rem;
+    }
+
+    /* Fix table spacing */
+    .table {
+        margin-bottom: 0;
+    }
+
+    /* Table styling - no white backgrounds */
+    .table {
+        background: rgba(44, 62, 80, 0.1);
+        border-radius: 12px;
+        overflow: hidden;
+        color: white;
+    }
+
+    .table td,
+    .table th {
+        padding: 1rem;
+        border-color: rgba(255, 255, 255, 0.1);
+        background: transparent;
+        color: white;
+    }
+
+    .table th {
+        background: rgba(44, 62, 80, 0.3);
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+        background: rgba(44, 62, 80, 0.1);
+    }
+
+    .table-striped tbody tr:nth-of-type(even) {
+        background: rgba(44, 62, 80, 0.05);
+    }
+
+    /* Form styling - no white backgrounds */
+    .form-control,
+    .form-select,
+    select.form-control,
+    input.form-control,
+    textarea.form-control {
+        background: rgba(44, 62, 80, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+        border-radius: 8px;
+    }
+
+    .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+
+    .form-control:focus {
+        background: rgba(44, 62, 80, 0.3) !important;
+        border-color: #e74c3c !important;
+        box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25) !important;
+        color: white !important;
+    }
+
+    /* Modal styling - no white backgrounds */
+    .modal-content {
+        background: rgba(44, 62, 80, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        backdrop-filter: blur(15px);
+        color: white;
+    }
+
+    .modal-header {
+        background: rgba(231, 76, 60, 0.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px 15px 0 0;
+    }
+
+    .modal-body {
+        background: transparent;
+        color: white;
+    }
+
+    .modal-footer {
+        background: transparent;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* List group styling */
+    .list-group {
+        background: transparent;
+    }
+
+    .list-group-item {
+        background: rgba(44, 62, 80, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
+        margin-bottom: 0.5rem;
+        border-radius: 8px !important;
+    }
+
+    .list-group-item:hover {
+        background: rgba(44, 62, 80, 0.2) !important;
+    }
+
+    /* Dropdown styling */
+    .dropdown-menu {
+        background: rgba(44, 62, 80, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        backdrop-filter: blur(15px);
+    }
+
+    .dropdown-item {
+        color: white !important;
+    }
+
+    .dropdown-item:hover,
+    .dropdown-item:focus {
+        background: rgba(231, 76, 60, 0.2) !important;
+        color: white !important;
+    }
+
+    /* Additional elements that might have white backgrounds */
+    .nav-tabs {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-tabs .nav-link {
+        background: rgba(44, 62, 80, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.8);
+        border-radius: 8px 8px 0 0;
+    }
+
+    .nav-tabs .nav-link:hover {
+        background: rgba(44, 62, 80, 0.2);
+        color: white;
+    }
+
+    .nav-tabs .nav-link.active {
+        background: rgba(231, 76, 60, 0.2);
+        border-color: rgba(231, 76, 60, 0.3);
+        color: white;
+    }
+
+    .tab-content {
+        background: rgba(44, 62, 80, 0.05);
+        border-radius: 0 0 8px 8px;
+        padding: 2rem;
+    }
+
+    /* Pagination styling */
+    .pagination .page-link {
+        background: rgba(44, 62, 80, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
+        margin: 0 2px;
+        border-radius: 6px !important;
+    }
+
+    .pagination .page-link:hover {
+        background: rgba(231, 76, 60, 0.2) !important;
+        color: white !important;
+    }
+
+    .pagination .page-item.active .page-link {
+        background: rgba(231, 76, 60, 0.3) !important;
+        border-color: rgba(231, 76, 60, 0.5) !important;
+        color: white !important;
+    }
+
+    /* Breadcrumb styling */
+    .breadcrumb {
+        background: rgba(44, 62, 80, 0.1) !important;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+    }
+
+    .breadcrumb-item a {
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .breadcrumb-item.active {
+        color: white;
+    }
+
+    /* Tooltip styling */
+    .tooltip .tooltip-inner {
+        background: rgba(44, 62, 80, 0.95) !important;
+        color: white !important;
+        border-radius: 6px;
+    }
+
+    .tooltip .arrow::before {
+        border-top-color: rgba(44, 62, 80, 0.95) !important;
+        border-bottom-color: rgba(44, 62, 80, 0.95) !important;
+        border-left-color: rgba(44, 62, 80, 0.95) !important;
+        border-right-color: rgba(44, 62, 80, 0.95) !important;
+    }
+
+    /* Any remaining white backgrounds */
+    div[style*="background: white"],
+    div[style*="background-color: white"],
+    div[style*="background:#fff"],
+    div[style*="background: #fff"] {
+        background: rgba(44, 62, 80, 0.1) !important;
+        color: white !important;
+    }
+
+    /* Generic catch-all for any missed white backgrounds */
+    *:not(.navbar):not(.navbar-brand):not(.nav-link) {
+        background-color: transparent !important;
+    }
+
+    /* Specifically target common Bootstrap components */
+    .jumbotron,
+    .well,
+    .panel,
+    .panel-body,
+    .panel-default {
+        background: rgba(44, 62, 80, 0.1) !important;
+        color: white !important;
+    }
+
+    /* Admin Question Control Sections */
+    .admin-question-control-section {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.15) 0%, rgba(44, 62, 80, 0.2) 100%) !important;
+        border: 2px solid rgba(52, 152, 219, 0.4) !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(15px) !important;
+        box-shadow: 
+            0 15px 35px rgba(0, 0, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1),
+            0 0 20px rgba(52, 152, 219, 0.2) !important;
+    }
+
+    .admin-question-title {
+        color: #3498db !important;
+        font-weight: 700 !important;
+        text-shadow: 0 0 15px rgba(52, 152, 219, 0.6) !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+
+    .admin-question-title i {
+        font-size: 1.8rem !important;
+        filter: drop-shadow(0 0 10px rgba(52, 152, 219, 0.8)) !important;
+        animation: questionIconGlow 3s ease-in-out infinite !important;
+    }
+
+    @keyframes questionIconGlow {
+        0%, 100% { 
+            filter: drop-shadow(0 0 10px rgba(52, 152, 219, 0.8)) !important;
+            transform: scale(1) !important;
+        }
+        50% { 
+            filter: drop-shadow(0 0 20px rgba(52, 152, 219, 1)) !important;
+            transform: scale(1.05) !important;
+        }
+    }
+
+    .admin-responses-list {
+        background: linear-gradient(135deg, rgba(44, 62, 80, 0.4) 0%, rgba(52, 73, 94, 0.3) 100%) !important;
+        border: 1px solid rgba(52, 152, 219, 0.3) !important;
+        border-radius: 15px !important;
+        backdrop-filter: blur(10px) !important;
+        color: white !important;
+        box-shadow: 
+            0 10px 25px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    }
+
+    .admin-minigame-form {
+        background: linear-gradient(135deg, rgba(44, 62, 80, 0.2) 0%, rgba(52, 73, 94, 0.1) 100%) !important;
+        border: 2px solid rgba(231, 76, 60, 0.3) !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(15px) !important;
+        box-shadow: 
+            0 15px 35px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* Result Display Improvements */
+    .result-display {
+        background: linear-gradient(135deg, rgba(44, 62, 80, 0.4) 0%, rgba(52, 73, 94, 0.3) 100%) !important;
+        border: 1px solid rgba(231, 76, 60, 0.3) !important;
+        border-radius: 15px !important;
+        backdrop-filter: blur(10px) !important;
+        color: white !important;
+        box-shadow: 
+            0 10px 25px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Admin Dice Control Section */
+    .admin-dice-control-section {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(44, 62, 80, 0.2) 100%) !important;
+        border: 2px solid rgba(255, 193, 7, 0.4) !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(15px) !important;
+        box-shadow: 
+            0 15px 35px rgba(0, 0, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1),
+            0 0 20px rgba(255, 193, 7, 0.2) !important;
+    }
+
+    .admin-dice-title {
+        color: #ffc107 !important;
+        font-weight: 700 !important;
+        text-shadow: 0 0 15px rgba(255, 193, 7, 0.6) !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+    }
+
+    .admin-dice-title i {
+        font-size: 1.8rem !important;
+        filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.8)) !important;
+        animation: diceIconGlow 3s ease-in-out infinite !important;
+    }
+
+    @keyframes diceIconGlow {
+        0%, 100% { 
+            filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.8)) !important;
+            transform: scale(1) rotate(0deg) !important;
+        }
+        50% { 
+            filter: drop-shadow(0 0 20px rgba(255, 193, 7, 1)) !important;
+            transform: scale(1.05) rotate(5deg) !important;
+        }
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .admin-content .container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .admin-header {
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .admin-header h1 {
+            font-size: 2rem;
+        }
+
+        .col-md-4,
+        .col-md-6,
+        .col-md-8,
+        .col-md-12 {
+            margin-bottom: 1.5rem;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .card-header {
+            padding: 1rem 1.5rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .admin-header {
+            padding: 1rem;
+        }
+
+        .admin-header .d-flex {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .btn {
+            font-size: 0.875rem;
+            padding: 0.6rem 1.2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard-container">
+    <div class="floating-elements">
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+        <div class="floating-element"></div>
+    </div>
+    
+    <div class="admin-content">
+        <div class="container mt-4">
+            <div class="admin-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1>Admin Dashboard</h1>
+                        <p>Willkommen im Admin-Bereich, {{ current_user.username }}!</p>
+                    </div>
+                    <a href="{{ url_for('admin.moderation_mode') }}" class="btn btn-info">
+                        <i class="fas fa-eye"></i> Moderationsmodus
+                    </a>
+                </div>
+            </div>
+
+    <!-- Flash Nachrichten -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Runden & Ordner Management -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-gamepad"></i> Aktuelle Spielrunde</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_round %}
+                        <h6 class="card-title">{{ active_round.name }}</h6>
+                        {% if active_round.description %}
+                            <p class="card-text">{{ active_round.description }}</p>
+                        {% endif %}
+                        <div class="mb-2">
+                            <strong>Minigame-Ordner:</strong> 
+                            <span class="badge badge-info">{{ active_round.minigame_folder.name }}</span>
+                            <small class="text-muted">({{ active_round.minigame_folder.get_minigames_count() }} Inhalte)</small>
+                        </div>
+                        
+                        <!-- NEU: Spielstatistiken -->
+                        {% if played_stats %}
+                        <div class="mb-2">
+                            <strong>Spielfortschritt:</strong>
+                            <div class="progress mb-1" style="height: 20px;">
+                                {% set progress_percent = (played_stats.played / played_stats.total * 100) if played_stats.total > 0 else 0 %}
+                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ progress_percent }}%">
+                                    {{ played_stats.played }}/{{ played_stats.total }}
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                {{ played_stats.played }} gespielt, {{ played_stats.remaining }} verfügbar
+                                {% if played_stats.remaining == 0 and played_stats.total > 0 %}
+                                    <span class="text-warning">⚠️ Alle Inhalte gespielt!</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        <a href="{{ url_for('admin.manage_rounds') }}" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-cog"></i> Runden verwalten
+                        </a>
+                    {% else %}
+                        <p class="text-warning">⚠️ Keine aktive Runde!</p>
+                        <a href="{{ url_for('admin.create_round') }}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-plus"></i> Erste Runde erstellen
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-folder"></i> Minigame-Ordner</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><strong>{{ available_folders|length }}</strong> Ordner verfügbar</p>
+                    <div class="mb-2">
+                        {% for folder in available_folders[:3] %}
+                            <span class="badge badge-secondary mr-1">{{ folder.name }} ({{ folder.get_minigames_count() }})</span>
+                        {% endfor %}
+                        {% if available_folders|length > 3 %}
+                            <span class="text-muted">... und {{ available_folders|length - 3 }} weitere</span>
+                        {% endif %}
+                    </div>
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('admin.manage_folders') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-cog"></i> Verwalten
+                        </a>
+                        <a href="{{ url_for('admin.create_folder') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-plus"></i> Neu
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEU: Welcome-System -->
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-hand-paper"></i> Welcome-System</h5>
+                </div>
+                <div class="card-body">
+                    <div id="welcome-status-card">
+                        <!-- Status wird via JavaScript geladen -->
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Lade Status...
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group d-flex mt-3" role="group">
+                        <button id="start-welcome-btn" class="btn btn-success btn-sm">
+                            <i class="fas fa-play"></i> Starten
+                        </button>
+                        <a href="/welcome" class="btn btn-outline-info btn-sm" target="_blank">
+                            <i class="fas fa-external-link-alt"></i> Öffnen
+                        </a>
+                    </div>
+                    
+                    <!-- Team-Management-Controls -->
+                    <div id="team-management-controls" class="mt-3" style="display: none;">
+                        <div class="form-group">
+                            <label for="team-count-select" class="form-label">Anzahl Teams:</label>
+                            <select id="team-count-select" class="form-control form-control-sm">
+                                <option value="">-- Wählen --</option>
+                                <option value="2">2 Teams</option>
+                                <option value="3">3 Teams</option>
+                                <option value="4">4 Teams</option>
+                                <option value="5">5 Teams</option>
+                                <option value="6">6 Teams</option>
+                                <option value="7">7 Teams</option>
+                                <option value="8">8 Teams</option>
+                                <option value="9">9 Teams</option>
+                                <option value="10">10 Teams</option>
+                            </select>
+                        </div>
+                        <button id="create-teams-admin-btn" class="btn btn-warning btn-sm btn-block" disabled>
+                            <i class="fas fa-magic"></i> Teams erstellen
+                        </button>
+                    </div>
+                    
+                    <!-- Styling für nicht mögliche Team-Optionen -->
+                    <style>
+                        #team-count-select option.insufficient-players {
+                            color: #dc3545 !important;
+                            background-color: rgba(220, 53, 69, 0.1) !important;
+                        }
+                    </style>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEU: Feld-Management -->
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0"><i class="fas fa-chess-board"></i> Spielfeld-Management</h5>
+                </div>
+                <div class="card-body">
+                    {% if field_stats %}
+                        <div class="row text-center mb-3">
+                            <div class="col-6">
+                                <div class="stat-box">
+                                    <h6 class="text-primary">{{ field_stats.total_configs }}</h6>
+                                    <small class="text-muted">Konfigurationen</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-box">
+                                    <h6 class="text-success">{{ field_stats.enabled_configs }}</h6>
+                                    <small class="text-muted">Aktiv</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Farb-Übersicht -->
+                        <div class="field-colors-preview mb-3">
+                            <strong class="d-block mb-2">Feld-Farben:</strong>
+                            <div class="color-dots-container">
+                                {% for field_type, color_info in field_color_mapping.items() %}
+                                    {% if color_info.enabled and field_type not in ['normal'] %}
+                                        <div class="color-dot-item" title="{{ color_info.display_name }}">
+                                            <div class="color-dot" 
+                                                 style="background-color: {{ color_info.color }};">
+                                                {{ color_info.icon or '?' }}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="btn-group d-flex" role="group">
+                        <a href="{{ url_for('admin.manage_fields') }}" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-cog"></i> Verwalten
+                        </a>
+                        <a href="{{ url_for('admin.field_preview') }}" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-eye"></i> Vorschau
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feld-Farben Bedeutung (erweiterte Übersicht) -->
+    {% if field_color_mapping %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="fas fa-palette"></i> Spielfeld-Farben und Bedeutung</h6>
+                        <button class="btn btn-outline-light btn-sm" type="button" data-toggle="collapse" data-target="#fieldColorsCollapse">
+                            <i class="fas fa-chevron-down"></i> Details
+                        </button>
+                    </div>
+                </div>
+                <div class="collapse" id="fieldColorsCollapse">
+                    <div class="card-body">
+                        <div class="row">
+                            {% for field_type, color_info in field_color_mapping.items() %}
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="field-legend-item d-flex align-items-center">
+                                    <div class="field-color-preview mr-3" 
+                                         style="width: 40px; height: 40px; background-color: {{ color_info.color }}; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; color: white;">
+                                        {{ color_info.icon or '?' }}
+                                    </div>
+                                    <div>
+                                        <strong>{{ color_info.display_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ color_info.color }}</small>
+                                        {% if not color_info.enabled %}
+                                            <br><span class="badge badge-secondary">Deaktiviert</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-star"></i> Sonderfelder:</h6>
+                                <ul class="small">
+                                    <li><span style="color: #4CAF50;">🚀 Katapult Vorwärts</span> - Schleudert Teams 3-5 Felder nach vorne</li>
+                                    <li><span style="color: #F44336;">💥 Katapult Rückwärts</span> - Schleudert Teams 2-4 Felder nach hinten</li>
+                                    <li><span style="color: #2196F3;">🔄 Spieler-Tausch</span> - Tauscht Positionen zwischen Teams</li>
+                                    <li><span style="color: #9E9E9E;">🚧 Sperren-Feld</span> - Blockiert bis bestimmte Zahl gewürfelt wird</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-dice"></i> Basis-Felder:</h6>
+                                <ul class="small">
+                                    <li><span style="color: #BA68C8;">🎮 Minispiel</span> - Startet Minispiele oder Fragen</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- NEU: Minigame-Feld Admin Auswahl -->
+    <div id="minigame-field-selection" class="card mb-4" style="display: none;">
+        <div class="card-header bg-danger text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-gamepad"></i> 🎮 Minigame-Feld: Admin Auswahl erforderlich!
+                </h5>
+                <button id="refresh-minigame-status" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-sync"></i> Aktualisieren
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="minigame-selection-info">
+                <!-- Wird dynamisch befüllt -->
+            </div>
+            
+            <div id="minigame-selection-interface" style="display: none;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle"></i> Spielinformation
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="minigame-match-info">
+                                    <!-- Team vs Team Info -->
+                                </div>
+                                <div class="mt-2">
+                                    <strong>Belohnung:</strong>
+                                    <span class="badge badge-success">🚀 5 Felder vorwärts bei Gewinn</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-list"></i> Verfügbare Minispiele
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="available-minigames-list">
+                                    <!-- Wird dynamisch befüllt -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- NEU: Minispiel-Ergebnis Eingabe Interface -->
+            <div id="minigame-result-interface" style="display: none;">
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-gamepad"></i> Laufendes Minispiel
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="running-minigame-info">
+                                    <!-- Wird dynamisch befüllt -->
+                                </div>
+                                <div class="mt-2">
+                                    <span class="badge badge-primary">🎮 Spiel läuft...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-trophy"></i> Ergebnis eingeben
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label>Wie ist das Minispiel ausgegangen?</label>
+                                    <div id="simple-result-options">
+                                        <div class="btn-group btn-group-toggle w-100" data-toggle="buttons">
+                                            <label class="btn btn-outline-success btn-lg col-6" onclick="selectSimpleResult('won')">
+                                                <input type="radio" name="simple-result" value="won" autocomplete="off">
+                                                <i class="fas fa-trophy"></i><br>
+                                                <strong>Herausforderer gewonnen</strong><br>
+                                                <small>+5 Felder Bonus</small>
+                                            </label>
+                                            <label class="btn btn-outline-danger btn-lg col-6" onclick="selectSimpleResult('lost')">
+                                                <input type="radio" name="simple-result" value="lost" autocomplete="off">
+                                                <i class="fas fa-times"></i><br>
+                                                <strong>Herausforderer verloren</strong><br>
+                                                <small>Kein Bonus</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <button id="submit-simple-result" class="btn btn-warning btn-block btn-lg" disabled>
+                                        <i class="fas fa-check"></i> Ergebnis bestätigen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spielstatus -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>Aktueller Spielstatus</span>
+                {% if active_round %}
+                    <small>Runde: {{ active_round.name }}</small>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body" id="game-status-container">
+            {% if active_session %}
+                <h5 class="card-title">Aktive Spielsitzung (ID: {{ active_session.id }})</h5>
+                <p><strong>Phase:</strong>
+                    <span data-phase="{{ active_session.current_phase }}" id="current-phase-display">
+                        {% if active_session.current_phase == 'SETUP_MINIGAME' %}
+                            Inhalt festlegen
+                        {% elif active_session.current_phase == 'MINIGAME_ANNOUNCED' %}
+                            Minispiel angekündigt - Warte auf Platzierungen
+                        {% elif active_session.current_phase == 'QUESTION_ACTIVE' %}
+                            Frage läuft - Teams antworten
+                        {% elif active_session.current_phase == 'DICE_ROLLING' %}
+                            Würfelrunde aktiv
+                        {% elif active_session.current_phase == 'ROUND_OVER' %}
+                            Runde beendet - Nächsten Inhalt festlegen
+                        {% else %}
+                            {{ active_session.current_phase | replace('_', ' ') | title }}
+                        {% endif %}
+                    </span>
+                </p>
+
+                <div id="current-content-info">
+                    {% if active_session.current_minigame_name %}
+                        <p><strong>Aktueller Inhalt:</strong> 
+                            {% if active_session.current_question_id %}
+                                ❓ Frage: {{ active_session.current_minigame_name }}
+                            {% else %}
+                                🎮 {{ active_session.current_minigame_name }}
+                            {% endif %}
+                        </p>
+                        {% if active_session.current_minigame_description %}
+                            <p><em>Beschreibung: {{ active_session.current_minigame_description }}</em></p>
+                        {% endif %}
+                        {% if active_session.current_player_count and not active_session.current_question_id %}
+                            <p><strong>👥 Spieleranzahl:</strong> 
+                                {% if active_session.current_player_count == 'all' %}
+                                    Ganzes Team
+                                {% else %}
+                                    Pro Team {{ active_session.current_player_count }} Spieler
+                                {% endif %}
+                            </p>
+                        {% endif %}
+                        
+                        <!-- Ausgewählte Spieler Anzeige -->
+                        {% if active_session.get_selected_players() %}
+                            <div class="selected-players-admin mt-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <p class="mb-0"><strong>🎯 Ausgewählte Spieler:</strong></p>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-info" onclick="showRotationStats()">
+                                            <i class="fas fa-chart-bar"></i> Statistiken
+                                        </button>
+                                        <button class="btn btn-outline-warning" onclick="resetRotation()">
+                                            <i class="fas fa-sync-alt"></i> Rotation Reset
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    {% for team_id, players in active_session.get_selected_players().items() %}
+                                        {% set team = teams|selectattr("id", "equalto", team_id|int)|first %}
+                                        <div class="col-md-6 mb-2">
+                                            <div class="card card-body bg-light">
+                                                <h6 class="card-title mb-1">
+                                                    <i class="fas fa-users text-primary"></i> 
+                                                    {{ team.name if team else 'Team ' + team_id }}
+                                                </h6>
+                                                <div class="selected-players-list">
+                                                    {% for player in players %}
+                                                        <span class="badge badge-success mr-1">{{ player }}</span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p>Noch kein Inhalt für diese Runde festgelegt.</p>
+                    {% endif %}
+                </div>
+
+                <hr>
+
+                <!-- Fragen-Kontrollen -->
+                <div id="question-control-section" class="admin-question-control-section p-4 mb-4 border rounded" 
+                     style="{% if active_session.current_phase != 'QUESTION_ACTIVE' or not active_session.current_question_id %}display: none;{% endif %}">
+                    <h4 class="admin-question-title"><i class="fas fa-question-circle"></i> Frage läuft</h4>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="question-info p-3 border rounded">
+                                <h6><strong>Fragen-Status:</strong></h6>
+                                <p class="mb-2">
+                                    <span class="badge badge-primary">Aktiv</span>
+                                    <small class="d-block mt-1" id="question-response-count">Teams können antworten</small>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="question-actions">
+                                <form method="POST" action="{{ url_for('admin.end_question') }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-warning btn-lg" 
+                                            onclick="return confirm('Frage beenden und automatische Platzierung berechnen?')">
+                                        <i class="fas fa-stop-circle"></i> Frage beenden
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Antworten-Übersicht (automatisch) -->
+                    <div id="question-responses-container" class="mt-3">
+                        <h6>Team-Antworten (Live-Updates):</h6>
+                        <div id="question-responses-list" class="admin-responses-list border rounded p-3">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-clock"></i> Warte auf Antworten...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Würfel-Steuerung -->
+                <div id="dice-control-section" class="admin-dice-control-section p-4 mb-4 border rounded"
+                     style="{% if active_session.current_phase != 'DICE_ROLLING' %}display: none;{% endif %}">
+                    <h4 class="admin-dice-title"><i class="fas fa-dice"></i> Würfel-Steuerung</h4>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="current-turn-display p-3 mb-3 border rounded">
+                                <h6><strong>Aktueller Zug:</strong></h6>
+                                <div id="current-turn-info">
+                                    {% if active_session.current_team_turn %}
+                                        <span class="badge badge-primary" style="font-size: 1.1em;">
+                                            {{ active_session.current_team_turn.name }}
+                                        </span>
+                                        <small class="d-block mt-1">
+                                            Position: {{ active_session.current_team_turn.current_position }}
+                                            | Bonus: 
+                                            {% if active_session.current_team_turn.bonus_dice_sides == 6 %}1-6
+                                            {% elif active_session.current_team_turn.bonus_dice_sides == 4 %}1-4
+                                            {% elif active_session.current_team_turn.bonus_dice_sides == 2 %}1-2
+                                            {% else %}Standard
+                                            {% endif %}
+                                        </small>
+                                    {% else %}
+                                        <span class="text-muted">Warte auf Team... (oder Runde beendet)</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <button id="admin-roll-dice" class="btn btn-success btn-lg" 
+                                    {% if not active_session.current_team_turn %}disabled{% endif %}>
+                                <i class="fas fa-dice"></i> Für aktuelles Team würfeln
+                            </button>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div id="dice-result-admin" class="dice-result-admin" style="display: none;">
+                                <h6>Würfelergebnis:</h6>
+                                <div class="result-display p-3 border rounded">
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="result-part">
+                                                <small>Standard</small>
+                                                <div class="result-number" id="admin-standard-roll">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-4" id="admin-bonus-section" style="display: none;">
+                                            <div class="result-part">
+                                                <small>Bonus</small>
+                                                <div class="result-number" id="admin-bonus-roll">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="result-part total">
+                                                <small>Gesamt</small>
+                                                <div class="result-number total" id="admin-total-roll">0</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="dice-order-info mt-3">
+                                <h6>Würfelreihenfolge:</h6>
+                                <div class="team-order-list" id="dice-order-display">
+                                    {% if active_session.dice_roll_order %}
+                                        {% set order_ids = active_session.dice_roll_order.split(',') %}
+                                        {% for team_id_str in order_ids %}
+                                            {% if team_id_str %}
+                                                {% set team_id = team_id_str | int %}
+                                                {% set team = teams | selectattr('id', 'equalto', team_id) | first %}
+                                                {% if team %}
+                                                    <span class="badge {% if team.id == active_session.current_team_turn_id %}badge-success{% else %}badge-secondary{% endif %} mr-1">
+                                                        {{ loop.index }}. {{ team.name }}
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">Reihenfolge noch nicht festgelegt</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ERWEITERTE MINIGAME/FRAGEN-AUSWAHL -->
+                <div id="content-selection-section" 
+                     style="{% if active_session.current_phase not in ['SETUP_MINIGAME', 'ROUND_OVER'] %}display: none;{% endif %}">
+                    <h4>Nächsten Inhalt festlegen</h4>
+                    
+                    <!-- NEU: Verfügbarkeits-Info -->
+                    {% if played_stats and active_round %}
+                    <div class="alert alert-info mb-3">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <strong><i class="fas fa-chart-pie"></i> Verfügbare Inhalte:</strong>
+                                {{ played_stats.remaining }} von {{ played_stats.total }} noch nicht gespielt
+                                {% if played_stats.remaining == 0 %}
+                                    <span class="text-warning">⚠️ Alle Inhalte wurden gespielt!</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 text-right">
+                                <form method="POST" action="{{ url_for('admin.reset_played_content') }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-outline-warning btn-sm" 
+                                            onclick="return confirm('Alle gespielten Inhalte zurücksetzen? Damit werden alle Spiele wieder verfügbar.')">
+                                        <i class="fas fa-undo"></i> Zurücksetzen
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="POST" action="{{ url_for('admin.set_minigame') }}" class="mb-3 p-3 border rounded admin-minigame-form" id="minigame-form">
+                        {{ set_minigame_form.hidden_tag() }}
+                        
+                        <!-- Inhalts-Quelle auswählen -->
+                        <div class="form-group">
+                            <label class="form-control-label"><strong>Inhalts-Quelle auswählen:</strong></label>
+                            <div class="row">
+                                
+                                {% for value, label in set_minigame_form.minigame_source.choices %}
+                                    {% if value == 'folder_planned' %}
+                                        {% if active_sequence %}
+                                            {% set has_active_plan = active_sequence.is_active and active_sequence.sequence_list|length > 0 %}
+                                        {% else %}
+                                            {% set has_active_plan = false %}
+                                        {% endif %}
+                                    {% else %}
+                                        {% set has_active_plan = true %}
+                                    {% endif %}
+                                    
+                                    {% if has_active_plan %}
+                                    <div class="col-md-6 col-lg-3 mb-2">
+                                        <div class="custom-control custom-radio">
+                                            <input type="radio" class="custom-control-input" 
+                                                   id="source_{{ value }}" name="minigame_source" value="{{ value }}"
+                                                   {% if set_minigame_form.minigame_source.data == value %}checked{% endif %}>
+                                            <label class="custom-control-label" for="source_{{ value }}">
+                                                {% if value == 'manual' %}
+                                                    <i class="fas fa-keyboard text-primary"></i> {{ label }}
+                                                {% elif value == 'direct_question' %}
+                                                    <i class="fas fa-plus-circle text-success"></i> {{ label }}
+                                                {% elif value == 'folder_random' %}
+                                                    <i class="fas fa-random text-warning"></i> {{ label }}
+                                                    {% if played_stats and played_stats.remaining == 0 %}
+                                                        <small class="d-block text-muted">(Alle gespielt)</small>
+                                                    {% endif %}
+                                                {% elif value == 'folder_selected' %}
+                                                    <i class="fas fa-hand-pointer text-info"></i> {{ label }}
+                                                {% elif value == 'folder_planned' %}
+                                                    <i class="fas fa-list-ol text-info"></i> {{ label }}
+                                                {% endif %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <!-- Manuelle Eingabe -->
+                        <div id="manual-section" class="minigame-section" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ set_minigame_form.minigame_name.label(class="form-control-label") }}
+                                        {{ set_minigame_form.minigame_name(class="form-control", placeholder="Name des Inhalts") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ set_minigame_form.minigame_description.label(class="form-control-label") }}
+                                        {{ set_minigame_form.minigame_description(class="form-control", rows="2", placeholder="Beschreibung") }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ set_minigame_form.player_count.label(class="form-control-label") }}
+                                        {{ set_minigame_form.player_count(class="form-control") }}
+                                        <small class="form-text text-muted">
+                                            <i class="fas fa-users"></i> Anzahl Spieler pro Team für dieses Minispiel
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Direkte Fragen-Erstellung -->
+                        <div id="direct_question-section" class="minigame-section" style="display: none;">
+                            <h5 class="text-success mb-3"><i class="fas fa-plus-circle mr-2"></i>Direkte Frage erstellen</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ set_minigame_form.minigame_name.label(class="form-control-label") }}
+                                        {{ set_minigame_form.minigame_name(class="form-control", placeholder="Name der Frage") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ set_minigame_form.question_type.label(class="form-control-label") }}
+                                        {{ set_minigame_form.question_type(class="form-control", id="direct-question-type") }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                {{ set_minigame_form.question_text.label(class="form-control-label") }}
+                                {{ set_minigame_form.question_text(class="form-control", rows="3", placeholder="Stelle hier deine Frage...") }}
+                            </div>
+                            
+                            <!-- Multiple Choice Optionen -->
+                            <div id="direct-mc-options" class="question-options-section">
+                                <h6 class="text-primary">Antwortoptionen:</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            {{ set_minigame_form.option_1.label(class="form-control-label") }}
+                                            {{ set_minigame_form.option_1(class="form-control", placeholder="Erste Option") }}
+                                        </div>
+                                        <div class="form-group">
+                                            {{ set_minigame_form.option_3.label(class="form-control-label") }}
+                                            {{ set_minigame_form.option_3(class="form-control", placeholder="Dritte Option (optional)") }}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            {{ set_minigame_form.option_2.label(class="form-control-label") }}
+                                            {{ set_minigame_form.option_2(class="form-control", placeholder="Zweite Option") }}
+                                        </div>
+                                        <div class="form-group">
+                                            {{ set_minigame_form.option_4.label(class="form-control-label") }}
+                                            {{ set_minigame_form.option_4(class="form-control", placeholder="Vierte Option (optional)") }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    {{ set_minigame_form.correct_option.label(class="form-control-label") }}
+                                    {{ set_minigame_form.correct_option(class="form-control", style="max-width: 200px;") }}
+                                </div>
+                            </div>
+                            
+                            <!-- Freitext-Antwort -->
+                            <div id="direct-text-answer" class="question-options-section" style="display: none;">
+                                <div class="form-group">
+                                    {{ set_minigame_form.correct_text.label(class="form-control-label") }}
+                                    {{ set_minigame_form.correct_text(class="form-control", placeholder="Die korrekte Antwort") }}
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                                        Antwort wird case-insensitive verglichen
+                                    </small>
+                                </div>
+                            </div>
+                            
+                        </div>
+                        
+                        <!-- Ordner-Zufällig -->
+                        <div id="folder_random-section" class="minigame-section" style="display: none;">
+                            {% if active_round and active_round.minigame_folder %}
+                                <div class="alert alert-success">
+                                    <i class="fas fa-dice"></i> 
+                                    <strong>Zufallsauswahl aus Ordner "{{ active_round.minigame_folder.name }}"</strong><br>
+                                    <small>
+                                        {{ active_round.minigame_folder.get_minigames_count() }} Inhalte gesamt
+                                        {% if played_stats %}
+                                            | {{ played_stats.remaining }} verfügbar
+                                            {% if played_stats.remaining == 0 %}
+                                                <span class="text-warning">⚠️ Alle gespielt - wird recycelt</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    Keine aktive Runde oder Minigame-Ordner zugewiesen!
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Ordner-Auswahl -->
+                        <div id="folder_selected-section" class="minigame-section" style="display: none;">
+                            {% if active_round and active_round.minigame_folder %}
+                                <div class="form-group">
+                                    {{ set_minigame_form.selected_folder_minigame_id.label(class="form-control-label") }}
+                                    {{ set_minigame_form.selected_folder_minigame_id(class="form-control") }}
+                                    <small class="form-text text-muted">
+                                        Aus Ordner: <strong>{{ active_round.minigame_folder.name }}</strong><br>
+                                        🎮 = Minispiel, ❓ = Frage
+                                        <span class="text-muted">| "(bereits gespielt)" = wurde schon ausgewählt</span>
+                                    </small>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    Keine aktive Runde oder Minigame-Ordner zugewiesen!
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Geplanter Ablauf -->
+                        <div id="folder_planned-section" class="minigame-section" style="display: none;">
+                            {% if active_round and active_round.minigame_folder %}
+                                {% if active_sequence and active_sequence.sequence_list|length > 0 %}
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="mb-0">
+                                                <i class="fas fa-list-ol text-info"></i> 
+                                                Ablaufplan für "{{ active_round.minigame_folder.name }}"
+                                                {% if active_sequence.is_active %}
+                                                    <span class="badge badge-success ml-2">Aktiv</span>
+                                                {% else %}
+                                                    <span class="badge badge-secondary ml-2">Inaktiv</span>
+                                                {% endif %}
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Fortschrittsanzeige -->
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-between">
+                                                    <small>Fortschritt:</small>
+                                                    <small>{{ active_sequence.current_position + 1 }} / {{ active_sequence.sequence_list|length }}</small>
+                                                </div>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-info" 
+                                                         style="width: {{ active_sequence.get_progress_percentage() }}%">
+                                                        {{ active_sequence.get_progress_percentage() }}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Aktuelles Item -->
+                                            {% set current_item = active_sequence.get_current_item() %}
+                                            {% if current_item %}
+                                                <div class="alert alert-warning">
+                                                    <h6><i class="fas fa-arrow-right"></i> Nächstes Item:</h6>
+                                                    <strong>
+                                                        {% if current_item.type == 'minigame' %}
+                                                            <i class="fas fa-gamepad text-primary"></i>
+                                                        {% else %}
+                                                            <i class="fas fa-question-circle text-info"></i>
+                                                        {% endif %}
+                                                        {{ current_item.name }}
+                                                    </strong>
+                                                    {% if current_item.description %}
+                                                        <p class="mb-0 mt-1">{{ current_item.description }}</p>
+                                                    {% endif %}
+                                                </div>
+                                            {% else %}
+                                                <div class="alert alert-success">
+                                                    <i class="fas fa-check-circle"></i> 
+                                                    Alle Items des Ablaufplans wurden abgeschlossen!
+                                                </div>
+                                            {% endif %}
+                                            
+                                            <!-- Nächstes Item Vorschau -->
+                                            {% set next_item = active_sequence.get_next_item() %}
+                                            {% if next_item %}
+                                                <div class="alert alert-light">
+                                                    <h6><i class="fas fa-clock"></i> Danach:</h6>
+                                                    <small>
+                                                        {% if next_item.type == 'minigame' %}
+                                                            <i class="fas fa-gamepad text-primary"></i>
+                                                        {% else %}
+                                                            <i class="fas fa-question-circle text-info"></i>
+                                                        {% endif %}
+                                                        {{ next_item.name }}
+                                                    </small>
+                                                </div>
+                                            {% endif %}
+                                            
+                                            <!-- Plan aktivieren/deaktivieren -->
+                                            {% if not active_sequence.is_active %}
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    <strong>Plan ist inaktiv.</strong> Aktivieren Sie ihn, um die "Geplanter Ablauf" Option zu nutzen.
+                                                    <form method="post" action="{{ url_for('admin.activate_sequence', folder_id=active_round.minigame_folder.id) }}" class="d-inline ml-2">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                        <button type="submit" class="btn btn-success btn-sm">
+                                                            <i class="fas fa-play"></i> Plan aktivieren
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            {% endif %}
+                                            
+                                            <!-- Plan bearbeiten Link -->
+                                            <div class="text-center mt-3">
+                                                <a href="{{ url_for('admin.manage_sequence', folder_id=active_round.minigame_folder.id) }}" 
+                                                   class="btn btn-outline-info btn-sm" target="_blank">
+                                                    <i class="fas fa-edit"></i> Ablaufplan bearbeiten
+                                                </a>
+                                                <small class="d-block text-muted mt-1">
+                                                    Sie können den Plan auch während des Spiels noch anpassen
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <strong>Kein aktiver Ablaufplan!</strong><br>
+                                        <small>
+                                            Erstellen Sie einen Plan für den Ordner "{{ active_round.minigame_folder.name }}" 
+                                            oder aktivieren Sie einen bestehenden Plan.
+                                        </small>
+                                        <div class="mt-2">
+                                            <a href="{{ url_for('admin.manage_sequence', folder_id=active_round.minigame_folder.id) }}" 
+                                               class="btn btn-info btn-sm" target="_blank">
+                                                <i class="fas fa-plus"></i> Plan erstellen
+                                            </a>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    Keine aktive Runde oder Minigame-Ordner zugewiesen!
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        {{ set_minigame_form.submit(class="btn btn-success btn-lg") }}
+                    </form>
+                </div>
+
+                <!-- Platzierungen eingeben -->
+                <div id="placement-section" 
+                     style="{% if active_session.current_phase != 'MINIGAME_ANNOUNCED' %}display: none;{% endif %}">
+                    <h4>Platzierungen für "<span id="current-minigame-name">{{ active_session.current_minigame_name }}</span>" eingeben</h4>
+                    {% if teams %}
+                        <form method="POST" action="{{ url_for('admin.record_placements') }}" class="mb-3 p-3 border rounded bg-light">
+                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Team</th>
+                                        <th>Platzierung (1 bis {{ teams|length }})</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for team in teams %}
+                                    <tr>
+                                        <td>{{ team.name }}</td>
+                                        <td>
+                                            <input type="number" name="placement_team_{{ team.id }}" class="form-control form-control-sm" min="1" max="{{ teams|length }}" required
+                                                   value="{{ team.minigame_placement if team.minigame_placement is not none else '' }}">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-check-circle"></i> Platzierungen bestätigen & Würfelrunde starten</button>
+                        </form>
+                    {% else %}
+                        <p class="text-warning">Keine Teams vorhanden, um Platzierungen einzugeben.</p>
+                    {% endif %}
+                </div>
+
+            {% else %}
+                <p class="text-danger">Keine aktive Spielsitzung gefunden.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Spielsteuerung -->
+    <div class="mb-4 p-3 border rounded">
+        <h4>Spielsteuerung</h4>
+        <button type="button" class="btn btn-danger mb-2" data-toggle="modal" data-target="#confirmFullResetModal">
+            <i class="fas fa-power-off"></i> Spiel komplett zurücksetzen
+        </button>
+        <a href="{{ url_for('admin.init_chars') }}" class="btn btn-secondary btn-sm mb-2 d-inline-block"><i class="fas fa-users-cog"></i> Charaktere initialisieren</a>
+        <a href="{{ url_for('admin.open_board') }}" class="btn btn-info btn-sm mb-2 d-inline-block ml-md-2" target="_blank"><i class="fas fa-gamepad"></i> Spielbrett öffnen</a>
+        <button id="admin-abort-minigame-control" class="btn btn-warning btn-sm mb-2 d-inline-block ml-md-2" 
+                {% if not active_session %}disabled{% endif %}>
+            <i class="fas fa-step-backward"></i> Minigame abbrechen
+        </button>
+        <button id="start-fullscreen-game-btn" class="btn btn-success btn-lg mb-2 d-inline-block ml-md-2"><i class="fas fa-play"></i> Spiel im Vollbild starten</button>
+    </div>
+
+    <!-- Reset Modal -->
+    <div class="modal fade" id="confirmFullResetModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('admin.reset_game_state_confirmed') }}">
+                    {{ confirm_reset_form.hidden_tag() }}
+                    <div class="modal-header">
+                        <h5 class="modal-title">Spiel komplett zurücksetzen bestätigen</h5>
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>Achtung!</strong> Diese Aktion löscht die gesamte Spielhistorie, alle Events, Fragen-Antworten, die aktuelle Spielsitzung und setzt die Positionen aller Teams auf 0 zurück.</p>
+                        <div class="form-group">
+                            {{ confirm_reset_form.password.label(class="form-control-label") }}
+                            {{ confirm_reset_form.password(class="form-control", required=true) }}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Abbrechen</button>
+                        {{ confirm_reset_form.submit(class="btn btn-danger") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rotation Statistics Modal -->
+    <div class="modal fade" id="rotationModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        Spieler-Rotation Statistiken
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="rotationModalBody">
+                    <!-- Wird dynamisch befüllt -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Schließen</button>
+                    <button type="button" class="btn btn-warning" onclick="resetRotation(); $('#rotationModal').modal('hide');">
+                        <i class="fas fa-sync-alt"></i> Rotation zurücksetzen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Management -->
+    <div class="mb-4">
+        <h2>Team Management</h2>
+        <div class="mb-3">
+            <a href="{{ url_for('admin.create_team') }}" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Neues Team erstellen</a>
+            <a href="{{ url_for('admin.add_player') }}" class="btn btn-success ml-2"><i class="fas fa-user-plus"></i> Spieler hinzufügen</a>
+        </div>
+        {% if teams %}
+            <div class="row">
+                {% for team in teams %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ team.name }}</h5>
+                            <p class="card-text">
+                                <strong>Charakter:</strong> {{ team.character.name if team.character else 'Kein Charakter' }}<br>
+                                <strong>Position:</strong> {{ team.current_position }}<br>
+                                <strong>Letzte Platzierung:</strong> {{ team.minigame_placement if team.minigame_placement else 'N/A' }}<br>
+                                <strong>Bonus Würfel:</strong> 
+                                {% if team.bonus_dice_sides == 6 %} 1-6
+                                {% elif team.bonus_dice_sides == 4 %} 1-4
+                                {% elif team.bonus_dice_sides == 2 %} 1-2
+                                {% else %} Standard
+                                {% endif %}
+                                
+                                <!-- NEU: Sonderfeld-Status anzeigen -->
+                                {% if team.is_blocked %}
+                                    <br><strong>Status:</strong> 
+                                    <span class="badge badge-warning">
+                                        🚧 Blockiert (benötigt {{ team.blocked_target_number }}+)
+                                    </span>
+                                    <form method="POST" action="{{ url_for('admin.unblock_team', team_id=team.id) }}" class="d-inline mt-1">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-outline-warning btn-xs" 
+                                                onclick="return confirm('Team {{ team.name }} manuell freigeben?')"
+                                                title="Team manuell freigeben">
+                                            <i class="fas fa-unlock"></i> Freigeben
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </p>
+                            <div class="btn-group w-100" role="group">
+                                <a href="{{ url_for('admin.edit_team', team_id=team.id) }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-edit"></i> Bearbeiten
+                                </a>
+                                <form method="POST" action="{{ url_for('admin.delete_team', team_id=team.id) }}" style="display: inline;" 
+                                      onsubmit="return confirm('Team {{ team.name }} wirklich löschen?');" class="w-50">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                        <i class="fas fa-trash-alt"></i> Löschen
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>Noch keine Teams erstellt.</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+/* Old dice-control-section styling - replaced below */
+
+.current-turn-display, .question-info {
+    background: linear-gradient(135deg, rgba(44, 62, 80, 0.3) 0%, rgba(52, 73, 94, 0.2) 100%);
+    border: 2px solid rgba(231, 76, 60, 0.5);
+    border-radius: 15px;
+    backdrop-filter: blur(15px);
+    color: white;
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.dice-result-admin {
+    background: linear-gradient(135deg, rgba(44, 62, 80, 0.3) 0%, rgba(52, 73, 94, 0.2) 100%);
+    border-radius: 15px;
+    padding: 20px;
+    border: 2px solid rgba(255, 193, 7, 0.6);
+    backdrop-filter: blur(15px);
+    color: white;
+    box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 0 20px rgba(255, 193, 7, 0.3);
+}
+
+.result-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #495057;
+}
+
+.result-number.total {
+    color: #28a745;
+    font-size: 2.5rem;
+}
+
+.minigame-section {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-top: 0.5rem;
+    background-color: #f8f9fa;
+}
+
+.question-options-section {
+    background: #e3f2fd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-left: 4px solid #2196f3;
+}
+
+#question-responses-container {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background-color: #f8f9fa;
+    padding: 1rem;
+}
+
+.response-item {
+    transition: all 0.3s ease;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.response-item.correct {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+}
+
+.response-item.incorrect {
+    background-color: #f8d7da;
+    border-left: 4px solid #dc3545;
+}
+
+.response-item.new {
+    animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* NEU: Spielstatistiken-Styling */
+.progress {
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+.alert-info {
+    border-left: 4px solid #17a2b8;
+}
+
+.text-warning {
+    font-weight: bold;
+}
+
+/* NEU: Feld-Management Styling */
+.stat-box {
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.8);
+    margin-bottom: 10px;
+}
+
+.stat-box h6 {
+    margin-bottom: 2px;
+    font-weight: bold;
+}
+
+.color-dots-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.color-dot-item {
+    position: relative;
+}
+
+.color-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.color-dot:hover {
+    transform: scale(1.2);
+}
+
+.field-legend-item {
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.5);
+    transition: background-color 0.2s ease;
+}
+
+.field-legend-item:hover {
+    background: rgba(255,255,255,0.8);
+}
+
+.field-color-preview {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.btn-xs {
+    padding: 0.125rem 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    border-radius: 0.15rem;
+}
+
+/* Field Minigame Markers */
+.field-minigame-item {
+    border-left: 4px solid #17a2b8 !important;
+    background-color: rgba(23, 162, 184, 0.05) !important;
+}
+
+.field-minigame-item:hover {
+    background-color: rgba(23, 162, 184, 0.1) !important;
+}
+
+.field-minigame-item .badge-info {
+    background-color: #17a2b8;
+    border: 1px solid #138496;
+    font-size: 0.75em;
+    animation: subtle-pulse 2s infinite;
+}
+
+@keyframes subtle-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+.field-minigame-item .badge-info i {
+    margin-right: 2px;
+}
+</style>
+
+<script>
+// Global CSRF Token
+const csrfToken = "{{ csrf_token() }}";
+
+// Minigame abbrechen Funktion - global verfügbar
+function abortCurrentMinigame() {
+    if (!confirm('⚠️ Aktuelles Minigame/Frage abbrechen und zurück zur Auswahl?')) {
+        return;
+    }
+
+    // Finde den Button (kann verschiedene IDs haben)
+    const abortBtn = document.getElementById('admin-abort-minigame-control') || 
+                    document.getElementById('admin-abort-minigame');
+    if (!abortBtn) {
+        alert('Button nicht gefunden');
+        return;
+    }
+    const originalContent = abortBtn.innerHTML;
+    
+    // Button deaktivieren und Loading anzeigen
+    abortBtn.disabled = true;
+    abortBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird abgebrochen...';
+    
+    fetch('/admin/abort-minigame', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Minigame wurde abgebrochen! Zurück zur Auswahl.');
+            // Seite neu laden um aktuellen Status zu zeigen
+            window.location.reload();
+        } else {
+            alert('❌ Fehler beim Abbrechen: ' + (data.error || 'Unbekannter Fehler'));
+            // Button wieder aktivieren
+            abortBtn.disabled = false;
+            abortBtn.innerHTML = originalContent;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Netzwerkfehler beim Abbrechen des Minigames');
+        // Button wieder aktivieren
+        abortBtn.disabled = false;
+        abortBtn.innerHTML = originalContent;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const rollDiceBtn = document.getElementById('admin-roll-dice');
+    let isRollingDice = false;
+    let questionResponsesInterval = null;
+    let currentPhase = "{{ active_session.current_phase if active_session else '' }}";
+    let lastResponseCount = 0;
+    
+    // Minigame abbrechen Button Event Listener
+    const abortMinigameBtn = document.getElementById('admin-abort-minigame-control');
+    if (abortMinigameBtn) {
+        abortMinigameBtn.addEventListener('click', function() {
+            abortCurrentMinigame();
+        });
+    }
+    
+    // Minigame-Source Auswahl
+    const sourceRadios = document.querySelectorAll('input[name="minigame_source"]');
+    const sections = document.querySelectorAll('.minigame-section');
+    
+    function showMinigameSection(selectedValue) {
+        sections.forEach(section => section.style.display = 'none');
+        const targetSection = document.getElementById(selectedValue + '-section');
+        if (targetSection) targetSection.style.display = 'block';
+        
+        localStorage.setItem('adminMinigameSource', selectedValue);
+    }
+    
+    sourceRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) showMinigameSection(this.value);
+        });
+    });
+    
+    const savedSource = localStorage.getItem('adminMinigameSource');
+    if (savedSource) {
+        const savedRadio = document.getElementById('source_' + savedSource);
+        if (savedRadio) {
+            savedRadio.checked = true;
+            showMinigameSection(savedSource);
+        }
+    } else {
+        const checkedRadio = document.querySelector('input[name="minigame_source"]:checked');
+        if (checkedRadio) showMinigameSection(checkedRadio.value);
+    }
+    
+    // Direkte Fragen-Erstellung
+    const directQuestionType = document.getElementById('direct-question-type');
+    const mcOptions = document.getElementById('direct-mc-options');
+    const textAnswer = document.getElementById('direct-text-answer');
+    
+    function toggleDirectQuestionType() {
+        if (directQuestionType) {
+            const selectedType = directQuestionType.value;
+            if (mcOptions && textAnswer) {
+                if (selectedType === 'multiple_choice') {
+                    mcOptions.style.display = 'block';
+                    textAnswer.style.display = 'none';
+                } else {
+                    mcOptions.style.display = 'none';
+                    textAnswer.style.display = 'block';
+                }
+            }
+        }
+    }
+    
+    if (directQuestionType) {
+        directQuestionType.addEventListener('change', toggleDirectQuestionType);
+        toggleDirectQuestionType();
+    }
+    
+    // Fragen-Antworten automatisch laden
+    function loadQuestionResponses() {
+        if (currentPhase !== 'QUESTION_ACTIVE') return;
+        
+        fetch('/admin/api/question-responses')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayQuestionResponses(data.responses, data.total_teams);
+                    
+                    // Update response count
+                    const responseCount = document.getElementById('question-response-count');
+                    if (responseCount) {
+                        const count = data.responses.length;
+                        const total = data.total_teams;
+                        responseCount.innerHTML = `${count}/${total} Teams haben geantwortet`;
+                        
+                        if (count === total && count > 0) {
+                            responseCount.innerHTML += ' <span class="badge badge-success">Alle</span>';
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.warn('Fehler beim Laden der Antworten:', error);
+            });
+    }
+
+    function displayQuestionResponses(responses, totalTeams) {
+        const responsesList = document.getElementById('question-responses-list');
+        if (!responsesList) return;
+        
+        if (responses.length === 0) {
+            responsesList.innerHTML = '<div class="text-center text-muted"><i class="fas fa-clock"></i> Warte auf Antworten...</div>';
+            return;
+        }
+        
+        let html = '<div class="row">';
+        responses.forEach((response, index) => {
+            const statusIcon = response.is_correct ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-danger"></i>';
+            const statusClass = response.is_correct ? 'correct' : 'incorrect';
+            const isNew = index >= lastResponseCount;
+            
+            html += `
+                <div class="col-md-6 mb-2">
+                    <div class="response-item ${statusClass} ${isNew ? 'new' : ''}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${response.team_name}</strong>
+                                <small class="d-block text-muted">${response.answer_preview}</small>
+                                ${response.answered_at ? `<small class="text-muted">${response.answered_at}</small>` : ''}
+                            </div>
+                            <span>${statusIcon}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        if (responses.length === totalTeams && totalTeams > 0) {
+            html += '<div class="alert alert-success mt-3 mb-0"><i class="fas fa-check-circle"></i> Alle Teams haben geantwortet!</div>';
+        }
+        
+        responsesList.innerHTML = html;
+        lastResponseCount = responses.length;
+    }
+    
+    // Würfel-Funktionalität
+    if (rollDiceBtn) {
+        rollDiceBtn.addEventListener('click', adminRollDice);
+        
+        // Initiale Button-State-Prüfung beim Laden
+        fetch("{{ url_for('main.board_status') }}")
+            .then(response => response.json())
+            .then(data => {
+                console.log('Initiale Admin-Status geladen:', data.game_session?.current_phase);
+                updateDiceButtonState(data.game_session);
+            })
+            .catch(error => console.warn('Initiale Status-Prüfung fehlgeschlagen:', error));
+    }
+    
+    function adminRollDice() {
+        if (isRollingDice) return;
+        isRollingDice = true;
+        
+        rollDiceBtn.disabled = true;
+        rollDiceBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Würfeln...';
+        
+        fetch("{{ url_for('admin.admin_roll_dice') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken 
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showDiceResult(data);
+                // SOFORTIGE Updates für bessere Responsivität
+                console.log('✅ [ADMIN] Dice rolled successfully, triggering immediate updates');
+                
+                // Mehrfache Updates in kurzen Abständen für zuverlässigere Aktualisierung
+                setTimeout(updateGameStatus, 200);  // Sehr schnell
+                setTimeout(updateGameStatus, 500);  // Original
+                setTimeout(updateGameStatus, 1000); // Backup
+                setTimeout(updateGameStatus, 2000); // Final backup
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                resetDiceButton();
+            }
+        })
+        .catch(error => {
+            alert('Netzwerkfehler beim Würfeln.');
+            resetDiceButton();
+        });
+    }
+    
+    function resetDiceButton() {
+        isRollingDice = false;
+        if (rollDiceBtn) {
+            rollDiceBtn.disabled = false;
+            rollDiceBtn.innerHTML = '<i class="fas fa-dice"></i> Für aktuelles Team würfeln';
+            rollDiceBtn.classList.remove('btn-secondary');
+            rollDiceBtn.classList.add('btn-success');
+        }
+    }
+    
+    // Robuste Button-State-Prüfung beim Laden und bei Updates
+    function updateDiceButtonState(gameData) {
+        if (!rollDiceBtn) return;
+        
+        // Button sollte nur aktiviert sein wenn:
+        // 1. Phase ist DICE_ROLLING
+        // 2. Es gibt ein current_team_turn_id
+        // 3. Button ist nicht gerade am Würfeln
+        const canRoll = gameData && 
+                       gameData.current_phase === 'DICE_ROLLING' && 
+                       gameData.current_team_turn_id && 
+                       !isRollingDice;
+        
+        console.log('📊 [ADMIN] Button state update:', {
+            phase: gameData?.current_phase,
+            teamId: gameData?.current_team_turn_id, 
+            isRolling: isRollingDice,
+            canRoll: canRoll
+        });
+        
+        if (canRoll) {
+            rollDiceBtn.disabled = false;
+            rollDiceBtn.classList.remove('btn-secondary');
+            rollDiceBtn.classList.add('btn-success');
+            if (!isRollingDice) {
+                rollDiceBtn.innerHTML = '<i class="fas fa-dice"></i> Für aktuelles Team würfeln';
+            }
+        } else if (!isRollingDice) {
+            rollDiceBtn.disabled = true;
+            rollDiceBtn.classList.remove('btn-success');
+            rollDiceBtn.classList.add('btn-secondary');
+            rollDiceBtn.innerHTML = '<i class="fas fa-dice"></i> Warte auf Team...';
+        }
+    }
+    
+    function showDiceResult(data) {
+        document.getElementById('admin-standard-roll').textContent = data.standard_roll;
+        document.getElementById('admin-total-roll').textContent = data.total_roll;
+        
+        const bonusSection = document.getElementById('admin-bonus-section');
+        if (data.bonus_roll > 0) {
+            document.getElementById('admin-bonus-roll').textContent = data.bonus_roll;
+            bonusSection.style.display = 'block';
+        } else {
+            bonusSection.style.display = 'none';
+        }
+        
+        const diceResultDiv = document.getElementById('dice-result-admin');
+        diceResultDiv.style.display = 'block';
+        
+        setTimeout(() => diceResultDiv.style.display = 'none', 4000);
+    }
+    
+    function updateGameStatus() {
+        fetch("{{ url_for('main.board_status') }}?t=" + new Date().getTime())
+            .then(response => response.json())
+            .then(data => {
+                if (data.game_session) {
+                    const newPhase = data.game_session.current_phase;
+                    
+                    // WICHTIG: Reset rolling state wenn neues Team dran ist
+                    if (newPhase === 'DICE_ROLLING' && data.game_session.current_team_turn_id) {
+                        // Wenn neues Team am Zug ist, reset den rolling state
+                        if (isRollingDice) {
+                            console.log('🔄 [ADMIN] Resetting rolling state for new team turn');
+                            isRollingDice = false;
+                        }
+                    }
+                    
+                    // Phase hat sich geändert - Update UI
+                    if (newPhase !== currentPhase) {
+                        currentPhase = newPhase;
+                        updatePhaseDisplay(newPhase);
+                        updateSectionVisibility(newPhase);
+                        
+                        // Question responses polling starten/stoppen
+                        if (newPhase === 'QUESTION_ACTIVE') {
+                            startQuestionResponsesPolling();
+                        } else {
+                            stopQuestionResponsesPolling();
+                        }
+                        
+                        // Minigame Interface Status bei Phase-Wechsel prüfen
+                        if (newPhase === 'FIELD_MINIGAME_SELECTION_PENDING' || 
+                            newPhase === 'FIELD_MINIGAME_TRIGGERED' || 
+                            newPhase === 'FIELD_MINIGAME_COMPLETED') {
+                            // Sofortiges Update des Minigame Interface
+                            setTimeout(() => checkMinigameFieldStatus(), 100);
+                        }
+                    }
+                    
+                    // Würfel-spezifische Updates
+                    if (newPhase === 'DICE_ROLLING') {
+                        const newTeamId = data.game_session.current_team_turn_id;
+                        console.log('🎯 [ADMIN] DICE_ROLLING phase detected, team:', newTeamId);
+                        updateCurrentTeamDisplay(data.teams, newTeamId);
+                        // Verwende robuste Button-State-Prüfung statt nur reset
+                        updateDiceButtonState(data.game_session);
+                    } else {
+                        console.log('🚫 [ADMIN] Not in DICE_ROLLING phase:', newPhase);
+                        // Wenn nicht DICE_ROLLING, deaktiviere Button
+                        updateDiceButtonState(null);
+                    }
+                    
+                    // Update current content info
+                    updateContentInfo(data.game_session);
+                }
+            })
+            .catch(error => console.warn('Status-Update fehlgeschlagen:', error));
+    }
+    
+    function updatePhaseDisplay(phase) {
+        const phaseDisplay = document.getElementById('current-phase-display');
+        if (phaseDisplay) {
+            let phaseText = '';
+            switch(phase) {
+                case 'SETUP_MINIGAME':
+                    phaseText = 'Inhalt festlegen';
+                    break;
+                case 'MINIGAME_ANNOUNCED':
+                    phaseText = 'Minispiel angekündigt - Warte auf Platzierungen';
+                    break;
+                case 'QUESTION_ACTIVE':
+                    phaseText = 'Frage läuft - Teams antworten';
+                    break;
+                case 'DICE_ROLLING':
+                    phaseText = 'Würfelrunde aktiv';
+                    break;
+                case 'ROUND_OVER':
+                    phaseText = 'Runde beendet - Nächsten Inhalt festlegen';
+                    break;
+                case 'FIELD_MINIGAME_SELECTION_PENDING':
+                    phaseText = 'Minigame-Feld - Warte auf Admin-Auswahl';
+                    break;
+                case 'FIELD_MINIGAME_TRIGGERED':
+                    phaseText = 'Feld-Minigame läuft - Warte auf Ergebnis';
+                    break;
+                case 'FIELD_MINIGAME_COMPLETED':
+                    phaseText = 'Feld-Minigame beendet - Banner wird angezeigt';
+                    break;
+                default:
+                    // JavaScript equivalent of Python's .title()
+                    phaseText = phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+            phaseDisplay.textContent = phaseText;
+            phaseDisplay.setAttribute('data-phase', phase);
+        }
+    }
+    
+    function updateSectionVisibility(phase) {
+        // Alle Sektionen ausblenden
+        const sections = [
+            'question-control-section',
+            'dice-control-section', 
+            'content-selection-section',
+            'placement-section'
+        ];
+        
+        sections.forEach(sectionId => {
+            const section = document.getElementById(sectionId);
+            if (section) section.style.display = 'none';
+        });
+        
+        // Richtige Sektion anzeigen
+        let targetSection = null;
+        switch(phase) {
+            case 'QUESTION_ACTIVE':
+                targetSection = 'question-control-section';
+                break;
+            case 'DICE_ROLLING':
+                targetSection = 'dice-control-section';
+                break;
+            case 'SETUP_MINIGAME':
+            case 'ROUND_OVER':
+                targetSection = 'content-selection-section';
+                break;
+            case 'MINIGAME_ANNOUNCED':
+                targetSection = 'placement-section';
+                break;
+            case 'FIELD_MINIGAME_SELECTION_PENDING':
+            case 'FIELD_MINIGAME_TRIGGERED':
+            case 'FIELD_MINIGAME_COMPLETED':
+                // Field-Minigames verwenden das separate Interface
+                // Aber zeige weiterhin die Dice-Sektion für Kontext
+                targetSection = 'dice-control-section';
+                break;
+        }
+        
+        if (targetSection) {
+            const section = document.getElementById(targetSection);
+            if (section) section.style.display = 'block';
+        }
+    }
+    
+    function updateCurrentTeamDisplay(teams, currentTeamId) {
+        const currentTurnInfo = document.getElementById('current-turn-info');
+        if (!currentTurnInfo) return;
+        
+        if (!currentTeamId) {
+            currentTurnInfo.innerHTML = '<span class="text-muted">Runde beendet</span>';
+            return;
+        }
+        
+        const currentTeam = teams.find(t => t.id === currentTeamId);
+        if (currentTeam) {
+            let bonusText = 'Standard';
+            if (currentTeam.bonus_dice_sides === 6) bonusText = '1-6';
+            else if (currentTeam.bonus_dice_sides === 4) bonusText = '1-4';
+            else if (currentTeam.bonus_dice_sides === 2) bonusText = '1-2';
+            
+            currentTurnInfo.innerHTML = `
+                <span class="badge badge-primary" style="font-size: 1.1em;">
+                    ${currentTeam.name}
+                </span>
+                <small class="d-block mt-1">
+                    Position: ${currentTeam.position} | Bonus: ${bonusText}
+                </small>
+            `;
+        }
+    }
+    
+    function updateContentInfo(gameSession) {
+        const contentInfo = document.getElementById('current-content-info');
+        const minigameName = document.getElementById('current-minigame-name');
+        
+        if (contentInfo) {
+            if (gameSession.current_minigame_name) {
+                const isQuestion = gameSession.current_phase === 'QUESTION_ACTIVE';
+                const icon = isQuestion ? '❓' : '🎮';
+                const type = isQuestion ? 'Frage' : 'Minispiel';
+                
+                contentInfo.innerHTML = `
+                    <p><strong>Aktueller Inhalt:</strong> ${icon} ${type}: ${gameSession.current_minigame_name}</p>
+                    ${gameSession.current_minigame_description ? `<p><em>Beschreibung: ${gameSession.current_minigame_description}</em></p>` : ''}
+                `;
+            } else {
+                contentInfo.innerHTML = '<p>Noch kein Inhalt für diese Runde festgelegt.</p>';
+            }
+        }
+        
+        if (minigameName) {
+            minigameName.textContent = gameSession.current_minigame_name || '';
+        }
+    }
+    
+    function startQuestionResponsesPolling() {
+        if (questionResponsesInterval) clearInterval(questionResponsesInterval);
+        
+        // Sofort laden
+        loadQuestionResponses();
+        
+        // Alle 2 Sekunden aktualisieren
+        questionResponsesInterval = setInterval(loadQuestionResponses, 2000);
+    }
+    
+    function stopQuestionResponsesPolling() {
+        if (questionResponsesInterval) {
+            clearInterval(questionResponsesInterval);
+            questionResponsesInterval = null;
+        }
+        lastResponseCount = 0;
+    }
+    
+    // Initial setup basierend auf aktueller Phase
+    if (currentPhase === 'QUESTION_ACTIVE') {
+        startQuestionResponsesPolling();
+    }
+    
+    // Auto-Update alle 2 Sekunden für bessere Responsivität
+    setInterval(updateGameStatus, 2000);
+
+    // Welcome-System initialisierung
+    updateWelcomeStatus();
+    setInterval(updateWelcomeStatus, 5000);
+
+    // Welcome-System Event Listeners (mit Event-Delegation da Button dynamisch ersetzt wird)
+    // Event-Listener werden jetzt direkt in updateWelcomeStatus() gesetzt
+    
+    // Entferne alten Event-Listener Code da er durch dynamischen HTML ersetzt wird
+    /*document.getElementById('start-welcome-btn').addEventListener('click', function() {
+        fetch('/admin/api/start-welcome', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrfToken
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({})  // Leerer Body, aber als JSON
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('Response error:', text);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateWelcomeStatus();
+                // Öffne Welcome-Seite in neuem Tab
+                window.open('/welcome', '_blank');
+            } else {
+                alert('Fehler beim Starten des Welcome-Systems: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ein Fehler ist aufgetreten: ' + error.message);
+        });
+    });*/
+});
+
+function updateWelcomeStatus() {
+    fetch('/api/welcome-admin-status')
+        .then(response => response.json())
+        .then(data => {
+            const statusCard = document.getElementById('welcome-status-card');
+            const startBtn = document.getElementById('start-welcome-btn');
+            
+            if (data.active) {
+                let teamsDisplay = '';
+                if (data.teams_created && data.teams && data.teams.length > 0) {
+                    teamsDisplay = `
+                        <div class="mt-3">
+                            <small class="text-info"><strong>Teams & Passwörter:</strong></small>
+                            <div class="mt-2">
+                                ${data.teams.map(team => `
+                                    <div class="card card-body p-2 mb-2" style="font-size: 0.85em;">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <strong>Team ${team.name}</strong>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge badge-dark" style="font-family: monospace;">🔑 ${team.password}</span>
+                                                <button class="btn btn-sm btn-outline-secondary copy-password-btn" 
+                                                        data-password="${team.password}" 
+                                                        data-team-name="Team ${team.name}"
+                                                        title="Passwort kopieren"
+                                                        style="padding: 2px 6px; font-size: 0.7rem;">
+                                                    📋
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 0.75em; color: #666;">
+                                            ${team.members.join(', ')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                statusCard.innerHTML = `
+                    <div class="text-success">
+                        <i class="fas fa-check-circle"></i> <strong>Aktiv</strong>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Spieler registriert: <strong>${data.player_count || 0}</strong></small>
+                    </div>
+                    ${data.teams_created ? `
+                        <div class="mt-2">
+                            <small class="text-info">Teams erstellt: <strong>${data.team_count || 0}</strong></small>
+                        </div>
+                        <div class="mt-2">
+                            <span class="badge badge-success">Bereit zum Spielstart</span>
+                        </div>
+                        ${teamsDisplay}
+                    ` : `
+                        <div class="mt-2">
+                            <span class="badge badge-warning">Warten auf Teamaufteilung</span>
+                        </div>
+                    `}
+                `;
+                
+                // Aktualisiere Team-Optionen basierend auf Spieleranzahl
+                updateTeamOptions(data.player_count || 0);
+                startBtn.innerHTML = '<i class="fas fa-stop"></i> Beenden';
+                startBtn.className = 'btn btn-danger btn-sm';
+                startBtn.onclick = function() {
+                    if (confirm('Welcome-System wirklich beenden?')) {
+                        fetch('/admin/api/end-registration', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRFToken': csrfToken
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({})
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                updateWelcomeStatus();
+                                alert('Welcome-System erfolgreich beendet.');
+                            } else {
+                                alert('Fehler beim Beenden: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Ein Fehler ist aufgetreten beim Beenden des Welcome-Systems');
+                        });
+                    }
+                };
+                
+                // Zeige Team-Management-Controls wenn aktiv aber noch keine Teams erstellt
+                const teamControls = document.getElementById('team-management-controls');
+                if (data.teams_created) {
+                    teamControls.style.display = 'none';
+                } else {
+                    teamControls.style.display = 'block';
+                }
+            } else {
+                statusCard.innerHTML = `
+                    <div class="text-muted">
+                        <i class="fas fa-pause-circle"></i> <strong>Inaktiv</strong>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Welcome-System ist nicht aktiv</small>
+                    </div>
+                `;
+                startBtn.innerHTML = '<i class="fas fa-play"></i> Starten';
+                startBtn.className = 'btn btn-success btn-sm';
+                startBtn.onclick = function() {
+                    fetch('/admin/api/start-welcome', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': csrfToken
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({})
+                    }).then(response => {
+                        if (!response.ok) {
+                            return response.json().then(errorData => {
+                                // Spezielle Behandlung für GAME_ACTIVE Fehler
+                                if (errorData.error === 'GAME_ACTIVE') {
+                                    return { gameActive: true, data: errorData };
+                                }
+                                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        // Behandlung von GAME_ACTIVE Konflikt
+                        if (result.gameActive) {
+                            const errorData = result.data;
+                            
+                            // Befülle das Custom Modal mit Daten
+                            document.getElementById('customGameResetMessage').textContent = errorData.message;
+                            
+                            const existingTeamsDiv = document.getElementById('customExistingTeams');
+                            if (errorData.details.team_names.length > 0) {
+                                existingTeamsDiv.innerHTML = `
+                                    <div style="background: rgba(52, 152, 219, 0.25); padding: 1.5rem; border-radius: 10px; border-left: 4px solid #3498db; margin-top: 1rem;">
+                                        <strong style="font-size: 1.1rem;"><i class="fas fa-users"></i> Vorhandene Teams (${errorData.details.teams_count}):</strong><br>
+                                        <span style="color: #a8d8ea; font-size: 1.1rem; margin-top: 0.5rem; display: block;">${errorData.details.team_names.join(', ')}${errorData.details.teams_count > 5 ? '...' : ''}</span>
+                                    </div>
+                                `;
+                            } else {
+                                existingTeamsDiv.innerHTML = '';
+                            }
+                            
+                            // Speichere errorData für die Funktionen
+                            window.currentGameResetData = errorData;
+                            
+                            // Zeige Custom Modal
+                            showCustomModal();
+                            
+                            return; // Beende Funktion hier
+                        }
+                        
+                        // Normaler Success-Fall
+                        if (result.success) {
+                            updateWelcomeStatus();
+                            // Admin bleibt im Dashboard - kein automatisches Öffnen der Welcome-Seite
+                            alert('Welcome-System erfolgreich gestartet! Welcome-Seite ist jetzt aktiv.');
+                        } else {
+                            alert('Fehler beim Starten: ' + result.error);
+                            // Aktualisiere Status da etwas nicht stimmt
+                            updateWelcomeStatus();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Ein Fehler ist aufgetreten: ' + error.message);
+                        // Aktualisiere Status da etwas nicht stimmt
+                        updateWelcomeStatus();
+                    });
+                };
+                
+                // Verstecke Team-Management-Controls wenn inaktiv
+                const teamControls = document.getElementById('team-management-controls');
+                teamControls.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error updating welcome status:', error);
+            const statusCard = document.getElementById('welcome-status-card');
+            statusCard.innerHTML = `
+                <div class="text-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Fehler beim Laden
+                </div>
+            `;
+        });
+}
+
+// Funktion zum Aktualisieren der Team-Optionen basierend auf Spieleranzahl
+function updateTeamOptions(playerCount) {
+    const select = document.getElementById('team-count-select');
+    const options = select.querySelectorAll('option[value]'); // Alle Optionen mit Werten
+    
+    options.forEach(option => {
+        const teamCount = parseInt(option.value);
+        
+        // Überspringe ungültige Werte
+        if (isNaN(teamCount) || teamCount <= 0) {
+            return;
+        }
+        
+        if (teamCount > playerCount) {
+            // Nicht genügend Spieler für diese Team-Anzahl
+            option.classList.add('insufficient-players');
+            option.disabled = true;
+            const needed = teamCount - playerCount;
+            option.textContent = `${teamCount} Teams ❌ (${needed} Spieler fehlen)`;
+        } else {
+            // Genügend Spieler vorhanden
+            option.classList.remove('insufficient-players');
+            option.disabled = false;
+            option.textContent = `${teamCount} Teams ✅`;
+        }
+    });
+    
+    // Wenn die aktuell ausgewählte Option nicht mehr gültig ist, zurücksetzen
+    const selectedValue = parseInt(select.value);
+    if (selectedValue && selectedValue > playerCount) {
+        select.value = '';
+        document.getElementById('create-teams-admin-btn').disabled = true;
+    }
+}
+
+// Team-Management-Controls Event-Listener
+document.getElementById('team-count-select').addEventListener('change', function() {
+    const createBtn = document.getElementById('create-teams-admin-btn');
+    createBtn.disabled = this.value === '';
+});
+
+document.getElementById('create-teams-admin-btn').addEventListener('click', function() {
+    const teamCount = document.getElementById('team-count-select').value;
+    if (!teamCount) {
+        alert('Bitte wähle zuerst die Anzahl der Teams!');
+        return;
+    }
+    
+    if (confirm(`${teamCount} Teams erstellen? Dies teilt die registrierten Spieler automatisch auf.`)) {
+        fetch('/admin/api/create-teams', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ team_count: parseInt(teamCount) })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateWelcomeStatus();
+                alert('Teams erfolgreich erstellt! Passwörter sind im Admin-Dashboard sichtbar.');
+            } else {
+                alert('Fehler beim Erstellen der Teams: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ein Fehler ist aufgetreten beim Erstellen der Teams');
+        });
+    }
+});
+
+// Vollbild-Spielstart Button
+document.getElementById('start-fullscreen-game-btn').addEventListener('click', function() {
+    // Öffne Spielbrett in neuem Fenster/Tab
+    const gameWindow = window.open('/admin/open-board', '_blank');
+    
+    // Warte kurz, dann aktiviere Vollbild
+    setTimeout(() => {
+        if (gameWindow) {
+            // Versuche Vollbild zu aktivieren
+            gameWindow.postMessage({action: 'requestFullscreen'}, '*');
+            
+            // Falls postMessage nicht funktioniert, öffne Dialog
+            if (!gameWindow.document.fullscreenElement) {
+                gameWindow.alert('Für die beste Erfahrung drücke F11 für Vollbild!');
+            }
+        }
+    }, 1000);
+});
+
+// Spieler-Rotation Management
+function showRotationStats() {
+    fetch('/admin/player_rotation_stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let statsHtml = '<h5>Spieler-Rotation Statistiken</h5>';
+                
+                if (Object.keys(data.stats).length === 0) {
+                    statsHtml += '<p class="text-muted">Noch keine Rotations-Daten verfügbar.</p>';
+                } else {
+                    statsHtml += '<div class="row">';
+                    for (const [teamName, stats] of Object.entries(data.stats)) {
+                        statsHtml += `
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <strong>${teamName}</strong>
+                                        <small class="text-muted">(${stats.total_games} Spiele gesamt)</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="player-stats">
+                        `;
+                        
+                        for (const [playerName, gameCount] of Object.entries(stats.players)) {
+                            const isEqual = gameCount === stats.least_played && gameCount === stats.most_played;
+                            const isLeast = gameCount === stats.least_played && !isEqual;
+                            const isMost = gameCount === stats.most_played && !isEqual;
+                            
+                            let badgeClass = 'badge-secondary';
+                            if (isLeast) badgeClass = 'badge-success';
+                            if (isMost) badgeClass = 'badge-warning';
+                            
+                            statsHtml += `<span class="badge ${badgeClass} mr-1">${playerName}: ${gameCount}</span>`;
+                        }
+                        
+                        statsHtml += `
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    statsHtml += '</div>';
+                }
+                
+                // Zeige Modal
+                document.getElementById('rotationModalBody').innerHTML = statsHtml;
+                $('#rotationModal').modal('show');
+            } else {
+                alert('Fehler beim Laden der Statistiken: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ein Fehler ist aufgetreten beim Laden der Statistiken');
+        });
+}
+
+function resetRotation() {
+    if (confirm('Spieler-Rotation zurücksetzen? Alle Spieler starten wieder mit 0 Einsätzen.')) {
+        fetch('/admin/reset_player_rotation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Spieler-Rotation erfolgreich zurückgesetzt!');
+                location.reload(); // Seite neu laden
+            } else {
+                alert('Fehler beim Zurücksetzen: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ein Fehler ist aufgetreten beim Zurücksetzen');
+        });
+    }
+}
+
+// Live-Updates für Sequence-Status
+let sequenceUpdateInterval;
+
+function updateSequenceStatus() {
+    fetch('/admin/api/sequence_status')
+        .then(response => response.json())
+        .then(data => {
+            updateSequenceUI(data);
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Sequence-Daten:', error);
+        });
+}
+
+function updateSequenceUI(data) {
+    // Update der Radio Button Verfügbarkeit
+    const folderPlannedRadio = document.querySelector('input[value="folder_planned"]');
+    const folderPlannedContainer = folderPlannedRadio ? folderPlannedRadio.closest('.col-md-6, .col-lg-3') : null;
+    
+    if (folderPlannedContainer) {
+        const hasActivePlan = data.has_sequence && data.is_active && data.has_items;
+        
+        if (hasActivePlan) {
+            // Option verfügbar machen - Container anzeigen
+            folderPlannedContainer.style.display = 'block';
+            folderPlannedRadio.disabled = false;
+        } else {
+            // Option verstecken wenn kein aktiver Plan
+            folderPlannedContainer.style.display = 'none';
+            folderPlannedRadio.disabled = true;
+            
+            // Falls diese Option aktuell ausgewählt ist, wechsle zu einer anderen
+            if (folderPlannedRadio.checked) {
+                const firstEnabledRadio = document.querySelector('input[name="minigame_source"]:not([disabled]):not([value="folder_planned"])');
+                if (firstEnabledRadio) {
+                    firstEnabledRadio.checked = true;
+                    // Trigger change event um section zu wechseln
+                    firstEnabledRadio.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+    }
+    
+    // Update der folder_planned Section falls sichtbar
+    const folderPlannedSection = document.getElementById('folder_planned-section');
+    if (folderPlannedSection) {
+        if (data.has_sequence && data.has_items) {
+            updateFolderPlannedSection(folderPlannedSection, data);
+        }
+    }
+}
+
+function updateFolderPlannedSection(section, data) {
+    // Status Badge aktualisieren (in der Card Header)
+    const statusBadge = section.querySelector('.card-header .badge');
+    if (statusBadge) {
+        if (data.is_active) {
+            statusBadge.className = 'badge badge-success ml-2';
+            statusBadge.textContent = 'Aktiv';
+        } else {
+            statusBadge.className = 'badge badge-secondary ml-2';
+            statusBadge.textContent = 'Inaktiv';
+        }
+    }
+    
+    // Progress Bar aktualisieren
+    const progressBar = section.querySelector('.progress-bar');
+    if (progressBar) {
+        progressBar.style.width = data.progress_percentage + '%';
+        progressBar.textContent = data.progress_percentage + '%';
+    }
+    
+    // Position Text aktualisieren (kleiner Text unter Progress Bar)  
+    const progressContainer = section.querySelector('.progress').parentElement;
+    const positionText = progressContainer ? progressContainer.querySelector('small') : null;
+    if (positionText) {
+        positionText.textContent = `${data.current_position + 1} / ${data.total_items} abgeschlossen`;
+    }
+    
+    // Aktuelles Item aktualisieren (alert-warning)
+    if (data.current_item) {
+        updateCurrentItemAlert(section, data.current_item);
+    } else {
+        // Alle Items abgeschlossen
+        updateCurrentItemAlert(section, null);
+    }
+    
+    // Nächstes Item aktualisieren (alert-light)
+    if (data.next_item) {
+        updateNextItemAlert(section, data.next_item);
+    } else {
+        // Kein nächstes Item, verstecke die Vorschau
+        const nextAlert = section.querySelector('.alert-light');
+        if (nextAlert) {
+            nextAlert.style.display = 'none';
+        }
+    }
+}
+
+function updateCurrentItemAlert(section, currentItem) {
+    const currentAlert = section.querySelector('.alert-warning');
+    
+    if (!currentItem) {
+        // Alle Items abgeschlossen - zeige success alert
+        if (currentAlert) {
+            currentAlert.className = 'alert alert-success';
+            currentAlert.innerHTML = `
+                <i class="fas fa-check-circle"></i> 
+                Alle Items des Ablaufplans wurden abgeschlossen!
+            `;
+        }
+        return;
+    }
+    
+    if (currentAlert) {
+        const icon = currentItem.type === 'minigame' ? 
+            '<i class="fas fa-gamepad text-primary"></i>' : 
+            '<i class="fas fa-question-circle text-info"></i>';
+        
+        let html = `
+            <h6><i class="fas fa-arrow-right"></i> Nächstes Item:</h6>
+            <strong>
+                ${icon}
+                ${currentItem.name}
+            </strong>
+        `;
+        
+        if (currentItem.description) {
+            html += `<p class="mb-0 mt-1">${currentItem.description}</p>`;
+        }
+        
+        currentAlert.innerHTML = html;
+        currentAlert.className = 'alert alert-warning';
+        currentAlert.style.display = 'block';
+    }
+}
+
+function updateNextItemAlert(section, nextItem) {
+    const nextAlert = section.querySelector('.alert-light');
+    
+    if (nextAlert && nextItem) {
+        const icon = nextItem.type === 'minigame' ? 
+            '<i class="fas fa-gamepad text-primary"></i>' : 
+            '<i class="fas fa-question-circle text-info"></i>';
+        
+        nextAlert.innerHTML = `
+            <h6><i class="fas fa-clock"></i> Danach:</h6>
+            <small>
+                ${icon}
+                ${nextItem.name}
+            </small>
+        `;
+        nextAlert.style.display = 'block';
+    }
+}
+
+// NEU: Minigame-Feld Admin Auswahl Functions
+let selectedMinigameId = null;
+let selectedWinnerTeamId = null;
+
+function checkMinigameFieldStatus() {
+    fetch('/admin/check_minigame_field_status', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const selectionCard = document.getElementById('minigame-field-selection');
+        
+        if (data.selection_pending) {
+            // Zeige Minispiel-Auswahl Interface
+            selectionCard.style.display = 'block';
+            displayMinigameSelection(data);
+        } else if (data.result_pending) {
+            // NEU: Zeige Ergebnis-Eingabe Interface
+            selectionCard.style.display = 'block';
+            displayMinigameResult(data);
+        } else {
+            // Verstecke Interface
+            selectionCard.style.display = 'none';
+        }
+    })
+    .catch(error => {
+        console.error('Fehler beim Prüfen des Minigame-Status:', error);
+    });
+}
+
+function displayMinigameSelection(data) {
+    const infoDiv = document.getElementById('minigame-selection-info');
+    const interfaceDiv = document.getElementById('minigame-selection-interface');
+    const matchInfoDiv = document.getElementById('minigame-match-info');
+    const minigamesListDiv = document.getElementById('available-minigames-list');
+    
+    // Zeige Team-Info mit Admin-Modus-Auswahl
+    matchInfoDiv.innerHTML = `
+        <div class="text-center">
+            <h5 class="text-primary">Team <strong>${data.landing_team}</strong> ist auf einem Minigame-Feld gelandet!</h5>
+            <small class="text-muted">Wähle Modus und Minispiel aus:</small>
+        </div>
+    `;
+    
+    // Verfügbare Minispiele nach Modi gruppiert anzeigen
+    if (data.available_minigames) {
+        let minigamesHtml = '';
+        
+        // Team vs All Modus
+        if (data.available_minigames.team_vs_all && data.available_minigames.team_vs_all.length > 0) {
+            minigamesHtml += `
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="fas fa-users"></i> Team vs Alle (${data.landing_team} gegen alle anderen)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+            `;
+            
+            data.available_minigames.team_vs_all.forEach(minigame => {
+                minigamesHtml += `
+                    <div class="list-group-item list-group-item-action minigame-option field-minigame-item" data-id="${minigame.id}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="mb-1">
+                                    🎮 ${minigame.title}
+                                    <span class="badge badge-info ml-2" title="Dieses Spiel wird für Feld-Minispiele verwendet">
+                                        <i class="fas fa-map-marker-alt"></i> Feld-Minigame
+                                    </span>
+                                </h6>
+                                <small class="text-muted">Spieler pro Team: ${minigame.player_count}</small>
+                            </div>
+                            <div class="text-right">
+                                <input type="radio" name="minigame-selection" value="${minigame.id}" class="minigame-radio">
+                            </div>
+                        </div>
+                        ${minigame.instructions ? `<p class="mb-1 small text-muted">${minigame.instructions}</p>` : ''}
+                    </div>
+                `;
+            });
+            
+            minigamesHtml += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Team vs Team Modus
+        if (data.available_minigames.team_vs_team && data.available_minigames.team_vs_team.length > 0) {
+            minigamesHtml += `
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="fas fa-user-friends"></i> Team vs Team (${data.landing_team} gegen ein anderes Team)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+            `;
+            
+            data.available_minigames.team_vs_team.forEach(minigame => {
+                minigamesHtml += `
+                    <div class="list-group-item list-group-item-action minigame-option field-minigame-item" data-id="${minigame.id}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="mb-1">
+                                    🎮 ${minigame.title}
+                                    <span class="badge badge-info ml-2" title="Dieses Spiel wird für Feld-Minispiele verwendet">
+                                        <i class="fas fa-map-marker-alt"></i> Feld-Minigame
+                                    </span>
+                                </h6>
+                                <small class="text-muted">Spieler pro Team: ${minigame.player_count}</small>
+                            </div>
+                            <div class="text-right">
+                                <input type="radio" name="minigame-selection" value="${minigame.id}" class="minigame-radio">
+                            </div>
+                        </div>
+                        ${minigame.instructions ? `<p class="mb-1 small text-muted">${minigame.instructions}</p>` : ''}
+                    </div>
+                `;
+            });
+            
+            minigamesHtml += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Füge den Start-Button unter die Modi hinzu
+        minigamesHtml += `
+            <div class="mt-3 text-center">
+                <button id="start-selected-minigame" class="btn btn-success btn-lg" disabled>
+                    <i class="fas fa-play"></i> Ausgewähltes Minispiel starten
+                </button>
+            </div>
+        `;
+        
+        minigamesListDiv.innerHTML = minigamesHtml;
+        
+        // Event Listeners für Auswahl
+        document.querySelectorAll('.minigame-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // Deselektiere alle anderen
+                document.querySelectorAll('.minigame-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                document.querySelectorAll('.minigame-radio').forEach(radio => {
+                    radio.checked = false;
+                });
+                
+                // Selektiere das aktuelle
+                this.classList.add('active');
+                this.querySelector('.minigame-radio').checked = true;
+                selectedMinigameId = this.dataset.id;
+                
+                console.log('✅ Minigame ausgewählt:', selectedMinigameId);
+                console.log('✅ Element data-id:', this.dataset.id);
+                
+                // Aktiviere Start-Button
+                const startButton = document.getElementById('start-selected-minigame');
+                if (startButton) {
+                    startButton.disabled = false;
+                    console.log('✅ Start-Button aktiviert');
+                } else {
+                    console.error('❌ Start-Button nicht gefunden beim Aktivieren');
+                }
+            });
+        });
+        
+        // Event Listener für Start-Button (neu hinzufügen)
+        const startButton = document.getElementById('start-selected-minigame');
+        if (startButton) {
+            startButton.addEventListener('click', startSelectedMinigame);
+        }
+        
+        interfaceDiv.style.display = 'block';
+    } else {
+        minigamesListDiv.innerHTML = '<div class="alert alert-warning">Keine verfügbaren Minispiele gefunden!</div>';
+        interfaceDiv.style.display = 'block';
+    }
+}
+
+function startSelectedMinigame() {
+    if (!selectedMinigameId) {
+        alert('Bitte wähle ein Minispiel aus!');
+        return;
+    }
+    
+    console.log('🎮 Starte Feld-Minigame mit ID:', selectedMinigameId);
+    
+    const startButton = document.getElementById('start-selected-minigame');
+    if (!startButton) {
+        console.error('❌ Start-Button nicht gefunden!');
+        return;
+    }
+    
+    startButton.disabled = true;
+    startButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starte...';
+    
+    const requestData = {
+        minigame_id: selectedMinigameId
+    };
+    
+    console.log('📤 Sende Request:', requestData);
+    
+    fetch('/admin/start_field_minigame', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        console.log('📥 Response Status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📥 Response Data:', data);
+        if (data.success) {
+            // Verstecke Auswahl-Interface
+            document.getElementById('minigame-field-selection').style.display = 'none';
+            selectedMinigameId = null;
+            
+            // Zeige Erfolg-Nachricht
+            showAlert('success', `Minispiel "${data.minigame_name}" wurde gestartet!`);
+            
+            // Aktualisiere Spielstatus
+            location.reload(); // Einfache Lösung - Seite neu laden
+        } else {
+            showAlert('danger', 'Fehler: ' + data.message);
+            startButton.disabled = false;
+            startButton.innerHTML = '<i class="fas fa-play"></i> Ausgewähltes Minispiel starten';
+        }
+    })
+    .catch(error => {
+        console.error('❌ Fehler beim Starten des Minispiels:', error);
+        showAlert('danger', 'Fehler beim Starten des Minispiels');
+        const startButton = document.getElementById('start-selected-minigame');
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.innerHTML = '<i class="fas fa-play"></i> Ausgewähltes Minispiel starten';
+        }
+    });
+}
+
+// NEU: Ergebnis-Eingabe Interface (vereinfacht)
+function displayMinigameResult(data) {
+    const interfaceDiv = document.getElementById('minigame-selection-interface');
+    const resultInterfaceDiv = document.getElementById('minigame-result-interface');
+    const runningInfoDiv = document.getElementById('running-minigame-info');
+    
+    // Verstecke Auswahl-Interface, zeige Ergebnis-Interface
+    interfaceDiv.style.display = 'none';
+    resultInterfaceDiv.style.display = 'block';
+    
+    // Zeige laufendes Minispiel Info
+    let modeText = '';
+    let challengerTeam = data.landing_team;
+    
+    if (data.mode === 'team_vs_team') {
+        modeText = `<strong>${data.landing_team}</strong> vs <strong>${data.opponent_team}</strong>`;
+    } else {
+        modeText = `<strong>${data.landing_team}</strong> vs <strong>alle anderen Teams</strong>`;
+    }
+    
+    runningInfoDiv.innerHTML = `
+        <div class="text-center">
+            <h6 class="text-primary">🎮 ${data.minigame_name}</h6>
+            <div>${modeText}</div>
+            <div class="mt-2">
+                <span class="badge badge-info">Herausforderer: <strong>${challengerTeam}</strong></span>
+            </div>
+        </div>
+    `;
+    
+    // Reset Auswahl
+    selectedResult = null;
+    document.getElementById('submit-simple-result').disabled = true;
+}
+
+// NEU: Vereinfachte Ergebnis-Auswahl
+let selectedResult = null;
+
+function selectSimpleResult(result) {
+    selectedResult = result;
+    document.getElementById('submit-simple-result').disabled = false;
+    
+    // Visuelles Feedback
+    document.querySelectorAll('.btn-group label').forEach(label => {
+        label.classList.remove('active');
+    });
+    event.target.closest('label').classList.add('active');
+}
+
+function submitMinigameResult() {
+    if (!selectedResult) {
+        alert('Bitte wähle das Ergebnis aus!');
+        return;
+    }
+    
+    const submitButton = document.getElementById('submit-simple-result');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verarbeite Ergebnis...';
+    
+    fetch('/admin/submit_field_minigame_result', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            result: selectedResult
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Verstecke Ergebnis-Interface
+            document.getElementById('minigame-field-selection').style.display = 'none';
+            selectedWinnerTeamId = null;
+            
+            // Zeige Erfolg-Nachricht
+            showAlert('success', data.message);
+            
+            // Aktualisiere Spielstatus
+            location.reload(); // Einfache Lösung - Seite neu laden
+        } else {
+            showAlert('danger', 'Fehler: ' + data.message);
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-check"></i> Ergebnis bestätigen & Belohnung anwenden';
+        }
+    })
+    .catch(error => {
+        console.error('Fehler beim Übermitteln des Ergebnisses:', error);
+        showAlert('danger', 'Fehler beim Übermitteln des Ergebnisses');
+        submitButton.disabled = false;
+        submitButton.innerHTML = '<i class="fas fa-check"></i> Ergebnis bestätigen & Belohnung anwenden';
+    });
+}
+
+function showAlert(type, message) {
+    // Füge Alert am Anfang der Container hinzu
+    const container = document.querySelector('.container');
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    `;
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-remove nach 5 Sekunden
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Live-Updates starten wenn Admin Dashboard geladen wird
+document.addEventListener('DOMContentLoaded', function() {
+    // Initiales Update
+    updateSequenceStatus();
+    checkMinigameFieldStatus(); // NEU: Prüfe Minigame-Feld Status
+    
+    // Regelmäßige Updates alle 5 Sekunden
+    sequenceUpdateInterval = setInterval(function() {
+        updateSequenceStatus();
+        checkMinigameFieldStatus(); // NEU: Prüfe auch Minigame-Status
+    }, 5000);
+    
+    // Event Listeners für Minigame-Auswahl Interface
+    document.getElementById('refresh-minigame-status').addEventListener('click', checkMinigameFieldStatus);
+    // start-selected-minigame wird dynamisch gesetzt
+    document.getElementById('submit-simple-result').addEventListener('click', submitMinigameResult);
+    
+    // Stoppe Updates wenn Seite verlassen wird
+    window.addEventListener('beforeunload', function() {
+        if (sequenceUpdateInterval) {
+            clearInterval(sequenceUpdateInterval);
+        }
+    });
+    
+    // Pause Updates wenn Tab nicht aktiv ist (Performance)
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            if (sequenceUpdateInterval) {
+                clearInterval(sequenceUpdateInterval);
+            }
+        } else {
+            // Resume updates wenn Tab wieder aktiv
+            updateSequenceStatus();
+            checkMinigameFieldStatus(); // NEU
+            sequenceUpdateInterval = setInterval(function() {
+                updateSequenceStatus();
+                checkMinigameFieldStatus(); // NEU
+            }, 5000);
+        }
+    });
+
+    // Copy Password Functionality - Event Delegation für dynamische Buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('copy-password-btn')) {
+            const password = e.target.getAttribute('data-password');
+            const teamName = e.target.getAttribute('data-team-name');
+            
+            // Modern Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(password).then(function() {
+                    // Success feedback
+                    const originalContent = e.target.innerHTML;
+                    e.target.innerHTML = '✅';
+                    e.target.title = 'Kopiert!';
+                    e.target.classList.remove('btn-outline-secondary');
+                    e.target.classList.add('btn-success');
+                    
+                    // Reset nach 2 Sekunden
+                    setTimeout(function() {
+                        e.target.innerHTML = originalContent;
+                        e.target.title = 'Passwort kopieren';
+                        e.target.classList.remove('btn-success');
+                        e.target.classList.add('btn-outline-secondary');
+                    }, 2000);
+                    
+                    // Optional: Toast notification
+                    console.log(`Passwort für ${teamName} kopiert: ${password}`);
+                }).catch(function(err) {
+                    console.error('Fehler beim Kopieren:', err);
+                    alert('Fehler beim Kopieren des Passworts');
+                });
+            } else {
+                // Fallback für ältere Browser
+                const textArea = document.createElement('textarea');
+                textArea.value = password;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    textArea.remove();
+                    
+                    // Success feedback
+                    const originalContent = e.target.innerHTML;
+                    e.target.innerHTML = '✅';
+                    e.target.classList.remove('btn-outline-secondary');
+                    e.target.classList.add('btn-success');
+                    
+                    setTimeout(function() {
+                        e.target.innerHTML = originalContent;
+                        e.target.classList.remove('btn-success');
+                        e.target.classList.add('btn-outline-secondary');
+                    }, 2000);
+                } catch (copyErr) {
+                    textArea.remove();
+                    console.error('Fallback copy failed:', copyErr);
+                    alert('Fehler beim Kopieren des Passworts');
+                }
+            }
+        }
+    });
+
+    // Custom Modal Functions
+    window.showCustomModal = function() {
+        console.log('🔧 Showing custom modal');
+        document.getElementById('customGameResetModal').style.display = 'block';
+    };
+
+    window.hideCustomModal = function() {
+        console.log('🔧 Hiding custom modal');
+        document.getElementById('customGameResetModal').style.display = 'none';
+    };
+
+    window.showFinalConfirmModal = function() {
+        console.log('🗑️ Showing final confirm modal');
+        hideCustomModal();
+        setTimeout(function() {
+            document.getElementById('customFinalResetModal').style.display = 'block';
+        }, 200);
+    };
+
+    window.hideFinalConfirmModal = function() {
+        console.log('🔧 Hiding final confirm modal');
+        document.getElementById('customFinalResetModal').style.display = 'none';
+    };
+
+    window.executeGameReset = function() {
+        console.log('💣 Executing game reset');
+        const executeBtn = document.getElementById('customExecuteResetBtn');
+        
+        // Verstecke Modal
+        hideFinalConfirmModal();
+        
+        // Zeige Loading-Feedback
+        executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gelöscht...';
+        executeBtn.disabled = true;
+        
+        fetch('/admin/api/reset-game-complete', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrfToken
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(resetData => {
+            if (resetData.success) {
+                // Erfolgsmeldung mit Welcome-System Status
+                let successMsg = `✅ ${resetData.message}`;
+                if (resetData.welcome_started) {
+                    successMsg += `\\n\\n🎉 Das Welcome-System wurde automatisch gestartet!`;
+                } else {
+                    successMsg += `\\n\\n⚠️ Das Welcome-System muss manuell gestartet werden.`;
+                }
+                alert(successMsg);
+                updateWelcomeStatus();
+                window.location.reload(); // Full-Refresh für komplette Aktualisierung
+            } else {
+                alert('❌ Fehler beim Reset: ' + resetData.error);
+                executeBtn.innerHTML = '<i class="fas fa-bomb"></i> JA, ALLES LÖSCHEN!';
+                executeBtn.disabled = false;
+            }
+        })
+        .catch(resetError => {
+            console.error('Reset Error:', resetError);
+            alert('❌ Ein Fehler ist beim Reset aufgetreten. Bitte versuche es erneut.');
+            executeBtn.innerHTML = '<i class="fas fa-bomb"></i> JA, ALLES LÖSCHEN!';
+            executeBtn.disabled = false;
+        });
+    };
+
+    // Schließe Modal bei Klick außerhalb
+    window.addEventListener('click', function(e) {
+        if (e.target.id === 'customGameResetModal') {
+            hideCustomModal();
+        }
+        if (e.target.id === 'customFinalResetModal') {
+            hideFinalConfirmModal();
+        }
+    });
+});
+</script>
+
+<!-- Custom Glassmorphism Modal für Game Reset Bestätigung -->
+<div id="customGameResetModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 700px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);">
+        
+        <!-- Header -->
+        <div style="background: rgba(231, 76, 60, 0.15); padding: 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px 20px 0 0; backdrop-filter: blur(10px);">
+            <h3 style="margin: 0; color: #fff; display: flex; align-items: center; gap: 1rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                <i class="fas fa-exclamation-triangle" style="color: #f1c40f; font-size: 2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i> 
+                <strong>SPIEL BEREITS AKTIV</strong>
+            </h3>
+        </div>
+        
+        <!-- Body -->
+        <div style="padding: 2.5rem;">
+            <div style="background: rgba(241, 196, 15, 0.15); border-left: 4px solid rgba(241, 196, 15, 0.6); color: #fff; padding: 2rem; border-radius: 15px; margin-bottom: 2rem; backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
+                <p id="customGameResetMessage" style="margin-bottom: 1rem; font-size: 1.2rem; line-height: 1.6; text-shadow: 0 1px 2px rgba(0,0,0,0.2);"></p>
+                <div id="customExistingTeams" style="margin-top: 1.5rem;"></div>
+            </div>
+            
+            <div style="background: rgba(52, 152, 219, 0.12); border-left: 4px solid rgba(52, 152, 219, 0.6); color: #e8f4f8; padding: 2rem; border-radius: 15px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
+                <h4 style="margin-bottom: 1.5rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2);"><i class="fas fa-info-circle"></i> Was möchtest du tun?</h4>
+                <p style="margin-bottom: 1rem; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.1);"><strong>Option 1:</strong> Abbrechen und das aktuelle Spiel fortsetzen</p>
+                <p style="margin-bottom: 0; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.1);"><strong>Option 2:</strong> Kompletten Neustart durchführen (alle Daten werden gelöscht)</p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="padding: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: space-between; gap: 1rem; border-radius: 0 0 20px 20px; background: rgba(255, 255, 255, 0.05);">
+            <button type="button" id="customCancelBtn" onclick="hideCustomModal()" style="background: rgba(149, 165, 166, 0.2); border: 1px solid rgba(149, 165, 166, 0.3); padding: 1.2rem 2.5rem; border-radius: 15px; color: white; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; min-width: 280px; backdrop-filter: blur(10px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
+                <i class="fas fa-times"></i> Abbrechen (Spiel fortsetzen)
+            </button>
+            <button type="button" id="customConfirmResetBtn" onclick="showFinalConfirmModal()" style="background: rgba(231, 76, 60, 0.25); border: 1px solid rgba(231, 76, 60, 0.4); padding: 1.2rem 2.5rem; border-radius: 15px; color: white; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; min-width: 280px; backdrop-filter: blur(10px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);">
+                <i class="fas fa-trash-alt"></i> Neues Spiel starten (Alles löschen)
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Glassmorphism Modal für finale Reset-Bestätigung -->
+<div id="customFinalResetModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: rgba(192, 57, 43, 0.15); color: white; border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 20px; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); box-shadow: 0 25px 70px rgba(0,0,0,0.4), 0 0 0 1px rgba(231, 76, 60, 0.1); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+        
+        <!-- Header -->
+        <div style="padding: 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.15); text-align: center; background: rgba(231, 76, 60, 0.1); border-radius: 20px 20px 0 0;">
+            <h3 style="margin: 0; color: #fff; display: flex; align-items: center; justify-content: center; gap: 1rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                <i class="fas fa-skull-crossbones" style="font-size: 2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i> 
+                <strong>ACHTUNG: KOMPLETTER SPIEL-RESET</strong>
+            </h3>
+        </div>
+        
+        <!-- Body -->
+        <div style="padding: 2.5rem; text-align: center;">
+            <div style="font-size: 5rem; margin-bottom: 1.5rem; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">🚨</div>
+            <h4 style="margin-bottom: 2rem; color: #ffcccb; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">ALLE DATEN WERDEN PERMANENT GELÖSCHT!</h4>
+            
+            <div style="background: rgba(0, 0, 0, 0.2); padding: 2rem; border-radius: 15px; margin-bottom: 2rem; text-align: left; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <p style="margin-bottom: 1rem; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2);"><i class="fas fa-users" style="width: 20px;"></i> <strong>Alle Teams und Spieler</strong></p>
+                <p style="margin-bottom: 1rem; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2);"><i class="fas fa-gamepad" style="width: 20px;"></i> <strong>Alle Spielsessions und Events</strong></p>
+                <p style="margin-bottom: 1rem; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2);"><i class="fas fa-images" style="width: 20px;"></i> <strong>Alle Profilbilder</strong></p>
+                <p style="margin-bottom: 0; font-size: 1.1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.2);"><i class="fas fa-history" style="width: 20px;"></i> <strong>Kompletter Spielfortschritt</strong></p>
+            </div>
+            
+            <p style="color: #ff8a80; font-weight: bold; margin-bottom: 0; font-size: 1.2rem; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">Dieser Vorgang kann NICHT rückgängig gemacht werden!</p>
+        </div>
+        
+        <!-- Footer -->
+        <div style="padding: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.15); display: flex; justify-content: space-between; gap: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 0 0 20px 20px;">
+            <button type="button" onclick="hideFinalConfirmModal()" style="background: rgba(255, 255, 255, 0.2); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); padding: 1.2rem 2rem; border-radius: 15px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; backdrop-filter: blur(10px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
+                <i class="fas fa-shield-alt"></i> Sicherheitsabbruch
+            </button>
+            <button type="button" id="customExecuteResetBtn" onclick="executeGameReset()" style="background: rgba(231, 76, 60, 0.25); border: 1px solid rgba(231, 76, 60, 0.5); color: #fff; padding: 1.2rem 2rem; border-radius: 15px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; backdrop-filter: blur(10px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);">
+                <i class="fas fa-bomb"></i> JA, ALLES LÖSCHEN!
+            </button>
+        </div>
+    </div>
+</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
