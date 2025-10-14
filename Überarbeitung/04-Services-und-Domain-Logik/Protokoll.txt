@@ -12,3 +12,22 @@ Eintrag 1
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 
+Eintrag 2
+- Datum/Uhrzeit: 2025-10-14 09:10 (ungefähr)
+- Ort/Ordner: Überarbeitung/04-Services-und-Domain-Logik
+- Änderung (Was):
+  - Service `app/services/event_service.py` hinzugefügt mit `create_event(...)` (garantiert JSON für `data_json`).
+  - `roll_dice_action_admin_only` in `app/main/routes.py` auf `create_event(...)` umgestellt.
+- Begründung/Ziel (Warum):
+  - Einheitliche Event-Erzeugung, keine `eval`-Abhängigkeit mehr für neue Events.
+- Test-Anleitung (Wie testen):
+  - Admin-Dashboard: für ein Team würfeln.
+  - Danach: `curl -s http://localhost:5001/api/v1/status/board | jq` → `data.last_dice` gefüllt, keine Fehler im Log.
+- Testergebnisse (vom User):
+  - last_dice korrekt gefüllt; keine Tracebacks; zusätzlich trat ein `special_field_player_swap` auf und wurde korrekt angezeigt.
+- Auswirkungen/Backwards-Compat:
+  - Bestehende Events bleiben lesbar; neue Events sind JSON.
+- Nächste Schritte:
+  - Weitere Event-Erzeugungen schrittweise auf den Service umstellen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
