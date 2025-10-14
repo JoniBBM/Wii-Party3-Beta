@@ -12,3 +12,19 @@ Eintrag 1
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 
+Eintrag 2
+- Datum/Uhrzeit: 2025-10-14 09:15 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_player_swap` stellt die Erstellung beider Swap-Events auf `event_service.create_event` um.
+- Begründung/Ziel (Warum):
+  - Einheitliche Event-Erzeugung auch für Spezialfelder, strikt JSON, weniger Duplikation.
+- Test-Anleitung (Wie testen):
+  - Würfeln bis Spieler-Tausch ausgelöst wird; danach `curl -s http://localhost:5001/api/v1/status/board | jq`.
+  - Erwartung: `data.last_special.type == "special_field_player_swap"`, keine Tracebacks.
+- Testergebnisse (vom User): erfolgreich (player_swap wurde angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: Weitere Spezialfeld-Events sukzessive migrieren (catapult/barrier), dann eval-Fallbacks entfernen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen

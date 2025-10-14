@@ -31,3 +31,4 @@ Eintrag 2
   - Weitere Event-Erzeugungen schrittweise auf den Service umstellen.
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen

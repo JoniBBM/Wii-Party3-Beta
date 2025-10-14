@@ -41,6 +41,14 @@ Nach erfolgreichem Test eines Schritts
 - Die KI schlägt eine kurze, präzise Push-/Commit-Beschreibung vor (z. B. "feat(api-v1): add read-only board status endpoint" oder "chore(events): store dice_event as JSON").
 - Der Push erfolgt ausschließlich durch den User. Erst danach geht es mit dem nächsten Schritt weiter.
 
+Pflicht: Dokumentation nach jeder Änderung
+-----------------------------------------
+- Nach jeder Änderung wird im passenden Protokoll festgehalten:
+  - Was/Warum/Wo/Nächster Schritt,
+  - Test-Anleitung (Wie testen) und Testergebnis (erfolgreich/nicht),
+  - Genehmigung des Users (ja/nein),
+  - Status: Abgeschlossen (bei Erfolg) bzw. Offen (bei Folgearbeiten notwendig).
+
 Spielprinzip (Allgemein)
 ------------------------
 - Teams bewegen sich rundenweise auf einem Spielbrett von Start (0) bis Ziel (72).
