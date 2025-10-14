@@ -32,3 +32,21 @@ Eintrag 2
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 3
+- Datum/Uhrzeit: 2025-10-14 11:05 (ungefähr)
+- Ort/Ordner: Überarbeitung/04-Services-und-Domain-Logik
+- Änderung (Was):
+  - `app/services/dice_service.py` neu: `admin_roll_for_team(active_session, team)` kapselt Würfel-/Bewegungs-/Spezialfeld- und Dice-Event-Logik.
+  - `roll_dice_action_admin_only` ruft nun den Service auf (kleiner Refactor, Verhalten unverändert), Turn-/Phasenlogik bleibt im Route-Handler.
+- Begründung/Ziel (Warum):
+  - Schrittweise Entkopplung der Geschäftslogik von Routen, bessere Testbarkeit und Wiederverwendung.
+- Test-Anleitung (Wie testen):
+  - Einmal im Admin-UI würfeln; danach `curl -s http://localhost:5001/api/v1/status/board | jq`.
+  - Erwartung: `last_dice` gefüllt, Positionsänderung wie zuvor, keine Tracebacks.
+- Testergebnisse (vom User): erfolgreich (`last_dice` gefüllt, keine Tracebacks)
+- Auswirkungen/Backwards-Compat: Keine – äußeres Verhalten identisch.
+- Nächste Schritte: Session-/Turnlogik in `session_service` auslagern (separat), dann Route weiter verschlanken.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen

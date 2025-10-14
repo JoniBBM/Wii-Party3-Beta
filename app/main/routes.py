@@ -437,96 +437,17 @@ def roll_dice_action_admin_only():
             current_app.logger.warning("Sonderfeld-Module nicht verfügbar - Legacy-Modus")
             special_fields_available = False
 
-        standard_dice_roll = random.randint(1, 6)
-        bonus_dice_roll = 0
-        if team.bonus_dice_sides and team.bonus_dice_sides > 0:
-            bonus_dice_roll = random.randint(1, team.bonus_dice_sides)
-        
-        total_roll = standard_dice_roll + bonus_dice_roll
-        old_position = team.current_position
-        new_position = old_position
-        special_field_result = None
-        barrier_check_result = None
-        
-        # SONDERFELD: Prüfe Sperren-Status wenn verfügbar
-        if special_fields_available and hasattr(team, 'is_blocked') and team.is_blocked:
-            # Team ist blockiert - prüfe ob es freikommt
-            barrier_check_result = check_barrier_release(team, standard_dice_roll, active_session, bonus_dice_roll)
-            
-            if barrier_check_result['released']:
-                # Team ist befreit und kann sich normal bewegen
-                max_field_index = current_app.config.get('MAX_BOARD_FIELDS', 72)
-                new_position = min(team.current_position + total_roll, max_field_index)
-                team.current_position = new_position
-                
-                # Prüfe Sonderfeld-Aktion nach Bewegung
-                all_teams = Team.query.all()
-                special_field_result = handle_special_field_action(team, all_teams, active_session)
-            else:
-                # Team bleibt blockiert, keine Bewegung
-                new_position = old_position
-        else:
-            # Team ist nicht blockiert oder Sonderfelder nicht verfügbar - normale Bewegung
-            max_field_index = current_app.config.get('MAX_BOARD_FIELDS', 72)
-            new_position = min(team.current_position + total_roll, max_field_index)
-            team.current_position = new_position
-            
-            # SONDERFELD: Prüfe Sonderfeld-Aktion nach Bewegung wenn verfügbar
-            if special_fields_available:
-                all_teams = Team.query.all()
-                special_field_result = handle_special_field_action(team, all_teams, active_session)
-        
-        # ZIELFELD: Prüfe Gewinn-Bedingung
-        # WICHTIG: Team muss BEREITS auf Position 72 gewesen sein (old_position), nicht erst durch den Wurf dorthin gekommen
-        victory_triggered = False
-        if old_position == 72 and total_roll >= 6:
-            # Team war bereits auf Zielfeld und hat 6+ gewürfelt - hat gewonnen!
-            victory_triggered = True
-            current_app.logger.info(f"🏆 VICTORY: Team {team.name} war auf Position 72 und würfelte {total_roll} (>= 6) - SIEG!")
-        elif old_position == 72 and total_roll < 6:
-            # Team war auf Zielfeld, hat aber weniger als 6 gewürfelt
-            current_app.logger.info(f"🎯 FINAL FIELD: Team {team.name} war auf Position 72, würfelte {total_roll} - braucht mindestens 6 zum Gewinnen")
-        elif new_position == 72:
-            # Team ist gerade erst auf Position 72 angekommen - muss nächste Runde 6+ würfeln
-            current_app.logger.info(f"🎯 REACHED FINAL FIELD: Team {team.name} erreichte Position 72 - muss nächste Runde mindestens 6 würfeln")
-        
-        event_description = f"Admin würfelte für Team {team.name}: {standard_dice_roll}"
-        if bonus_dice_roll > 0:
-            event_description += f" (Bonus: {bonus_dice_roll}, Gesamt: {total_roll})"
-        
-        if (special_fields_available and hasattr(team, 'is_blocked') and 
-            team.is_blocked and not barrier_check_result.get('released', False)):
-            event_description += f" - BLOCKIERT: Konnte sich nicht befreien."
-        else:
-            event_description += f" und bewegte sich von Feld {old_position} zu Feld {new_position}."
-            
-        if victory_triggered:
-            event_description += f" 🏆 SIEG! Team war auf Zielfeld und würfelte {total_roll}!"
-        elif old_position == 72 and total_roll < 6:
-            event_description += f" 🎯 War auf Zielfeld - braucht mindestens 6 zum Gewinnen (gewürfelt: {total_roll})"
-        elif new_position == 72:
-            event_description += f" 🎯 Erreichte Zielfeld - braucht nächste Runde mindestens 6 zum Gewinnen"
-        
-        # Event über Service-Layer erzeugen (garantiert JSON)
-        from app.services.event_service import create_event
-        dice_event = create_event(
-            game_session_id=active_session.id,
-            event_type="admin_dice_roll_legacy",
-            related_team_id=team.id,
-            description=event_description,
-            data={
-                "standard_roll": standard_dice_roll,
-                "bonus_roll": bonus_dice_roll,
-                "total_roll": total_roll,
-                "old_position": old_position,
-                "new_position": new_position,
-                "rolled_by": "admin_legacy_route",
-                "was_blocked": getattr(team, 'is_blocked', False) if barrier_check_result else False,
-                "barrier_released": barrier_check_result.get('released', False) if barrier_check_result else False,
-                "victory_triggered": victory_triggered,
-                "needs_final_roll": old_position == 72 and total_roll < 6
-            }
-        )
+        # Dice-/Bewegungs-/Eventlogik über Service ausführen
+        from app.services.dice_service import admin_roll_for_team
+        roll_result = admin_roll_for_team(active_session, team)
+        standard_dice_roll = roll_result["standard_roll"]
+        bonus_dice_roll = roll_result["bonus_roll"]
+        total_roll = roll_result["total_roll"]
+        old_position = roll_result["old_position"]
+        new_position = roll_result["new_position"]
+        victory_triggered = roll_result["victory_triggered"]
+        special_field_result = roll_result.get("special_field_result")
+        barrier_check_result = roll_result.get("barrier_check_result")
 
         dice_order_ids_str = active_session.dice_roll_order.split(',')
         dice_order_ids_int = [int(tid) for tid in dice_order_ids_str if tid.isdigit()]
