@@ -174,17 +174,12 @@ def _get_last_dice_result(team_user, active_session):
     
     if last_dice_event and last_dice_event.data_json:
         try:
-            # Parse data_json
+            # Parse data_json strictly as JSON (kein eval-Fallback)
             if isinstance(last_dice_event.data_json, str):
-                # Versuche JSON parsing
-                try:
-                    event_data = json.loads(last_dice_event.data_json)
-                except json.JSONDecodeError:
-                    # Fallback zu eval für alte Daten
-                    event_data = eval(last_dice_event.data_json)
+                event_data = json.loads(last_dice_event.data_json)
             else:
-                event_data = last_dice_event.data_json
-            
+                event_data = last_dice_event.data_json or {}
+
             return {
                 'standard_roll': event_data.get('standard_roll', 0),
                 'bonus_roll': event_data.get('bonus_roll', 0),
@@ -196,7 +191,7 @@ def _get_last_dice_result(team_user, active_session):
                 'needs_final_roll': event_data.get('needs_final_roll', False)
             }
         except Exception as e:
-            current_app.logger.error(f"Error parsing dice result: {e}")
+            current_app.logger.warning(f"Ignoring unparsable team dice event data (non-JSON): {e}")
             return None
     
     return None

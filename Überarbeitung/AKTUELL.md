@@ -14,12 +14,12 @@
 - barrier_released/blocked-Events über Service (getestet, ok)
  - /api/board-status: eval-Fallback entfernt (getestet, ok)
 
- Nächster Schritt (offen)
- - Aufgabe: eval-Fallback in `app/teams/routes.py` → `_get_last_dice_result` entfernen (strict JSON, unparsable ignorieren).
- - Umfang: Kleine Leselogik-Änderung, keine API-/UI-Semantikänderung.
+Nächster Schritt (offen)
+ - Aufgabe: Team-Dashboard Parsing testen (eval-Fallback entfernt in `_get_last_dice_result`).
+ - Umfang: Nur Test/Validierung, danach als abgeschlossen markieren.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Nach Änderung: Team-Dashboard öffnen (als Team eingeloggt) und eine Würfelaktion auslösen.
+ 1) Team-Dashboard öffnen (als Team eingeloggt) und eine Würfelaktion auslösen.
  2) Danach: `GET /teams/api/dashboard-status` (oder Dashboard neu laden) prüft letztes Würfelergebnis.
  3) Erwartung: Letztes Würfelergebnis wird korrekt angezeigt; keine Tracebacks im Log (Parsing ohne eval).
 

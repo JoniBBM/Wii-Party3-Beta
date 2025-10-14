@@ -117,3 +117,21 @@ Eintrag 7
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
+
+Eintrag 8
+- Datum/Uhrzeit: 2025-10-14 10:58 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/teams/routes.py` → `_get_last_dice_result`: eval-Fallback entfernt; striktes JSON-Parsing, unparsable Legacy-Daten werden geloggt und ignoriert.
+- Begründung/Ziel (Warum):
+  - Sicherheit/Härtung, Konsistenz mit `/api/board-status`.
+- Test-Anleitung (Wie testen):
+  - Als Team im Dashboard: eine Würfelaktion durchführen.
+  - Danach Dashboard neu laden oder `GET /teams/api/dashboard-status` aufrufen.
+  - Erwartung: Letztes Würfelergebnis korrekt, keine Tracebacks; Log zeigt ggf. WARN statt ERROR bei sehr alten Events.
+- Testergebnisse (vom User): [bitte ausfüllen]
+- Auswirkungen/Backwards-Compat: Neue Events JSON; sehr alte, nicht-JSON Events werden ignoriert.
+- Nächste Schritte: Board-Blau-Problem (SyntaxError an „board:473“) isolieren und fixen – separater, kleiner Schritt.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Offen
