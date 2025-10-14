@@ -14,18 +14,24 @@
 - barrier_released/blocked-Events über Service (getestet, ok)
 - /api/board-status: eval-Fallback entfernt (getestet, ok)
 - Team-Dashboard (_get_last_dice_result): eval-Fallback entfernt (getestet, ok)
-- dice_service: Admin-Würfel-/Eventlogik ausgelagert; Route nutzt Service (Test ausstehend)
- - dice_service: getestet, ok
+ - dice_service: Admin-Würfel-/Eventlogik ausgelagert; Route nutzt Service (getestet, ok)
+ - Victory-Event speichert JSON statt String (Mini-Fix)
 
 Nächster Schritt (offen)
-- Aktuell keine offenen Schritte in Services/Events.
-- Vorschlag für Fortsetzung: session_service (Turn-/Phasenlogik), anschließend API v1 POST /api/v1/dice/roll, oder SSE-Konsolidierung.
+- Optional: Victory-Event testen (Team auf Position 72, Total ≥ 6, Event erzeugt).
+- Danach: DB-Neuinitialisierung per Docker (destruktiv) – Hinweise unten.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- - Wird beim Start des nächsten Tasks konkretisiert (abhängig von Auswahl: session_service, API v1, oder SSE).
+ 1) Optional: Victory-Test wie oben.
+ 2) DB-Reset (Docker):
+    - Hinweis: Löscht Tabellen. init_db.py sichert Runden ins Dateisystem (spielstaende/runden).
+    - Voraussetzung: docker-compose mit Live-Mount (.:/app).
+    - Befehl: `docker compose exec web python init_db.py`
+    - Erwartung: Erfolgs-Logs (✅), Standardrunde/Configs initialisiert.
 
 Push-Hinweis
  - Commit-Message-Vorschlag: `refactor(dice): use dice_service for admin legacy roll route`
+ - Commit-Message-Vorschlag: `chore(events): store victory_event data as JSON`
 - Push immer durch den User.
 
 Wo ist die ausführliche Doku?
