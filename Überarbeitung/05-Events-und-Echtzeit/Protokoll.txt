@@ -64,3 +64,21 @@ Eintrag 4
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
+
+Eintrag 5
+- Datum/Uhrzeit: 2025-10-14 10:35 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_barrier_field` (barrier_set) nutzt `event_service.create_event` für Event-Erzeugung.
+- Begründung/Ziel (Warum):
+  - Vereinheitlichung der Event-Erzeugung (Service, JSON), Vorbereitung zum Entfernen aller eval-Fallbacks.
+- Test-Anleitung (Wie testen):
+  - Spielen/würfeln bis „Sperren-Feld“ ausgelöst wird (Team landet auf Barrier-Position; siehe `/api/v1/fields/positions` → `barrier`).
+  - Direkt danach: `curl -s http://localhost:5001/api/v1/status/board | jq`
+  - Erwartung: `data.last_special.type == "special_field_barrier_set"`, keine Tracebacks im Log.
+- Testergebnisse (vom User): erfolgreich (special_field_barrier_set angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: barrier_released / barrier_blocked migrieren (jeweils separat, klein), dann eval-Fallbacks abbauen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
