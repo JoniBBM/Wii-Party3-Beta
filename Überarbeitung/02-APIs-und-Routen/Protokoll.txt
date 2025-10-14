@@ -12,3 +12,23 @@ Eintrag 1
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 
+Eintrag 2
+- Datum/Uhrzeit: 2025-10-14 09:00 (ungefähr)
+- Ort/Ordner: Überarbeitung/02-APIs-und-Routen
+- Änderung (Was):
+  - Neuer Blueprint `app/api_v1` hinzugefügt.
+  - Endpunkte implementiert: `GET /api/v1/status/board`, `GET /api/v1/fields/positions`.
+  - Blueprint in `app/__init__.py` registriert.
+- Begründung/Ziel (Warum):
+  - Einheitliche, versionierte API v1 als stabile Schnittstelle für Dashboards/Board.
+- Test-Anleitung (Wie testen):
+  - Schritt 1: `curl -s http://localhost:5001/api/v1/status/board | jq` → success=true, Teams/Session sichtbar.
+  - Schritt 2: `curl -s http://localhost:5001/api/v1/fields/positions | jq` → success=true, start/goal und Spezialfelder gelistet.
+- Testergebnisse (vom User):
+  - Beide Endpunkte lieferten korrekte Antworten, meta.version="v1".
+- Auswirkungen/Backwards-Compat:
+  - Keine Änderungen an Legacy-Routen; v1 parallel.
+- Nächste Schritte:
+  - Event-Daten strikt als JSON speichern; Event-Service einführen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]

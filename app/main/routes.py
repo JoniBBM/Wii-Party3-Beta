@@ -514,12 +514,14 @@ def roll_dice_action_admin_only():
         elif new_position == 72:
             event_description += f" 🎯 Erreichte Zielfeld - braucht nächste Runde mindestens 6 zum Gewinnen"
         
-        dice_event = GameEvent(
+        # Event über Service-Layer erzeugen (garantiert JSON)
+        from app.services.event_service import create_event
+        dice_event = create_event(
             game_session_id=active_session.id,
             event_type="admin_dice_roll_legacy",
-            description=event_description,
             related_team_id=team.id,
-            data_json=json.dumps({
+            description=event_description,
+            data={
                 "standard_roll": standard_dice_roll,
                 "bonus_roll": bonus_dice_roll,
                 "total_roll": total_roll,
@@ -530,9 +532,8 @@ def roll_dice_action_admin_only():
                 "barrier_released": barrier_check_result.get('released', False) if barrier_check_result else False,
                 "victory_triggered": victory_triggered,
                 "needs_final_roll": old_position == 72 and total_roll < 6
-            })
+            }
         )
-        db.session.add(dice_event)
 
         dice_order_ids_str = active_session.dice_roll_order.split(',')
         dice_order_ids_int = [int(tid) for tid in dice_order_ids_str if tid.isdigit()]

@@ -12,3 +12,26 @@ Eintrag 1
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 
+Eintrag 2
+- Datum/Uhrzeit: 2025-10-14 09:00 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 1 abgeschlossen – API v1 (read-only) mit Status/Board und Fields/Positions implementiert und registriert.
+- Begründung/Ziel (Warum): Stabile Schnittstelle für Frontend.
+- Test-Anleitung: Einzelfalltests je Endpunkt mit curl; beide erfolgreich.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: keine.
+- Nächste Schritte: Schritt 2 – Event-Service und JSON-Events.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+
+Eintrag 3
+- Datum/Uhrzeit: 2025-10-14 09:10 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 2a – Event-Service angelegt; Legacy-Admin-Würfelroute umgestellt.
+- Begründung/Ziel (Warum): Einheitliche, sichere Event-Erzeugung (JSON).
+- Test-Anleitung: Würfeln + v1 Status prüfen; erfolgreich.
+- Testergebnisse (vom User): erfolgreich; last_dice/special angezeigt.
+- Auswirkungen/Backwards-Compat: keine negativen.
+- Nächste Schritte: Weitere Event-Erzeugungen migrieren (kleine Schritte), dann Eval-Fallbacks abbauen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
