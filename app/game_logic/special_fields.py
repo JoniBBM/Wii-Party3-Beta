@@ -247,22 +247,22 @@ def handle_barrier_field(team, game_session):
             # Fallback if blocked_config column doesn't exist
             pass
         
-        # Event erstellen
-        event = GameEvent(
+        # Event erstellen (Service-Layer, garantiert JSON)
+        from app.services.event_service import create_event
+        create_event(
             game_session_id=game_session.id,
             event_type="special_field_barrier_set",
-            description=f"Team {team.name} wurde auf Sperren-Feld blockiert",
             related_team_id=team.id,
-            data_json=json.dumps({
+            description=f"Team {team.name} wurde auf Sperren-Feld blockiert",
+            data={
                 'action': 'barrier',
                 'field_type': 'barrier',
                 'barrier_set': True,
                 'target_config': parsed_config,
                 'required_number': parsed_config['min_number'],
                 'display_text': parsed_config['display_text']
-            })
+            }
         )
-        db.session.add(event)
         
         return {
             "success": True,
