@@ -23,6 +23,7 @@ Eintrag 2
 - Nächste Schritte: Schritt 2 – Event-Service und JSON-Events.
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
 
 Eintrag 3
 - Datum/Uhrzeit: 2025-10-14 09:10 (ungefähr)
@@ -35,3 +36,4 @@ Eintrag 3
 - Nächste Schritte: Weitere Event-Erzeugungen migrieren (kleine Schritte), dann Eval-Fallbacks abbauen.
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen

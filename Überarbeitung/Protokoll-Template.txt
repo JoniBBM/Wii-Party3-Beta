@@ -33,3 +33,6 @@ Protokoll-Template (Was/Warum/Wo/Nächster Schritt)
 
 10) Commit/Push (nur User)
 - Commit-Referenz(en): [vom User nach Push ausfüllen]
+
+11) Status
+- [Abgeschlossen/Offen]

@@ -32,3 +32,4 @@ Eintrag 2
   - Event-Daten strikt als JSON speichern; Event-Service einführen.
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
