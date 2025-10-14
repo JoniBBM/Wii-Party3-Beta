@@ -33,6 +33,13 @@ Testprozess und Gate nach jeder Änderung
   - Optional: Rollback-Hinweise, falls etwas fehlschlägt.
 - Die KI wartet auf die Rückmeldung des Users (Testergebnisse). Erst bei erfolgreichem Feedback geht es weiter. Andernfalls werden Fixes vorgeschlagen und wieder getestet.
 - Dieser Ablauf wird in jedem Protokoll festgehalten (siehe Protokoll-Template: Test-Anleitung/Erfolgskriterien/Ergebnisse/Genehmigung).
+- WICHTIG: Tests step-by-step – immer nur eine Sache testen. Die KI gibt genau einen Testschritt vor, wartet auf Ergebnis, dann folgt der nächste. So bleiben Ursache/Wirkung eindeutig.
+
+Nach erfolgreichem Test eines Schritts
+--------------------------------------
+- Wenn alle Tests für den jeweiligen Schritt erfolgreich waren, weist die KI den User darauf hin, dass jetzt gepusht werden kann.
+- Die KI schlägt eine kurze, präzise Push-/Commit-Beschreibung vor (z. B. "feat(api-v1): add read-only board status endpoint" oder "chore(events): store dice_event as JSON").
+- Der Push erfolgt ausschließlich durch den User. Erst danach geht es mit dem nächsten Schritt weiter.
 
 Spielprinzip (Allgemein)
 ------------------------
