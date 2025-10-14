@@ -353,12 +353,14 @@ def check_barrier_release(team, dice_roll, game_session, bonus_roll=0):
     else:
         event_type = "special_field_barrier_blocked"
     
-    event = GameEvent(
+    # Event über Service-Layer erzeugen (garantiert JSON)
+    from app.services.event_service import create_event
+    create_event(
         game_session_id=game_session.id,
         event_type=event_type,
-        description=event_description,
         related_team_id=team.id,
-        data_json=json.dumps({
+        description=event_description,
+        data={
             'action': 'check_barrier_release',
             'field_type': 'barrier',
             'dice_roll': dice_roll,
@@ -367,9 +369,8 @@ def check_barrier_release(team, dice_roll, game_session, bonus_roll=0):
             'barrier_config': barrier_config,
             'released': released,
             'release_method': release_method
-        })
+        }
     )
-    db.session.add(event)
     
     if released:
         # Team freigeben

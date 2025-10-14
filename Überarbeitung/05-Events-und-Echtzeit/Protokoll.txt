@@ -82,3 +82,21 @@ Eintrag 5
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
+
+Eintrag 6
+- Datum/Uhrzeit: 2025-10-14 10:38 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.check_barrier_release`: Event-Erzeugung (`special_field_barrier_released`/`special_field_barrier_blocked`) über `event_service.create_event` migriert.
+- Begründung/Ziel (Warum):
+  - Vollständige Vereinheitlichung der Barrier-Events, strikt JSON, Vorbereitung zum Entfernen eval-Fallbacks.
+- Test-Anleitung (Wie testen):
+  - Ein Team ist blockiert (barrier_set aktiv). Würfeln für dieses Team.
+  - Danach: `curl -s http://localhost:5001/api/v1/status/board | jq` innerhalb 10s.
+  - Erwartung: `data.last_special.type == "special_field_barrier_released"` (bei Befreiung) oder `..._blocked` sonst; keine Tracebacks.
+- Testergebnisse (vom User): erfolgreich
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: eval-Fallbacks aus Lesepfaden entfernen (da neue Events JSON sind) – in kleinen Schritten.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
