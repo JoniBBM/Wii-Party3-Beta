@@ -1,0 +1,44 @@
+Antwort- und Fehlerstandard
+---------------------------
+
+Erfolg:
+{
+  "success": true,
+  "data": { ... },
+  "meta": { "version": "v1", "ts": 1234567890 }
+}
+
+Fehler:
+{
+  "success": false,
+  "error": { "code": "VALIDATION_ERROR", "message": "...", "details": { ... } },
+  "meta": { "version": "v1", "ts": 1234567890 }
+}
+
+Beispiele
+---------
+
+Board-Status (GET /api/v1/status/board):
+{
+  "success": true,
+  "data": {
+    "teams": [ { "id": 1, "name": "Team 1", "position": 10, ... } ],
+    "session": { "id": 5, "phase": "DICE_ROLLING", ... },
+    "last_dice": { "team_id": 1, "standard": 4, "bonus": 2, "total": 6, "ts": "..." },
+    "last_special": { "type": "special_field_catapult_forward", "team_id": 2, "data": { ... }, "ts": "..." }
+  },
+  "meta": { "version": "v1", "ts": 1234567890 }
+}
+
+Dice-Roll (POST /api/v1/dice/roll):
+{
+  "success": true,
+  "data": { "team_id": 1, "standard": 5, "bonus": 0, "total": 5, "old_pos": 7, "new_pos": 12, "events": [ ... ] },
+  "meta": { "version": "v1", "ts": 1234567890 }
+}
+
+Hinweise
+--------
+- Keine eval-Fallbacks mehr; nur valides JSON.
+- Timestamps als ISO 8601.
+- IDs konsistent als Zahlen, Typsicherheit in Schemata prüfen.

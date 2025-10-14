@@ -1,0 +1,35 @@
+Protokoll-Template (Was/Warum/Wo/Nächster Schritt)
+==================================================
+
+1) Datum/Uhrzeit
+- [JJJJ-MM-TT HH:MM]
+
+2) Ort/Ordner
+- Pfad: [z. B. Überarbeitung/02-APIs-und-Routen]
+- Betroffene Module/Dateien: [Liste]
+
+3) Änderung (Was wurde gemacht)
+- [konkret: neue/aktualisierte Dateien, Endpunkte, Services, Migrationsschritte]
+
+4) Begründung/Ziel (Warum)
+- [Problem, Entscheidung, Ziel]
+
+5) Test-Anleitung (Wie testen)
+- Schritte in Docker-Live-Umgebung (Kommandos/URLs/UI), ggf. Logs
+- Erwartete Ergebnisse (Erfolgskriterien)
+
+6) Testergebnisse (vom User)
+- [Beobachtungen/Output/Logs] – Erfolgreich? [ja/nein]
+
+7) Auswirkungen/Backwards-Compat
+- [Breaking Changes? Deprecations? Übergangslogik?]
+
+8) Nächste Schritte
+- [kurz, überprüfbar]
+
+9) Genehmigung des Users
+- Bestätigung: [ja/nein]
+- Datum/Uhrzeit Bestätigung: [JJJJ-MM-TT HH:MM]
+
+10) Commit/Push (nur User)
+- Commit-Referenz(en): [vom User nach Push ausfüllen]

@@ -1,0 +1,14 @@
+Protokoll – 06-Frontend-Integration
+===================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/06-Frontend-Integration
+- Änderung: Initiales Protokoll angelegt; CSS/JS/HTML Trennung + Struktur definiert.
+- Begründung/Ziel: Wartbarkeit, Wiederverwendung, klare Datenflüsse.
+- Auswirkungen/Backwards-Compat: Templates werden schrittweise auf API v1/Stream umgestellt.
+- Tests/Validierung: Manuelle UI-Prüfung, ggf. visuelle Snapshots.
+- Nächste Schritte: ApiClient/StreamClient entwerfen; Board Entry-Script erstellen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

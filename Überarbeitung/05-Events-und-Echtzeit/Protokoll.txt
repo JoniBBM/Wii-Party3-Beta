@@ -1,0 +1,14 @@
+Protokoll – 05-Events-und-Echtzeit
+==================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung: Initiales Protokoll angelegt; Event-Factory/Stream-Konsolidierung geplant.
+- Begründung/Ziel: Einheitliche Events, weniger Frontend-Sonderlogik.
+- Auswirkungen/Backwards-Compat: Alte Eventformen werden migriert/adaptert.
+- Tests/Validierung: Stream-Mock, Event-Schema-Validierung.
+- Nächste Schritte: Event-Factory entwerfen; SSE-Endpoint v1 vorbereiten.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

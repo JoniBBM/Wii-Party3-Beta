@@ -1,0 +1,14 @@
+Protokoll – 08-Tests-und-Qualität
+=================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/08-Tests-und-Qualität
+- Änderung: Initiales Protokoll angelegt; Teststrategie/CI umrissen.
+- Begründung/Ziel: Stabilität, Regressionen vermeiden, Codequalität sichern.
+- Auswirkungen/Backwards-Compat: Keine; neue Tests ergänzen.
+- Tests/Validierung: pytest, Coverage, Lint/Type.
+- Nächste Schritte: tests/ Struktur anlegen; Service-Unit-Tests starten.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

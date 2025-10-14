@@ -1,0 +1,14 @@
+Protokoll – 07-Sicherheit-und-Config
+====================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/07-Sicherheit-und-Config
+- Änderung: Initiales Protokoll angelegt; Policy/Env/Sicherheitsziele festgehalten.
+- Begründung/Ziel: Sichere Defaults, RBAC/Scopes, Upload-Absicherung, eval entfernen.
+- Auswirkungen/Backwards-Compat: Konfigurationsänderungen und Env-Anpassungen erforderlich.
+- Tests/Validierung: Security-Checks, Upload-Tests.
+- Nächste Schritte: .env.example erstellen; eval in Codebasis ersetzen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

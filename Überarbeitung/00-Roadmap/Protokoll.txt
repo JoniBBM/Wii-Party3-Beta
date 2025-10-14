@@ -1,0 +1,14 @@
+Protokoll – 00-Roadmap
+======================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung: Initiales Protokoll angelegt basierend auf Protokoll-Template.
+- Begründung/Ziel: Konsistente Dokumentation aller Änderungen entlang der Roadmap.
+- Auswirkungen/Backwards-Compat: Keine Codeänderungen.
+- Tests/Validierung: N/A
+- Nächste Schritte: Roadmap-Schritte nacheinander abarbeiten; pro Schritt Protokolleintrag erstellen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

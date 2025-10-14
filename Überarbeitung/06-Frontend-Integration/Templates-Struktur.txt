@@ -1,0 +1,20 @@
+Templates (Jinja) Struktur und Regeln
+====================================
+
+Ziele
+- Saubere Trennung von Layout, Partials und Seiten.
+- Minimale Logik im Template; keine Inline-Skripte/-Styles.
+
+Strukturvorschlag
+- `app/templates/`
+  - `base.html` (Layout, Header/Footer, Script-/Style-Includes)
+  - `partials/` (Header, Footer, Navbar, Modals, Banners)
+  - `macros/` (wiederverwendbare UI-Fragmente)
+  - `board/` (game_board.html usw.)
+  - `admin/` (Dashboard-Seiten)
+  - `teams/` (Login, Dashboard)
+
+Regeln
+- Scripts am Ende des Bodys laden; pro Seite genau ein Entry-Script (ES Module).
+- Styles global in base.css + seiten-/komponenten-spezifisch; keine `style="..."` Inline.
+- Daten an Templates minimal (für serverseitige Darstellung); dynamische Daten via API v1 holen.

@@ -1,0 +1,14 @@
+Protokoll – 02-APIs-und-Routen
+==============================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/02-APIs-und-Routen
+- Änderung: Initiales Protokoll angelegt; v1-Endpunkte und Response-Schemata definiert.
+- Begründung/Ziel: Einheitliche, versionierte API als zentrale Schnittstelle.
+- Auswirkungen/Backwards-Compat: Legacy-Routen werden später deprecaten; Adapter geplant.
+- Tests/Validierung: OpenAPI-Generierung, erste Integrationstests geplant.
+- Nächste Schritte: v1-Blueprint scaffolden (read-only Statusendpunkte).
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

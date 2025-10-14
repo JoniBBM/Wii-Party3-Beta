@@ -1,0 +1,25 @@
+Komponentenübersicht (Gameboard)
+--------------------------------
+
+Core
+- Renderer: Initialisiert Canvas/Three.js, koordiniert den Render-Loop.
+- Scene: hält Entities (Spielfeld, Marker, Spezialfelder), Kamera/Controls.
+- Store: globaler State (BoardState), Actions (applyEvent), Selectors.
+
+UI/HUD
+- DiceBanner: zeigt Würfelergebnisse.
+- SpecialFieldBanner: Katapult/Tausch/Sperre.
+- QuestionBanner: aktive Frage (nur Hinweis auf Board).
+- ConnectionIndicator: Stream-Status/Backoff.
+- Notifications/Toasts: Fehler/Info.
+- FaceOverlay: Profilbilder/Emojis der ausgelosten Spieler (optional).
+
+Services (Frontend)
+- ApiClient: GET `/api/v1/status/board`, `/api/v1/fields/positions`.
+- StreamClient: SSE/WebSocket, Event-Parsing, Reconnect.
+- Mapper: normalisiert Responses/Events auf Store-Formate.
+
+Performance
+- Dirty-Region-Rendering, Reduktion auf delta-basierte Updates.
+- requestAnimationFrame, kein setInterval für Rendering.
+- Coalescing von schnellen Eventfolgen.

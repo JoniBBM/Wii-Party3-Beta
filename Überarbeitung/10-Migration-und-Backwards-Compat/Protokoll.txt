@@ -1,0 +1,14 @@
+Protokoll – 10-Migration-und-Backwards-Compat
+=============================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/10-Migration-und-Backwards-Compat
+- Änderung: Initiales Protokoll angelegt; Deprecation-Plan/Adapter/Feature-Flags vorgesehen.
+- Begründung/Ziel: Reibungsloser Übergang ohne Brüche; Rückfallstrategien.
+- Auswirkungen/Backwards-Compat: Übergangsphase mit doppelten Pfaden; finale Bereinigung geplant.
+- Tests/Validierung: Regressionstests; Monitoring während Umstellung.
+- Nächste Schritte: Mapping alt→neu erstellen; Zeitplan festlegen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+
