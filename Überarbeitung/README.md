@@ -84,3 +84,12 @@ Querschnittliche Kernziele:
 - Automatisierte Tests, Linting/Type-Checks und CI.
 
 Hinweis: In jedem Unterordner liegen .txt-Dateien mit „Was“, „Wie“, „ToDos“ und ggf. Beispielen/Schnittstellen.
+
+Einstieg für neuen Chat (Handover)
+----------------------------------
+- Immer zuerst `Überarbeitung/AKTUELL.md` lesen. Dieses Dokument enthält:
+  - aktuellen Ort/Bereich,
+  - zuletzt abgeschlossene Schritte (mit Teststatus),
+  - den genau nächsten, offenen Schritt mit Testanleitung und Push-Hinweis.
+- Danach bei Bedarf die Details im passenden Protokoll prüfen (z. B. `Überarbeitung/05-Events-und-Echtzeit/Protokoll.txt`) und im globalen Fortschritt (`Überarbeitung/00-Roadmap/Protokoll.txt`).
+- Der neue Chat knüpft exakt an den „Nächster Schritt (offen)“ aus `AKTUELL.md` an, arbeitet ihn ab, testet step-by-step, dokumentiert im Protokoll und markiert bei Erfolg als „Abgeschlossen“; dann wird `AKTUELL.md` aktualisiert.
