@@ -11,19 +11,20 @@
 - catapult_forward-Event über Service (getestet, ok)
 - catapult_backward-Event über Service (getestet, ok)
 - barrier_set-Event über Service (getestet, ok)
- - barrier_released/blocked-Events über Service (getestet, ok)
+- barrier_released/blocked-Events über Service (getestet, ok)
+ - /api/board-status: eval-Fallback entfernt (getestet, ok)
 
  Nächster Schritt (offen)
- - Aufgabe: eval-Fallbacks in Lesepfaden entfernen (Schritt 1) – `/api/board-status` liest Events; Fallback auf `eval` wird entfernt und durch sicheres Ignorieren ungültiger Daten ersetzt.
- - Umfang: Kleine Änderung nur im Lesen, keine Endpunkt-Semantikänderung.
+ - Aufgabe: eval-Fallback in `app/teams/routes.py` → `_get_last_dice_result` entfernen (strict JSON, unparsable ignorieren).
+ - Umfang: Kleine Leselogik-Änderung, keine API-/UI-Semantikänderung.
 
- Testanleitung für den nächsten Schritt (step-by-step)
- 1) Mehrere Events erzeugen (Wurf + Spezialfeld). 
- 2) Danach: `curl -s http://localhost:5001/api/board-status | jq` (Legacy-Endpoint)
- 3) Erwartung: JSON mit `last_dice_result`/`last_special_field_event` gefüllt (falls innerhalb 10s), keine Tracebacks; insbesondere keine Fehler beim Parsen (da eval entfernt wird).
+Testanleitung für den nächsten Schritt (step-by-step)
+ 1) Nach Änderung: Team-Dashboard öffnen (als Team eingeloggt) und eine Würfelaktion auslösen.
+ 2) Danach: `GET /teams/api/dashboard-status` (oder Dashboard neu laden) prüft letztes Würfelergebnis.
+ 3) Erwartung: Letztes Würfelergebnis wird korrekt angezeigt; keine Tracebacks im Log (Parsing ohne eval).
 
- Push-Hinweis nach erfolgreichem Test
- - Commit-Message-Vorschlag: `sec(events): remove eval fallback in /api/board-status parsing`
+Push-Hinweis nach erfolgreichem Test
+ - Commit-Message-Vorschlag: `sec(events): remove eval fallback in teams/_get_last_dice_result`
 - Push immer durch den User.
 
 Wo ist die ausführliche Doku?
