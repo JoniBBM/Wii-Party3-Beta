@@ -46,3 +46,21 @@ Eintrag 3
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
+
+Eintrag 4
+- Datum/Uhrzeit: 2025-10-14 09:30 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_catapult_backward` nutzt `event_service.create_event` für Event-Erzeugung.
+- Begründung/Ziel (Warum):
+  - Vereinheitlichung der Spezialfeld-Events (Service, JSON), weniger Duplikation.
+- Test-Anleitung (Wie testen):
+  - Spielen/würfeln bis „Katapult rückwärts“ ausgelöst wird (z. B. 13/26/39/52/65 je nach Konfig).
+  - Direkt danach: `curl -s http://localhost:5001/api/v1/status/board | jq`
+  - Erwartung: `data.last_special.type == "special_field_catapult_backward"`, keine Tracebacks im Log.
+- Testergebnisse (vom User): erfolgreich (special_field_catapult_backward angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: barrier_* (set/released/blocked) Events migrieren.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
