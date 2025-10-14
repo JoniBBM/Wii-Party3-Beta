@@ -28,3 +28,21 @@ Eintrag 2
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
+
+Eintrag 3
+- Datum/Uhrzeit: 2025-10-14 09:20 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_catapult_forward` nutzt `event_service.create_event` für Event-Erzeugung.
+- Begründung/Ziel (Warum):
+  - Fortsetzung der Vereinheitlichung: Spezialfeld-Events werden konsistent und sicher (JSON) erzeugt.
+- Test-Anleitung (Wie testen):
+  - Spielen/würfeln bis „Katapult vorwärts“ ausgelöst wird (ein Team landet auf einem entsprechenden Feld, z. B. 15/30/45/60 o. ä.).
+  - Danach: `curl -s http://localhost:5001/api/v1/status/board | jq`
+  - Erwartung: `data.last_special.type == "special_field_catapult_forward"`, keine Tracebacks im Log.
+- Testergebnisse (vom User): erfolgreich (special_field_catapult_forward angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: `catapult_backward` und `barrier_*` Events auf Service umstellen (jeweils in kleinen Schritten).
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
