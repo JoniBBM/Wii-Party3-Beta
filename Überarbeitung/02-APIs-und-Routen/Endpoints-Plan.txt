@@ -1,0 +1,47 @@
+Ressourcenmodell und Pfade (v1)
+-------------------------------
+
+Auth/Context
+- Alle Endpunkte nutzen Sitzungen/CSRF für Web oder Token/JWT für reine API-Clients.
+- Rollen: admin, team. Scopes für Feingranularität (z. B. `dice:roll`, `content:select`).
+
+Status
+- GET /api/v1/status/board
+- GET /api/v1/status/moderation (admin)
+
+Sessions/Runden
+- GET /api/v1/sessions/active
+- POST /api/v1/sessions (admin)
+- POST /api/v1/sessions/{session_id}/end (admin)
+- GET /api/v1/rounds/active
+- PATCH /api/v1/rounds/active (admin) – Wechsel Ordner/Config
+
+Teams
+- GET /api/v1/teams
+- GET /api/v1/teams/{team_id}
+- PATCH /api/v1/teams/{team_id} – Position/Status (admin)
+- GET /api/v1/teams/{team_id}/progress – Eventverlauf/Statistiken
+
+Würfel
+- POST /api/v1/dice/roll – body: { team_id } (admin)
+- GET /api/v1/dice/last?team_id= – letztes Ergebnis
+
+Felder
+- GET /api/v1/fields/config – aktive Rundensicht
+- PATCH /api/v1/fields/config (admin) – Update einzelner Feldtypen
+- GET /api/v1/fields/positions – berechnete Spezialfeld-Positionen
+
+Inhalte (Minigames/Fragen)
+- GET /api/v1/content/available – aus Ordner (Filter: type, exclude_played)
+- POST /api/v1/content/select (admin) – Auswahl setzen
+- POST /api/v1/content/played – { id } markieren
+- GET /api/v1/questions/{id}
+- POST /api/v1/questions/{id}/answer (team)
+
+Welcome
+- GET /api/v1/welcome/status
+- POST /api/v1/welcome/register (player)
+- POST /api/v1/welcome/teams/assign (admin)
+
+Events/Stream
+- GET /api/v1/stream – SSE/WebSocket; Eventtypen standardisiert (dice_roll, special_field, phase_change, content_selected, question_started, question_completed)

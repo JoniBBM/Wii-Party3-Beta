@@ -1,0 +1,14 @@
+Protokoll – 11-Gameboard
+========================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/11-Gameboard
+- Änderung: Initiales Protokoll angelegt; BoardState/Event-Schemata/Komponentenplan dokumentiert.
+- Begründung/Ziel: Board entkoppelt und robust; einheitliche Events und Statusquelle (API v1 + Stream).
+- Auswirkungen/Backwards-Compat: Bestehende Board-Logik wird schrittweise migriert.
+- Tests/Validierung: Manuelle Tests, Event-Replay, ggf. visuelle Checks.
+- Nächste Schritte: v1-Status-Endpoint anbinden; StreamClient implementieren.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

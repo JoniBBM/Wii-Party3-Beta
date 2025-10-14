@@ -1,0 +1,26 @@
+CSS Richtlinien und Struktur
+===========================
+
+Ziele
+- Konsistente, wartbare Styles; minimale Kopplung an HTML-Struktur.
+- Wiederverwendbare Komponenten; Themen/Variablen zentral.
+
+Methodik
+- BEM (Block__Element--Modifier) für Komponenten.
+- Utility-Klassen für häufige Abstände/Layouts (z. B. `.u-mt-8`, `.u-flex-center`).
+- Farb-/Spacing-/Typo-Variablen in `:root` (oder SCSS-Variablen bei Einsatz von Preprozessoren).
+
+Struktur (Dateien)
+- `app/static/css/`
+  - `base.css` (Reset/Normalize, Variablen, Grundtypografie)
+  - `utilities.css` (Utility-Klassen)
+  - `components/` (z. B. `banner.css`, `toast.css`, `overlay.css`)
+  - `pages/` (z. B. `board.css`, `admin.css`, `teams.css`)
+
+Regeln
+- Keine Inline-Styles in Templates; nur Klassen verwenden.
+- Komponenten unabhängig gestalten; keine tiefen Selektoren.
+- Responsive via Mobile-First Media Queries in Komponenten-Dateien.
+
+Optional
+- SCSS/LESS und Build-Step (esbuild) – nur wenn gewünscht; sonst plain CSS.
