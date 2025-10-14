@@ -12,11 +12,15 @@
 - catapult_backward-Event über Service (getestet, ok)
 - barrier_set-Event über Service (getestet, ok)
 - barrier_released/blocked-Events über Service (getestet, ok)
- - /api/board-status: eval-Fallback entfernt (getestet, ok)
+- /api/board-status: eval-Fallback entfernt (getestet, ok)
+ - Team-Dashboard (_get_last_dice_result): eval-Fallback entfernt (getestet, ok)
 
 Nächster Schritt (offen)
- - Aufgabe: Team-Dashboard Parsing testen (eval-Fallback entfernt in `_get_last_dice_result`).
- - Umfang: Nur Test/Validierung, danach als abgeschlossen markieren.
+- Aktuell keine offenen Schritte im Bereich Events/Echtzeit.
+- Vorschläge für die Fortsetzung (Roadmap):
+  - 6) Echtzeit-Stream konsolidieren (SSE vereinheitlichen) – optionaler nächster Schritt.
+  - 7–8) Frontend-Umstellung (Gameboard zuerst) + CSS/JS/HTML-Trennung gemäß 06-Frontend-Integration.
+  - Alternativ: Weitere eval-Fallbacks an anderen Stellen prüfen (falls vorhanden) und entfernen.
 
 Testanleitung für den nächsten Schritt (step-by-step)
  1) Team-Dashboard öffnen (als Team eingeloggt) und eine Würfelaktion auslösen.

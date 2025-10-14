@@ -37,3 +37,16 @@ Eintrag 3
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 4
+- Datum/Uhrzeit: 2025-10-14 11:02 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 2b–2d abgeschlossen – Event-Service eingesetzt für player_swap, catapult_forward/backward, barrier_set/released/blocked; eval-Fallbacks in /api/board-status und Team-Dashboard entfernt.
+- Begründung/Ziel (Warum): Einheitliche, sichere Event-Erzeugung; Wegfall eval-Abhängigkeit; Stabilität am Board.
+- Test-Anleitung: Einzeltests je Schritt (Würfel/Spezialfeld + API/Board/Team-UI prüfen).
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Legacy-Events ohne JSON werden ignoriert (nur im 10s-Fenster der Legacy-API relevant).
+- Nächste Schritte: 6) Stream-Konsolidierung (SSE) oder 7–8) Frontend-Umstellung (Gameboard) gemäß Roadmap.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
