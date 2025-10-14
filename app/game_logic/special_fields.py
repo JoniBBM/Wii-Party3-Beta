@@ -39,13 +39,14 @@ def handle_catapult_forward(team, current_position, game_session, dice_info=None
     
     team.current_position = catapult_new_position
     
-    # Event erstellen
-    event = GameEvent(
+    # Event erstellen (Service-Layer, garantiert JSON)
+    from app.services.event_service import create_event
+    create_event(
         game_session_id=game_session.id,
         event_type="special_field_catapult_forward",
-        description=f"Team {team.name} wurde {catapult_distance} Felder nach vorne katapultiert (von Feld {catapult_old_position} zu Feld {catapult_new_position})!",
         related_team_id=team.id,
-        data_json=json.dumps({
+        description=f"Team {team.name} wurde {catapult_distance} Felder nach vorne katapultiert (von Feld {catapult_old_position} zu Feld {catapult_new_position})!",
+        data={
             "field_type": "catapult_forward",
             "catapult_distance": catapult_distance,
             "old_position": catapult_old_position,
@@ -56,9 +57,8 @@ def handle_catapult_forward(team, current_position, game_session, dice_info=None
             "dice_roll": dice_info.get('dice_roll') if dice_info else None,
             "bonus_roll": dice_info.get('bonus_roll') if dice_info else None,
             "total_roll": dice_info.get('total_roll') if dice_info else None
-        })
+        }
     )
-    db.session.add(event)
     
     return {
         "success": True,
