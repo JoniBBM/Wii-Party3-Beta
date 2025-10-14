@@ -13,22 +13,19 @@
 - barrier_set-Event über Service (getestet, ok)
 - barrier_released/blocked-Events über Service (getestet, ok)
 - /api/board-status: eval-Fallback entfernt (getestet, ok)
- - Team-Dashboard (_get_last_dice_result): eval-Fallback entfernt (getestet, ok)
+- Team-Dashboard (_get_last_dice_result): eval-Fallback entfernt (getestet, ok)
+- dice_service: Admin-Würfel-/Eventlogik ausgelagert; Route nutzt Service (Test ausstehend)
+ - dice_service: getestet, ok
 
 Nächster Schritt (offen)
-- Aktuell keine offenen Schritte im Bereich Events/Echtzeit.
-- Vorschläge für die Fortsetzung (Roadmap):
-  - 6) Echtzeit-Stream konsolidieren (SSE vereinheitlichen) – optionaler nächster Schritt.
-  - 7–8) Frontend-Umstellung (Gameboard zuerst) + CSS/JS/HTML-Trennung gemäß 06-Frontend-Integration.
-  - Alternativ: Weitere eval-Fallbacks an anderen Stellen prüfen (falls vorhanden) und entfernen.
+- Aktuell keine offenen Schritte in Services/Events.
+- Vorschlag für Fortsetzung: session_service (Turn-/Phasenlogik), anschließend API v1 POST /api/v1/dice/roll, oder SSE-Konsolidierung.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Team-Dashboard öffnen (als Team eingeloggt) und eine Würfelaktion auslösen.
- 2) Danach: `GET /teams/api/dashboard-status` (oder Dashboard neu laden) prüft letztes Würfelergebnis.
- 3) Erwartung: Letztes Würfelergebnis wird korrekt angezeigt; keine Tracebacks im Log (Parsing ohne eval).
+ - Wird beim Start des nächsten Tasks konkretisiert (abhängig von Auswahl: session_service, API v1, oder SSE).
 
-Push-Hinweis nach erfolgreichem Test
- - Commit-Message-Vorschlag: `sec(events): remove eval fallback in teams/_get_last_dice_result`
+Push-Hinweis
+ - Commit-Message-Vorschlag: `refactor(dice): use dice_service for admin legacy roll route`
 - Push immer durch den User.
 
 Wo ist die ausführliche Doku?
