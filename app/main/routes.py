@@ -493,7 +493,7 @@ def roll_dice_action_admin_only():
                     event_type="game_victory",
                     description=f"Team {team.name} hat das Spiel gewonnen!",
                     related_team_id=team.id,
-                    data_json=str({
+                    data_json=json.dumps({
                         "winning_team_id": team.id,
                         "winning_team_name": team.name,
                         "victory_timestamp": datetime.utcnow().isoformat(),

@@ -118,6 +118,23 @@ Eintrag 7
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
 
+Eintrag 9
+- Datum/Uhrzeit: 2025-10-14 11:38 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Victory-Event in `app/main/routes.py`: `data_json=str({...})` → `json.dumps({...})` (echtes JSON).
+- Begründung/Ziel (Warum):
+  - Verhindert neue Nicht-JSON-Events; vollständige JSON-Konsistenz.
+- Test-Anleitung (Wie testen):
+  - Team auf Position 72 setzen (Admin-UI), sicherstellen, dass dieses Team am Zug ist.
+  - Würfeln bis Total ≥ 6; dann `curl -s http://localhost:5001/api/v1/status/board | jq`.
+  - Erwartung: Victory-Event (`game_victory`) wird erzeugt (ggf. im DB-Event-Log), keine Tracebacks.
+- Testergebnisse (vom User): [bitte ausfüllen]
+- Auswirkungen/Backwards-Compat: Keine – nur Speichern als JSON.
+- Nächste Schritte: Optional – session_service; ansonsten DB-Neuinitialisierung wie besprochen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Offen
 Eintrag 8
 - Datum/Uhrzeit: 2025-10-14 10:58 (ungefähr)
 - Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
