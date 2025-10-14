@@ -58,6 +58,13 @@ def create_app(config_class=Config):
     from app.teams.routes import teams_bp
     app.register_blueprint(teams_bp)
 
+    # API v1 (read-only Start)
+    try:
+        from app.api_v1 import api_v1_bp
+        app.register_blueprint(api_v1_bp, url_prefix='/api/v1')
+    except Exception as e:
+        app.logger.error(f"API v1 blueprint registration failed: {e}")
+
     @app.context_processor
     def inject_now_year_and_user_type():
         from datetime import datetime

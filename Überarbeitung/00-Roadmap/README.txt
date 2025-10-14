@@ -6,6 +6,7 @@ Technische Roadmap (logische Reihenfolge)
 - Env-Konfiguration prüfen, `.env` erstellen; unsichere Defaults entfernen.
 - Readme/Protokoll-Template in allen Unterordnern anlegen (Änderungen fortlaufend dokumentieren).
 - Test-Gate festlegen: Nach jedem Schritt liefert die KI Test-Anweisungen (Was/Wie/Erfolgskriterien) und wartet auf erfolgreiches Feedback.
+ - Testdisziplin: Pro Schritt genau EINE Testsache durchführen (step-by-step), erst nach Erfolg den nächsten Test ausführen.
 
 1. API v1 Gerüst (read-only, ohne Logikwechsel)
 - Blueprint `api_v1` erstellen, Endpunkte: `GET /status/board`, `GET /fields/positions`.
