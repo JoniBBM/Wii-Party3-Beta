@@ -129,9 +129,9 @@ Eintrag 8
   - Als Team im Dashboard: eine Würfelaktion durchführen.
   - Danach Dashboard neu laden oder `GET /teams/api/dashboard-status` aufrufen.
   - Erwartung: Letztes Würfelergebnis korrekt, keine Tracebacks; Log zeigt ggf. WARN statt ERROR bei sehr alten Events.
-- Testergebnisse (vom User): [bitte ausfüllen]
+- Testergebnisse (vom User): erfolgreich (Team-Dashboard zeigt letztes Würfelergebnis korrekt; keine Tracebacks)
 - Auswirkungen/Backwards-Compat: Neue Events JSON; sehr alte, nicht-JSON Events werden ignoriert.
 - Nächste Schritte: Board-Blau-Problem (SyntaxError an „board:473“) isolieren und fixen – separater, kleiner Schritt.
-- Genehmigung des Users: [bitte ausfüllen]
-- Commit/Push (nur User): [bitte ausfüllen]
-- Status: Offen
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
