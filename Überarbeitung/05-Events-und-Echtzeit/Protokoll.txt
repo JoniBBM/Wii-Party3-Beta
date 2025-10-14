@@ -100,3 +100,20 @@ Eintrag 6
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
+
+Eintrag 7
+- Datum/Uhrzeit: 2025-10-14 10:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `/api/board-status` (app/main/routes.py): eval-Fallback beim Parsen von Eventdaten entfernt; strikt JSON, unparsbare Legacy-Daten werden geloggt und ignoriert.
+- Begründung/Ziel (Warum):
+  - Sicherheits- und Stabilitätsverbesserung; keine `eval`-Ausführung von Strings mehr.
+- Test-Anleitung (Wie testen):
+  - Wurf und ggf. Spezialfeld auslösen; dann `curl -s http://localhost:5001/api/board-status | jq`.
+  - Erwartung: `last_dice_result`/`last_special_field_event` gefüllt (wenn innerhalb 10s), keine Tracebacks; Log zeigt ggf. WARN statt ERROR bei alten, nicht-JSON Events.
+- Testergebnisse (vom User): erfolgreich (Legacy /api/board-status liefert Daten ohne eval; keine Tracebacks)
+- Auswirkungen/Backwards-Compat: Neue Events JSON-basiert; sehr alte, nicht-JSON Events werden nur im 10s-Fenster ignoriert.
+- Nächste Schritte: eval-Fallback in weiteren Lesepfaden (z. B. teams/_get_last_dice_result) entfernen – eigener kleiner Schritt.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen

@@ -160,19 +160,15 @@ def board_status():
             GameEvent.timestamp >= recent_time
         ).order_by(GameEvent.timestamp.desc()).first()
         
-        # Process dice result
+        # Process dice result (strict JSON, no eval fallback)
         if last_dice_event and last_dice_event.data_json:
             try:
                 import json
-                # Parse data_json
+                # Parse data_json strictly as JSON
                 if isinstance(last_dice_event.data_json, str):
-                    try:
-                        event_data = json.loads(last_dice_event.data_json)
-                    except json.JSONDecodeError:
-                        # Fallback to eval for legacy data
-                        event_data = eval(last_dice_event.data_json)
+                    event_data = json.loads(last_dice_event.data_json)
                 else:
-                    event_data = last_dice_event.data_json
+                    event_data = last_dice_event.data_json or {}
                 
                 last_dice_result = {
                     'standard_roll': event_data.get('standard_roll', 0),
@@ -190,21 +186,18 @@ def board_status():
                 
                 current_app.logger.info(f"Found recent dice result for team {last_dice_event.related_team_id}: {last_dice_result}")
             except Exception as e:
-                current_app.logger.error(f"Error parsing dice result: {e}")
+                current_app.logger.warning(f"Ignoring unparsable dice event data (non-JSON): {e}")
                 last_dice_result = None
 
-        # Process special field event
+        # Process special field event (strict JSON, no eval fallback)
         if last_special_event and last_special_event.data_json:
             try:
                 import json
-                # Parse data_json
+                # Parse data_json strictly as JSON
                 if isinstance(last_special_event.data_json, str):
-                    try:
-                        event_data = json.loads(last_special_event.data_json)
-                    except json.JSONDecodeError:
-                        event_data = eval(last_special_event.data_json)
+                    event_data = json.loads(last_special_event.data_json)
                 else:
-                    event_data = last_special_event.data_json
+                    event_data = last_special_event.data_json or {}
                 
                 last_special_field_event = {
                     'event_type': last_special_event.event_type,
@@ -215,7 +208,7 @@ def board_status():
                 
                 current_app.logger.info(f"Found recent special field event for team {last_special_event.related_team_id}: {last_special_event.event_type}")
             except Exception as e:
-                current_app.logger.error(f"Error parsing special field event: {e}")
+                current_app.logger.warning(f"Ignoring unparsable special field event data (non-JSON): {e}")
                 last_special_field_event = None
 
         # Get question data if question is active
