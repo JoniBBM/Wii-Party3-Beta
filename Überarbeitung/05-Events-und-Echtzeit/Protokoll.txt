@@ -206,3 +206,20 @@ Eintrag 12
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 13
+- Datum/Uhrzeit: 2025-10-15 09:50 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/admin/routes.py`: `calculate_automatic_placements` nutzt `session_service.get_active_session()` statt eigener Query.
+- Begründung/Ziel (Warum):
+  - Konsistente Nutzung des Session-Services auch für Auswertungslogik; reduziert Duplikation.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ... calculate_automatic_placements()` ausführen.
+  - Erwartung: Funktion läuft durch (gibt Log/Print aus), keine Exceptions.
+- Testergebnisse (vom User): erfolgreich (`calculate_automatic_placements executed without error` im Testskript).
+- Auswirkungen/Backwards-Compat: Keine; Funktionsverhalten unverändert.
+- Nächste Schritte: Weitere Session-bezogene Funktionen migrieren; Board-Blau-Bug priorisieren.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
