@@ -223,3 +223,21 @@ Eintrag 13
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 14
+- Datum/Uhrzeit: 2025-10-15 09:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Session-Service erweitert (`get_or_create_active_session` übernimmt bisherige Admin-Logik).
+  - Admin-Routen `admin_dashboard` und `set_minigame` importieren den Service-Helper statt eigener Funktion.
+- Begründung/Ziel (Warum):
+  - Zentralisierung der Session-Erzeugung; keine duplizierte DB-Logik in Routen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → alle Sessions deaktivieren, dann `get_or_create_active_session()` aufrufen.
+  - Erwartung: Neue aktive Session wird erstellt und zurückgegeben; Folgeaufruf liefert dieselbe Session.
+- Testergebnisse (vom User): erfolgreich (`Created/loaded session id=3, active=True` sowie Folgeaufruf bestätigt bestehende Session).
+- Auswirkungen/Backwards-Compat: Verhalten identisch, nur Struktur verschoben.
+- Nächste Schritte: Weitere Session-Funktionalitäten (z. B. Runde abschließen) in Service auslagern; anschließend Board-Blau-Bug untersuchen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
