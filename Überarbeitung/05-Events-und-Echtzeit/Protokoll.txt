@@ -241,3 +241,208 @@ Eintrag 14
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 15
+- Datum/Uhrzeit: 2025-10-15 10:00 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `moderation_mode` nutzt `session_service.get_active_session()`; Import auf Service erweitert.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Zugriff auch für Moderationsansicht; reduziert Streu-Queries.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Test-Client meldet sich an, ruft `/admin/moderation_mode`.
+  - Erwartung: Status 200, HTML enthält Moderations-Titel.
+- Testergebnisse (vom User): erfolgreich (`moderation_mode status: 200`, Titel gefunden).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen (z. B. Minigame-Abbruch, Reset) auf Service migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 16
+- Datum/Uhrzeit: 2025-10-15 10:15 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `abort_current_minigame` ersetzt direkte Query durch `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Session-Zugriff auch für Minigame-Abbruch; erleichtert zentrale Anpassungen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Test-Client loggt sich ein, POST `/admin/abort-minigame`.
+  - Erwartung: Status 200, JSON `success: True` (bzw. passende Fehlermeldung), Logs zeigen Session-ID.
+- Testergebnisse (vom User): erfolgreich (`success: True`, Phase bleibt `SETUP_MINIGAME`).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen (z. B. Reset-/Minigame-Result-Endpoints) migrieren; Board-Blau-Bug anschließend angehen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 17
+- Datum/Uhrzeit: 2025-10-15 10:20 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `end_question` nutzt `session_service.get_active_session()`; Test-Setup über Admin-Testclient.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Zugriff auch beim Beenden von Fragen / Start der Würfelrunde.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Session auf `QUESTION_ACTIVE` setzen, Route via Testclient POST.
+  - Erwartung: Status 200, Erfolgs-Flash „Platzierungen automatisch berechnet“.
+- Testergebnisse (vom User): erfolgreich (Status 200, Flash vorhanden).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Endpunkte (Reset, Field-Minispiel) migrieren; Board-Blau-Bug zeitnah angehen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 18
+- Datum/Uhrzeit: 2025-10-15 10:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `reset_played_content` nutzt `session_service.get_active_session()`; keine Direktqueries mehr.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Behandlung, insbesondere für Reset-Flows.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/reset_played_content`.
+  - Erwartung: Status 200, Flash-Text „Liste der gespielten Inhalte wurde zurückgesetzt...“ erscheint.
+- Testergebnisse (vom User): erfolgreich (Status 200, Log `Gespielte Inhalte für Session ... zurückgesetzt`, Flash vorhanden).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: `unblock_team` und weitere Session-abhängige Routen migrieren; Board-Blau-Bug im Auge behalten.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 19
+- Datum/Uhrzeit: 2025-10-15 10:28 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `unblock_team` nutzt `session_service.get_active_session()` für Event-Log.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Session-Zugriff auch bei manuellen Sonderfeld-Resets.
+- Test-Anleitung (Wie testen):
+  - Team-Flag `is_blocked` setzen, dann `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/unblock_team/<id>`.
+  - Erwartung: Status 200, Flash „Team … wurde manuell von der Sperre befreit.“.
+- Testergebnisse (vom User): erfolgreich (Status 200, Flash bestätigt).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen (z. B. Frage-/Minigame-APIs) migrieren; Board-Blau-Bug bleibt offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 20
+- Datum/Uhrzeit: 2025-10-15 10:38 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `record_placements` greift über `session_service.get_active_session()` auf die Session zu.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Logik auch für manuelle Platzierungs-/Rundenstarts.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Session auf `MINIGAME_ANNOUNCED` setzen, Formulardaten für alle Teams (`placement_team_<id>`) senden.
+  - Erwartung: Status 200, Flash „Platzierungen erfolgreich gespeichert. Würfelrunde beginnt.“
+- Testergebnisse (vom User): erfolgreich (Status 200, Flash vorhanden; Bonus-Würfel-Logs im Container bestätigt).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Endpunkte (Question APIs, Field-Minispiel) migrieren; Board-Blau-Bug bleibt offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 21
+- Datum/Uhrzeit: 2025-10-15 10:42 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `question_responses_api` verwendet `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Session-Zugriff auch für Fragen-API.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient GET `/admin/api/question-responses` (ohne aktive Frage).
+  - Erwartung: Status 200, JSON `success: True`, `message: "Keine aktive Frage"`.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen mit Session-Query migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 22
+- Datum/Uhrzeit: 2025-10-15 10:44 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `add_player_to_team` prüft aktives Spiel über `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Konsistente Session-Nutzung auch in Admin-Welcome-Integration.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/add_player_to_team` (Team 1, Spieler „Tester X“).
+  - Erwartung: Status 200, JSON `success: True`; danach Testdaten entfernen.
+- Testergebnisse (vom User): erfolgreich (Spieler angelegt, anschließend wieder entfernt).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Restliche Session-Queries migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 23
+- Datum/Uhrzeit: 2025-10-15 10:47 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `activate_round` nutzt `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Beim Rundenwechsel zentrale Session-Logik verwenden.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/activate_round/1` (kein Redirect folgen).
+  - Erwartung: Status 302, Redirect nach `/admin/manage_rounds`; Logs zeigen Reset der gespielten Inhalte.
+- Testergebnisse (vom User): erfolgreich (Status 302, Logs mit Reset).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Session-Queries (z. B. Field-Minispiel, Reset-Routen) migrieren; Board-Blau-Bug noch offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 24
+- Datum/Uhrzeit: 2025-10-15 10:49 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `start_welcome` nutzt `session_service.get_active_session()` zur Prüfung aktiver Spiele.
+- Begründung/Ziel (Warum):
+  - Konsistente Session-Abfrage im Welcome-System.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/api/start-welcome` bei bestehender Session.
+  - Erwartung: Status 400, JSON `error: GAME_ACTIVE`, `details.active_game: True`.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Reset-/API-Routen migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 25
+- Datum/Uhrzeit: 2025-10-15 10:52 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `player_rotation_stats` und `reset_player_rotation` verwenden `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Verwendung auch bei Rotations-Auswertungen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → GET `/admin/player_rotation_stats` (erwartet JSON `success: True`).
+  - `docker compose exec web python - <<'PY' ...` → POST `/admin/reset_player_rotation` (erwartet JSON `success: True`).
+- Testergebnisse (vom User): erfolgreich (Status 200, erwartete JSON-Struktur).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Session-Endpunkte migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 26
+- Datum/Uhrzeit: 2025-10-15 10:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Feld-Minispiel-Endpoints (`check_minigame_field_status`, `start_field_minigame`, `submit_field_minigame_result`) nutzen `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Behandlung auch in Feld-Minispiel-Workflows.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → GET `/admin/check_minigame_field_status` (Status 200, JSON mit Flags).
+  - POST `/admin/start_field_minigame` mit ungültiger ID (Status 400, Fehlermeldung).
+  - POST `/admin/submit_field_minigame_result` ohne aktives Minigame (Status 400, Fehlermeldung).
+- Testergebnisse (vom User): erfolgreich (siehe Logs/Statuscodes).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Letzte Session-Queries (wenn vorhanden) migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

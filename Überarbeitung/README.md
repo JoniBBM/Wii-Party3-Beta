@@ -13,6 +13,8 @@ Arbeitskontext und KI-Anweisung
   - wo wir uns gerade befinden (aktueller Ordner/Pfad, betroffene Module),
   - nächster geplanter Schritt (kurz, überprüfbar).
   Diese Hinweise sind in jedem Unterordner als README/Protokoll zu ergänzen/fortzuführen.
+  - KI testet jede von ihr umgesetzte Änderung eigenständig (soweit technisch möglich) und meldet erst danach das Ergebnis. Nur wenn ein Test ohne weitere Inputs nicht durchführbar ist, wird das explizit kommuniziert.
+  - KI informiert den User aktiv, sobald ein sinnvoller Punkt zum Commit/Pull erreicht ist; Commits/Pulls erfolgen weiterhin ausschließlich durch den User.
 
 - Commit-/Push-Policy (sehr wichtig):
   - Die KI beschreibt dem User stets exakt, was geändert werden soll (Dateipfade, Diff/Änderungen, Befehle) und wartet auf Bestätigung.
