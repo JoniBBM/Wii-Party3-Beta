@@ -16,6 +16,7 @@
 - Team-Dashboard (_get_last_dice_result): eval-Fallback entfernt (getestet, ok)
  - dice_service: Admin-Würfel-/Eventlogik ausgelagert; Route nutzt Service (getestet, ok)
  - Victory-Event speichert JSON statt String (Mini-Fix)
+- Docker-Setup: Host-Netzwerk aktiviert, damit Container in aktueller Umgebung startet (getestet, ok)
 
 Nächster Schritt (offen)
 - Optional: Victory-Event testen (Team auf Position 72, Total ≥ 6, Event erzeugt).

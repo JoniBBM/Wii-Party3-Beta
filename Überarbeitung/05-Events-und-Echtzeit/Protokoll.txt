@@ -152,3 +152,21 @@ Eintrag 8
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User auszuführen]
 - Status: Abgeschlossen
+
+Eintrag 10
+- Datum/Uhrzeit: 2025-10-15 09:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `docker-compose.yml`: Wechsel auf `network_mode: "host"` und expliziter Startbefehl `flask run --port=5001`, da das aktuelle System keine veth-Paare für Bridge-Netzwerke unterstützt.
+- Begründung/Ziel (Warum):
+  - Docker-Container startete nicht wegen `operation not supported` beim Einrichten des Bridge-Netzwerks; Host-Netzwerk ermöglicht die Live-Umgebung ohne Infrastrukturbruch.
+- Test-Anleitung (Wie testen):
+  - `docker compose up -d`
+  - `curl -s http://localhost:5001/api/v1/status/board`
+  - Erwartung: Container startet fehlerfrei, API liefert JSON (success true).
+- Testergebnisse (vom User): erfolgreich (`docker compose up -d` startet Container, `status/board` gibt Daten zurück).
+- Auswirkungen/Backwards-Compat: Service läuft weiterhin auf Port 5001; nur Deployment auf Nicht-Linux oder Mehrcontainer-Setups müsste Host-Netzwerk prüfen.
+- Nächste Schritte: Optionalen Victory-Test (Eintrag 9) durchführen; danach DB-Reset wie in `AKTUELL.md` beschrieben.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
