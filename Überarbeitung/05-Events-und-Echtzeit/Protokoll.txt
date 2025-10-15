@@ -446,3 +446,53 @@ Eintrag 26
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 27
+- Datum/Uhrzeit: 2025-10-15 11:05 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/main/routes.py`: sämtliche Session-Zugriffe (Board-Status, Frage-/Minigame-APIs, Feld-Minispiel-Phasen) laufen über `session_service.get_active_session()`; Event-Abfragen abgesichert.
+  - `app/api_v1/routes.py`: `/api/v1/status/board` nutzt denselben Helper.
+- Begründung/Ziel (Warum):
+  - Konsistente, zentrale Session-Verwaltung auch für öffentliche/legacy APIs.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → GET `/board`, `/api/board-status`, `/api/minigame-status`, `/api/question-status`, `/api/special-field-status`, `/api/get-player-faces`, `/api/advance_field_minigame_phase`, `/api/field_minigame_status` (Status 200 bzw. erwartete Fehlercodes, siehe Script-Log).
+  - `docker compose exec web python - <<'PY' ...` → GET `/api/v1/status/board` (Status 200, JSON `success: True`).
+- Testergebnisse (vom User): erfolgreich (alle Endpunkte liefern erwartete Antworten; Logs bestätigen session_service-Nutzung).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Team-Routen & Hilfsfunktionen migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 28
+- Datum/Uhrzeit: 2025-10-15 11:12 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/teams/routes.py`: Dashboard-/Fragen-/Würfel-APIs nutzen `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Logik auch für Team-Endpoints; Vorbereitung für weitere Service-Schichten.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Session via `client.session_transaction` auf Team setzen; GET `/teams/question/status`, POST `/teams/api/team_roll_dice_test`, POST `/teams/api/team_roll_dice` (Status 200, erwartete JSON; nach letztem Test Team-Positionen zurückgesetzt).
+- Testergebnisse (vom User): erfolgreich (Team-Würfeln erzeugt korrekte Antwort; anschließend Reset-Skript). 
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Admin-Hilfsfunktionen (minigame_utils) angleichen; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 29
+- Datum/Uhrzeit: 2025-10-15 11:18 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/admin/minigame_utils.py`: Backup-/Restore-Funktionen greifen über `session_service.get_active_session()` auf aktive Sessions zu.
+- Begründung/Ziel (Warum):
+  - Hilfsfunktionen im Admin-Kontext nutzen dieselbe zentrale Session-Schicht; verhindert doppelte Query-Logik.
+- Test-Anleitung (Wie testen):
+  - Indirekt über bestehende Admin-Tests (`activate_round`, `reset_played_content`) – erfolgreiche Logs bestätigen Backup/Reset mit neuem Helper.
+- Testergebnisse (vom User): erfolgreich (siehe vorherige Tests `activate_round`, `reset_played_content`).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Board-Blau/SyntaxError isolieren und beheben.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

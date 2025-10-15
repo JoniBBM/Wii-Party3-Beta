@@ -19,7 +19,7 @@
 - Docker-Setup: Host-Netzwerk aktiviert, damit Container in aktueller Umgebung startet (getestet, ok)
 - Victory-Event (Team auf Position 72, ≥6 Wurf) erfolgreich getestet; Event als JSON gespeichert (getestet, ok)
 - DB neu initialisiert; alle Teams auf Position 0 zurückgesetzt (getestet, ok)
-- Session-Service: `get_active_session`/`require_active_session` eingeführt; moderation_mode, admin_roll_dice, automatische Platzierungen, Dashboard/Minigame-Setup, Minigame-Abbruch, end_question, reset_played_content, unblock_team, record_placements, question_responses_api, add_player_to_team, activate_round, start_welcome, player_rotation_stats, reset_player_rotation & Feld-Minispiel-Endpoints nutzen Service (getestet, ok)
+- Session-Service: `get_active_session`/`require_active_session` eingeführt; moderation_mode, admin_roll_dice, automatische Platzierungen, Dashboard/Minigame-Setup, Minigame-Abbruch, end_question, reset_played_content, unblock_team, record_placements, question_responses_api, add_player_to_team, activate_round, start_welcome, player_rotation_stats, reset_player_rotation, Feld-Minispiel-Endpoints, Main-/Team-Routen & API v1 Status nutzen Service (getestet, ok)
 
 Nächster Schritt (offen)
 - Session-Service & Event-Stream vorbereiten (gemäß Protokoll Eintrag 11) bzw. Board-Blau-Bug adressieren.
