@@ -1,8 +1,8 @@
 services:
   web:
     build: . # Baut das Image basierend auf dem Dockerfile im aktuellen Verzeichnis
-    ports:
-      - "5001:5000" # Mappt Port 5000 des Containers auf Port 5001 des Hosts
+    network_mode: "host" # Host-Netzwerk nutzen, da veth-Paare im aktuellen Setup nicht unterstützt sind
+    command: flask run --host=0.0.0.0 --port=5001
     volumes:
       # Mountet das gesamte lokale Projektverzeichnis in das /app Verzeichnis im Container.
       # Dadurch werden Code-Änderungen live übernommen und im Container erstellte Dateien
