@@ -386,7 +386,9 @@ def moderation_mode_api():
             return jsonify({'error': 'Unauthorized'}), 403
         
         # Gleiche Logik wie moderation_mode, aber als JSON
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        from app.services.session_service import get_active_session
+
+        active_session = get_active_session()
         game_status = None
         
         if active_session:
@@ -1003,7 +1005,9 @@ def admin_roll_dice():
         return jsonify({"success": False, "error": "Nur Admins können würfeln."}), 403
 
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        from app.services.session_service import get_active_session
+
+        active_session = get_active_session()
         if not active_session:
             return jsonify({"success": False, "error": "Keine aktive Spielsitzung."}), 404
 
@@ -5580,4 +5584,3 @@ def debug_field_distribution():
             'success': False,
             'error': str(e)
         }), 500
-
