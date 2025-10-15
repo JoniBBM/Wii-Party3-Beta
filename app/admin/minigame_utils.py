@@ -10,6 +10,7 @@ from datetime import datetime
 from flask import current_app
 from typing import List, Dict, Optional, Any
 import uuid
+from app.services.session_service import get_active_session
 
 def get_minigame_folders_path() -> str:
     """Gibt den vollständigen Pfad zum Minigame-Ordner zurück"""
@@ -448,8 +449,7 @@ def save_round_to_filesystem(round_obj) -> bool:
             json.dump(teams_data, f, indent=2, ensure_ascii=False)
         
         # 3. SPIELSITZUNG.JSON - GameSession Daten
-        from app.models import GameSession
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         
         if active_session:
             game_session_data = {
@@ -992,7 +992,7 @@ def _restore_game_session_from_data(session_data, round_id):
     
     try:
         # Prüfe ob bereits eine aktive GameSession existiert
-        existing_session = GameSession.query.filter_by(is_active=True).first()
+        existing_session = get_active_session()
         if existing_session:
             # Deaktiviere existierende Session
             existing_session.is_active = False

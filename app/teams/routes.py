@@ -7,6 +7,7 @@ from app.admin.minigame_utils import get_question_from_folder
 from app import csrf
 import json
 from datetime import datetime, timedelta
+from app.services.session_service import get_active_session
 
 teams_bp = Blueprint('teams', __name__, url_prefix='/teams')
 
@@ -51,7 +52,7 @@ def team_logout():
 
 def _get_team_game_progress(team_user):
     """Sammelt die Spielverlauf-Daten für ein Team"""
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    active_session = get_active_session()
     if not active_session:
         return []
     
@@ -202,7 +203,7 @@ def _get_dashboard_data(team_user):
     all_teams = Team.query.order_by(Team.current_position.desc(), Team.name).all()
     
     # Aktive Spielsitzung
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    active_session = get_active_session()
     
     # Aktive Spielrunde
     active_round = GameRound.get_active_round()
@@ -765,7 +766,7 @@ def submit_question_answer():
             return jsonify({'success': False, 'error': 'Fehlende erforderliche Daten'}), 400
         
         # Hole aktive Session
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session or active_session.current_question_id != question_id:
             return jsonify({'success': False, 'error': 'Keine aktive Frage gefunden'}), 404
         
@@ -860,7 +861,7 @@ def question_status():
         return jsonify({'error': 'Unauthorized'}), 403
     
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session or not active_session.current_question_id:
             return jsonify({
                 'question_active': False,
@@ -1066,7 +1067,7 @@ def team_roll_dice():
         current_app.logger.info(f"Team {current_user.name} (ID: {current_user.id}) versucht zu würfeln")
         
         # Prüfe Spielsitzung
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({"success": False, "error": "Keine aktive Spielsitzung."}), 404
         

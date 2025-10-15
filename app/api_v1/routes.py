@@ -5,6 +5,7 @@ import json
 
 from . import api_v1_bp
 from app.models import Team, GameSession, GameEvent
+from app.services.session_service import get_active_session
 
 
 def _meta():
@@ -27,7 +28,7 @@ def _err(code, message, details=None, status=400):
 def status_board_v1():
     try:
         teams = Team.query.order_by(Team.id).all()
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
 
         team_data = []
         for t in teams:
@@ -180,4 +181,3 @@ def fields_positions_v1():
     except Exception as e:
         current_app.logger.error(f"/api/v1/fields/positions error: {e}", exc_info=True)
         return _err("INTERNAL_ERROR", "Unerwarteter Fehler", status=500)
-

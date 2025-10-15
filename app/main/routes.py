@@ -7,6 +7,7 @@ import traceback # Für detaillierte Fehlermeldungen
 from flask_login import current_user
 from datetime import datetime, timedelta
 import json
+from app.services.session_service import get_active_session
 
 
 def get_consistent_emoji_for_player(player_name):
@@ -46,7 +47,7 @@ def game_board():
     if len(teams) == 0:
         return redirect(url_for('main.welcome'))
     
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    active_session = get_active_session()
     is_admin = session.get('is_admin', False)
     team_colors = ["#FF5252", "#448AFF", "#4CAF50", "#FFC107", "#9C27B0", "#FF9800"]
     
@@ -67,7 +68,7 @@ def board_status():
     """API für Spielstatus-Updates via AJAX mit verbesserter Fehlerbehandlung und Sonderfeld-Unterstützung"""
     try:
         teams_query = Team.query.order_by(Team.id).all() # Reihenfolge nach ID für Konsistenz
-        active_session_query = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
 
         team_data = []
         for team_obj in teams_query:
@@ -96,18 +97,18 @@ def board_status():
 
         game_session_data = None
         current_team_id = None  # Initialize current_team_id before use
-        if active_session_query:
+        if active_session:
             dice_order_ids = []
-            if active_session_query.dice_roll_order:
+            if active_session.dice_roll_order:
                 try:
                     # Stellt sicher, dass nur gültige Integer-IDs in der Liste landen
-                    dice_order_ids = [int(tid_str) for tid_str in active_session_query.dice_roll_order.split(',') if tid_str.strip().isdigit()]
+                    dice_order_ids = [int(tid_str) for tid_str in active_session.dice_roll_order.split(',') if tid_str.strip().isdigit()]
                 except ValueError:
-                    current_app.logger.error(f"Ungültige dice_roll_order: {active_session_query.dice_roll_order}")
+                    current_app.logger.error(f"Ungültige dice_roll_order: {active_session.dice_roll_order}")
                     dice_order_ids = [] # Im Fehlerfall leere Liste
 
             # Sicherstellen, dass current_team_turn_id ein Integer ist oder None
-            current_team_id = active_session_query.current_team_turn_id
+            current_team_id = active_session.current_team_turn_id
             if current_team_id is not None:
                 try:
                     current_team_id = int(current_team_id)
@@ -117,20 +118,20 @@ def board_status():
 
             # Get minigame folder name from current game round
             minigame_folder_name = "Minispiel"
-            if active_session_query.game_round and active_session_query.game_round.minigame_folder:
-                minigame_folder_name = active_session_query.game_round.minigame_folder.name
+            if active_session.game_round and active_session.game_round.minigame_folder:
+                minigame_folder_name = active_session.game_round.minigame_folder.name
 
             game_session_data = {
-                "current_minigame_name": active_session_query.current_minigame_name,
-                "current_minigame_description": active_session_query.current_minigame_description,
-                "current_phase": active_session_query.current_phase,
+                "current_minigame_name": active_session.current_minigame_name,
+                "current_minigame_description": active_session.current_minigame_description,
+                "current_phase": active_session.current_phase,
                 "current_team_turn_id": current_team_id,
-                "current_question_id": active_session_query.current_question_id,
+                "current_question_id": active_session.current_question_id,
                 "dice_roll_order": dice_order_ids,
                 "minigame_folder_name": minigame_folder_name,
                 # SONDERFELD: Vulkan-Status (für zukünftige Implementierung)
-                "volcano_countdown": active_session_query.volcano_countdown if hasattr(active_session_query, 'volcano_countdown') else 0,
-                "volcano_active": active_session_query.volcano_active if hasattr(active_session_query, 'volcano_active') else False
+                "volcano_countdown": active_session.volcano_countdown if hasattr(active_session, 'volcano_countdown') else 0,
+                "volcano_active": active_session.volcano_active if hasattr(active_session, 'volcano_active') else False
             }
         
         # Get recent events (dice results and special field events)
@@ -141,24 +142,27 @@ def board_status():
         # Only get events from the last 10 seconds to avoid old results (TEST MODE)
         recent_time = datetime.utcnow() - timedelta(seconds=10)
         
-        # Find the most recent dice roll from any team
-        last_dice_event = GameEvent.query.filter_by(
-            game_session_id=active_session_query.id
-        ).filter(
-            GameEvent.event_type.in_(['dice_roll', 'admin_dice_roll', 'admin_dice_roll_legacy', 'team_dice_roll']),
-            GameEvent.timestamp >= recent_time
-        ).order_by(GameEvent.timestamp.desc()).first()
-        
-        # Find the most recent special field event (catapult, barrier, swap, field minigames)
-        last_special_event = GameEvent.query.filter_by(
-            game_session_id=active_session_query.id
-        ).filter(
-            GameEvent.event_type.in_(['special_field_catapult_forward', 'special_field_catapult_backward', 
-                                     'special_field_player_swap', 'special_field_barrier_set', 
-                                     'special_field_barrier_released', 'special_field_barrier_blocked',
-                                     'field_minigame_completed']),
-            GameEvent.timestamp >= recent_time
-        ).order_by(GameEvent.timestamp.desc()).first()
+        last_dice_event = None
+        last_special_event = None
+        if active_session:
+            # Find the most recent dice roll from any team
+            last_dice_event = GameEvent.query.filter_by(
+                game_session_id=active_session.id
+            ).filter(
+                GameEvent.event_type.in_(['dice_roll', 'admin_dice_roll', 'admin_dice_roll_legacy', 'team_dice_roll']),
+                GameEvent.timestamp >= recent_time
+            ).order_by(GameEvent.timestamp.desc()).first()
+
+            # Find the most recent special field event (catapult, barrier, swap, field minigames)
+            last_special_event = GameEvent.query.filter_by(
+                game_session_id=active_session.id
+            ).filter(
+                GameEvent.event_type.in_(['special_field_catapult_forward', 'special_field_catapult_backward',
+                                         'special_field_player_swap', 'special_field_barrier_set',
+                                         'special_field_barrier_released', 'special_field_barrier_blocked',
+                                         'field_minigame_completed']),
+                GameEvent.timestamp >= recent_time
+            ).order_by(GameEvent.timestamp.desc()).first()
         
         # Process dice result (strict JSON, no eval fallback)
         if last_dice_event and last_dice_event.data_json:
@@ -213,11 +217,11 @@ def board_status():
 
         # Get question data if question is active
         question_data = None
-        if (active_session_query and 
-            active_session_query.current_phase == 'QUESTION_ACTIVE' and 
-            active_session_query.current_question_id):
+        if (active_session and 
+            active_session.current_phase == 'QUESTION_ACTIVE' and 
+            active_session.current_question_id):
             
-            current_app.logger.info(f"[QUESTION BANNER] Attempting to load question data for ID: {active_session_query.current_question_id}")
+            current_app.logger.info(f"[QUESTION BANNER] Attempting to load question data for ID: {active_session.current_question_id}")
             
             try:
                 from app.models import GameRound
@@ -231,7 +235,7 @@ def board_status():
                     
                     question_info = get_question_from_folder(
                         active_round.minigame_folder.folder_path, 
-                        active_session_query.current_question_id
+                        active_session.current_question_id
                     )
                     current_app.logger.info(f"[QUESTION BANNER] Question info loaded: {question_info}")
                     
@@ -239,7 +243,7 @@ def board_status():
                         question_data = {
                             'question_active': True,
                             'question': {
-                                'id': active_session_query.current_question_id,
+                                'id': active_session.current_question_id,
                                 'title': question_info.get('title', 'Aktuelle Frage'),
                                 'text': question_info.get('question', ''),
                                 'type': question_info.get('type', 'multiple_choice')
@@ -257,7 +261,7 @@ def board_status():
                 current_app.logger.error(f"[QUESTION BANNER] Traceback: {traceback.format_exc()}")
                 question_data = None
         else:
-            current_app.logger.info(f"[QUESTION BANNER] Not loading question data - Phase: {active_session_query.current_phase if active_session_query else 'None'}, Question ID: {active_session_query.current_question_id if active_session_query else 'None'}")
+            current_app.logger.info(f"[QUESTION BANNER] Not loading question data - Phase: {active_session.current_phase if active_session else 'None'}, Question ID: {active_session.current_question_id if active_session else 'None'}")
         
         response_data = {
             "teams": team_data,
@@ -289,7 +293,7 @@ def board_status():
 
 @main_bp.route('/api/minigame-status')
 def minigame_status():
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    active_session = get_active_session()
     if active_session:
         return jsonify({
             "current_minigame_name": active_session.current_minigame_name,
@@ -306,7 +310,7 @@ def minigame_status():
 def question_status_for_gameboard():
     """API für Fragen-Status für das Gameboard (ohne Login-Requirement)"""
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({'question_active': False, 'message': 'Keine aktive Spielsitzung'})
             
@@ -409,7 +413,7 @@ def roll_dice_action_admin_only():
         if not team_id_from_request:
             return jsonify({"success": False, "error": "Team-ID fehlt."}), 400
 
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({"success": False, "error": "Keine aktive Spielsitzung."}), 404
 
@@ -550,7 +554,7 @@ def special_field_status():
     """API für Sonderfeld-Status aller Teams"""
     try:
         teams = Team.query.all()
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         
         special_field_data = []
         for team in teams:
@@ -924,7 +928,7 @@ def victory():
             return jsonify({"success": False, "error": "Team nicht gefunden"}), 404
         
         # Hole aktive Session
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({"success": False, "error": "Keine aktive Spielsitzung"}), 404
         
@@ -1318,7 +1322,7 @@ def get_player_faces():
     """Gibt Profilbilder der aktuell spielenden Teams/Spieler zurück"""
     try:
         # Hole aktive Session
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({"success": False, "error": "Keine aktive Spielsitzung"}), 404
         
@@ -1916,7 +1920,7 @@ def remove_player():
 def advance_field_minigame_phase():
     """API-Route um die Field Minigame Phase von COMPLETED zur nächsten Phase zu schalten"""
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({'success': False, 'message': 'Keine aktive Spielsitzung'}), 400
         
@@ -1979,7 +1983,7 @@ def advance_field_minigame_phase():
 def field_minigame_status():
     """API für Field Minigame Banner Status - wird vom Gameboard abgerufen"""
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({"show_banner": False})
         
