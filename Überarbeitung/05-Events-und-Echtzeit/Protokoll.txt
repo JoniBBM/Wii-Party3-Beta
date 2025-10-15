@@ -170,3 +170,39 @@ Eintrag 10
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 11
+- Datum/Uhrzeit: 2025-10-15 09:40 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `docker compose exec web python init_db.py`: Datenbank komplett neu initialisiert (inkl. Backup/Restore der Runden).
+  - Nach dem Reset alle Teams via Skript auf Position 0 gesetzt, Blockaden/Boni zurückgesetzt.
+- Begründung/Ziel (Warum):
+  - Schritt aus `AKTUELL.md` abschließen, um mit frischer Datenbasis weiterarbeiten zu können; sicherstellen, dass Teams am Startfeld beginnen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → alle Teams ausgeben.
+  - Erwartung: Jeder Eintrag zeigt `position=0`, `bonus=0`, `blocked=False`.
+- Testergebnisse (vom User): erfolgreich (Team 1 & Team 2 beide auf Position 0, keine Blockaden/Boni aktiv).
+- Auswirkungen/Backwards-Compat: Alle bestehenden Spielsituationen verworfen; frischer Spielstand.
+- Nächste Schritte: Session-Service/Stream-Logik vorbereiten (siehe Roadmap), Board-Blau-Bug gemäß Eintrag 8 prüfen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 12
+- Datum/Uhrzeit: 2025-10-15 09:45 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Neuer Service `app/services/session_service.py` eingeführt (`get_active_session`, `require_active_session`).
+  - Admin-Routen (`moderation_mode_api`, `/admin/admin_roll_dice`) nutzen `get_active_session()` statt direkter Query.
+- Begründung/Ziel (Warum):
+  - Schrittweiser Aufbau des Session-Service; zentrale Abfrage vermeidet Streuung und erleichtert Tests.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Aufruf von `get_active_session()` / `require_active_session()`.
+  - Erwartung: aktive Session wird gefunden, `require_active_session` liefert ID.
+- Testergebnisse (vom User): erfolgreich (Script gibt aktive Session-ID 2 zurück, kein LookupError).
+- Auswirkungen/Backwards-Compat: Keine Laufzeitänderung; reine interne Umstellung.
+- Nächste Schritte: Weitere Routen auf Session-Service umstellen; Board-Blau-Bug angehen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

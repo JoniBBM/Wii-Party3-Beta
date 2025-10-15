@@ -18,16 +18,15 @@
  - Victory-Event speichert JSON statt String (Mini-Fix)
 - Docker-Setup: Host-Netzwerk aktiviert, damit Container in aktueller Umgebung startet (getestet, ok)
 - Victory-Event (Team auf Position 72, ≥6 Wurf) erfolgreich getestet; Event als JSON gespeichert (getestet, ok)
+- DB neu initialisiert; alle Teams auf Position 0 zurückgesetzt (getestet, ok)
+- Session-Service: `get_active_session`/`require_active_session` eingeführt, admin_roll_dice nutzt Service (getestet, ok)
 
 Nächster Schritt (offen)
-- DB-Neuinitialisierung per Docker (destruktiv) – Hinweise unten.
+- Session-Service & Event-Stream vorbereiten (gemäß Protokoll Eintrag 11) bzw. Board-Blau-Bug adressieren.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) DB-Reset (Docker):
-    - Hinweis: Löscht Tabellen. init_db.py sichert Runden ins Dateisystem (spielstaende/runden).
-    - Voraussetzung: docker-compose mit Live-Mount (.:/app).
-    - Befehl: `docker compose exec web python init_db.py`
-    - Erwartung: Erfolgs-Logs (✅), Standardrunde/Configs initialisiert.
+ 1) Festlegen: Session-Service-Stories (z. B. Events streamen konsolidieren) oder Board-Blau-Bug reproduzieren.
+ 2) Micro-Step auswählen, dokumentieren, testen (siehe Protokollhinweise).
 
 Push-Hinweis
  - Commit-Message-Vorschlag: `refactor(dice): use dice_service for admin legacy roll route`
