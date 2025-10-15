@@ -17,14 +17,13 @@
  - dice_service: Admin-Würfel-/Eventlogik ausgelagert; Route nutzt Service (getestet, ok)
  - Victory-Event speichert JSON statt String (Mini-Fix)
 - Docker-Setup: Host-Netzwerk aktiviert, damit Container in aktueller Umgebung startet (getestet, ok)
+- Victory-Event (Team auf Position 72, ≥6 Wurf) erfolgreich getestet; Event als JSON gespeichert (getestet, ok)
 
 Nächster Schritt (offen)
-- Optional: Victory-Event testen (Team auf Position 72, Total ≥ 6, Event erzeugt).
-- Danach: DB-Neuinitialisierung per Docker (destruktiv) – Hinweise unten.
+- DB-Neuinitialisierung per Docker (destruktiv) – Hinweise unten.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Optional: Victory-Test wie oben.
- 2) DB-Reset (Docker):
+ 1) DB-Reset (Docker):
     - Hinweis: Löscht Tabellen. init_db.py sichert Runden ins Dateisystem (spielstaende/runden).
     - Voraussetzung: docker-compose mit Live-Mount (.:/app).
     - Befehl: `docker compose exec web python init_db.py`
