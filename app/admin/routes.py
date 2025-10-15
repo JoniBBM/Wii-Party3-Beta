@@ -38,7 +38,7 @@ from .field_config import (
 )
 
 # SONDERFELD-LOGIK IMPORT
-from app.services.session_service import get_or_create_active_session
+from app.services.session_service import get_active_session, get_or_create_active_session
 from app.game_logic.special_fields import (
     handle_special_field_action, 
     check_barrier_release, 
@@ -207,7 +207,7 @@ def moderation_mode():
         return redirect(url_for('main.index'))
     
     # Aktuellen Spielstatus ermitteln
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    active_session = get_active_session()
     game_status = None
     
     if active_session:
@@ -1276,7 +1276,7 @@ def abort_current_minigame():
     
     try:
         # Aktive Sitzung finden
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({"success": False, "error": "Keine aktive Spielsitzung gefunden."}), 404
         
@@ -1736,7 +1736,7 @@ def end_question():
         flash('Aktion nicht erlaubt.', 'danger')
         return redirect(url_for('main.index'))
     
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    active_session = get_active_session()
     if not active_session:
         flash('Keine aktive Spielsitzung gefunden.', 'danger')
         return redirect(url_for('admin.admin_dashboard'))
@@ -1795,7 +1795,7 @@ def question_responses_api():
         return jsonify({"success": False, "error": "Nur Admins können Antworten einsehen."}), 403
     
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session or not active_session.current_question_id:
             return jsonify({
                 "success": True,
@@ -1862,7 +1862,7 @@ def record_placements():
         flash('Aktion nicht erlaubt.', 'danger')
         return redirect(url_for('main.index')) 
 
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    active_session = get_active_session()
     if not active_session or active_session.current_phase not in ['MINIGAME_ANNOUNCED']:
         flash('Platzierungen können nur nach Ankündigung eines Minispiels eingegeben werden.', 'warning')
         return redirect(url_for('admin.admin_dashboard'))
@@ -1983,7 +1983,7 @@ def reset_played_content():
         return redirect(url_for('main.index'))
     
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if active_session:
             reset_played_content_for_session(active_session)
             db.session.commit()
@@ -2016,7 +2016,7 @@ def unblock_team(team_id):
     
     try:
         team = Team.query.get_or_404(team_id)
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         
         if team.is_blocked:
             team.reset_special_field_status()
@@ -3005,7 +3005,7 @@ def add_player_to_team():
             return jsonify({'success': False, 'error': 'Spielername ist bereits vergeben'})
         
         # Prüfe ob bereits ein aktives Spiel läuft
-        active_game_session = GameSession.query.filter_by(is_active=True).first()
+        active_game_session = get_active_session()
         
         # Finde oder erstelle aktive WelcomeSession NUR wenn kein aktives Spiel läuft
         welcome_session = WelcomeSession.get_active_session()
@@ -4272,7 +4272,7 @@ def activate_round(round_id):
         round_obj.activate()
         
         # Beim Wechseln der Runde: Gespielte Inhalte zurücksetzen
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if active_session:
             reset_played_content_for_session(active_session)
             
@@ -4392,7 +4392,7 @@ def start_welcome():
         
         # NEU: Prüfe ob bereits Teams existieren oder ein Spiel aktiv ist
         existing_teams = Team.query.all()
-        active_game_session = GameSession.query.filter_by(is_active=True).first()
+        active_game_session = get_active_session()
         
         if existing_teams or active_game_session:
             teams_count = len(existing_teams)
@@ -4736,7 +4736,7 @@ def player_rotation_stats():
         return redirect(url_for('main.index'))
     
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             flash('Keine aktive Spielsitzung gefunden.', 'warning')
             return redirect(url_for('admin.admin_dashboard'))
@@ -4782,7 +4782,7 @@ def reset_player_rotation():
         return jsonify({'success': False, 'error': 'Zugriff verweigert'}), 403
     
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({'success': False, 'error': 'Keine aktive Spielsitzung'}), 400
         
@@ -5280,7 +5280,7 @@ def check_minigame_field_status():
         return jsonify({'error': 'Unauthorized'}), 403
     
     try:
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({'selection_pending': False})
         
@@ -5384,7 +5384,7 @@ def start_field_minigame():
         current_app.logger.info(f"Parsed mode: {selected_mode}, minigame_id: {minigame_id}")
         
         # Hole aktive Session
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({'success': False, 'message': 'Keine aktive Spielsitzung'}), 400
         
@@ -5450,7 +5450,7 @@ def submit_field_minigame_result():
             return jsonify({'success': False, 'message': 'Ungültiges Ergebnis'}), 400
         
         # Hole aktive Session
-        active_session = GameSession.query.filter_by(is_active=True).first()
+        active_session = get_active_session()
         if not active_session:
             return jsonify({'success': False, 'message': 'Keine aktive Spielsitzung'}), 400
         
