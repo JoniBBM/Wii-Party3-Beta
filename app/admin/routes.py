@@ -38,6 +38,7 @@ from .field_config import (
 )
 
 # SONDERFELD-LOGIK IMPORT
+from app.services.session_service import get_or_create_active_session
 from app.game_logic.special_fields import (
     handle_special_field_action, 
     check_barrier_release, 
@@ -126,29 +127,6 @@ def test_field_update():
         "message": "Test-Event gesendet",
         "events_count": len(field_update_events)
     })
-
-def get_or_create_active_session():
-    active_session = GameSession.query.filter_by(is_active=True).first()
-    if not active_session:
-        active_round = GameRound.get_active_round()
-        
-        active_session = GameSession(
-            is_active=True, 
-            current_phase='SETUP_MINIGAME',
-            game_round_id=active_round.id if active_round else None,
-            played_content_ids=''  # Initialisiere mit leerem String
-        )
-        db.session.add(active_session)
-        db.session.flush() 
-
-        event = GameEvent(
-            game_session_id=active_session.id,
-            event_type="game_session_started",
-            description=f"Neue Spielsitzung gestartet{f' für Runde {active_round.name}' if active_round else ''}."
-        )
-        db.session.add(event)
-        db.session.commit() 
-    return active_session
 
 def calculate_automatic_placements():
     """Berechnet automatische Platzierungen basierend auf Antwort-Reihenfolge und Korrektheit"""

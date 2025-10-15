@@ -19,7 +19,7 @@
 - Docker-Setup: Host-Netzwerk aktiviert, damit Container in aktueller Umgebung startet (getestet, ok)
 - Victory-Event (Team auf Position 72, ≥6 Wurf) erfolgreich getestet; Event als JSON gespeichert (getestet, ok)
 - DB neu initialisiert; alle Teams auf Position 0 zurückgesetzt (getestet, ok)
-- Session-Service: `get_active_session`/`require_active_session` eingeführt; moderation_mode, admin_roll_dice & automatische Platzierungen nutzen Service (getestet, ok)
+- Session-Service: `get_active_session`/`require_active_session` eingeführt; moderation_mode, admin_roll_dice, automatische Platzierungen sowie Dashboard/Minigame-Setup nutzen Service (getestet, ok)
 
 Nächster Schritt (offen)
 - Session-Service & Event-Stream vorbereiten (gemäß Protokoll Eintrag 11) bzw. Board-Blau-Bug adressieren.
