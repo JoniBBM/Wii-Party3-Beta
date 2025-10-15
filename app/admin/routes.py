@@ -152,7 +152,9 @@ def get_or_create_active_session():
 
 def calculate_automatic_placements():
     """Berechnet automatische Platzierungen basierend auf Antwort-Reihenfolge und Korrektheit"""
-    active_session = GameSession.query.filter_by(is_active=True).first()
+    from app.services.session_service import get_active_session
+
+    active_session = get_active_session()
     if not active_session or not active_session.current_question_id:
         return
 
