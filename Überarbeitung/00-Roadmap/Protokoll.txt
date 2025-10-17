@@ -115,3 +115,16 @@ Eintrag 9
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 10
+- Datum/Uhrzeit: 2025-10-17 09:26 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Welcome-/Sequence-Fallbacks verlängert; Aktualisierung läuft Event-getrieben über den Stream (Roadmap Schritt 6c weitergeführt).
+- Begründung/Ziel (Warum): Minimiert Polling-Last und fördert Echtzeitverhalten.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 36.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Fallback-Intervalle bestehen weiter.
+- Nächste Schritte: Welcome-spezifische Events planen, nicht mehr benötigte Poll-APIs abbauen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
