@@ -27,6 +27,7 @@
 - Gameboard Live-Updates: nutzt `/api/v1/stream` mit SSE + Polling-Fallback (getestet, ok)
 - Team-Dashboard: `/api/v1/stream` triggert Updates, Polling nur noch als Fallback (getestet, ok)
 - Admin-Dashboard: `/api/v1/stream` steuert Updates; Polling nur als Reserve (getestet, ok)
+- Admin-Dashboard Welcome/Sequenzen: Stream triggert Status-Refresh; Fallback-Intervalle verlängert (getestet, ok)
 
 Nächster Schritt (offen)
 - Moderator-/Spezialansichten (Welcome, Sequenzen) auf Stream umstellen; Legacy-Polling aufräumen.

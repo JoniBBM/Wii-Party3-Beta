@@ -721,3 +721,19 @@ Eintrag 35
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 36
+- Datum/Uhrzeit: 2025-10-17 09:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/templates/admin.html`: Welcome-Status & Sequenz-/Minigame-Monitoring hängen an den Stream (SSE-Trigger + Backoff); Polling-Fallback nur noch alle 6 s bzw. 15 s.
+- Begründung/Ziel (Warum):
+  - Einheitliches Echtzeitsystem; reduziert ständige Requests und sorgt für schnellere Reaktion bei Events.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe Eintrag 34/35) – `team_dice_roll` erzeugen, Stream prüfen; Logs zeigen Folgeaufrufe (`scheduleSequenceRefresh`, `scheduleWelcomeRefresh`).
+- Testergebnisse (vom User): erfolgreich (SSE liefert Event; Polling bleibt Reserve).
+- Auswirkungen/Backwards-Compat: Fallbacks vorhanden; Intervalle deutlich länger.
+- Nächste Schritte: Willkommen-/Sequence-spezifische Events erwägen; Legacy-Polling-Endpunkte dokumentieren/abschalten.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

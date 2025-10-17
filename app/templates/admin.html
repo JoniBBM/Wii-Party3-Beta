@@ -2311,6 +2311,96 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleDirectQuestionType();
     }
     
+    function scheduleSequenceRefresh(reason = 'stream') {
+        if (document.hidden) {
+            sequencePendingRefresh = true;
+            return;
+        }
+        if (sequenceRefreshTimer) {
+            return;
+        }
+        sequenceRefreshTimer = setTimeout(() => {
+            sequenceRefreshTimer = null;
+            if (!document.hidden) {
+                updateSequenceStatus();
+                checkMinigameFieldStatus();
+            } else {
+                sequencePendingRefresh = true;
+            }
+        }, 200);
+    }
+
+    function startSequenceFallback(initialDelay = 0) {
+        if (sequenceFallbackInterval) {
+            return;
+        }
+        console.warn('[ADMIN] Sequence fallback aktiv.');
+        sequenceFallbackInterval = setInterval(() => {
+            if (!document.hidden) {
+                updateSequenceStatus();
+                checkMinigameFieldStatus();
+            } else {
+                sequencePendingRefresh = true;
+            }
+        }, SEQUENCE_POLL_INTERVAL_MS);
+        if (initialDelay === 0) {
+            scheduleSequenceRefresh('seq-fallback');
+        } else {
+            setTimeout(() => scheduleSequenceRefresh('seq-fallback'), initialDelay);
+        }
+    }
+
+    function stopSequenceFallback() {
+        if (sequenceFallbackInterval) {
+            clearInterval(sequenceFallbackInterval);
+            sequenceFallbackInterval = null;
+        }
+    }
+
+    function scheduleWelcomeRefresh(reason = 'stream') {
+        if (document.hidden) {
+            welcomePendingRefresh = true;
+            return;
+        }
+        if (welcomeRefreshTimer) {
+            return;
+        }
+        welcomeRefreshTimer = setTimeout(() => {
+            welcomeRefreshTimer = null;
+            if (!document.hidden) {
+                updateWelcomeStatus();
+            } else {
+                welcomePendingRefresh = true;
+            }
+        }, 250);
+    }
+
+    function startWelcomeFallback(initialDelay = 0) {
+        if (welcomeFallbackInterval) {
+            return;
+        }
+        console.warn('[ADMIN] Welcome fallback aktiv.');
+        welcomeFallbackInterval = setInterval(() => {
+            if (!document.hidden) {
+                updateWelcomeStatus();
+            } else {
+                welcomePendingRefresh = true;
+            }
+        }, WELCOME_POLL_INTERVAL_MS);
+        if (initialDelay === 0) {
+            scheduleWelcomeRefresh('welcome-fallback');
+        } else {
+            setTimeout(() => scheduleWelcomeRefresh('welcome-fallback'), initialDelay);
+        }
+    }
+
+    function stopWelcomeFallback() {
+        if (welcomeFallbackInterval) {
+            clearInterval(welcomeFallbackInterval);
+            welcomeFallbackInterval = null;
+        }
+    }
+
     function scheduleAdminRefresh(reason = 'stream') {
         if (document.hidden) {
             adminPendingRefresh = true;
@@ -2390,6 +2480,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         adminEventSource.addEventListener('open', () => {
             console.log('[ADMIN] SSE verbunden.');
+            stopSequenceFallback();
+            stopWelcomeFallback();
             scheduleAdminRefresh('sse-open');
         });
 
@@ -2406,20 +2498,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         ADMIN_STREAM_EVENTS.forEach(evtName => {
-            adminEventSource.addEventListener(evtName, (event) => {
-                try {
-                    console.debug(`[ADMIN] SSE ${evtName}`, JSON.parse(event.data));
-                } catch (error) {
-                    console.debug(`[ADMIN] SSE ${evtName} parse failed`, error);
-                }
-                scheduleAdminRefresh(evtName);
-            });
+        adminEventSource.addEventListener(evtName, (event) => {
+            try {
+                console.debug(`[ADMIN] SSE ${evtName}`, JSON.parse(event.data));
+            } catch (error) {
+                console.debug(`[ADMIN] SSE ${evtName} parse failed`, error);
+            }
+            scheduleAdminRefresh(evtName);
+            if (SEQUENCE_EVENT_TRIGGERS.includes(evtName)) {
+                scheduleSequenceRefresh(evtName);
+            }
+            if (evtName === 'phase_change' || evtName === 'game_session_started' || evtName === 'question_started' || evtName === 'question_completed') {
+                scheduleWelcomeRefresh(evtName);
+            }
+        });
         });
 
         adminEventSource.addEventListener('error', (event) => {
             console.error('[ADMIN] SSE Fehler, aktiviere Polling-Fallback.', event);
             cleanupAdminStream();
             startAdminPollingFallback(2000);
+            startSequenceFallback(2000);
+            startWelcomeFallback(5000);
             if (!adminStreamRetryTimer) {
                 adminStreamRetryTimer = setTimeout(() => {
                     adminStreamRetryTimer = null;
@@ -2833,7 +2933,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Welcome-System initialisierung
     updateWelcomeStatus();
-    setInterval(updateWelcomeStatus, 5000);
+    startWelcomeFallback(15000);
 
     // Welcome-System Event Listeners (mit Event-Delegation da Button dynamisch ersetzt wird)
     // Event-Listener werden jetzt direkt in updateWelcomeStatus() gesetzt
@@ -2877,16 +2977,33 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
             stopAdminPollingFallback();
+            stopSequenceFallback();
+            stopWelcomeFallback();
         } else {
             if (!adminEventSource || adminEventSource.readyState === EventSource.CLOSED) {
                 initAdminEventStream();
             }
-            if (adminFallbackInterval === null && !adminEventSource) {
+            if (!adminEventSource && adminFallbackInterval === null) {
                 startAdminPollingFallback(0);
+            }
+            if (!sequenceFallbackInterval) {
+                startSequenceFallback(2000);
+            }
+            if (!welcomeFallbackInterval) {
+                startWelcomeFallback(5000);
             }
             if (adminPendingRefresh) {
                 adminPendingRefresh = false;
                 updateGameStatus();
+            }
+            if (sequencePendingRefresh) {
+                sequencePendingRefresh = false;
+                updateSequenceStatus();
+                checkMinigameFieldStatus();
+            }
+            if (welcomePendingRefresh) {
+                welcomePendingRefresh = false;
+                updateWelcomeStatus();
             }
         }
     });
@@ -2894,6 +3011,16 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('beforeunload', function() {
         cleanupAdminStream();
         stopAdminPollingFallback();
+        stopSequenceFallback();
+        stopWelcomeFallback();
+        if (sequenceRefreshTimer) {
+            clearTimeout(sequenceRefreshTimer);
+            sequenceRefreshTimer = null;
+        }
+        if (welcomeRefreshTimer) {
+            clearTimeout(welcomeRefreshTimer);
+            welcomeRefreshTimer = null;
+        }
     });
 });
 
@@ -3271,7 +3398,27 @@ function resetRotation() {
 }
 
 // Live-Updates für Sequence-Status
-let sequenceUpdateInterval;
+let sequenceFallbackInterval = null;
+let sequenceRefreshTimer = null;
+let sequencePendingRefresh = false;
+const SEQUENCE_POLL_INTERVAL_MS = 6000;
+const SEQUENCE_EVENT_TRIGGERS = [
+    'field_update',
+    'field_minigame_completed',
+    'special_field_catapult_forward',
+    'special_field_catapult_backward',
+    'special_field_player_swap',
+    'special_field_barrier_set',
+    'special_field_barrier_released',
+    'special_field_barrier_blocked',
+    'question_started',
+    'question_completed',
+    'phase_change'
+];
+let welcomeFallbackInterval = null;
+let welcomeRefreshTimer = null;
+let welcomePendingRefresh = false;
+const WELCOME_POLL_INTERVAL_MS = 15000;
 
 function updateSequenceStatus() {
     fetch('/admin/api/sequence_status')
@@ -3794,42 +3941,25 @@ function showAlert(type, message) {
 
 // Live-Updates starten wenn Admin Dashboard geladen wird
 document.addEventListener('DOMContentLoaded', function() {
-    // Initiales Update
+    // Initiales Update für Sequenzen/Minigames
     updateSequenceStatus();
     checkMinigameFieldStatus(); // NEU: Prüfe Minigame-Feld Status
-    
-    // Regelmäßige Updates alle 5 Sekunden
-    sequenceUpdateInterval = setInterval(function() {
-        updateSequenceStatus();
-        checkMinigameFieldStatus(); // NEU: Prüfe auch Minigame-Status
-    }, 5000);
+    startSequenceFallback(8000);
     
     // Event Listeners für Minigame-Auswahl Interface
     document.getElementById('refresh-minigame-status').addEventListener('click', checkMinigameFieldStatus);
     // start-selected-minigame wird dynamisch gesetzt
     document.getElementById('submit-simple-result').addEventListener('click', submitMinigameResult);
     
-    // Stoppe Updates wenn Seite verlassen wird
-    window.addEventListener('beforeunload', function() {
-        if (sequenceUpdateInterval) {
-            clearInterval(sequenceUpdateInterval);
-        }
-    });
-    
     // Pause Updates wenn Tab nicht aktiv ist (Performance)
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
-            if (sequenceUpdateInterval) {
-                clearInterval(sequenceUpdateInterval);
-            }
+            stopSequenceFallback();
         } else {
             // Resume updates wenn Tab wieder aktiv
             updateSequenceStatus();
             checkMinigameFieldStatus(); // NEU
-            sequenceUpdateInterval = setInterval(function() {
-                updateSequenceStatus();
-                checkMinigameFieldStatus(); // NEU
-            }, 5000);
+            startSequenceFallback(8000);
         }
     });
 
