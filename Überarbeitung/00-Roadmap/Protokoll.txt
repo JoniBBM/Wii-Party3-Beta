@@ -102,3 +102,16 @@ Eintrag 8
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 9
+- Datum/Uhrzeit: 2025-10-17 09:12 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6c erweitert – Admin-Dashboard nutzt jetzt den zentralen Stream; Polling dient nur als Reserve.
+- Begründung/Ziel (Warum): Einheitlicher Echtzeitpfad über alle Steuerungsoberflächen hinweg.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 34/35 (SSE-Skript mit `team_dice_roll`).
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Keine; Fallbacks vorhanden.
+- Nächste Schritte: Welcome/Sequenzen auf Stream heben, Polling entfernen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen

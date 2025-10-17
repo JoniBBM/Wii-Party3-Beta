@@ -2223,6 +2223,30 @@ document.addEventListener('DOMContentLoaded', function() {
     let questionResponsesInterval = null;
     let currentPhase = "{{ active_session.current_phase if active_session else '' }}";
     let lastResponseCount = 0;
+    let adminEventSource = null;
+    let adminStreamRetryTimer = null;
+    let adminFallbackInterval = null;
+    let adminRefreshTimer = null;
+    let adminPendingRefresh = false;
+    const ADMIN_STREAM_EVENTS = [
+        'dice_roll',
+        'team_dice_roll',
+        'admin_dice_roll',
+        'special_field_catapult_forward',
+        'special_field_catapult_backward',
+        'special_field_player_swap',
+        'special_field_barrier_set',
+        'special_field_barrier_released',
+        'special_field_barrier_blocked',
+        'field_update',
+        'field_minigame_completed',
+        'question_started',
+        'question_completed',
+        'phase_change',
+        'game_session_started'
+    ];
+    const ADMIN_STREAM_URL = "{{ url_for('api_v1.stream_events_v1') }}?event_types=" + encodeURIComponent(ADMIN_STREAM_EVENTS.join(',')) + "&poll=0.5&keepalive=5";
+    const ADMIN_POLL_INTERVAL_MS = 4000;
     
     // Minigame abbrechen Button Event Listener
     const abortMinigameBtn = document.getElementById('admin-abort-minigame-control');
@@ -2287,6 +2311,124 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleDirectQuestionType();
     }
     
+    function scheduleAdminRefresh(reason = 'stream') {
+        if (document.hidden) {
+            adminPendingRefresh = true;
+            return;
+        }
+        if (adminRefreshTimer) {
+            return;
+        }
+        adminRefreshTimer = setTimeout(() => {
+            adminRefreshTimer = null;
+            if (!document.hidden) {
+                updateGameStatus();
+            } else {
+                adminPendingRefresh = true;
+            }
+        }, 200);
+    }
+
+    function cleanupAdminStream() {
+        if (adminEventSource) {
+            try {
+                adminEventSource.close();
+            } catch (error) {
+                console.debug('[ADMIN] SSE close error', error);
+            }
+        }
+        adminEventSource = null;
+        if (adminStreamRetryTimer) {
+            clearTimeout(adminStreamRetryTimer);
+            adminStreamRetryTimer = null;
+        }
+    }
+
+    function startAdminPollingFallback(initialDelay = 0) {
+        if (adminFallbackInterval) {
+            return;
+        }
+        console.warn('[ADMIN] Starte Polling-Fallback.');
+        adminFallbackInterval = setInterval(() => {
+            if (!document.hidden) {
+                updateGameStatus();
+            } else {
+                adminPendingRefresh = true;
+            }
+        }, ADMIN_POLL_INTERVAL_MS);
+        if (initialDelay === 0) {
+            scheduleAdminRefresh('poll-start');
+        } else {
+            setTimeout(() => scheduleAdminRefresh('poll-start'), initialDelay);
+        }
+    }
+
+    function stopAdminPollingFallback() {
+        if (adminFallbackInterval) {
+            clearInterval(adminFallbackInterval);
+            adminFallbackInterval = null;
+        }
+    }
+
+    function initAdminEventStream() {
+        if (!window.EventSource) {
+            console.warn('[ADMIN] EventSource nicht verfügbar – nutze Polling-Fallback.');
+            startAdminPollingFallback(0);
+            return;
+        }
+
+        cleanupAdminStream();
+        stopAdminPollingFallback();
+
+        try {
+            adminEventSource = new EventSource(ADMIN_STREAM_URL);
+        } catch (error) {
+            console.error('[ADMIN] SSE konnte nicht gestartet werden:', error);
+            startAdminPollingFallback(0);
+            return;
+        }
+
+        adminEventSource.addEventListener('open', () => {
+            console.log('[ADMIN] SSE verbunden.');
+            scheduleAdminRefresh('sse-open');
+        });
+
+        adminEventSource.addEventListener('control', (event) => {
+            try {
+                console.debug('[ADMIN] SSE control', JSON.parse(event.data));
+            } catch (error) {
+                console.debug('[ADMIN] SSE control parse failed', error);
+            }
+        });
+
+        adminEventSource.addEventListener('keepalive', () => {
+            console.debug('[ADMIN] SSE keepalive');
+        });
+
+        ADMIN_STREAM_EVENTS.forEach(evtName => {
+            adminEventSource.addEventListener(evtName, (event) => {
+                try {
+                    console.debug(`[ADMIN] SSE ${evtName}`, JSON.parse(event.data));
+                } catch (error) {
+                    console.debug(`[ADMIN] SSE ${evtName} parse failed`, error);
+                }
+                scheduleAdminRefresh(evtName);
+            });
+        });
+
+        adminEventSource.addEventListener('error', (event) => {
+            console.error('[ADMIN] SSE Fehler, aktiviere Polling-Fallback.', event);
+            cleanupAdminStream();
+            startAdminPollingFallback(2000);
+            if (!adminStreamRetryTimer) {
+                adminStreamRetryTimer = setTimeout(() => {
+                    adminStreamRetryTimer = null;
+                    initAdminEventStream();
+                }, 5000);
+            }
+        });
+    }
+
     // Fragen-Antworten automatisch laden
     function loadQuestionResponses() {
         if (currentPhase !== 'QUESTION_ACTIVE') return;
@@ -2685,8 +2827,9 @@ document.addEventListener('DOMContentLoaded', function() {
         startQuestionResponsesPolling();
     }
     
-    // Auto-Update alle 2 Sekunden für bessere Responsivität
-    setInterval(updateGameStatus, 2000);
+    // Event-Stream oder Fallback initialisieren
+    initAdminEventStream();
+    updateGameStatus();
 
     // Welcome-System initialisierung
     updateWelcomeStatus();
@@ -2730,6 +2873,28 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Ein Fehler ist aufgetreten: ' + error.message);
         });
     });*/
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopAdminPollingFallback();
+        } else {
+            if (!adminEventSource || adminEventSource.readyState === EventSource.CLOSED) {
+                initAdminEventStream();
+            }
+            if (adminFallbackInterval === null && !adminEventSource) {
+                startAdminPollingFallback(0);
+            }
+            if (adminPendingRefresh) {
+                adminPendingRefresh = false;
+                updateGameStatus();
+            }
+        }
+    });
+
+    window.addEventListener('beforeunload', function() {
+        cleanupAdminStream();
+        stopAdminPollingFallback();
+    });
 });
 
 function updateWelcomeStatus() {

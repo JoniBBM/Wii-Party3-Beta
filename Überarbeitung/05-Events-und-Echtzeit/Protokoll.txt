@@ -704,3 +704,20 @@ Eintrag 34
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 35
+- Datum/Uhrzeit: 2025-10-17 09:10 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/templates/admin.html`: Admin-Dashboard bezieht Status-Updates über `/api/v1/stream`; Polling (4 s) nur noch als Fallback. Neues Scheduling (`scheduleAdminRefresh`) ersetzt 2‑Sekunden-Intervalle.
+- Begründung/Ziel (Warum):
+  - Konsistenter Echtzeitpfad auch für Admin-Steuerung; reduziert Netzlast und macht Updates reaktiver.
+- Test-Anleitung (Wie testen):
+  - Gleiches SSE-Skript wie Eintrag 34 (siehe Kommando dort) – erzeugt `team_dice_roll`, prüft Event im Stream.
+  - Zusätzlich Admin-UI im Browser öffnen, Stream-Debug-Logs zeigen Event (optional).
+- Testergebnisse (vom User): erfolgreich (SSE liefert Event; Polling bleibt ungenutzt solange SSE aktiv).
+- Auswirkungen/Backwards-Compat: Minimal – Fallback vorhanden, EventSource erforderlich für Echtzeit.
+- Nächste Schritte: Übrige Admin-/Welcome-Teile auf Stream umstellen; Polling-Code abbauen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

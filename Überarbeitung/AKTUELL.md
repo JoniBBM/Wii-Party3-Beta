@@ -26,12 +26,13 @@
 - Admin Feld-Updates: SSE/Poll leiten auf Event-Service um; DB statt In-Memory (getestet, ok)
 - Gameboard Live-Updates: nutzt `/api/v1/stream` mit SSE + Polling-Fallback (getestet, ok)
 - Team-Dashboard: `/api/v1/stream` triggert Updates, Polling nur noch als Fallback (getestet, ok)
+- Admin-Dashboard: `/api/v1/stream` steuert Updates; Polling nur als Reserve (getestet, ok)
 
 Nächster Schritt (offen)
-- Admin-/Moderator-Dashboards auf `/api/v1/stream` umstellen; verbleibende Polling-Schleifen bereinigen.
+- Moderator-/Spezialansichten (Welcome, Sequenzen) auf Stream umstellen; Legacy-Polling aufräumen.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Micro-Step auswählen (z. B. Admin-Dashboard Polling durch Stream-Trigger ersetzen).
+ 1) Micro-Step auswählen (z. B. Welcome-Status/Sequence auf Stream triggern).
  2) Änderung dokumentieren, automatisiert testen (SSE-Skript/Frontend-Test), Ergebnis festhalten.
 
 Push-Hinweis
