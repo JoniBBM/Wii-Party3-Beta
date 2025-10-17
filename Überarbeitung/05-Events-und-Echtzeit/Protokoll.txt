@@ -643,3 +643,64 @@ Eintrag 33
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 34
+- Datum/Uhrzeit: 2025-10-17 08:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/templates/team_dashboard.html`: EventSource-Anbindung an `/api/v1/stream` (Team-Events) inkl. Retry/Poll-Fallback; Polling-Intervall nur noch als Reserve.
+  - Gemeinsame Refresh-Logik (`scheduleDashboardRefresh`, `initTeamEventStream`, `start/stop` Fallback) integriert; vorhandene `startLiveUpdates` nutzt nun SSE.
+- Begründung/Ziel (Warum):
+  - Team-Dashboard soll auf zentrale Event-Quelle reagieren, statt alle 2s zu pollen; Grundlage für weitere Clients.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → erstellt `team_dice_roll`, ruft `/api/v1/stream` (gefiltert) ab, prüft, dass Event geliefert wird, entfernt Testevent.
+    ```python
+    from app import create_app, db
+    from app.services.session_service import get_or_create_active_session
+    from app.services.event_service import create_event
+    from app.models import GameEvent, Team
+
+    STREAM_EVENTS = 'dice_roll,team_dice_roll,admin_dice_roll,special_field_catapult_forward,special_field_catapult_backward,special_field_player_swap,special_field_barrier_set,special_field_barrier_released,special_field_barrier_blocked,field_minigame_completed,question_started,question_completed,phase_change,game_session_started'
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        team = Team.query.first()
+        evt = create_event(
+            session.id,
+            event_type='team_dice_roll',
+            related_team_id=team.id if team else None,
+            data={'marker': 'team-sse-filter-test'}
+        )
+        db.session.commit()
+
+        with app.test_client() as client:
+            resp = client.get(
+                f'/api/v1/stream?event_types={STREAM_EVENTS}&poll=0.5&keepalive=1&limit=5&since_id={(evt.id - 1) if evt.id else 0}',
+                buffered=False
+            )
+            iterator = resp.response
+            chunks = []
+            try:
+                for _ in range(6):
+                    chunk = next(iterator).decode().strip()
+                    chunks.append(chunk)
+                    if 'team_dice_roll' in chunk:
+                        break
+            except StopIteration:
+                chunks.append('<stopiteration>')
+            finally:
+                resp.close()
+            print('Team SSE chunks:', chunks)
+
+        evt_db = GameEvent.query.get(evt.id)
+        if evt_db:
+            db.session.delete(evt_db)
+            db.session.commit()
+    ```
+- Testergebnisse (vom User): erfolgreich (SSE liefert `event: team_dice_roll`; Fallback muss nur bei EventSource-Ausfall greifen).
+- Auswirkungen/Backwards-Compat: Polling existiert als Fallback (5s); sonst keine Behaviour-Änderung.
+- Nächste Schritte: Admin-/Moderator-Frontends auf Stream umstellen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

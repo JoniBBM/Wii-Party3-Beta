@@ -25,13 +25,14 @@
 - API v1: Neuer SSE-Endpoint `/api/v1/stream` nutzt die Service-Helper (getestet, ok)
 - Admin Feld-Updates: SSE/Poll leiten auf Event-Service um; DB statt In-Memory (getestet, ok)
 - Gameboard Live-Updates: nutzt `/api/v1/stream` mit SSE + Polling-Fallback (getestet, ok)
+- Team-Dashboard: `/api/v1/stream` triggert Updates, Polling nur noch als Fallback (getestet, ok)
 
 Nächster Schritt (offen)
-- Weitere Clients (Team-Dashboard/Admin-Overlays) auf `/api/v1/stream` umstellen; Alt-Polling bereinigen.
+- Admin-/Moderator-Dashboards auf `/api/v1/stream` umstellen; verbleibende Polling-Schleifen bereinigen.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Micro-Step auswählen (z. B. Team-Dashboard-Updates auf Stream umstellen).
- 2) Änderung dokumentieren, automatisiert testen (Stream-Abgriff/Frontend-Test), Ergebnis festhalten.
+ 1) Micro-Step auswählen (z. B. Admin-Dashboard Polling durch Stream-Trigger ersetzen).
+ 2) Änderung dokumentieren, automatisiert testen (SSE-Skript/Frontend-Test), Ergebnis festhalten.
 
 Push-Hinweis
  - Commit-Message-Vorschlag: `refactor(dice): use dice_service for admin legacy roll route`

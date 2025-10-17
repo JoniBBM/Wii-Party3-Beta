@@ -3267,6 +3267,30 @@ let lastGameData = null;
 let isCurrentlyMyTurn = {{ 'true' if current_team_turn_name == current_user.name else 'false' }};
 let myTeamId = {{ current_user.id }};
 let updateInterval = null;
+let teamEventSource = null;
+let teamStreamRetryTimer = null;
+let teamFallbackActive = false;
+let teamRefreshTimer = null;
+let teamPendingRefresh = false;
+const TEAM_STREAM_EVENTS = [
+    'dice_roll',
+    'team_dice_roll',
+    'admin_dice_roll',
+    'special_field_catapult_forward',
+    'special_field_catapult_backward',
+    'special_field_player_swap',
+    'special_field_barrier_set',
+    'special_field_barrier_released',
+    'special_field_barrier_blocked',
+    'field_minigame_completed',
+    'question_started',
+    'question_completed',
+    'phase_change',
+    'game_session_started'
+];
+const TEAM_STREAM_URL = "{{ url_for('api_v1.stream_events_v1') }}?event_types=" + encodeURIComponent(TEAM_STREAM_EVENTS.join(',')) + "&poll=0.75&keepalive=5";
+const TEAM_POLL_INTERVAL_MS = 5000;
+
 let isDiceAnimationShowing = false;
 let lastMinigameName = "{{ active_session.current_minigame_name if active_session else '' }}";
 let hasShowMinigameResults = false;
@@ -4764,33 +4788,168 @@ function fetchDashboardData() {
         });
 }
 
-// Live updates management
-function startLiveUpdates() {
+function scheduleDashboardRefresh(reason = 'stream') {
+    if (document.hidden) {
+        teamPendingRefresh = true;
+        return;
+    }
+    if (teamRefreshTimer) {
+        return;
+    }
+    teamRefreshTimer = setTimeout(() => {
+        teamRefreshTimer = null;
+        if (!document.hidden) {
+            fetchDashboardData();
+        } else {
+            teamPendingRefresh = true;
+        }
+    }, 200);
+}
+
+function cleanupTeamStream() {
+    if (teamEventSource) {
+        try {
+            teamEventSource.close();
+        } catch (e) {
+            console.debug('Team SSE close error:', e);
+        }
+    }
+    teamEventSource = null;
+    if (teamStreamRetryTimer) {
+        clearTimeout(teamStreamRetryTimer);
+        teamStreamRetryTimer = null;
+    }
+}
+
+function handleTeamStreamEvent(eventName, event) {
+    try {
+        const payload = event && event.data ? JSON.parse(event.data) : null;
+        console.debug(`[TeamStream] ${eventName}`, payload);
+    } catch (error) {
+        console.debug(`[TeamStream] ${eventName} payload parse failed`, error);
+    }
+    scheduleDashboardRefresh(eventName);
+}
+
+function startPollingFallback(initialDelay = 0) {
+    if (teamFallbackActive && updateInterval) {
+        return;
+    }
+    teamFallbackActive = true;
     if (updateInterval) {
         clearInterval(updateInterval);
     }
-    
     updateInterval = setInterval(() => {
         if (!document.hidden) {
             fetchDashboardData();
+        } else {
+            teamPendingRefresh = true;
         }
-    }, 2000);
+    }, TEAM_POLL_INTERVAL_MS);
+    if (initialDelay === 0) {
+        scheduleDashboardRefresh('poll-start');
+    } else {
+        setTimeout(() => scheduleDashboardRefresh('poll-start'), initialDelay);
+    }
 }
 
-function stopLiveUpdates() {
+function stopPollingFallback() {
+    teamFallbackActive = false;
     if (updateInterval) {
         clearInterval(updateInterval);
         updateInterval = null;
     }
 }
 
+function initTeamEventStream() {
+    if (!window.EventSource) {
+        console.warn('EventSource nicht verfügbar – verwende Polling-Fallback.');
+        startPollingFallback(0);
+        return;
+    }
+
+    cleanupTeamStream();
+    stopPollingFallback();
+    teamFallbackActive = false;
+
+    try {
+        teamEventSource = new EventSource(TEAM_STREAM_URL);
+    } catch (error) {
+        console.error('Team SSE konnte nicht gestartet werden:', error);
+        startPollingFallback(0);
+        return;
+    }
+
+    teamEventSource.addEventListener('open', () => {
+        console.log('Team SSE verbunden.');
+        scheduleDashboardRefresh('sse-open');
+    });
+
+    teamEventSource.addEventListener('control', (event) => {
+        try {
+            const payload = JSON.parse(event.data);
+            console.debug('[TeamStream] control', payload);
+        } catch (error) {
+            console.debug('[TeamStream] control parse failed', error);
+        }
+    });
+
+    teamEventSource.addEventListener('keepalive', () => {
+        console.debug('[TeamStream] keepalive');
+    });
+
+    TEAM_STREAM_EVENTS.forEach(evtName => {
+        teamEventSource.addEventListener(evtName, (event) => handleTeamStreamEvent(evtName, event));
+    });
+
+    teamEventSource.addEventListener('error', (event) => {
+        console.error('Team SSE Fehler, fallback aktivieren.', event);
+        cleanupTeamStream();
+        if (!teamFallbackActive) {
+            startPollingFallback(2000);
+        }
+        if (!teamStreamRetryTimer) {
+            teamStreamRetryTimer = setTimeout(() => {
+                teamStreamRetryTimer = null;
+                initTeamEventStream();
+            }, 5000);
+        }
+    });
+}
+
+// Live updates management
+function startLiveUpdates() {
+    initTeamEventStream();
+    if (!teamEventSource && !teamFallbackActive) {
+        startPollingFallback(0);
+    }
+    scheduleDashboardRefresh('init');
+}
+
+function stopLiveUpdates() {
+    cleanupTeamStream();
+    stopPollingFallback();
+}
+
 // Page visibility change handler
 document.addEventListener('visibilitychange', function() {
     if (document.hidden) {
-        stopLiveUpdates();
+        stopPollingFallback();
     } else {
-        startLiveUpdates();
-        fetchDashboardData();
+        if (!teamEventSource) {
+            initTeamEventStream();
+        } else if (teamEventSource.readyState === EventSource.CLOSED) {
+            initTeamEventStream();
+        }
+
+        if (teamFallbackActive && !updateInterval) {
+            startPollingFallback(0);
+        }
+
+        if (teamPendingRefresh) {
+            teamPendingRefresh = false;
+            fetchDashboardData();
+        }
     }
 });
 
