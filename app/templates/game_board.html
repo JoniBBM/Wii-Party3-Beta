@@ -7230,101 +7230,193 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Live-Update-System initialisieren
             console.log('🚀 Initialisiere Live-Update System direkt nach Gameboard...');
             
-            // Direkte Implementierung des Live-Update-Systems
             let lastFieldUpdateCheck = 0;
-            let liveUpdatePolling = false;
+            let liveUpdateActive = false;
+            let usingPollingFallback = false;
+            let fieldUpdateSource = null;
+            let fieldUpdateFallbackTimer = null;
+            const FIELD_UPDATE_STREAM_URL = "{{ url_for('api_v1.stream_events_v1') }}?event_types=field_update&poll=1";
             
-            function startLiveFieldUpdates() {
-                if (liveUpdatePolling) return;
-                
-                liveUpdatePolling = true;
-                console.log('🔗 Live-Updates aktiviert');
-                
-                function checkForFieldUpdates() {
-                    if (!liveUpdatePolling) return;
-                    
-                    fetch("{{ url_for('main.board_status') }}?check_field_updates=1&t=" + new Date().getTime())
-                        .then(response => response.json())
-                        .then(data => {
-                            const currentUpdateTime = data.last_field_update || 0;
-                            
-                            if (lastFieldUpdateCheck > 0 && currentUpdateTime > lastFieldUpdateCheck) {
-                                console.log('🔄 Feld-Update erkannt - Gameboard wird neu generiert');
-                                
-                                if (window.gameBoard) {
-                                    console.log('🔄 Löse komplette Board-Regeneration aus...');
-                                    
-                                    // 1. Lade Feld-Konfigurationen neu (async)
-                                    if (typeof reloadFieldConfigurations === 'function') {
-                                        console.log('🔄 Lade Feld-Konfigurationen neu...');
-                                        reloadFieldConfigurations().then(() => {
-                                            console.log('🔄 Konfigurationen geladen, regeneriere Board...');
-                                            
-                                            // 2. Entferne alte Board-Felder
-                                            if (window.gameBoard.boardFields) {
-                                                window.gameBoard.boardFields.forEach(field => {
-                                                    if (field.mesh) {
-                                                        window.gameBoard.scene.remove(field.mesh);
-                                                        if (field.mesh.geometry) field.mesh.geometry.dispose();
-                                                        if (field.mesh.material) field.mesh.material.dispose();
-                                                    }
-                                                });
-                                                window.gameBoard.boardFields = [];
-                                            }
-                                            
-                                            // 3. Erstelle Board neu
-                                            if (window.gameBoard.createGameFields) {
-                                                window.gameBoard.createGameFields();
-                                            }
-                                            
-                                            // 4. Aktualisiere Teamdaten
-                                            if (window.gameBoard.fetchBoardStatusAndUpdate) {
-                                                window.gameBoard.fetchBoardStatusAndUpdate();
-                                            }
-                                            
-                                            console.log('✅ Board-Regeneration mit neuen Konfigurationen abgeschlossen');
-                                        });
-                                    } else {
-                                        console.warn('⚠️ reloadFieldConfigurations nicht verfügbar, verwende Standard-Regeneration');
-                                        
-                                        // Fallback ohne Neuladen der Konfigurationen
-                                        if (window.gameBoard.boardFields) {
-                                            window.gameBoard.boardFields.forEach(field => {
-                                                if (field.mesh) {
-                                                    window.gameBoard.scene.remove(field.mesh);
-                                                    if (field.mesh.geometry) field.mesh.geometry.dispose();
-                                                    if (field.mesh.material) field.mesh.material.dispose();
-                                                }
-                                            });
-                                            window.gameBoard.boardFields = [];
-                                        }
-                                        
-                                        if (window.gameBoard.createGameFields) {
-                                            window.gameBoard.createGameFields();
-                                        }
-                                        
-                                        if (window.gameBoard.fetchBoardStatusAndUpdate) {
-                                            window.gameBoard.fetchBoardStatusAndUpdate();
-                                        }
-                                        
-                                        console.log('✅ Board-Regeneration (ohne Konfigurationsneuladung) abgeschlossen');
-                                    }
-                                }
-                            }
-                            
-                            lastFieldUpdateCheck = Math.max(lastFieldUpdateCheck, currentUpdateTime);
-                        })
-                        .catch(error => {
-                            console.log('Live-Update Check Fehler:', error);
-                        })
-                        .finally(() => {
-                            if (liveUpdatePolling) {
-                                setTimeout(checkForFieldUpdates, 2000);
-                            }
-                        });
+            function cleanupFieldUpdateSource() {
+                if (fieldUpdateSource) {
+                    fieldUpdateSource.close();
+                    fieldUpdateSource = null;
+                }
+            }
+            
+            function rebuildBoardGeometry() {
+                if (!window.gameBoard) {
+                    console.warn('⚠️ Kein gameBoard für Feld-Update verfügbar');
+                    return;
                 }
                 
-                setTimeout(checkForFieldUpdates, 3000);
+                const clearExistingFields = () => {
+                    if (window.gameBoard.boardFields) {
+                        window.gameBoard.boardFields.forEach(field => {
+                            if (field.mesh) {
+                                window.gameBoard.scene.remove(field.mesh);
+                                if (field.mesh.geometry) field.mesh.geometry.dispose();
+                                if (field.mesh.material) field.mesh.material.dispose();
+                            }
+                        });
+                        window.gameBoard.boardFields = [];
+                    }
+                };
+                
+                clearExistingFields();
+                
+                if (window.gameBoard.createGameFields) {
+                    window.gameBoard.createGameFields();
+                }
+                
+                if (window.gameBoard.fetchBoardStatusAndUpdate) {
+                    window.gameBoard.fetchBoardStatusAndUpdate();
+                }
+                
+                console.log('✅ Board-Regeneration abgeschlossen');
+            }
+            
+            function regenerateBoardAfterUpdate(reasonLabel) {
+                if (!window.gameBoard) {
+                    console.warn('⚠️ Feld-Update gemeldet, aber kein gameBoard initialisiert');
+                    return;
+                }
+                
+                console.log(`🔄 Feld-Update erkannt (${reasonLabel}) - Gameboard wird neu generiert`);
+                
+                if (typeof reloadFieldConfigurations === 'function') {
+                    console.log('🔄 Lade Feld-Konfigurationen neu...');
+                    reloadFieldConfigurations()
+                        .then(() => {
+                            console.log('🔄 Konfigurationen geladen, regeneriere Board...');
+                            rebuildBoardGeometry();
+                        })
+                        .catch(error => {
+                            console.warn('⚠️ Fehler beim Neuladen der Feld-Konfigurationen:', error);
+                            rebuildBoardGeometry();
+                        });
+                } else {
+                    console.warn('⚠️ reloadFieldConfigurations nicht verfügbar, verwende Standard-Regeneration');
+                    rebuildBoardGeometry();
+                }
+            }
+            
+            function scheduleFallbackPoll(delayMs) {
+                if (!usingPollingFallback) {
+                    return;
+                }
+                if (fieldUpdateFallbackTimer) {
+                    clearTimeout(fieldUpdateFallbackTimer);
+                }
+                fieldUpdateFallbackTimer = setTimeout(() => {
+                    executeFieldUpdatePoll({ scheduleNext: true });
+                }, Math.max(0, delayMs));
+            }
+            
+            function executeFieldUpdatePoll({ scheduleNext = false } = {}) {
+                if (!liveUpdateActive) {
+                    return;
+                }
+                
+                fetch("{{ url_for('main.board_status') }}?check_field_updates=1&t=" + Date.now())
+                    .then(response => response.json())
+                    .then(data => {
+                        const currentUpdateTime = data.last_field_update || 0;
+                        if (lastFieldUpdateCheck > 0 && currentUpdateTime > lastFieldUpdateCheck) {
+                            regenerateBoardAfterUpdate('Polling');
+                        }
+                        lastFieldUpdateCheck = Math.max(lastFieldUpdateCheck, currentUpdateTime);
+                    })
+                    .catch(error => {
+                        console.log('Live-Update Check Fehler:', error);
+                    })
+                    .finally(() => {
+                        if (scheduleNext && liveUpdateActive && usingPollingFallback) {
+                            scheduleFallbackPoll(2000);
+                        }
+                    });
+            }
+            
+            function startPollingFallback(initialDelay = 3000) {
+                usingPollingFallback = true;
+                cleanupFieldUpdateSource();
+                console.log('📡 Verwende Polling-Fallback für Feld-Updates');
+                scheduleFallbackPoll(initialDelay);
+            }
+            
+            function handleFieldUpdateSse(event) {
+                try {
+                    const payload = JSON.parse(event.data);
+                    if (payload && payload.timestamp) {
+                        const parsedTs = Date.parse(payload.timestamp);
+                        if (!Number.isNaN(parsedTs)) {
+                            lastFieldUpdateCheck = Math.max(
+                                lastFieldUpdateCheck,
+                                Math.floor(parsedTs / 1000)
+                            );
+                        }
+                    }
+                    regenerateBoardAfterUpdate('SSE');
+                } catch (error) {
+                    console.error('❌ Fehler beim Verarbeiten eines SSE Feld-Updates:', error);
+                }
+            }
+            
+            function initFieldUpdateStream() {
+                if (!window.EventSource) {
+                    console.warn('⚠️ EventSource nicht verfügbar, fallback auf Polling');
+                    startPollingFallback(0);
+                    return;
+                }
+                
+                cleanupFieldUpdateSource();
+                usingPollingFallback = false;
+                if (fieldUpdateFallbackTimer) {
+                    clearTimeout(fieldUpdateFallbackTimer);
+                    fieldUpdateFallbackTimer = null;
+                }
+                
+                const source = new EventSource(FIELD_UPDATE_STREAM_URL);
+                fieldUpdateSource = source;
+                
+                source.addEventListener('open', () => {
+                    console.log('🔗 SSE für Feld-Updates verbunden');
+                });
+                
+                source.addEventListener('control', (event) => {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload && payload.event_filter) {
+                            console.log(`ℹ️ SSE Control: ${JSON.stringify(payload)}`);
+                        }
+                    } catch (error) {
+                        console.debug('Control-Event konnte nicht geparst werden', error);
+                    }
+                });
+                
+                source.addEventListener('field_update', handleFieldUpdateSse);
+                source.addEventListener('keepalive', () => {
+                    console.debug('🫶 SSE Keepalive für Feld-Updates erhalten');
+                });
+                
+                source.addEventListener('error', (event) => {
+                    console.error('❌ SSE Fehler für Feld-Updates, wechsle zu Polling:', event);
+                    cleanupFieldUpdateSource();
+                    usingPollingFallback = true;
+                    startPollingFallback(2000);
+                });
+            }
+            
+            function startLiveFieldUpdates() {
+                if (liveUpdateActive) {
+                    return;
+                }
+                liveUpdateActive = true;
+                lastFieldUpdateCheck = 0;
+                
+                initFieldUpdateStream();
+                // Baseline abrufen, ohne Polling-Schleife zu aktivieren
+                executeFieldUpdatePoll({ scheduleNext: false });
             }
             
             startLiveFieldUpdates();

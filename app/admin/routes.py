@@ -5,7 +5,7 @@ import random
 import json
 import uuid
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, g, jsonify, make_response, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, g, jsonify, make_response, Response, stream_with_context
 from flask_login import login_user, logout_user, login_required, current_user
 import json
 import time
@@ -38,7 +38,8 @@ from .field_config import (
 )
 
 # SONDERFELD-LOGIK IMPORT
-from app.services.session_service import get_active_session, get_or_create_active_session
+from app.services.session_service import get_active_session, get_or_create_active_session, get_active_session_events
+from app.services.event_service import create_event
 from app.game_logic.special_fields import (
     handle_special_field_action, 
     check_barrier_release, 
@@ -51,61 +52,146 @@ from app.game_logic.special_fields import (
 
 admin_bp = Blueprint('admin', __name__, template_folder='../templates/admin', url_prefix='/admin')
 
-# Simple in-memory store for field update events
-field_update_events = []
-MAX_EVENTS = 100  # Keep only last 100 events
+
+def _format_sse(data, *, event=None, event_id=None, retry=None):
+    """Helper zum Formatieren von Server-Sent Events."""
+    if not isinstance(data, str):
+        data = json.dumps(data)
+
+    lines = []
+    if event_id is not None:
+        lines.append(f"id: {event_id}")
+    if event is not None:
+        lines.append(f"event: {event}")
+    if retry is not None:
+        lines.append(f"retry: {int(retry)}")
+    lines.append(f"data: {data}")
+    return "\n".join(lines) + "\n\n"
+
 
 def add_field_update_event(event_data):
-    """Add a field update event to the queue."""
-    global field_update_events
-    event_data['timestamp'] = time.time()
-    event_data['id'] = len(field_update_events) + 1
-    field_update_events.append(event_data)
-    
-    # Keep only recent events
-    if len(field_update_events) > MAX_EVENTS:
-        field_update_events = field_update_events[-MAX_EVENTS:]
+    """Persistiert einen Feld-Update-Event in der Datenbank."""
+    session = get_or_create_active_session()
+
+    payload = dict(event_data or {})
+    payload.setdefault('type', 'field_update')
+
+    evt = create_event(
+        session.id,
+        event_type='field_update',
+        data=payload,
+    )
+    db.session.commit()
+    return evt
 
 @admin_bp.route('/api/field_updates/stream')
 def field_updates_stream():
     """SSE endpoint for real-time field updates."""
+    since_id = request.args.get('since_id', type=int)
+    limit = request.args.get('limit', default=50, type=int)
+    poll_interval = request.args.get('poll', default=1.0, type=float)
+    keepalive_interval = request.args.get('keepalive', default=15.0, type=float)
+    event_types_param = request.args.get('event_types')
+
+    limit = max(1, min(limit or 50, 200))
+    poll_interval = max(0.2, min(poll_interval or 1.0, 5.0))
+    keepalive_interval = max(3.0, min(keepalive_interval or 15.0, 120.0))
+
+    header_last_id = request.headers.get('Last-Event-ID')
+    if header_last_id and since_id is None:
+        try:
+            since_id = int(header_last_id)
+        except ValueError:
+            since_id = None
+
+    if event_types_param:
+        event_types = [item.strip() for item in event_types_param.split(',') if item.strip()]
+        if not event_types:
+            event_types = ['field_update']
+    else:
+        event_types = ['field_update']
+
+    retry_ms = int(max(poll_interval, 0.5) * 1000)
+
     def event_stream():
-        last_sent_id = 0
-        keepalive_counter = 0
-        
-        # Send initial connection confirmation
-        yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE verbunden', 'timestamp': time.time()})}\n\n"
-        
+        last_sent_id = since_id
+        last_keepalive = time.time()
+
+        active_session = get_active_session()
+        handshake_payload = {
+            "type": "stream_connected",
+            "active_session_id": active_session.id if active_session else None,
+            "poll_interval": poll_interval,
+            "keepalive_interval": keepalive_interval,
+            "event_filter": event_types,
+            "ts": datetime.utcnow().isoformat() + "Z",
+        }
+        yield _format_sse(handshake_payload, event="control", retry=retry_ms)
+
         while True:
-            # Send any new events
-            new_events_sent = 0
-            for event in field_update_events:
-                if event['id'] > last_sent_id:
-                    yield f"data: {json.dumps(event)}\n\n"
-                    last_sent_id = event['id']
-                    new_events_sent += 1
-            
-            # Send keepalive every 10 seconds (shorter for testing)
-            keepalive_counter += 1
-            if keepalive_counter >= 10:  # 10 * 1 second = 10 seconds
-                yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': time.time()})}\n\n"
-                keepalive_counter = 0
-            
-            time.sleep(1)  # Check every second
-    
-    return Response(event_stream(), mimetype='text/event-stream',
-                   headers={'Cache-Control': 'no-cache',
-                           'Connection': 'keep-alive',
-                           'Access-Control-Allow-Origin': '*'})
+            try:
+                events = get_active_session_events(
+                    since_id=last_sent_id,
+                    limit=limit,
+                    event_types=event_types,
+                )
+
+                if events:
+                    for evt in events:
+                        last_sent_id = evt["id"]
+                        last_keepalive = time.time()
+                        yield _format_sse(
+                            evt,
+                            event=evt.get("type", "field_update"),
+                            event_id=evt.get("id"),
+                        )
+
+                now = time.time()
+                if now - last_keepalive >= keepalive_interval:
+                    last_keepalive = now
+                    keepalive_payload = {
+                        "type": "keepalive",
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                    }
+                    yield _format_sse(keepalive_payload, event="keepalive")
+
+                time.sleep(poll_interval)
+            except GeneratorExit:
+                break
+            except Exception as exc:
+                current_app.logger.error("field_updates_stream error: %s", exc, exc_info=True)
+                error_payload = {
+                    "type": "stream_error",
+                    "message": "internal_error",
+                }
+                yield _format_sse(error_payload, event="error")
+                break
+
+    response = Response(
+        stream_with_context(event_stream()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+        }
+    )
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 @admin_bp.route('/api/field_updates/poll')
 def field_updates_poll():
     """Polling endpoint for field updates (fallback for SSE)."""
-    last_id = request.args.get('last_id', 0, type=int)
-    new_events = [event for event in field_update_events if event['id'] > last_id]
+    last_id = request.args.get('last_id', default=0, type=int) or 0
+    events = get_active_session_events(
+        since_id=last_id,
+        limit=100,
+        event_types=['field_update'],
+    )
+    latest_id = events[-1]['id'] if events else last_id
     return jsonify({
-        'events': new_events,
-        'last_id': field_update_events[-1]['id'] if field_update_events else 0
+        'events': events,
+        'last_id': latest_id
     })
 
 @admin_bp.route('/api/test_field_update', methods=['POST'])
@@ -115,7 +201,7 @@ def test_field_update():
     if not isinstance(current_user, Admin):
         return jsonify({"success": False, "error": "Zugriff verweigert"}), 403
     
-    add_field_update_event({
+    evt = add_field_update_event({
         'type': 'test_update',
         'field_type': 'test',
         'display_name': 'Test Update',
@@ -125,7 +211,8 @@ def test_field_update():
     return jsonify({
         "success": True,
         "message": "Test-Event gesendet",
-        "events_count": len(field_update_events)
+        "event_type": "field_update",
+        "event_id": evt.id if evt else None
     })
 
 def calculate_automatic_placements():

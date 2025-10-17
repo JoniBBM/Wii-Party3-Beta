@@ -7,7 +7,7 @@ import traceback # Für detaillierte Fehlermeldungen
 from flask_login import current_user
 from datetime import datetime, timedelta
 import json
-from app.services.session_service import get_active_session
+from app.services.session_service import get_active_session, get_active_session_events
 
 
 def get_consistent_emoji_for_player(player_name):
@@ -275,14 +275,20 @@ def board_status():
             response_data["question_data"] = question_data
         
         # Add field update timestamp for live updates
-        try:
-            from app.admin.routes import field_update_events
-            if field_update_events:
-                response_data["last_field_update"] = max(event.get('timestamp', 0) for event in field_update_events)
-            else:
-                response_data["last_field_update"] = 0
-        except:
-            response_data["last_field_update"] = 0
+        last_field_update_ts = 0
+        field_events = get_active_session_events(
+            since_id=None,
+            limit=1,
+            event_types=['field_update'],
+        )
+        if field_events:
+            raw_ts = field_events[-1].get("timestamp")
+            if raw_ts:
+                try:
+                    last_field_update_ts = datetime.fromisoformat(raw_ts).timestamp()
+                except ValueError:
+                    last_field_update_ts = 0
+        response_data["last_field_update"] = last_field_update_ts
             
         return jsonify(response_data)
 
