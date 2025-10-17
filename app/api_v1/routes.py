@@ -1,11 +1,29 @@
-from flask import jsonify, current_app
+from flask import jsonify, current_app, Response, stream_with_context, request
 from datetime import datetime, timedelta
 import time
 import json
 
 from . import api_v1_bp
 from app.models import Team, GameSession, GameEvent
-from app.services.session_service import get_active_session
+from app.services.session_service import get_active_session, get_active_session_events
+
+
+def _sse_format(data, *, event=None, event_id=None, retry=None):
+    """
+    Hilfsfunktion zum Formatieren von Server-Sent Events.
+    """
+    if not isinstance(data, str):
+        data = json.dumps(data)
+
+    lines = []
+    if event_id is not None:
+        lines.append(f"id: {event_id}")
+    if event is not None:
+        lines.append(f"event: {event}")
+    if retry is not None:
+        lines.append(f"retry: {int(retry)}")
+    lines.append(f"data: {data}")
+    return "\n".join(lines) + "\n\n"
 
 
 def _meta():
@@ -22,6 +40,123 @@ def _err(code, message, details=None, status=400):
         payload["error"]["details"] = details
     payload["meta"] = _meta()
     return jsonify(payload), status
+
+
+@api_v1_bp.get('/stream')
+def stream_events_v1():
+    """
+    Server-Sent Events Endpoint für standardisierte GameEvents.
+
+    Unterstützt optionale Query-Parameter:
+      - since_id: Nur Events mit ID > since_id werden gesendet.
+      - limit: Maximale Anzahl Events pro Poll (1-200, Default 50).
+      - poll: Poll-Intervall in Sekunden (0.2-5.0, Default 1.0).
+      - keepalive: Keepalive-Intervall in Sekunden (3-120, Default 15).
+      - event_types: Komma-separierte Liste erlaubter Eventtypen.
+    """
+    since_id = request.args.get('since_id', type=int)
+    limit = request.args.get('limit', default=50, type=int)
+    poll_interval = request.args.get('poll', default=1.0, type=float)
+    keepalive_interval = request.args.get('keepalive', default=15.0, type=float)
+    event_types_param = request.args.get('event_types')
+
+    if limit is None:
+        limit = 50
+    limit = max(1, min(limit, 200))
+
+    poll_interval = max(0.2, min(poll_interval or 1.0, 5.0))
+    keepalive_interval = max(3.0, min(keepalive_interval or 15.0, 120.0))
+
+    header_last_id = request.headers.get('Last-Event-ID')
+    if header_last_id and since_id is None:
+        try:
+            since_id = int(header_last_id)
+        except ValueError:
+            since_id = None
+
+    event_types = None
+    if event_types_param:
+        parsed = [item.strip() for item in event_types_param.split(',') if item.strip()]
+        if parsed:
+            event_types = parsed
+
+    retry_ms = int(max(poll_interval, 0.5) * 1000)
+
+    def generate():
+        last_sent_id = since_id
+        keepalive_marker = time.time()
+        reported_session_id = None
+
+        active_session = get_active_session()
+        if active_session:
+            reported_session_id = active_session.id
+
+        handshake_payload = {
+            "type": "stream_connected",
+            "active_session_id": reported_session_id,
+            "poll_interval": poll_interval,
+            "keepalive_interval": keepalive_interval,
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "event_filter": event_types if event_types else "all",
+        }
+        yield _sse_format(handshake_payload, event="control", retry=retry_ms)
+
+        while True:
+            try:
+                current_session = get_active_session()
+                current_session_id = current_session.id if current_session else None
+                if current_session_id != reported_session_id:
+                    reported_session_id = current_session_id
+                    state_payload = {
+                        "type": "session_state",
+                        "active_session_id": reported_session_id,
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                    }
+                    yield _sse_format(state_payload, event="control")
+
+                events = get_active_session_events(
+                    since_id=last_sent_id,
+                    limit=limit,
+                    event_types=event_types,
+                )
+
+                if events:
+                    for evt in events:
+                        last_sent_id = evt["id"]
+                        keepalive_marker = time.time()
+
+                        yield _sse_format(
+                            evt,
+                            event=evt.get("type"),
+                            event_id=evt.get("id"),
+                        )
+
+                now = time.time()
+                if now - keepalive_marker >= keepalive_interval:
+                    keepalive_marker = now
+                    keepalive_payload = {
+                        "type": "keepalive",
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                    }
+                    yield _sse_format(keepalive_payload, event="keepalive")
+
+                time.sleep(poll_interval)
+            except GeneratorExit:
+                break
+            except Exception as exc:
+                current_app.logger.error("SSE stream failure: %s", exc, exc_info=True)
+                error_payload = {
+                    "type": "stream_error",
+                    "message": "internal_error",
+                }
+                yield _sse_format(error_payload, event="error")
+                break
+
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Connection"] = "keep-alive"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 @api_v1_bp.get('/status/board')

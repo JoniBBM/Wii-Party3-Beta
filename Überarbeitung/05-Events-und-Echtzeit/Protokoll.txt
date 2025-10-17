@@ -512,3 +512,70 @@ Eintrag 30
 - Genehmigung des Users: ja (Chat-Bestätigung).
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 31
+- Datum/Uhrzeit: 2025-10-17 08:34 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/services/event_service.py`: neue Helfer `serialize_event_for_stream` und `fetch_recent_events_for_session` liefern normalisierte Event-Daten.
+  - `app/services/session_service.py`: `get_active_session_events` aggregiert Event-Streams für die aktive Session.
+- Begründung/Ziel (Warum):
+  - Vorbereitung für einen zentralen Event-Stream (SSE/WebSocket); reduziert Duplikate und vereinheitlicht Event-Payloads.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe Testlog) → Event erzeugen, `get_active_session_events` abrufen, Event wieder entfernen.
+- Testergebnisse (vom User): erfolgreich (1 Event geliefert, normalisierte Struktur inklusive Daten-Payload).
+- Auswirkungen/Backwards-Compat: Keine; reine Service-Erweiterung.
+- Nächste Schritte: SSE-Endpoint `/api/v1/stream` auf Basis der neuen Helper implementieren.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 32
+- Datum/Uhrzeit: 2025-10-17 08:40 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/api_v1/routes.py`: SSE-Endpoint `/api/v1/stream` eingeführt (inkl. Helper `_sse_format`, Konfig-Parameter, Session-State-Updates).
+  - Testscripting für Stream via Flask-Testclient ergänzt (siehe Testkommando).
+- Begründung/Ziel (Warum):
+  - Einheitlicher, servicebasierter Event-Stream für Admin-/Team-Clients als Grundlage für Echtzeit-UI.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe unten) → erstellt Test-Event, ruft `/api/v1/stream` (poll=0.2) via Flask-Testclient ab, prüft das empfangene Event, räumt anschließend auf.
+    ```python
+    from app import create_app, db
+    from app.services.session_service import get_or_create_active_session
+    from app.services.event_service import create_event
+    from app.models import GameEvent
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        evt = create_event(session.id, "test_stream_event_block", data={"marker": "stream-block", "value": 99})
+        db.session.commit()
+
+        with app.test_client() as client:
+            resp = client.get(f'/api/v1/stream?poll=0.2&keepalive=1&limit=10&since_id={evt.id - 1 if evt.id else 0}', buffered=False)
+            iterator = resp.response
+            chunks = []
+            try:
+                for _ in range(6):
+                    chunk = next(iterator).decode()
+                    chunks.append(chunk.strip())
+                    if 'stream-block' in chunk:
+                        break
+            except StopIteration:
+                pass
+            finally:
+                resp.close()
+            print('SSE Chunks:', chunks)
+
+        evt_db = GameEvent.query.get(evt.id)
+        if evt_db:
+            db.session.delete(evt_db)
+            db.session.commit()
+    ```
+- Testergebnisse (vom User): erfolgreich (`stream_connected` + `test_stream_event_block` im SSE-Output).
+- Auswirkungen/Backwards-Compat: Keine; neuer Endpoint liefert nur Daten, bestehende APIs unverändert.
+- Nächste Schritte: Frontend/Legacy-SSE auf neuen Endpoint umstellen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

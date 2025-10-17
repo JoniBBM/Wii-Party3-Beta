@@ -21,13 +21,15 @@
 - DB neu initialisiert; alle Teams auf Position 0 zurückgesetzt (getestet, ok)
 - Session-Service: `get_active_session`/`require_active_session` eingeführt; moderation_mode, admin_roll_dice, automatische Platzierungen, Dashboard/Minigame-Setup, Minigame-Abbruch, end_question, reset_played_content, unblock_team, record_placements, question_responses_api, add_player_to_team, activate_round, start_welcome, player_rotation_stats, reset_player_rotation, Feld-Minispiel-Endpoints, Main-/Team-Routen & API v1 Status nutzen Service (getestet, ok)
 - Board-Blau-Problem: durch User-Bestätigung als gelöst markiert (keine offenen Fehlerberichte)
+- Event-Service: Stream-Helper (`serialize_event_for_stream`, `fetch_recent_events_for_session`) + Session-Aggregator (`get_active_session_events`) implementiert (getestet, ok)
+- API v1: Neuer SSE-Endpoint `/api/v1/stream` nutzt die Service-Helper (getestet, ok)
 
 Nächster Schritt (offen)
-- Session-Service & Event-Stream vorbereiten (gemäß Protokoll Eintrag 11).
+- Frontend-/Admin-Anbindung an `/api/v1/stream` konsolidieren (Gameboard/field updates vereinheitlichen).
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Festlegen: konkreten Session-Service-/Event-Stream-Micro-Step auswählen (z. B. SSE-Endpoint vorbereiten).
- 2) Micro-Step dokumentieren, implementieren, testen (siehe Protokollhinweise).
+ 1) Micro-Step auswählen (z. B. Admin-SSE auf `/api/v1/stream` umstellen oder Gameboard-Client anpassen).
+ 2) Änderung dokumentieren, automatisiert testen (Stream-Abgriff/Frontend-Test), Ergebnis festhalten.
 
 Push-Hinweis
  - Commit-Message-Vorschlag: `refactor(dice): use dice_service for admin legacy roll route`
