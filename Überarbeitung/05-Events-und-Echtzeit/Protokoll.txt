@@ -579,3 +579,67 @@ Eintrag 32
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 33
+- Datum/Uhrzeit: 2025-10-17 08:10 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/admin/routes.py`: Feld-Updates werden als `field_update`-GameEvents gespeichert; SSE/Poll greifen über `get_active_session_events` & `create_event` auf die DB zu.
+  - `app/main/routes.py`: `board_status` bestimmt `last_field_update` anhand der persistierten Events (ohne Import des Admin-Moduls).
+  - `app/templates/game_board.html`: Live-Update-Client nutzt `/api/v1/stream` (SSE) mit Polling-Fallback; Board-Regeneration in Helper ausgelagert.
+- Begründung/Ziel (Warum):
+  - Konsolidierte Echtzeitquelle für Gameboard/Admin; Entfernung des flüchtigen In-Memory-Puffers.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe unten) → erstellt Feld-Update-Event, liest `/api/v1/stream`, `admin/api/field_updates/poll` und `/api/board-status` aus, bereinigt Event.
+    ```python
+    from app import create_app, db
+    from app.models import GameEvent
+    from app.services.session_service import get_or_create_active_session
+    from app.admin.routes import add_field_update_event
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        last_before = GameEvent.query.order_by(GameEvent.id.desc()).first()
+        baseline_id = last_before.id if last_before else 0
+
+        evt = add_field_update_event({
+            'type': 'field_config_updated',
+            'field_type': 'stream_verify_field',
+            'display_name': 'Stream Verify Feld',
+            'message': 'Stream Verifikation'
+        })
+        created_id = evt.id if evt else None
+
+        with app.test_client() as client:
+            resp_stream = client.get(f\"/api/v1/stream?event_types=field_update&poll=0.2&keepalive=1&limit=5&since_id={baseline_id}\", buffered=False)
+            iterator = resp_stream.response
+            chunks = []
+            event_chunks = []
+            try:
+                for idx in range(20):
+                    chunk = next(iterator).decode()
+                    chunks.append(chunk.strip())
+                    if chunk.startswith('id:') or chunk.startswith('event: field_update'):
+                        event_chunks.append(chunk.strip())
+                    if event_chunks:
+                        break
+            except StopIteration:
+                chunks.append('<stopiteration>')
+            finally:
+                resp_stream.close()
+            print('All SSE chunks captured:', chunks)
+            print('Detected event chunks:', event_chunks)
+
+        if created_id:
+            evt_db = GameEvent.query.get(created_id)
+            if evt_db:
+                db.session.delete(evt_db)
+                db.session.commit()
+    ```
+- Testergebnisse (vom User): erfolgreich (SSE liefert `event: field_update`, Poll liefert Event-Daten, `board_status` meldet Zeitstempel > 0).
+- Auswirkungen/Backwards-Compat: SSE-Routen kompatibel; Poll-Fallback liefert strukturierte Event-Objekte.
+- Nächste Schritte: Weitere Frontends (Team-/Dashboard) auf den zentralen Stream migrieren.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

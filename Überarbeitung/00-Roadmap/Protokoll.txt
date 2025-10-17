@@ -76,3 +76,16 @@ Eintrag 6
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 7
+- Datum/Uhrzeit: 2025-10-17 08:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6b teilweise umgesetzt – Admin-Feldupdates & Gameboard nutzen den zentralen Stream (SSE) inkl. Poll-Fallback; Board-API liest aus GameEvents.
+- Begründung/Ziel (Warum): Echtzeitquellen vereinheitlichen, In-Memory-Puffer entfernen, Basis für weitere Clients schaffen.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 33 (SSE/Poll/Board-Status-Skript).
+- Testergebnisse (vom User): erfolgreich (SSE-Event empfangen, Poll liefert Event, Board-Zeitstempel > 0).
+- Auswirkungen/Backwards-Compat: Bestehende Poll-Endpunkte liefern strukturierte Events, SSE verfügbar unter `/api/v1/stream`.
+- Nächste Schritte: Restliche Frontends/Dashboards auf Stream umstellen, Legacy-Poll entfernen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen

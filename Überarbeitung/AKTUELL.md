@@ -23,12 +23,14 @@
 - Board-Blau-Problem: durch User-Bestätigung als gelöst markiert (keine offenen Fehlerberichte)
 - Event-Service: Stream-Helper (`serialize_event_for_stream`, `fetch_recent_events_for_session`) + Session-Aggregator (`get_active_session_events`) implementiert (getestet, ok)
 - API v1: Neuer SSE-Endpoint `/api/v1/stream` nutzt die Service-Helper (getestet, ok)
+- Admin Feld-Updates: SSE/Poll leiten auf Event-Service um; DB statt In-Memory (getestet, ok)
+- Gameboard Live-Updates: nutzt `/api/v1/stream` mit SSE + Polling-Fallback (getestet, ok)
 
 Nächster Schritt (offen)
-- Frontend-/Admin-Anbindung an `/api/v1/stream` konsolidieren (Gameboard/field updates vereinheitlichen).
+- Weitere Clients (Team-Dashboard/Admin-Overlays) auf `/api/v1/stream` umstellen; Alt-Polling bereinigen.
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Micro-Step auswählen (z. B. Admin-SSE auf `/api/v1/stream` umstellen oder Gameboard-Client anpassen).
+ 1) Micro-Step auswählen (z. B. Team-Dashboard-Updates auf Stream umstellen).
  2) Änderung dokumentieren, automatisiert testen (Stream-Abgriff/Frontend-Test), Ergebnis festhalten.
 
 Push-Hinweis
