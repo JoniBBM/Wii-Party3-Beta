@@ -28,14 +28,10 @@ Arbeitskontext und KI-Anweisung
 
 Testprozess und Gate nach jeder Änderung
 ---------------------------------------
-- Nach jeder einzelnen Änderung gibt die KI konkrete Test-Anweisungen mit:
-  - Was genau zu testen ist (URLs/Endpunkte, UI-Aktionen, Kommandos),
-  - Wie getestet wird (Schritte in Docker-Live-Umgebung),
-  - Erwartete Ergebnisse/Erfolgskriterien und ggf. Logs, die zu prüfen sind,
-  - Optional: Rollback-Hinweise, falls etwas fehlschlägt.
-- Die KI wartet auf die Rückmeldung des Users (Testergebnisse). Erst bei erfolgreichem Feedback geht es weiter. Andernfalls werden Fixes vorgeschlagen und wieder getestet.
-- Dieser Ablauf wird in jedem Protokoll festgehalten (siehe Protokoll-Template: Test-Anleitung/Erfolgskriterien/Ergebnisse/Genehmigung).
-- WICHTIG: Tests step-by-step – immer nur eine Sache testen. Die KI gibt genau einen Testschritt vor, wartet auf Ergebnis, dann folgt der nächste. So bleiben Ursache/Wirkung eindeutig.
+- Nach jeder einzelnen Änderung führt die KI eigenständig alle durchführbaren Tests aus (docker compose exec, pytest, curl, usw.) und dokumentiert Ablauf, Befehle und Ergebnisse.
+- Nur wenn ein Test nicht automatisiert oder ohne zusätzliche Umgebungsschritte möglich ist, beschreibt die KI genau einen Testschritt für den User (Was/Wie/Erwartung) und wartet auf dessen Feedback, bevor es weitergeht.
+- Jeder Testlauf – egal ob von der KI oder vom User ausgeführt – wird im passenden Protokoll festgehalten (Test-Befehl/-Schritt, Erwartung, Ergebnis, Genehmigung).
+- WICHTIG: Tests bleiben strikt step-by-step. Es wird immer nur ein Testfall gleichzeitig ausgeführt oder angefordert, damit Ursache/Wirkung eindeutig nachvollziehbar bleiben.
 
 Nach erfolgreichem Test eines Schritts
 --------------------------------------

@@ -496,3 +496,19 @@ Eintrag 29
 - Genehmigung des Users: [bitte ausfüllen]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 30
+- Datum/Uhrzeit: 2025-10-15 11:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Board-Blau-Problem gemäß Eintrag 8 als gelöst markiert; Dokumentation aktualisiert.
+- Begründung/Ziel (Warum):
+  - User hat bestätigt, dass der Fehler nicht mehr auftritt; Protokoll und AKTUELL spiegeln den Status wider.
+- Test-Anleitung (Wie testen):
+  - Rückmeldung des Users prüfen; keine zusätzlichen Schritte erforderlich.
+- Testergebnisse (vom User): bestätigt (Board reagiert erwartungsgemäß, kein „blauer“ Fehler mehr).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Session-Service & Event-Stream vorbereiten (siehe Eintrag 11/AKTUELL.md).
+- Genehmigung des Users: ja (Chat-Bestätigung).
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

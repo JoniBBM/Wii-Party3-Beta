@@ -50,3 +50,16 @@ Eintrag 4
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 5
+- Datum/Uhrzeit: 2025-10-15 11:35 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Arbeitsrichtlinie aktualisiert – KI führt Tests künftig selbstständig durch, gibt dem User nur dann Testanweisungen, wenn ein Schritt nicht automatisiert möglich ist.
+- Begründung/Ziel (Warum): Nutzerwunsch; beschleunigt Feedback-Schleifen und reduziert manuelle Testlast.
+- Test-Anleitung: KI-Lesekontrolle des aktualisierten Abschnitts in `Überarbeitung/README.md`.
+- Testergebnisse (vom User): bestätigt (Chat-Rückmeldung).
+- Auswirkungen/Backwards-Compat: Keine funktionalen Änderungen am Projekt, nur Prozessanpassung.
+- Nächste Schritte: Weiter mit Session-Service/Event-Stream (siehe Bereich 05).
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen

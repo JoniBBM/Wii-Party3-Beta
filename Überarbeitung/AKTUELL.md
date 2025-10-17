@@ -20,13 +20,14 @@
 - Victory-Event (Team auf Position 72, ≥6 Wurf) erfolgreich getestet; Event als JSON gespeichert (getestet, ok)
 - DB neu initialisiert; alle Teams auf Position 0 zurückgesetzt (getestet, ok)
 - Session-Service: `get_active_session`/`require_active_session` eingeführt; moderation_mode, admin_roll_dice, automatische Platzierungen, Dashboard/Minigame-Setup, Minigame-Abbruch, end_question, reset_played_content, unblock_team, record_placements, question_responses_api, add_player_to_team, activate_round, start_welcome, player_rotation_stats, reset_player_rotation, Feld-Minispiel-Endpoints, Main-/Team-Routen & API v1 Status nutzen Service (getestet, ok)
+- Board-Blau-Problem: durch User-Bestätigung als gelöst markiert (keine offenen Fehlerberichte)
 
 Nächster Schritt (offen)
-- Session-Service & Event-Stream vorbereiten (gemäß Protokoll Eintrag 11) bzw. Board-Blau-Bug adressieren.
+- Session-Service & Event-Stream vorbereiten (gemäß Protokoll Eintrag 11).
 
 Testanleitung für den nächsten Schritt (step-by-step)
- 1) Festlegen: Session-Service-Stories (z. B. Events streamen konsolidieren) oder Board-Blau-Bug reproduzieren.
- 2) Micro-Step auswählen, dokumentieren, testen (siehe Protokollhinweise).
+ 1) Festlegen: konkreten Session-Service-/Event-Stream-Micro-Step auswählen (z. B. SSE-Endpoint vorbereiten).
+ 2) Micro-Step dokumentieren, implementieren, testen (siehe Protokollhinweise).
 
 Push-Hinweis
  - Commit-Message-Vorschlag: `refactor(dice): use dice_service for admin legacy roll route`
