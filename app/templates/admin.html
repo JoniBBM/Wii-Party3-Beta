@@ -2238,13 +2238,15 @@ document.addEventListener('DOMContentLoaded', function() {
         'special_field_barrier_set',
         'special_field_barrier_released',
         'special_field_barrier_blocked',
-        'field_update',
-        'field_minigame_completed',
-        'question_started',
-        'question_completed',
-        'phase_change',
-        'game_session_started'
-    ];
+    'field_update',
+    'field_minigame_completed',
+    'question_started',
+    'question_completed',
+    'phase_change',
+    'game_session_started',
+    'welcome_state',
+    'sequence_state'
+];
     const ADMIN_STREAM_URL = "{{ url_for('api_v1.stream_events_v1') }}?event_types=" + encodeURIComponent(ADMIN_STREAM_EVENTS.join(',')) + "&poll=0.5&keepalive=5";
     const ADMIN_POLL_INTERVAL_MS = 4000;
     
@@ -2508,7 +2510,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (SEQUENCE_EVENT_TRIGGERS.includes(evtName)) {
                 scheduleSequenceRefresh(evtName);
             }
-            if (evtName === 'phase_change' || evtName === 'game_session_started' || evtName === 'question_started' || evtName === 'question_completed') {
+            if (evtName === 'phase_change' || evtName === 'game_session_started' || evtName === 'question_started' || evtName === 'question_completed' || evtName === 'welcome_state') {
                 scheduleWelcomeRefresh(evtName);
             }
         });
@@ -3413,7 +3415,8 @@ const SEQUENCE_EVENT_TRIGGERS = [
     'special_field_barrier_blocked',
     'question_started',
     'question_completed',
-    'phase_change'
+    'phase_change',
+    'sequence_state'
 ];
 let welcomeFallbackInterval = null;
 let welcomeRefreshTimer = null;
