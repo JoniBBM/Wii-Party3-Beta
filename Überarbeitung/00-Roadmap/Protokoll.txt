@@ -89,3 +89,16 @@ Eintrag 7
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 8
+- Datum/Uhrzeit: 2025-10-17 09:00 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6c gestartet – Team-Dashboard konsumiert `/api/v1/stream`; Polling nur noch als Fallback.
+- Begründung/Ziel (Warum): Einheitliche Echtzeitgrundlage auch für Team-Clients; reduziert Last durch ständiges Polling.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 34 (SSE-Skript mit `team_dice_roll`).
+- Testergebnisse (vom User): erfolgreich (Stream liefert `team_dice_roll`, Fallback bleibt Reserve).
+- Auswirkungen/Backwards-Compat: Minimal – Polling existiert weiterhin als Backup.
+- Nächste Schritte: Admin-/Moderator-Dashboards auf Stream migrieren, danach Polling-Altrouten entfernen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
