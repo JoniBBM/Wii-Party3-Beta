@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, Sequence, List, Dict, Any
 
 from app import db
 from app.models import GameEvent, GameRound, GameSession
+from app.services.event_service import fetch_recent_events_for_session
 
 
 def get_active_session() -> Optional[GameSession]:
@@ -59,3 +60,25 @@ def get_or_create_active_session() -> GameSession:
     db.session.add(event)
     db.session.commit()
     return session
+
+
+def get_active_session_events(
+    *,
+    since_id: Optional[int] = None,
+    limit: int = 50,
+    event_types: Optional[Sequence[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Liefert Events der aktiven Session bereits normalisiert für Streams.
+
+    Gibt eine leere Liste zurück, wenn keine aktive Session existiert.
+    """
+    session = get_active_session()
+    if not session:
+        return []
+    return fetch_recent_events_for_session(
+        session.id,
+        since_id=since_id,
+        limit=limit,
+        event_types=event_types,
+    )

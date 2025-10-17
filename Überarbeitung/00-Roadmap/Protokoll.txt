@@ -63,3 +63,16 @@ Eintrag 5
 - Genehmigung des Users: ja
 - Commit/Push (nur User): [vom User nach Push ausfüllen]
 - Status: Abgeschlossen
+
+Eintrag 6
+- Datum/Uhrzeit: 2025-10-17 08:45 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6a umgesetzt – zentraler SSE-Endpoint `/api/v1/stream` implementiert, nutzt Event-/Session-Service.
+- Begründung/Ziel (Warum): Konsolidierter Echtzeitkanal für Admin- & Team-Frontends, Grundlage für Board/Events ohne Legacy-Fallbacks.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 32 (`docker compose exec web python - <<'PY' ...`).
+- Testergebnisse (vom User): erfolgreich (Stream liefert `stream_connected` + Testevent).
+- Auswirkungen/Backwards-Compat: Keine Breaking Changes, neuer Endpoint optional.
+- Nächste Schritte: Frontend/Gameboard auf neuen Stream umstellen, Admin-SSE zusammenführen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
