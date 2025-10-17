@@ -69,6 +69,37 @@ def _format_sse(data, *, event=None, event_id=None, retry=None):
     return "\n".join(lines) + "\n\n"
 
 
+def emit_admin_stream_event(event_type: str, data=None):
+    """
+    Erstellt ein Stream-Event für Admin-/Dashboard-Clients.
+
+    Erst versucht es, die aktive Session zu verwenden; existiert keine,
+    wird eine neue erstellt (damit der Stream weiterhin funktioniert).
+    """
+    session = get_active_session()
+    if not session:
+        session = get_or_create_active_session()
+    create_event(session.id, event_type=event_type, data=data or {})
+
+
+def emit_welcome_state(action: str, **extra):
+    payload = {"scope": "welcome", "action": action, **extra}
+    emit_admin_stream_event("welcome_state", payload)
+
+
+def emit_sequence_state(action: str, sequence=None, **extra):
+    payload = {"scope": "sequence", "action": action, **extra}
+    if sequence is not None:
+        payload.update({
+            "sequence_id": sequence.id,
+            "folder_id": sequence.minigame_folder_id,
+            "is_active": sequence.is_active,
+            "current_position": sequence.current_position,
+            "total_items": len(sequence.sequence_list) if sequence.sequence_list else 0,
+        })
+    emit_admin_stream_event("sequence_state", payload)
+
+
 def add_field_update_event(event_data):
     """Persistiert einen Feld-Update-Event in der Datenbank."""
     session = get_or_create_active_session()
@@ -4500,7 +4531,9 @@ def start_welcome():
         
         db.session.add(welcome_session)
         db.session.commit()
-        
+        emit_welcome_state('started', welcome_session_id=welcome_session.id)
+        db.session.commit()
+
         current_app.logger.info(f"Welcome-System gestartet von Admin: {current_user.username}")
         
         return jsonify({
@@ -4597,6 +4630,8 @@ def reset_game_complete():
             db.session.add(new_welcome_session)
             db.session.commit()
             current_app.logger.info("Welcome-System automatisch nach Reset gestartet")
+            emit_welcome_state('started', welcome_session_id=new_welcome_session.id, auto=True)
+            db.session.commit()
             
             return jsonify({
                 "success": True,
@@ -4705,6 +4740,12 @@ def create_teams():
         welcome_session.teams_created = True
         welcome_session.team_count = team_count
         
+        emit_welcome_state(
+            'teams_created',
+            welcome_session_id=welcome_session.id,
+            team_count=team_count,
+            player_count=len(players_list)
+        )
         db.session.commit()
         
         current_app.logger.info(f"Teams erstellt von Admin {current_user.username}: {team_count} Teams mit {len(players_list)} Spielern")
@@ -4757,7 +4798,9 @@ def end_welcome():
         
         # Beende Welcome-Session
         welcome_session.deactivate()
-        
+        emit_welcome_state('ended', welcome_session_id=welcome_session.id)
+        db.session.commit()
+
         current_app.logger.info(f"Welcome-System beendet von Admin: {current_user.username}")
         
         return jsonify({
@@ -4798,7 +4841,9 @@ def end_registration():
         current_app.logger.info(f"Deaktiviere Welcome-Session {welcome_session.id}")
         # Beende Welcome-Session
         welcome_session.deactivate()
-        
+        emit_welcome_state('registration_ended', welcome_session_id=welcome_session.id)
+        db.session.commit()
+
         current_app.logger.info(f"Registrierung erfolgreich beendet von Admin: {current_user.username}")
         
         return jsonify({
@@ -5195,7 +5240,8 @@ def update_sequence(folder_id):
         # Aktualisiere Sequenz
         sequence.sequence_list = sequence_list
         sequence.updated_at = datetime.utcnow()
-        
+        db.session.flush()
+        emit_sequence_state('updated', sequence)
         db.session.commit()
         flash('Ablaufplan erfolgreich gespeichert.', 'success')
         
@@ -5223,6 +5269,8 @@ def activate_sequence(folder_id):
         if sequence:
             sequence.is_active = True
             sequence.updated_at = datetime.utcnow()
+            db.session.flush()
+            emit_sequence_state('activated', sequence)
             db.session.commit()
             flash('Ablaufplan wurde aktiviert.', 'success')
         else:
@@ -5250,6 +5298,8 @@ def deactivate_sequence(folder_id):
         if sequence:
             sequence.is_active = False
             sequence.updated_at = datetime.utcnow()
+            db.session.flush()
+            emit_sequence_state('deactivated', sequence)
             db.session.commit()
             flash('Ablaufplan wurde deaktiviert.', 'success')
         else:

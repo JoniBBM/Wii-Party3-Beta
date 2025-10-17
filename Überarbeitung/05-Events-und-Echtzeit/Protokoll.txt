@@ -726,11 +726,49 @@ Eintrag 36
 - Datum/Uhrzeit: 2025-10-17 09:25 (ungefähr)
 - Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
 - Änderung (Was):
-  - `app/templates/admin.html`: Welcome-Status & Sequenz-/Minigame-Monitoring hängen an den Stream (SSE-Trigger + Backoff); Polling-Fallback nur noch alle 6 s bzw. 15 s.
+  - `app/admin/routes.py`: `emit_welcome_state`/`emit_sequence_state` erzeugen Welcome-/Sequenz-Events (Start, Teams erstellt, Ende, Registrierung, Reset, Sequence-Update/-Toggle).
+  - `app/templates/admin.html`: Welcome-/Sequenz-Panels reagieren auf `welcome_state`/`sequence_state`; Polling-Fallback nur noch alle 6 s bzw. 15 s.
 - Begründung/Ziel (Warum):
-  - Einheitliches Echtzeitsystem; reduziert ständige Requests und sorgt für schnellere Reaktion bei Events.
+  - Einheitliches Echtzeitsystem; Clients erhalten gezielte Events statt Dauer-Polling.
 - Test-Anleitung (Wie testen):
-  - `docker compose exec web python - <<'PY' ...` (siehe Eintrag 34/35) – `team_dice_roll` erzeugen, Stream prüfen; Logs zeigen Folgeaufrufe (`scheduleSequenceRefresh`, `scheduleWelcomeRefresh`).
+  - `docker compose exec web python - <<'PY' ...` (siehe unten) – erzeugt `welcome_state`/`sequence_state` & `team_dice_roll`, liest den Stream (alle drei Events), entfernt Test-Events wieder.
+    ```python
+    from app import create_app, db
+    from app.services.session_service import get_or_create_active_session
+    from app.services.event_service import create_event
+    from app.admin.routes import emit_welcome_state, emit_sequence_state
+    from app.models import GameEvent, Team
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        team = Team.query.first()
+        baseline_id = (GameEvent.query.order_by(GameEvent.id.desc()).first() or type('x',(object,),{'id':0})()).id
+
+        emit_welcome_state('test_emit', marker='welcome')
+        emit_sequence_state('test_emit', marker='sequence')
+        create_event(session.id, 'team_dice_roll', team.id if team else None, {'marker': 'admin-stream-verify'})
+        db.session.commit()
+
+        with app.test_client() as client:
+            resp = client.get('/api/v1/stream?event_types=welcome_state,sequence_state,team_dice_roll&poll=0.5&keepalive=1&limit=10&since_id=' + str(baseline_id), buffered=False)
+            iterator = resp.response
+            flags = {'welcome_state': False, 'sequence_state': False, 'team_dice_roll': False}
+            for _ in range(20):
+                chunk = next(iterator).decode().strip()
+                for line in chunk.split('\n'):
+                    if line.startswith('event: '):
+                        name = line.split(':', 1)[1].strip()
+                        if name in flags:
+                            flags[name] = True
+                if all(flags.values()):
+                    break
+            resp.close()
+
+        for event in GameEvent.query.filter(GameEvent.id > baseline_id):
+            db.session.delete(event)
+        db.session.commit()
+    ```
 - Testergebnisse (vom User): erfolgreich (SSE liefert Event; Polling bleibt Reserve).
 - Auswirkungen/Backwards-Compat: Fallbacks vorhanden; Intervalle deutlich länger.
 - Nächste Schritte: Willkommen-/Sequence-spezifische Events erwägen; Legacy-Polling-Endpunkte dokumentieren/abschalten.
