@@ -561,15 +561,21 @@ function checkAdminStatus() {
 
 document.addEventListener('DOMContentLoaded', function() {
     checkAdminStatus();
+
+    // Event-Stream Variablen
+    let welcomeEventSource = null;
+    let welcomePollInterval = null;
+    let welcomeRetryTimeout = null;
+
     // Live-Updates nur starten wenn Welcome-Session aktiv ist
     {% if welcome_session %}
         updateWelcomeStatus();
-        updateInterval = setInterval(updateWelcomeStatus, 2000);
+        initWelcomeEventStream();
     {% else %}
         // Keine Live-Updates wenn keine Session aktiv - zeige statische Welcome-Seite
         console.log('Welcome-Seite im Standby-Modus - keine Live-Updates');
-        
-        // Prüfe alle 5 Sekunden ob Welcome-System aktiviert wurde oder Teams erstellt wurden
+
+        // Prüfe alle 10 Sekunden ob Welcome-System aktiviert wurde oder Teams erstellt wurden
         window.standbyInterval = setInterval(function() {
             fetch('/api/welcome-status')
                 .then(response => response.json())
@@ -594,7 +600,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             console.log('Keine Teams gefunden, bleibe auf Welcome-Seite');
                         });
                 });
-        }, 5000);
+        }, 10000);
         
         // Funktion zum Wechsel in Live-Modus
         function switchToLiveMode() {
@@ -648,12 +654,102 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Starte Live-Updates
+            // Starte Live-Updates via Stream
             console.log('🔄 Starte Live-Updates für Welcome-System');
             updateWelcomeStatus();
-            updateInterval = setInterval(updateWelcomeStatus, 2000);
+            initWelcomeEventStream();
         }
     {% endif %}
+
+    function initWelcomeEventStream() {
+        // Stoppe vorherige Verbindung falls vorhanden
+        if (welcomeEventSource) {
+            welcomeEventSource.close();
+            welcomeEventSource = null;
+        }
+
+        try {
+            const streamUrl = '/api/v1/stream?event_types=welcome_state,player_registered,game_session_started&poll=1&keepalive=30';
+            console.log('[Welcome] Connecting to event stream:', streamUrl);
+
+            welcomeEventSource = new EventSource(streamUrl);
+
+            welcomeEventSource.addEventListener('stream_connected', function(e) {
+                console.log('[Welcome] Stream connected');
+                stopWelcomeFallbackPolling();
+            });
+
+            // Höre auf relevante Events
+            const eventTypes = ['welcome_state', 'player_registered', 'game_session_started'];
+            eventTypes.forEach(eventType => {
+                welcomeEventSource.addEventListener(eventType, function(e) {
+                    console.log(`[Welcome] Received event: ${eventType}`);
+                    scheduleWelcomeRefresh();
+                });
+            });
+
+            welcomeEventSource.onerror = function(e) {
+                console.error('[Welcome] EventSource error:', e);
+                welcomeEventSource.close();
+                welcomeEventSource = null;
+
+                // Starte Fallback-Polling
+                startWelcomeFallbackPolling();
+
+                // Retry nach 10 Sekunden
+                welcomeRetryTimeout = setTimeout(() => {
+                    console.log('[Welcome] Retrying event stream connection...');
+                    initWelcomeEventStream();
+                }, 10000);
+            };
+
+        } catch (error) {
+            console.error('[Welcome] Failed to create EventSource:', error);
+            startWelcomeFallbackPolling();
+        }
+    }
+
+    function scheduleWelcomeRefresh() {
+        if (window.welcomeRefreshTimeout) {
+            clearTimeout(window.welcomeRefreshTimeout);
+        }
+
+        window.welcomeRefreshTimeout = setTimeout(() => {
+            console.log('[Welcome] Executing scheduled refresh');
+            updateWelcomeStatus();
+        }, 200);
+    }
+
+    function startWelcomeFallbackPolling() {
+        if (welcomePollInterval) return;
+
+        console.log('[Welcome] Starting fallback polling (5s)');
+        welcomePollInterval = setInterval(() => {
+            console.log('[Welcome] Fallback poll');
+            updateWelcomeStatus();
+        }, 5000);
+    }
+
+    function stopWelcomeFallbackPolling() {
+        if (welcomePollInterval) {
+            console.log('[Welcome] Stopping fallback polling');
+            clearInterval(welcomePollInterval);
+            welcomePollInterval = null;
+        }
+    }
+
+    // Cleanup bei Seitenverlassen
+    window.addEventListener('beforeunload', function() {
+        if (welcomeEventSource) {
+            welcomeEventSource.close();
+        }
+        if (welcomePollInterval) {
+            clearInterval(welcomePollInterval);
+        }
+        if (welcomeRetryTimeout) {
+            clearTimeout(welcomeRetryTimeout);
+        }
+    });
 });
 
 // Letzte Spieler-Daten für Vergleich

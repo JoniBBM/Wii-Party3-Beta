@@ -28,9 +28,10 @@
 - Team-Dashboard: `/api/v1/stream` triggert Updates, Polling nur noch als Fallback (getestet, ok)
 - Admin-Dashboard: `/api/v1/stream` steuert Updates; Polling nur als Reserve (getestet, ok)
 - Admin-Dashboard Welcome/Sequenzen: Stream triggert Status-Refresh; Fallback-Intervalle verlängert (getestet, ok)
+- Moderator-/Spezialansichten: moderation_mode.html, welcome.html, manage_sequence.html auf `/api/v1/stream` umgestellt; team_answer_submitted/player_registered Events hinzugefügt; Legacy-Polling entfernt (getestet, ok)
 
 Nächster Schritt (offen)
-- Moderator-/Spezialansichten (Welcome, Sequenzen) auf Stream umstellen; Legacy-Polling aufräumen.
+- **Bereich 06 - Code-Qualität und Testing**: siehe `06-Code-Qualitaet-und-Testing/README.md` für nächste Schritte.
 
 Testanleitung für den nächsten Schritt (step-by-step)
  1) Micro-Step auswählen (z. B. Welcome-Status/Sequence auf Stream triggern).

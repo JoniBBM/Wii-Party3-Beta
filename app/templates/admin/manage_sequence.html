@@ -717,9 +717,88 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     
-    // Live-Updates für Sequence-Fortschritt
-    let sequenceProgressInterval;
-    
+    // Event-Stream für Live-Updates
+    let sequenceEventSource = null;
+    let sequencePollInterval = null;
+    let sequenceRetryTimeout = null;
+
+    function initSequenceEventStream() {
+        // Stoppe vorherige Verbindung falls vorhanden
+        if (sequenceEventSource) {
+            sequenceEventSource.close();
+            sequenceEventSource = null;
+        }
+
+        try {
+            const streamUrl = '/api/v1/stream?event_types=sequence_state,content_set,field_minigame_completed,question_auto_completed,placements_recorded&poll=1&keepalive=30';
+            console.log('[Sequence] Connecting to event stream:', streamUrl);
+
+            sequenceEventSource = new EventSource(streamUrl);
+
+            sequenceEventSource.addEventListener('stream_connected', function(e) {
+                console.log('[Sequence] Stream connected');
+                stopSequenceFallbackPolling();
+            });
+
+            // Höre auf relevante Events
+            const eventTypes = ['sequence_state', 'content_set', 'field_minigame_completed', 'question_auto_completed', 'placements_recorded'];
+            eventTypes.forEach(eventType => {
+                sequenceEventSource.addEventListener(eventType, function(e) {
+                    console.log(`[Sequence] Received event: ${eventType}`);
+                    scheduleSequenceRefresh();
+                });
+            });
+
+            sequenceEventSource.onerror = function(e) {
+                console.error('[Sequence] EventSource error:', e);
+                sequenceEventSource.close();
+                sequenceEventSource = null;
+
+                // Starte Fallback-Polling
+                startSequenceFallbackPolling();
+
+                // Retry nach 10 Sekunden
+                sequenceRetryTimeout = setTimeout(() => {
+                    console.log('[Sequence] Retrying event stream connection...');
+                    initSequenceEventStream();
+                }, 10000);
+            };
+
+        } catch (error) {
+            console.error('[Sequence] Failed to create EventSource:', error);
+            startSequenceFallbackPolling();
+        }
+    }
+
+    function scheduleSequenceRefresh() {
+        if (window.sequenceRefreshTimeout) {
+            clearTimeout(window.sequenceRefreshTimeout);
+        }
+
+        window.sequenceRefreshTimeout = setTimeout(() => {
+            console.log('[Sequence] Executing scheduled refresh');
+            updateSequenceProgress();
+        }, 200);
+    }
+
+    function startSequenceFallbackPolling() {
+        if (sequencePollInterval) return;
+
+        console.log('[Sequence] Starting fallback polling (5s)');
+        sequencePollInterval = setInterval(() => {
+            console.log('[Sequence] Fallback poll');
+            updateSequenceProgress();
+        }, 5000);
+    }
+
+    function stopSequenceFallbackPolling() {
+        if (sequencePollInterval) {
+            console.log('[Sequence] Stopping fallback polling');
+            clearInterval(sequencePollInterval);
+            sequencePollInterval = null;
+        }
+    }
+
     function updateSequenceProgress() {
         fetch('/admin/api/sequence_status')
             .then(response => response.json())
@@ -799,37 +878,34 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Live-Updates starten
-    function startSequenceProgressUpdates() {
-        // Initiales Update
-        updateSequenceProgress();
-        
-        // Regelmäßige Updates alle 3 Sekunden
-        sequenceProgressInterval = setInterval(updateSequenceProgress, 3000);
-    }
-    
-    function stopSequenceProgressUpdates() {
-        if (sequenceProgressInterval) {
-            clearInterval(sequenceProgressInterval);
-            sequenceProgressInterval = null;
-        }
-    }
-    
-    // Starte Live-Updates
-    startSequenceProgressUpdates();
-    
-    // Stoppe Updates wenn Seite verlassen wird
+    // Starte Stream-Updates
+    initSequenceEventStream();
+
+    // Cleanup bei Seitenverlassen
     window.addEventListener('beforeunload', function() {
-        stopSequenceProgressUpdates();
+        if (sequenceEventSource) {
+            sequenceEventSource.close();
+        }
+        if (sequencePollInterval) {
+            clearInterval(sequencePollInterval);
+        }
+        if (sequenceRetryTimeout) {
+            clearTimeout(sequenceRetryTimeout);
+        }
     });
-    
-    // Pause Updates wenn Tab nicht aktiv ist (Performance)
+
+    // Pause/Resume Stream bei Tab-Wechsel
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
-            stopSequenceProgressUpdates();
+            // Stoppe Stream wenn Tab nicht aktiv
+            if (sequenceEventSource) {
+                sequenceEventSource.close();
+                sequenceEventSource = null;
+            }
+            stopSequenceFallbackPolling();
         } else {
-            // Resume updates wenn Tab wieder aktiv
-            startSequenceProgressUpdates();
+            // Resume Stream wenn Tab wieder aktiv
+            initSequenceEventStream();
         }
     });
     

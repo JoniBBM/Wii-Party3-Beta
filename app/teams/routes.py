@@ -825,18 +825,33 @@ def submit_question_answer():
             return jsonify({'success': False, 'error': 'Ungültiger Antworttyp'}), 400
         
         response.is_correct = is_correct
-        
+
         # Speichere in Datenbank
         db.session.add(response)
         db.session.commit()
-        
+
+        # Event für Team-Antwort erstellen
+        from app.services.event_service import create_event
+        create_event(
+            active_session.id,
+            event_type="team_answer_submitted",
+            related_team_id=current_user.id,
+            data={
+                'team_name': current_user.name,
+                'question_id': question_id,
+                'is_correct': is_correct,
+                'answer_type': answer_type
+            }
+        )
+        db.session.commit()
+
         # Prüfe ob alle Teams geantwortet haben
         total_teams = Team.query.count()
         total_responses = QuestionResponse.query.filter_by(
             game_session_id=active_session.id,
             question_id=question_id
         ).count()
-        
+
         all_teams_answered = total_responses >= total_teams
         
         return jsonify({

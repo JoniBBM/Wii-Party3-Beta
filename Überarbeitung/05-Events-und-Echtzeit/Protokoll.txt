@@ -775,3 +775,46 @@ Eintrag 36
 - Genehmigung des Users: [ausstehend]
 - Commit/Push (nur User): [bitte ausfüllen]
 - Status: Abgeschlossen
+
+---
+
+## Eintrag 37: Moderator-/Spezialansichten auf /api/v1/stream umstellen; Legacy-Polling aufräumen; Team-Answer-Event hinzufügen
+
+- Datum: 2025-01-XX (bitte User ausfüllen)
+- Änderung (Was):
+  - **moderation_mode.html**: Legacy-Polling (3s) → `/api/v1/stream` mit SSE-Events (team_answer_submitted, content_set, placements_recorded, dice_round_started/ended/finished, minigame_aborted, game_victory, field_minigame_*). Fallback-Polling: 5s. Würfelergebnis-Display zeigt nun auch `team_dice_roll`/`admin_dice_roll` Events (nicht nur `dice_roll`). Würfelergebnis bleibt 60s sichtbar auch nach Phasenwechsel (letztes Team-Problem gelöst). Statistiken (Höchster Wurf/Durchschnitt) entfernt.
+  - **welcome.html**: Legacy-Polling (2s Live-Modus, 5s Standby-Modus) → `/api/v1/stream` mit SSE-Events (welcome_state, player_registered, game_session_started). Standby-Intervall von 5s auf 10s erhöht. Fallback-Polling: 5s.
+  - **manage_sequence.html**: Legacy-Polling (3s) → `/api/v1/stream` mit SSE-Events (sequence_state, content_set, field_minigame_completed, question_auto_completed, placements_recorded). Fallback-Polling: 5s.
+  - **app/teams/routes.py**: `submit_question_answer` erzeugt nun `team_answer_submitted` Event, wenn ein Team eine Frage beantwortet.
+  - **app/main/routes.py**: `register_player` erzeugt nun `player_registered` Event, wenn ein Spieler sich registriert.
+  - **app/admin/routes.py**: `_get_latest_dice_result` erweitert um `team_dice_roll` und `admin_dice_roll` Events (nicht nur `dice_roll`). Würfelergebnis wird nun in ALLEN Phasen geladen, wenn `is_recent=true` (Fix für letztes Team nach Phasenwechsel).
+- Begründung/Ziel (Warum):
+  - Konsistentes Echtzeitsystem für alle Moderator-/Spezialansichten; Team-Antworten erscheinen sofort im Moderationsmodus; Würfelergebnisse aller Teams (inkl. letztes Team) werden korrekt angezeigt; reduzierte Netzlast durch Event-basierte Updates statt Dauer-Polling.
+- Test-Anleitung (Wie testen):
+  - **Moderationsmodus**:
+    1. Öffne `http://localhost:5001/admin/moderation_mode` + Browser Console (F12)
+    2. Prüfe Console-Logs: `[Moderation] Stream connected`
+    3. Würfeln (Admin/Team) → Console: `[Moderation] Received event: team_dice_roll` → UI zeigt Würfelergebnis sofort
+    4. Frage stellen → Console: `[Moderation] Received event: content_set` → UI zeigt Frage
+    5. Team antwortet → Console: `[Moderation] Received event: team_answer_submitted` → UI zeigt Team-Antwort sofort
+    6. Letztes Team würfelt → UI zeigt Würfelergebnis auch nach Phasenwechsel (60s)
+    7. Prüfe: Keine Statistiken (Höchster Wurf/Durchschnitt) mehr sichtbar
+  - **Welcome-System**:
+    1. Öffne `http://localhost:5001/welcome` + Console
+    2. Aktiviere Welcome-System (Admin) → Console: `[Welcome] Stream connected`
+    3. Spieler registrieren → Console: `[Welcome] Received event: player_registered` → UI zeigt neuen Spieler sofort
+    4. Teams erstellen (Admin) → Console: `[Welcome] Received event: welcome_state` → UI zeigt Teams sofort
+  - **Sequenz-Verwaltung**:
+    1. Öffne `http://localhost:5001/admin/manage_sequence/<folder_id>` + Console
+    2. Console: `[Sequence] Stream connected`
+    3. Minigame/Frage abschließen → Console: `[Sequence] Received event: field_minigame_completed` (oder `question_auto_completed`) → Progress Bar aktualisiert sofort
+- Testergebnisse (vom User): erfolgreich (alle Ansichten empfangen Events via SSE; Team-Antworten erscheinen in Echtzeit; letztes Team-Würfelergebnis bleibt sichtbar; Fallback-Polling funktioniert bei SSE-Fehler)
+- Auswirkungen/Backwards-Compat:
+  - Legacy-Polling vollständig entfernt (moderation_mode, welcome, manage_sequence)
+  - Fallback-Polling vorhanden (5s/10s) als Ausfallsicherung
+  - Neue Events: `team_answer_submitted`, `player_registered`
+  - Breaking Change: Statistiken (Höchster Wurf/Durchschnitt) im Moderationsmodus entfernt
+- Nächste Schritte: Legacy-Polling in anderen Views prüfen und dokumentieren; Event-Typen konsolidieren.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

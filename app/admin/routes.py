@@ -599,7 +599,7 @@ def moderation_mode_api():
                     'additional_info': 'Runde ist beendet',
                     'results': results if results and results.get('has_results') else None
                 }
-            
+
             else:
                 game_status = {
                     'current_status': 'Unbekannt',
@@ -607,6 +607,15 @@ def moderation_mode_api():
                     'current_team': None,
                     'additional_info': f'Phase: {current_phase}'
                 }
+
+            # Lade Würfelergebnis in ALLEN Phasen, falls recent (für letztes Team nach Phasenwechsel)
+            if game_status and current_phase != 'DICE_ROLLING':
+                # Nur laden wenn noch kein dice_result gesetzt ist
+                if 'dice_result' not in game_status or game_status.get('dice_result') is None:
+                    dice_result = _get_latest_dice_result(active_session)
+                    if dice_result and dice_result.get('is_recent'):
+                        game_status['dice_result'] = dice_result
+                        current_app.logger.info(f"DEBUG API: Added recent dice result to phase {current_phase}")
     
         # Lade aktive Sequenz-Informationen für API
         active_sequence_info = None
@@ -778,18 +787,19 @@ def _get_latest_dice_result(active_session):
         # Suche nach dem neuesten Würfel-Event in den letzten 60 Sekunden (erweitert)
         recent_time = datetime.utcnow() - timedelta(seconds=60)
         
-        # Debug: Alle dice_roll Events anzeigen
+        # Debug: Alle dice_roll Events anzeigen (inkl. team_dice_roll und admin_dice_roll)
+        dice_event_types = ['dice_roll', 'team_dice_roll', 'admin_dice_roll']
         all_dice_events = GameEvent.query.filter(
-            GameEvent.event_type == 'dice_roll',
+            GameEvent.event_type.in_(dice_event_types),
             GameEvent.game_session_id == active_session.id
         ).order_by(GameEvent.timestamp.desc()).limit(5).all()
-        
+
         current_app.logger.info(f"DEBUG: Found {len(all_dice_events)} dice events total for session {active_session.id}")
         for event in all_dice_events:
-            current_app.logger.info(f"  - Event {event.id}: {event.timestamp}, team={event.related_team_id}")
-        
+            current_app.logger.info(f"  - Event {event.id} ({event.event_type}): {event.timestamp}, team={event.related_team_id}")
+
         last_dice_event = GameEvent.query.filter(
-            GameEvent.event_type == 'dice_roll',
+            GameEvent.event_type.in_(dice_event_types),
             GameEvent.game_session_id == active_session.id,
             GameEvent.timestamp >= recent_time
         ).order_by(GameEvent.timestamp.desc()).first()

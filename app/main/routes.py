@@ -730,12 +730,27 @@ def register_player():
             welcome_session_id=welcome_session.id,
             player_name=player_name
         )
-        
+
         db.session.add(registration)
         db.session.commit()
-        
+
+        # Event für Spieler-Registrierung erstellen
+        from app.services.event_service import create_event
+        from app.services.session_service import get_active_session
+        active_session = get_active_session()
+        if active_session:
+            create_event(
+                active_session.id,
+                event_type="player_registered",
+                data={
+                    'player_name': player_name,
+                    'welcome_session_id': welcome_session.id
+                }
+            )
+            db.session.commit()
+
         current_app.logger.info(f"Neuer Spieler registriert: {player_name}")
-        
+
         return jsonify({
             "success": True,
             "message": f"Spieler '{player_name}' erfolgreich registriert"

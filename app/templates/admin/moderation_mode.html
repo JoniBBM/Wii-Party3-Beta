@@ -443,19 +443,6 @@
                             <i class="fas fa-clock"></i> Warte auf Würfelergebnisse...
                         </div>
                     </div>
-                    <div class="mt-3" id="dice-round-summary" style="display: none;">
-                        <hr>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-trophy"></i> Höchster Wurf:</h6>
-                                <span id="highest-roll" class="badge badge-success badge-lg">-</span>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-chart-bar"></i> Durchschnitt:</h6>
-                                <span id="average-roll" class="badge badge-info badge-lg">-</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1241,36 +1228,32 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateDiceResultSection(gameStatus) {
         console.log(`updateDiceResultSection called - Phase: ${gameStatus.current_status}, Has dice_result: ${!!gameStatus.dice_result}`);
-        
-        // VEREINFACHTE LOGIK: Vertraue dem Server is_recent Flag
-        if (gameStatus.current_status === 'Würfelrunde' && gameStatus.dice_result && gameStatus.dice_result.is_recent) {
+
+        // VEREINFACHTE LOGIK: Zeige Würfelergebnis in ALLEN Phasen, solange is_recent=true
+        if (gameStatus.dice_result && gameStatus.dice_result.is_recent) {
             const diceResult = gameStatus.dice_result;
             console.log('Processing dice result (is_recent=true):', diceResult);
-            
+
             const teamKey = diceResult.team_name;
             const diceKey = `${diceResult.team_name}-${diceResult.timestamp}-${diceResult.total_roll}`;
-            
+
             // Füge zur Sammlung hinzu, nur wenn es ein neues Team ist
             if (!processedTeams.has(teamKey)) {
                 console.log(`NEW team ${teamKey} - adding to collection`);
                 processedTeams.add(teamKey);
                 addDiceResult(diceResult);
                 resetDiceRoundHideTimer();
-                
-                // Zeige auch das Live-Popup
-                if (lastDiceResult !== diceKey) {
-                    lastDiceResult = diceKey;
-                    showDiceResult(diceResult, gameStatus);
-                }
-            } else {
-                console.log(`Team ${teamKey} already processed`);
+            }
+
+            // Zeige das Live-Popup immer wenn dice_result vorhanden und recent ist
+            if (lastDiceResult !== diceKey) {
+                lastDiceResult = diceKey;
+                showDiceResult(diceResult, gameStatus);
             }
         } else {
             console.log(`No dice result or not recent (is_recent: ${gameStatus.dice_result?.is_recent})`);
-            // Kein Würfelergebnis oder nicht in Würfelrunde
-            if (gameStatus.current_status !== 'Würfelrunde') {
-                hideDiceResult();
-            }
+            // Verstecke nur wenn definitiv kein recent dice_result mehr da ist
+            hideDiceResult();
         }
     }
     
@@ -1459,8 +1442,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateDiceRoundDisplay() {
         const diceRoundDiv = document.getElementById('dice-round-results');
         const container = document.getElementById('dice-results-container');
-        const summaryDiv = document.getElementById('dice-round-summary');
-        
+
         if (!container) return;
         
         if (diceRoundResults.length === 0) {
@@ -1508,17 +1490,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         container.innerHTML = html;
-        
-        // Update Statistiken
-        if (diceRoundResults.length > 0) {
-            const totals = diceRoundResults.map(r => r.total_roll);
-            const highest = Math.max(...totals);
-            const average = (totals.reduce((a, b) => a + b, 0) / totals.length).toFixed(1);
-            
-            document.getElementById('highest-roll').textContent = highest;
-            document.getElementById('average-roll').textContent = average;
-            summaryDiv.style.display = 'block';
-        }
     }
     
     function updateSequenceSection(sequenceInfo) {
@@ -1627,10 +1598,109 @@ document.addEventListener('DOMContentLoaded', function() {
         sequenceDisplay.style.visibility = 'visible';
         console.log('Initial sequence display made visible');
     }
-    
-    // Starte Updates alle 3 Sekunden
-    setInterval(updateStatus, 3000);
-    
+
+    // Event-Stream für Live-Updates
+    let moderationEventSource = null;
+    let moderationPollInterval = null;
+    let moderationRetryTimeout = null;
+
+    const MODERATION_STREAM_EVENTS = 'dice_roll,team_dice_roll,admin_dice_roll,special_field_catapult_forward,special_field_catapult_backward,special_field_player_swap,special_field_barrier_set,special_field_barrier_released,special_field_barrier_blocked,field_minigame_completed,field_minigame_selection_pending,field_minigame_admin_selected,content_set,team_answer_submitted,question_auto_completed,placements_recorded,dice_round_started,dice_round_ended,dice_round_finished,minigame_aborted,game_victory,phase_change,game_session_started,field_update,welcome_state,sequence_state';
+
+    function initModerationEventStream() {
+        // Stoppe vorherige Verbindung falls vorhanden
+        if (moderationEventSource) {
+            moderationEventSource.close();
+            moderationEventSource = null;
+        }
+
+        try {
+            const streamUrl = `/api/v1/stream?event_types=${MODERATION_STREAM_EVENTS}&poll=1&keepalive=30`;
+            console.log('[Moderation] Connecting to event stream:', streamUrl);
+
+            moderationEventSource = new EventSource(streamUrl);
+
+            moderationEventSource.addEventListener('stream_connected', function(e) {
+                console.log('[Moderation] Stream connected');
+                // Bei erfolgreicher Verbindung: Polling-Fallback ausschalten
+                stopModerationFallbackPolling();
+            });
+
+            // Höre auf alle relevanten Events
+            const eventTypes = MODERATION_STREAM_EVENTS.split(',');
+            eventTypes.forEach(eventType => {
+                moderationEventSource.addEventListener(eventType, function(e) {
+                    console.log(`[Moderation] Received event: ${eventType}`);
+                    scheduleModerationRefresh();
+                });
+            });
+
+            moderationEventSource.onerror = function(e) {
+                console.error('[Moderation] EventSource error:', e);
+                moderationEventSource.close();
+                moderationEventSource = null;
+
+                // Starte Fallback-Polling
+                startModerationFallbackPolling();
+
+                // Retry nach 10 Sekunden
+                moderationRetryTimeout = setTimeout(() => {
+                    console.log('[Moderation] Retrying event stream connection...');
+                    initModerationEventStream();
+                }, 10000);
+            };
+
+        } catch (error) {
+            console.error('[Moderation] Failed to create EventSource:', error);
+            startModerationFallbackPolling();
+        }
+    }
+
+    function scheduleModerationRefresh() {
+        // Verzögere Update um Duplikate zu vermeiden
+        if (window.moderationRefreshTimeout) {
+            clearTimeout(window.moderationRefreshTimeout);
+        }
+
+        window.moderationRefreshTimeout = setTimeout(() => {
+            console.log('[Moderation] Executing scheduled refresh');
+            updateStatus();
+        }, 200);
+    }
+
+    function startModerationFallbackPolling() {
+        if (moderationPollInterval) return; // Bereits aktiv
+
+        console.log('[Moderation] Starting fallback polling (5s)');
+        moderationPollInterval = setInterval(() => {
+            console.log('[Moderation] Fallback poll');
+            updateStatus();
+        }, 5000);
+    }
+
+    function stopModerationFallbackPolling() {
+        if (moderationPollInterval) {
+            console.log('[Moderation] Stopping fallback polling');
+            clearInterval(moderationPollInterval);
+            moderationPollInterval = null;
+        }
+    }
+
+    // Cleanup bei Seitenverlassen
+    window.addEventListener('beforeunload', function() {
+        if (moderationEventSource) {
+            moderationEventSource.close();
+        }
+        if (moderationPollInterval) {
+            clearInterval(moderationPollInterval);
+        }
+        if (moderationRetryTimeout) {
+            clearTimeout(moderationRetryTimeout);
+        }
+    });
+
+    // Starte Stream-Updates
+    initModerationEventStream();
+
     // Initialer Update nach 1 Sekunde
     setTimeout(updateStatus, 1000);
 });
