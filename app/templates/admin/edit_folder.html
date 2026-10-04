@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+
+{% block title %}Ordner bearbeiten: {{ folder.name }} - Admin Dashboard{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* Admin Dashboard Theme - Dark Professional */
+    .admin-dashboard-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        min-height: 100vh;
+        color: white;
+        position: relative;
+        padding: 0;
+        margin: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-dashboard-container::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(-45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%),
+                    linear-gradient(-45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%);
+        background-size: 60px 60px;
+        background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+        animation: movePattern 20s linear infinite;
+        opacity: 0.15;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    @keyframes movePattern {
+        0% { transform: translateX(0px) translateY(0px); }
+        100% { transform: translateX(60px) translateY(60px); }
+    }
+
+    .admin-content {
+        position: relative;
+        z-index: 2;
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .admin-content .container {
+        max-width: 1200px;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    /* Card styling */
+    .card {
+        background: rgba(44, 62, 80, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        color: white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .card-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px 18px 0 0 !important;
+        padding: 1.5rem 2rem;
+    }
+
+    .card-header.bg-warning {
+        background: rgba(241, 196, 15, 0.2) !important;
+        border-bottom: 1px solid rgba(241, 196, 15, 0.3);
+    }
+
+    .card-header.bg-info {
+        background: rgba(26, 188, 156, 0.2) !important;
+        border-bottom: 1px solid rgba(26, 188, 156, 0.3);
+    }
+
+    .card-header.bg-light {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .card-header h3, .card-header h5, .card-header h6 {
+        margin: 0;
+        font-weight: 700;
+        color: white;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* Form styling */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-control-label {
+        color: white;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .form-control {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        color: white;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(241, 196, 15, 0.5);
+        box-shadow: 0 0 0 3px rgba(241, 196, 15, 0.1);
+        color: white;
+    }
+
+    .form-control[readonly] {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .form-text {
+        color: rgba(255, 255, 255, 0.7) !important;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .invalid-feedback {
+        color: #e74c3c;
+        font-weight: 500;
+    }
+
+    .form-control.is-invalid {
+        border-color: #e74c3c;
+        background: rgba(231, 76, 60, 0.1);
+    }
+
+    /* Button styling */
+    .btn {
+        border-radius: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        border: none;
+        padding: 8px 16px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-warning {
+        background: linear-gradient(45deg, #f1c40f, #f39c12);
+        color: #2c3e50;
+        box-shadow: 0 5px 15px rgba(241, 196, 15, 0.3);
+    }
+
+    .btn-warning:hover {
+        background: linear-gradient(45deg, #f39c12, #e67e22);
+        color: #2c3e50;
+        box-shadow: 0 8px 20px rgba(241, 196, 15, 0.4);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        color: white;
+        box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
+    }
+
+    .btn-secondary:hover {
+        background: linear-gradient(45deg, #7f8c8d, #6c7b7d);
+        color: white;
+        box-shadow: 0 8px 20px rgba(149, 165, 166, 0.4);
+    }
+
+    .btn-success {
+        background: linear-gradient(45deg, #27ae60, #229954);
+        color: white;
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(45deg, #229954, #1e8449);
+        color: white;
+        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        color: white;
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #2980b9, #21618c);
+        color: white;
+        box-shadow: 0 8px 20px rgba(52, 152, 219, 0.4);
+    }
+
+    .btn-lg {
+        padding: 16px 32px;
+        font-size: 1.1rem;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+
+    /* Outline buttons */
+    .btn-outline-primary {
+        border: 2px solid #3498db;
+        color: #3498db;
+        background: transparent;
+    }
+
+    .btn-outline-primary:hover {
+        background: #3498db;
+        color: white;
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .btn-outline-danger {
+        border: 2px solid #e74c3c;
+        color: #e74c3c;
+        background: transparent;
+    }
+
+    .btn-outline-danger:hover {
+        background: #e74c3c;
+        color: white;
+        box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    /* Tabs styling */
+    .nav-tabs {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        margin-bottom: 1rem;
+    }
+
+    .nav-tabs .nav-link {
+        border: 1px solid transparent;
+        border-radius: 10px 10px 0 0;
+        color: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-color: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        border-bottom-color: transparent;
+    }
+
+    /* List styling */
+    .list-group {
+        background: transparent;
+    }
+
+    .list-group-item {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        transition: all 0.3s ease;
+        margin-bottom: 0.5rem;
+        border-radius: 10px;
+    }
+
+    .list-group-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .list-group-item strong {
+        color: white;
+    }
+
+    .list-group-item small {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* Badge styling */
+    .badge {
+        border-radius: 15px;
+        padding: 0.4rem 0.6rem;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .badge-light {
+        background: rgba(255, 255, 255, 0.9);
+        color: #2c3e50;
+    }
+
+    .badge-secondary {
+        background: rgba(149, 165, 166, 0.8);
+        color: white;
+    }
+
+    /* Text colors */
+    .text-muted {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+
+    @media (max-width: 768px) {
+        .admin-content .container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .card-body, .card-header {
+            padding: 1.5rem;
+        }
+
+        .btn-lg {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .col-md-4 {
+            margin-top: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard-container">
+    <div class="admin-content">
+        <div class="container">
+            <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">
+                        <i class="fas fa-edit"></i> Ordner bearbeiten: {{ folder.name }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.edit_folder', folder_id=folder.id) }}" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="form-group">
+                            {{ form.name.label(class="form-control-label") }}
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), readonly=True) }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.name.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                <i class="fas fa-lock"></i> 
+                                Der Ordnername kann nicht geändert werden (Dateisystem-Kompatibilität).
+                            </small>
+                        </div>
+                        
+                        <div class="form-group">
+                            {{ form.description.label(class="form-control-label") }}
+                            {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), 
+                                               rows="3") }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.description.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            {{ form.submit(class="btn btn-warning btn-lg") }}
+                            <a href="{{ url_for('admin.manage_folders') }}" class="btn btn-secondary btn-lg ml-2">
+                                Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Inhalte in diesem Ordner
+                        <span class="badge badge-light text-info ml-2">{{ (games|length) + (questions|length) }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Tabs für Minispiele und Fragen -->
+                    <ul class="nav nav-tabs" id="contentTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="games-tab" data-toggle="tab" href="#games" role="tab">
+                                🎮 Spiele <span class="badge badge-secondary">{{ games|length }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="questions-tab" data-toggle="tab" href="#questions" role="tab">
+                                ❓ Fragen <span class="badge badge-secondary">{{ questions|length }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content mt-3" id="contentTabsContent">
+                        <!-- Minispiele Tab -->
+                        <div class="tab-pane fade show active" id="games" role="tabpanel">
+                            {% if games %}
+                                <div class="list-group list-group-flush">
+                                    {% for game in games %}
+                                    <div class="list-group-item d-flex justify-content-between align-items-center p-2">
+                                        <div>
+                                            <strong>{{ game.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ game.type|title }}</small>
+                                            {% if game.description %}
+                                                <br>
+                                                <small class="text-muted">{{ game.description[:50] }}{% if game.description|length > 50 %}...{% endif %}</small>
+                                            {% endif %}
+                                        </div>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('admin.edit_folder_minigame', folder_id=folder.id, minigame_id=game.id) }}" 
+                                               class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('admin.delete_folder_minigame', folder_id=folder.id, minigame_id=game.id) }}" 
+                                                  style="display: inline;" onsubmit="return confirm('Minispiel wirklich löschen?')">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center mb-0">
+                                    <i class="fas fa-gamepad"></i><br>
+                                    Noch keine Minispiele in diesem Ordner.
+                                </p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Fragen Tab -->
+                        <div class="tab-pane fade" id="questions" role="tabpanel">
+                            {% if questions %}
+                                <div class="list-group list-group-flush">
+                                    {% for question in questions %}
+                                    <div class="list-group-item d-flex justify-content-between align-items-center p-2">
+                                        <div>
+                                            <strong>{{ question.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">
+                                                {{ question.question_type|title }}
+                                                {% if question.points %}
+                                                    | {{ question.points }} Punkte
+                                                {% endif %}
+                                            </small>
+                                            {% if question.description %}
+                                                <br>
+                                                <small class="text-muted">{{ question.description[:50] }}{% if question.description|length > 50 %}...{% endif %}</small>
+                                            {% endif %}
+                                        </div>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('admin.edit_question', folder_id=folder.id, question_id=question.id) }}" 
+                                               class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('admin.delete_question', folder_id=folder.id, question_id=question.id) }}" 
+                                                  style="display: inline;" onsubmit="return confirm('Frage wirklich löschen?')">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center mb-0">
+                                    <i class="fas fa-question-circle"></i><br>
+                                    Noch keine Fragen in diesem Ordner.
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{{ url_for('admin.create_folder_minigame', folder_id=folder.id) }}" 
+                               class="btn btn-success btn-sm">
+                                <i class="fas fa-plus"></i> Minispiel
+                            </a>
+                            <a href="{{ url_for('admin.create_question', folder_id=folder.id) }}" 
+                               class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus"></i> Frage
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Ordner-Info</h6>
+                </div>
+                <div class="card-body">
+                    <small class="text-muted">
+                        <strong>Pfad:</strong> {{ folder.folder_path }}<br>
+                        <strong>Erstellt:</strong> {{ folder.created_at.strftime('%d.%m.%Y %H:%M') }}<br>
+                        <strong>Minispiele:</strong> {{ games|length }}<br>
+                        <strong>Fragen:</strong> {{ questions|length }}<br>
+                        <strong>Gesamt:</strong> {{ (games|length) + (questions|length) }} Inhalte
+                    </small>
+                </div>
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

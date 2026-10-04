@@ -1,0 +1,31 @@
+Event → UI-Aktion
+-----------------
+
+dice_roll
+- Bewegung des Team-Markers von old_pos → new_pos (Animation entlang Pfad)
+- Würfelbanner anzeigen (Standard, Bonus, Total), Dauer 2–3s
+
+special_field (subtype)
+- catapult_forward/backward: Marker-Sprung + Banner „Katapult“ mit Distanz
+- player_swap: Marker-Swap beider Teams + Banner „Tausch mit X“
+- barrier_set: Sperren-Icon am Team, Banner „Blockiert“
+- barrier_released: Entfernen Sperren-Icon, Banner „Befreit!“
+
+phase_change
+- HUD-Text aktualisieren (z. B. „Würfelrunde“, „Frage aktiv“, „Runde beendet“)
+
+content_selected
+- HUD-Teaser mit Name/Typ, ggf. Gesichter-Overlay vorbereiten
+
+question_started
+- Fragenbanner: Titel/Typ; bei Board nur Info; Teams sehen Frage separat in Team-Dashboard
+
+question_completed
+- Ergebnisse über HUD/Overlay, optional Aufhol-Animationen für Bonusvergabe
+
+field_update
+- Spezialfeld-Decoration/Legende aktualisieren (Farben/Icons)
+
+Allgemein
+- Events throttlen und zusammenfassen (coalescing), um Flackern zu vermeiden
+- Fehler/Disconnects: Connection-Indicator (grün/gelb/rot) + Auto-Reconnect mit Backoff

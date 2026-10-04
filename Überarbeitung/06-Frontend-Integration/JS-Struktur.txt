@@ -1,0 +1,26 @@
+JavaScript Struktur und Konventionen
+===================================
+
+Ziele
+- Modulare ES-Module; klarer Import-Fluss; testbar.
+- Pro Seite ein Entry-Point, gemeinsame Utilities getrennt.
+
+Struktur (Dateien)
+- `app/static/js/`
+  - `api/` (ApiClient, Endpunkt-Wrapper, Errorhandling)
+  - `stream/` (StreamClient SSE/WebSocket, Reconnect, Parser)
+  - `store/` (State-Container, Actions, Selectors)
+  - `ui/` (Banner, Toasts, Overlays, Indicators)
+  - `board/` (Renderer, Scene, Entities, Systems)
+  - `admin/` (Admin-spezifische Views/Interaktionen)
+  - `teams/` (Team-spezifische Views)
+  - `utils/` (helpers: throttle, debounce, format, dom)
+  - `entry/` (board.js, admin.js, teams.js – Einstiegspunkte)
+
+Konventionen
+- Keine globalen Variablen; `type="module"` verwenden.
+- Strikte Linting-Regeln (eslint/ruff-py nicht JS; optional eslint). 
+- Fetch-Wrapper im ApiClient: Fehler-/Retry-Logik, CSRF/JWT Handling zentral.
+
+Migrationspfad
+- Bestehende JS in Module aufteilen; Board zuerst (entry/board.js) und Stück für Stück.

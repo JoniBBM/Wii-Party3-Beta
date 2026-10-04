@@ -1,0 +1,820 @@
+Protokoll – 05-Events-und-Echtzeit
+==================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung: Initiales Protokoll angelegt; Event-Factory/Stream-Konsolidierung geplant.
+- Begründung/Ziel: Einheitliche Events, weniger Frontend-Sonderlogik.
+- Auswirkungen/Backwards-Compat: Alte Eventformen werden migriert/adaptert.
+- Tests/Validierung: Stream-Mock, Event-Schema-Validierung.
+- Nächste Schritte: Event-Factory entwerfen; SSE-Endpoint v1 vorbereiten.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+
+Eintrag 2
+- Datum/Uhrzeit: 2025-10-14 09:15 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_player_swap` stellt die Erstellung beider Swap-Events auf `event_service.create_event` um.
+- Begründung/Ziel (Warum):
+  - Einheitliche Event-Erzeugung auch für Spezialfelder, strikt JSON, weniger Duplikation.
+- Test-Anleitung (Wie testen):
+  - Würfeln bis Spieler-Tausch ausgelöst wird; danach `curl -s http://localhost:5001/api/v1/status/board | jq`.
+  - Erwartung: `data.last_special.type == "special_field_player_swap"`, keine Tracebacks.
+- Testergebnisse (vom User): erfolgreich (player_swap wurde angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: Weitere Spezialfeld-Events sukzessive migrieren (catapult/barrier), dann eval-Fallbacks entfernen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
+
+Eintrag 3
+- Datum/Uhrzeit: 2025-10-14 09:20 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_catapult_forward` nutzt `event_service.create_event` für Event-Erzeugung.
+- Begründung/Ziel (Warum):
+  - Fortsetzung der Vereinheitlichung: Spezialfeld-Events werden konsistent und sicher (JSON) erzeugt.
+- Test-Anleitung (Wie testen):
+  - Spielen/würfeln bis „Katapult vorwärts“ ausgelöst wird (ein Team landet auf einem entsprechenden Feld, z. B. 15/30/45/60 o. ä.).
+  - Danach: `curl -s http://localhost:5001/api/v1/status/board | jq`
+  - Erwartung: `data.last_special.type == "special_field_catapult_forward"`, keine Tracebacks im Log.
+- Testergebnisse (vom User): erfolgreich (special_field_catapult_forward angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: `catapult_backward` und `barrier_*` Events auf Service umstellen (jeweils in kleinen Schritten).
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
+
+Eintrag 4
+- Datum/Uhrzeit: 2025-10-14 09:30 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_catapult_backward` nutzt `event_service.create_event` für Event-Erzeugung.
+- Begründung/Ziel (Warum):
+  - Vereinheitlichung der Spezialfeld-Events (Service, JSON), weniger Duplikation.
+- Test-Anleitung (Wie testen):
+  - Spielen/würfeln bis „Katapult rückwärts“ ausgelöst wird (z. B. 13/26/39/52/65 je nach Konfig).
+  - Direkt danach: `curl -s http://localhost:5001/api/v1/status/board | jq`
+  - Erwartung: `data.last_special.type == "special_field_catapult_backward"`, keine Tracebacks im Log.
+- Testergebnisse (vom User): erfolgreich (special_field_catapult_backward angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: barrier_* (set/released/blocked) Events migrieren.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
+
+Eintrag 5
+- Datum/Uhrzeit: 2025-10-14 10:35 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.handle_barrier_field` (barrier_set) nutzt `event_service.create_event` für Event-Erzeugung.
+- Begründung/Ziel (Warum):
+  - Vereinheitlichung der Event-Erzeugung (Service, JSON), Vorbereitung zum Entfernen aller eval-Fallbacks.
+- Test-Anleitung (Wie testen):
+  - Spielen/würfeln bis „Sperren-Feld“ ausgelöst wird (Team landet auf Barrier-Position; siehe `/api/v1/fields/positions` → `barrier`).
+  - Direkt danach: `curl -s http://localhost:5001/api/v1/status/board | jq`
+  - Erwartung: `data.last_special.type == "special_field_barrier_set"`, keine Tracebacks im Log.
+- Testergebnisse (vom User): erfolgreich (special_field_barrier_set angezeigt; keine Fehler im Log)
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: barrier_released / barrier_blocked migrieren (jeweils separat, klein), dann eval-Fallbacks abbauen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
+
+Eintrag 6
+- Datum/Uhrzeit: 2025-10-14 10:38 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `special_fields.check_barrier_release`: Event-Erzeugung (`special_field_barrier_released`/`special_field_barrier_blocked`) über `event_service.create_event` migriert.
+- Begründung/Ziel (Warum):
+  - Vollständige Vereinheitlichung der Barrier-Events, strikt JSON, Vorbereitung zum Entfernen eval-Fallbacks.
+- Test-Anleitung (Wie testen):
+  - Ein Team ist blockiert (barrier_set aktiv). Würfeln für dieses Team.
+  - Danach: `curl -s http://localhost:5001/api/v1/status/board | jq` innerhalb 10s.
+  - Erwartung: `data.last_special.type == "special_field_barrier_released"` (bei Befreiung) oder `..._blocked` sonst; keine Tracebacks.
+- Testergebnisse (vom User): erfolgreich
+- Auswirkungen/Backwards-Compat: Keine Änderung am äußeren Verhalten/Schema.
+- Nächste Schritte: eval-Fallbacks aus Lesepfaden entfernen (da neue Events JSON sind) – in kleinen Schritten.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
+
+Eintrag 7
+- Datum/Uhrzeit: 2025-10-14 10:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `/api/board-status` (app/main/routes.py): eval-Fallback beim Parsen von Eventdaten entfernt; strikt JSON, unparsbare Legacy-Daten werden geloggt und ignoriert.
+- Begründung/Ziel (Warum):
+  - Sicherheits- und Stabilitätsverbesserung; keine `eval`-Ausführung von Strings mehr.
+- Test-Anleitung (Wie testen):
+  - Wurf und ggf. Spezialfeld auslösen; dann `curl -s http://localhost:5001/api/board-status | jq`.
+  - Erwartung: `last_dice_result`/`last_special_field_event` gefüllt (wenn innerhalb 10s), keine Tracebacks; Log zeigt ggf. WARN statt ERROR bei alten, nicht-JSON Events.
+- Testergebnisse (vom User): erfolgreich (Legacy /api/board-status liefert Daten ohne eval; keine Tracebacks)
+- Auswirkungen/Backwards-Compat: Neue Events JSON-basiert; sehr alte, nicht-JSON Events werden nur im 10s-Fenster ignoriert.
+- Nächste Schritte: eval-Fallback in weiteren Lesepfaden (z. B. teams/_get_last_dice_result) entfernen – eigener kleiner Schritt.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
+
+Eintrag 9
+- Datum/Uhrzeit: 2025-10-14 11:38 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Victory-Event in `app/main/routes.py`: `data_json=str({...})` → `json.dumps({...})` (echtes JSON).
+- Begründung/Ziel (Warum):
+  - Verhindert neue Nicht-JSON-Events; vollständige JSON-Konsistenz.
+- Test-Anleitung (Wie testen):
+  - Team auf Position 72 setzen (Admin-UI), sicherstellen, dass dieses Team am Zug ist.
+  - Würfeln bis Total ≥ 6; dann `curl -s http://localhost:5001/api/v1/status/board | jq`.
+  - Erwartung: Victory-Event (`game_victory`) wird erzeugt (ggf. im DB-Event-Log), keine Tracebacks.
+- Testergebnisse (vom User): erfolgreich (`docker compose exec web python` Test-Client: `/admin/admin_roll_dice` mit gesetztem Team auf Feld 72 liefert Victory (`victory_triggered: True`), Event als JSON gespeichert)
+- Auswirkungen/Backwards-Compat: Keine – nur Speichern als JSON.
+- Nächste Schritte: Optional – session_service; ansonsten DB-Neuinitialisierung wie besprochen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+Eintrag 8
+- Datum/Uhrzeit: 2025-10-14 10:58 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/teams/routes.py` → `_get_last_dice_result`: eval-Fallback entfernt; striktes JSON-Parsing, unparsable Legacy-Daten werden geloggt und ignoriert.
+- Begründung/Ziel (Warum):
+  - Sicherheit/Härtung, Konsistenz mit `/api/board-status`.
+- Test-Anleitung (Wie testen):
+  - Als Team im Dashboard: eine Würfelaktion durchführen.
+  - Danach Dashboard neu laden oder `GET /teams/api/dashboard-status` aufrufen.
+  - Erwartung: Letztes Würfelergebnis korrekt, keine Tracebacks; Log zeigt ggf. WARN statt ERROR bei sehr alten Events.
+- Testergebnisse (vom User): erfolgreich (Team-Dashboard zeigt letztes Würfelergebnis korrekt; keine Tracebacks)
+- Auswirkungen/Backwards-Compat: Neue Events JSON; sehr alte, nicht-JSON Events werden ignoriert.
+- Nächste Schritte: Board-Blau-Problem (SyntaxError an „board:473“) isolieren und fixen – separater, kleiner Schritt.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User auszuführen]
+- Status: Abgeschlossen
+
+Eintrag 10
+- Datum/Uhrzeit: 2025-10-15 09:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `docker-compose.yml`: Wechsel auf `network_mode: "host"` und expliziter Startbefehl `flask run --port=5001`, da das aktuelle System keine veth-Paare für Bridge-Netzwerke unterstützt.
+- Begründung/Ziel (Warum):
+  - Docker-Container startete nicht wegen `operation not supported` beim Einrichten des Bridge-Netzwerks; Host-Netzwerk ermöglicht die Live-Umgebung ohne Infrastrukturbruch.
+- Test-Anleitung (Wie testen):
+  - `docker compose up -d`
+  - `curl -s http://localhost:5001/api/v1/status/board`
+  - Erwartung: Container startet fehlerfrei, API liefert JSON (success true).
+- Testergebnisse (vom User): erfolgreich (`docker compose up -d` startet Container, `status/board` gibt Daten zurück).
+- Auswirkungen/Backwards-Compat: Service läuft weiterhin auf Port 5001; nur Deployment auf Nicht-Linux oder Mehrcontainer-Setups müsste Host-Netzwerk prüfen.
+- Nächste Schritte: Optionalen Victory-Test (Eintrag 9) durchführen; danach DB-Reset wie in `AKTUELL.md` beschrieben.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 11
+- Datum/Uhrzeit: 2025-10-15 09:40 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `docker compose exec web python init_db.py`: Datenbank komplett neu initialisiert (inkl. Backup/Restore der Runden).
+  - Nach dem Reset alle Teams via Skript auf Position 0 gesetzt, Blockaden/Boni zurückgesetzt.
+- Begründung/Ziel (Warum):
+  - Schritt aus `AKTUELL.md` abschließen, um mit frischer Datenbasis weiterarbeiten zu können; sicherstellen, dass Teams am Startfeld beginnen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → alle Teams ausgeben.
+  - Erwartung: Jeder Eintrag zeigt `position=0`, `bonus=0`, `blocked=False`.
+- Testergebnisse (vom User): erfolgreich (Team 1 & Team 2 beide auf Position 0, keine Blockaden/Boni aktiv).
+- Auswirkungen/Backwards-Compat: Alle bestehenden Spielsituationen verworfen; frischer Spielstand.
+- Nächste Schritte: Session-Service/Stream-Logik vorbereiten (siehe Roadmap), Board-Blau-Bug gemäß Eintrag 8 prüfen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 12
+- Datum/Uhrzeit: 2025-10-15 09:45 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Neuer Service `app/services/session_service.py` eingeführt (`get_active_session`, `require_active_session`).
+  - Admin-Routen (`moderation_mode_api`, `/admin/admin_roll_dice`) nutzen `get_active_session()` statt direkter Query.
+- Begründung/Ziel (Warum):
+  - Schrittweiser Aufbau des Session-Service; zentrale Abfrage vermeidet Streuung und erleichtert Tests.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Aufruf von `get_active_session()` / `require_active_session()`.
+  - Erwartung: aktive Session wird gefunden, `require_active_session` liefert ID.
+- Testergebnisse (vom User): erfolgreich (Script gibt aktive Session-ID 2 zurück, kein LookupError).
+- Auswirkungen/Backwards-Compat: Keine Laufzeitänderung; reine interne Umstellung.
+- Nächste Schritte: Weitere Routen auf Session-Service umstellen; Board-Blau-Bug angehen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 13
+- Datum/Uhrzeit: 2025-10-15 09:50 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/admin/routes.py`: `calculate_automatic_placements` nutzt `session_service.get_active_session()` statt eigener Query.
+- Begründung/Ziel (Warum):
+  - Konsistente Nutzung des Session-Services auch für Auswertungslogik; reduziert Duplikation.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ... calculate_automatic_placements()` ausführen.
+  - Erwartung: Funktion läuft durch (gibt Log/Print aus), keine Exceptions.
+- Testergebnisse (vom User): erfolgreich (`calculate_automatic_placements executed without error` im Testskript).
+- Auswirkungen/Backwards-Compat: Keine; Funktionsverhalten unverändert.
+- Nächste Schritte: Weitere Session-bezogene Funktionen migrieren; Board-Blau-Bug priorisieren.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 14
+- Datum/Uhrzeit: 2025-10-15 09:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Session-Service erweitert (`get_or_create_active_session` übernimmt bisherige Admin-Logik).
+  - Admin-Routen `admin_dashboard` und `set_minigame` importieren den Service-Helper statt eigener Funktion.
+- Begründung/Ziel (Warum):
+  - Zentralisierung der Session-Erzeugung; keine duplizierte DB-Logik in Routen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → alle Sessions deaktivieren, dann `get_or_create_active_session()` aufrufen.
+  - Erwartung: Neue aktive Session wird erstellt und zurückgegeben; Folgeaufruf liefert dieselbe Session.
+- Testergebnisse (vom User): erfolgreich (`Created/loaded session id=3, active=True` sowie Folgeaufruf bestätigt bestehende Session).
+- Auswirkungen/Backwards-Compat: Verhalten identisch, nur Struktur verschoben.
+- Nächste Schritte: Weitere Session-Funktionalitäten (z. B. Runde abschließen) in Service auslagern; anschließend Board-Blau-Bug untersuchen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 15
+- Datum/Uhrzeit: 2025-10-15 10:00 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `moderation_mode` nutzt `session_service.get_active_session()`; Import auf Service erweitert.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Zugriff auch für Moderationsansicht; reduziert Streu-Queries.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Test-Client meldet sich an, ruft `/admin/moderation_mode`.
+  - Erwartung: Status 200, HTML enthält Moderations-Titel.
+- Testergebnisse (vom User): erfolgreich (`moderation_mode status: 200`, Titel gefunden).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen (z. B. Minigame-Abbruch, Reset) auf Service migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 16
+- Datum/Uhrzeit: 2025-10-15 10:15 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `abort_current_minigame` ersetzt direkte Query durch `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Session-Zugriff auch für Minigame-Abbruch; erleichtert zentrale Anpassungen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Test-Client loggt sich ein, POST `/admin/abort-minigame`.
+  - Erwartung: Status 200, JSON `success: True` (bzw. passende Fehlermeldung), Logs zeigen Session-ID.
+- Testergebnisse (vom User): erfolgreich (`success: True`, Phase bleibt `SETUP_MINIGAME`).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen (z. B. Reset-/Minigame-Result-Endpoints) migrieren; Board-Blau-Bug anschließend angehen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 17
+- Datum/Uhrzeit: 2025-10-15 10:20 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `end_question` nutzt `session_service.get_active_session()`; Test-Setup über Admin-Testclient.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Zugriff auch beim Beenden von Fragen / Start der Würfelrunde.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Session auf `QUESTION_ACTIVE` setzen, Route via Testclient POST.
+  - Erwartung: Status 200, Erfolgs-Flash „Platzierungen automatisch berechnet“.
+- Testergebnisse (vom User): erfolgreich (Status 200, Flash vorhanden).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Endpunkte (Reset, Field-Minispiel) migrieren; Board-Blau-Bug zeitnah angehen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 18
+- Datum/Uhrzeit: 2025-10-15 10:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `reset_played_content` nutzt `session_service.get_active_session()`; keine Direktqueries mehr.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Behandlung, insbesondere für Reset-Flows.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/reset_played_content`.
+  - Erwartung: Status 200, Flash-Text „Liste der gespielten Inhalte wurde zurückgesetzt...“ erscheint.
+- Testergebnisse (vom User): erfolgreich (Status 200, Log `Gespielte Inhalte für Session ... zurückgesetzt`, Flash vorhanden).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: `unblock_team` und weitere Session-abhängige Routen migrieren; Board-Blau-Bug im Auge behalten.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 19
+- Datum/Uhrzeit: 2025-10-15 10:28 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `unblock_team` nutzt `session_service.get_active_session()` für Event-Log.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Session-Zugriff auch bei manuellen Sonderfeld-Resets.
+- Test-Anleitung (Wie testen):
+  - Team-Flag `is_blocked` setzen, dann `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/unblock_team/<id>`.
+  - Erwartung: Status 200, Flash „Team … wurde manuell von der Sperre befreit.“.
+- Testergebnisse (vom User): erfolgreich (Status 200, Flash bestätigt).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen (z. B. Frage-/Minigame-APIs) migrieren; Board-Blau-Bug bleibt offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 20
+- Datum/Uhrzeit: 2025-10-15 10:38 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `record_placements` greift über `session_service.get_active_session()` auf die Session zu.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Logik auch für manuelle Platzierungs-/Rundenstarts.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Session auf `MINIGAME_ANNOUNCED` setzen, Formulardaten für alle Teams (`placement_team_<id>`) senden.
+  - Erwartung: Status 200, Flash „Platzierungen erfolgreich gespeichert. Würfelrunde beginnt.“
+- Testergebnisse (vom User): erfolgreich (Status 200, Flash vorhanden; Bonus-Würfel-Logs im Container bestätigt).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Endpunkte (Question APIs, Field-Minispiel) migrieren; Board-Blau-Bug bleibt offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 21
+- Datum/Uhrzeit: 2025-10-15 10:42 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `question_responses_api` verwendet `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitlicher Session-Zugriff auch für Fragen-API.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient GET `/admin/api/question-responses` (ohne aktive Frage).
+  - Erwartung: Status 200, JSON `success: True`, `message: "Keine aktive Frage"`.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Routen mit Session-Query migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 22
+- Datum/Uhrzeit: 2025-10-15 10:44 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `add_player_to_team` prüft aktives Spiel über `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Konsistente Session-Nutzung auch in Admin-Welcome-Integration.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/add_player_to_team` (Team 1, Spieler „Tester X“).
+  - Erwartung: Status 200, JSON `success: True`; danach Testdaten entfernen.
+- Testergebnisse (vom User): erfolgreich (Spieler angelegt, anschließend wieder entfernt).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Restliche Session-Queries migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 23
+- Datum/Uhrzeit: 2025-10-15 10:47 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `activate_round` nutzt `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Beim Rundenwechsel zentrale Session-Logik verwenden.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/activate_round/1` (kein Redirect folgen).
+  - Erwartung: Status 302, Redirect nach `/admin/manage_rounds`; Logs zeigen Reset der gespielten Inhalte.
+- Testergebnisse (vom User): erfolgreich (Status 302, Logs mit Reset).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Session-Queries (z. B. Field-Minispiel, Reset-Routen) migrieren; Board-Blau-Bug noch offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 24
+- Datum/Uhrzeit: 2025-10-15 10:49 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `start_welcome` nutzt `session_service.get_active_session()` zur Prüfung aktiver Spiele.
+- Begründung/Ziel (Warum):
+  - Konsistente Session-Abfrage im Welcome-System.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Testclient POST `/admin/api/start-welcome` bei bestehender Session.
+  - Erwartung: Status 400, JSON `error: GAME_ACTIVE`, `details.active_game: True`.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Reset-/API-Routen migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 25
+- Datum/Uhrzeit: 2025-10-15 10:52 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `player_rotation_stats` und `reset_player_rotation` verwenden `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Verwendung auch bei Rotations-Auswertungen.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → GET `/admin/player_rotation_stats` (erwartet JSON `success: True`).
+  - `docker compose exec web python - <<'PY' ...` → POST `/admin/reset_player_rotation` (erwartet JSON `success: True`).
+- Testergebnisse (vom User): erfolgreich (Status 200, erwartete JSON-Struktur).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Weitere Session-Endpunkte migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 26
+- Datum/Uhrzeit: 2025-10-15 10:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Feld-Minispiel-Endpoints (`check_minigame_field_status`, `start_field_minigame`, `submit_field_minigame_result`) nutzen `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Behandlung auch in Feld-Minispiel-Workflows.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → GET `/admin/check_minigame_field_status` (Status 200, JSON mit Flags).
+  - POST `/admin/start_field_minigame` mit ungültiger ID (Status 400, Fehlermeldung).
+  - POST `/admin/submit_field_minigame_result` ohne aktives Minigame (Status 400, Fehlermeldung).
+- Testergebnisse (vom User): erfolgreich (siehe Logs/Statuscodes).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Letzte Session-Queries (wenn vorhanden) migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 27
+- Datum/Uhrzeit: 2025-10-15 11:05 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/main/routes.py`: sämtliche Session-Zugriffe (Board-Status, Frage-/Minigame-APIs, Feld-Minispiel-Phasen) laufen über `session_service.get_active_session()`; Event-Abfragen abgesichert.
+  - `app/api_v1/routes.py`: `/api/v1/status/board` nutzt denselben Helper.
+- Begründung/Ziel (Warum):
+  - Konsistente, zentrale Session-Verwaltung auch für öffentliche/legacy APIs.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → GET `/board`, `/api/board-status`, `/api/minigame-status`, `/api/question-status`, `/api/special-field-status`, `/api/get-player-faces`, `/api/advance_field_minigame_phase`, `/api/field_minigame_status` (Status 200 bzw. erwartete Fehlercodes, siehe Script-Log).
+  - `docker compose exec web python - <<'PY' ...` → GET `/api/v1/status/board` (Status 200, JSON `success: True`).
+- Testergebnisse (vom User): erfolgreich (alle Endpunkte liefern erwartete Antworten; Logs bestätigen session_service-Nutzung).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Team-Routen & Hilfsfunktionen migrieren; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 28
+- Datum/Uhrzeit: 2025-10-15 11:12 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/teams/routes.py`: Dashboard-/Fragen-/Würfel-APIs nutzen `session_service.get_active_session()`.
+- Begründung/Ziel (Warum):
+  - Einheitliche Session-Logik auch für Team-Endpoints; Vorbereitung für weitere Service-Schichten.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → Session via `client.session_transaction` auf Team setzen; GET `/teams/question/status`, POST `/teams/api/team_roll_dice_test`, POST `/teams/api/team_roll_dice` (Status 200, erwartete JSON; nach letztem Test Team-Positionen zurückgesetzt).
+- Testergebnisse (vom User): erfolgreich (Team-Würfeln erzeugt korrekte Antwort; anschließend Reset-Skript). 
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Admin-Hilfsfunktionen (minigame_utils) angleichen; Board-Blau-Bug offen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 29
+- Datum/Uhrzeit: 2025-10-15 11:18 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/admin/minigame_utils.py`: Backup-/Restore-Funktionen greifen über `session_service.get_active_session()` auf aktive Sessions zu.
+- Begründung/Ziel (Warum):
+  - Hilfsfunktionen im Admin-Kontext nutzen dieselbe zentrale Session-Schicht; verhindert doppelte Query-Logik.
+- Test-Anleitung (Wie testen):
+  - Indirekt über bestehende Admin-Tests (`activate_round`, `reset_played_content`) – erfolgreiche Logs bestätigen Backup/Reset mit neuem Helper.
+- Testergebnisse (vom User): erfolgreich (siehe vorherige Tests `activate_round`, `reset_played_content`).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Board-Blau/SyntaxError isolieren und beheben.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 30
+- Datum/Uhrzeit: 2025-10-15 11:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - Board-Blau-Problem gemäß Eintrag 8 als gelöst markiert; Dokumentation aktualisiert.
+- Begründung/Ziel (Warum):
+  - User hat bestätigt, dass der Fehler nicht mehr auftritt; Protokoll und AKTUELL spiegeln den Status wider.
+- Test-Anleitung (Wie testen):
+  - Rückmeldung des Users prüfen; keine zusätzlichen Schritte erforderlich.
+- Testergebnisse (vom User): bestätigt (Board reagiert erwartungsgemäß, kein „blauer“ Fehler mehr).
+- Auswirkungen/Backwards-Compat: Keine.
+- Nächste Schritte: Session-Service & Event-Stream vorbereiten (siehe Eintrag 11/AKTUELL.md).
+- Genehmigung des Users: ja (Chat-Bestätigung).
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 31
+- Datum/Uhrzeit: 2025-10-17 08:34 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/services/event_service.py`: neue Helfer `serialize_event_for_stream` und `fetch_recent_events_for_session` liefern normalisierte Event-Daten.
+  - `app/services/session_service.py`: `get_active_session_events` aggregiert Event-Streams für die aktive Session.
+- Begründung/Ziel (Warum):
+  - Vorbereitung für einen zentralen Event-Stream (SSE/WebSocket); reduziert Duplikate und vereinheitlicht Event-Payloads.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe Testlog) → Event erzeugen, `get_active_session_events` abrufen, Event wieder entfernen.
+- Testergebnisse (vom User): erfolgreich (1 Event geliefert, normalisierte Struktur inklusive Daten-Payload).
+- Auswirkungen/Backwards-Compat: Keine; reine Service-Erweiterung.
+- Nächste Schritte: SSE-Endpoint `/api/v1/stream` auf Basis der neuen Helper implementieren.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 32
+- Datum/Uhrzeit: 2025-10-17 08:40 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/api_v1/routes.py`: SSE-Endpoint `/api/v1/stream` eingeführt (inkl. Helper `_sse_format`, Konfig-Parameter, Session-State-Updates).
+  - Testscripting für Stream via Flask-Testclient ergänzt (siehe Testkommando).
+- Begründung/Ziel (Warum):
+  - Einheitlicher, servicebasierter Event-Stream für Admin-/Team-Clients als Grundlage für Echtzeit-UI.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe unten) → erstellt Test-Event, ruft `/api/v1/stream` (poll=0.2) via Flask-Testclient ab, prüft das empfangene Event, räumt anschließend auf.
+    ```python
+    from app import create_app, db
+    from app.services.session_service import get_or_create_active_session
+    from app.services.event_service import create_event
+    from app.models import GameEvent
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        evt = create_event(session.id, "test_stream_event_block", data={"marker": "stream-block", "value": 99})
+        db.session.commit()
+
+        with app.test_client() as client:
+            resp = client.get(f'/api/v1/stream?poll=0.2&keepalive=1&limit=10&since_id={evt.id - 1 if evt.id else 0}', buffered=False)
+            iterator = resp.response
+            chunks = []
+            try:
+                for _ in range(6):
+                    chunk = next(iterator).decode()
+                    chunks.append(chunk.strip())
+                    if 'stream-block' in chunk:
+                        break
+            except StopIteration:
+                pass
+            finally:
+                resp.close()
+            print('SSE Chunks:', chunks)
+
+        evt_db = GameEvent.query.get(evt.id)
+        if evt_db:
+            db.session.delete(evt_db)
+            db.session.commit()
+    ```
+- Testergebnisse (vom User): erfolgreich (`stream_connected` + `test_stream_event_block` im SSE-Output).
+- Auswirkungen/Backwards-Compat: Keine; neuer Endpoint liefert nur Daten, bestehende APIs unverändert.
+- Nächste Schritte: Frontend/Legacy-SSE auf neuen Endpoint umstellen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 33
+- Datum/Uhrzeit: 2025-10-17 08:10 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/admin/routes.py`: Feld-Updates werden als `field_update`-GameEvents gespeichert; SSE/Poll greifen über `get_active_session_events` & `create_event` auf die DB zu.
+  - `app/main/routes.py`: `board_status` bestimmt `last_field_update` anhand der persistierten Events (ohne Import des Admin-Moduls).
+  - `app/templates/game_board.html`: Live-Update-Client nutzt `/api/v1/stream` (SSE) mit Polling-Fallback; Board-Regeneration in Helper ausgelagert.
+- Begründung/Ziel (Warum):
+  - Konsolidierte Echtzeitquelle für Gameboard/Admin; Entfernung des flüchtigen In-Memory-Puffers.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe unten) → erstellt Feld-Update-Event, liest `/api/v1/stream`, `admin/api/field_updates/poll` und `/api/board-status` aus, bereinigt Event.
+    ```python
+    from app import create_app, db
+    from app.models import GameEvent
+    from app.services.session_service import get_or_create_active_session
+    from app.admin.routes import add_field_update_event
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        last_before = GameEvent.query.order_by(GameEvent.id.desc()).first()
+        baseline_id = last_before.id if last_before else 0
+
+        evt = add_field_update_event({
+            'type': 'field_config_updated',
+            'field_type': 'stream_verify_field',
+            'display_name': 'Stream Verify Feld',
+            'message': 'Stream Verifikation'
+        })
+        created_id = evt.id if evt else None
+
+        with app.test_client() as client:
+            resp_stream = client.get(f\"/api/v1/stream?event_types=field_update&poll=0.2&keepalive=1&limit=5&since_id={baseline_id}\", buffered=False)
+            iterator = resp_stream.response
+            chunks = []
+            event_chunks = []
+            try:
+                for idx in range(20):
+                    chunk = next(iterator).decode()
+                    chunks.append(chunk.strip())
+                    if chunk.startswith('id:') or chunk.startswith('event: field_update'):
+                        event_chunks.append(chunk.strip())
+                    if event_chunks:
+                        break
+            except StopIteration:
+                chunks.append('<stopiteration>')
+            finally:
+                resp_stream.close()
+            print('All SSE chunks captured:', chunks)
+            print('Detected event chunks:', event_chunks)
+
+        if created_id:
+            evt_db = GameEvent.query.get(created_id)
+            if evt_db:
+                db.session.delete(evt_db)
+                db.session.commit()
+    ```
+- Testergebnisse (vom User): erfolgreich (SSE liefert `event: field_update`, Poll liefert Event-Daten, `board_status` meldet Zeitstempel > 0).
+- Auswirkungen/Backwards-Compat: SSE-Routen kompatibel; Poll-Fallback liefert strukturierte Event-Objekte.
+- Nächste Schritte: Weitere Frontends (Team-/Dashboard) auf den zentralen Stream migrieren.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 34
+- Datum/Uhrzeit: 2025-10-17 08:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/templates/team_dashboard.html`: EventSource-Anbindung an `/api/v1/stream` (Team-Events) inkl. Retry/Poll-Fallback; Polling-Intervall nur noch als Reserve.
+  - Gemeinsame Refresh-Logik (`scheduleDashboardRefresh`, `initTeamEventStream`, `start/stop` Fallback) integriert; vorhandene `startLiveUpdates` nutzt nun SSE.
+- Begründung/Ziel (Warum):
+  - Team-Dashboard soll auf zentrale Event-Quelle reagieren, statt alle 2s zu pollen; Grundlage für weitere Clients.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` → erstellt `team_dice_roll`, ruft `/api/v1/stream` (gefiltert) ab, prüft, dass Event geliefert wird, entfernt Testevent.
+    ```python
+    from app import create_app, db
+    from app.services.session_service import get_or_create_active_session
+    from app.services.event_service import create_event
+    from app.models import GameEvent, Team
+
+    STREAM_EVENTS = 'dice_roll,team_dice_roll,admin_dice_roll,special_field_catapult_forward,special_field_catapult_backward,special_field_player_swap,special_field_barrier_set,special_field_barrier_released,special_field_barrier_blocked,field_minigame_completed,question_started,question_completed,phase_change,game_session_started'
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        team = Team.query.first()
+        evt = create_event(
+            session.id,
+            event_type='team_dice_roll',
+            related_team_id=team.id if team else None,
+            data={'marker': 'team-sse-filter-test'}
+        )
+        db.session.commit()
+
+        with app.test_client() as client:
+            resp = client.get(
+                f'/api/v1/stream?event_types={STREAM_EVENTS}&poll=0.5&keepalive=1&limit=5&since_id={(evt.id - 1) if evt.id else 0}',
+                buffered=False
+            )
+            iterator = resp.response
+            chunks = []
+            try:
+                for _ in range(6):
+                    chunk = next(iterator).decode().strip()
+                    chunks.append(chunk)
+                    if 'team_dice_roll' in chunk:
+                        break
+            except StopIteration:
+                chunks.append('<stopiteration>')
+            finally:
+                resp.close()
+            print('Team SSE chunks:', chunks)
+
+        evt_db = GameEvent.query.get(evt.id)
+        if evt_db:
+            db.session.delete(evt_db)
+            db.session.commit()
+    ```
+- Testergebnisse (vom User): erfolgreich (SSE liefert `event: team_dice_roll`; Fallback muss nur bei EventSource-Ausfall greifen).
+- Auswirkungen/Backwards-Compat: Polling existiert als Fallback (5s); sonst keine Behaviour-Änderung.
+- Nächste Schritte: Admin-/Moderator-Frontends auf Stream umstellen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 35
+- Datum/Uhrzeit: 2025-10-17 09:10 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/templates/admin.html`: Admin-Dashboard bezieht Status-Updates über `/api/v1/stream`; Polling (4 s) nur noch als Fallback. Neues Scheduling (`scheduleAdminRefresh`) ersetzt 2‑Sekunden-Intervalle.
+- Begründung/Ziel (Warum):
+  - Konsistenter Echtzeitpfad auch für Admin-Steuerung; reduziert Netzlast und macht Updates reaktiver.
+- Test-Anleitung (Wie testen):
+  - Gleiches SSE-Skript wie Eintrag 34 (siehe Kommando dort) – erzeugt `team_dice_roll`, prüft Event im Stream.
+  - Zusätzlich Admin-UI im Browser öffnen, Stream-Debug-Logs zeigen Event (optional).
+- Testergebnisse (vom User): erfolgreich (SSE liefert Event; Polling bleibt ungenutzt solange SSE aktiv).
+- Auswirkungen/Backwards-Compat: Minimal – Fallback vorhanden, EventSource erforderlich für Echtzeit.
+- Nächste Schritte: Übrige Admin-/Welcome-Teile auf Stream umstellen; Polling-Code abbauen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 36
+- Datum/Uhrzeit: 2025-10-17 09:25 (ungefähr)
+- Ort/Ordner: Überarbeitung/05-Events-und-Echtzeit
+- Änderung (Was):
+  - `app/admin/routes.py`: `emit_welcome_state`/`emit_sequence_state` erzeugen Welcome-/Sequenz-Events (Start, Teams erstellt, Ende, Registrierung, Reset, Sequence-Update/-Toggle).
+  - `app/templates/admin.html`: Welcome-/Sequenz-Panels reagieren auf `welcome_state`/`sequence_state`; Polling-Fallback nur noch alle 6 s bzw. 15 s.
+- Begründung/Ziel (Warum):
+  - Einheitliches Echtzeitsystem; Clients erhalten gezielte Events statt Dauer-Polling.
+- Test-Anleitung (Wie testen):
+  - `docker compose exec web python - <<'PY' ...` (siehe unten) – erzeugt `welcome_state`/`sequence_state` & `team_dice_roll`, liest den Stream (alle drei Events), entfernt Test-Events wieder.
+    ```python
+    from app import create_app, db
+    from app.services.session_service import get_or_create_active_session
+    from app.services.event_service import create_event
+    from app.admin.routes import emit_welcome_state, emit_sequence_state
+    from app.models import GameEvent, Team
+
+    app = create_app()
+    with app.app_context():
+        session = get_or_create_active_session()
+        team = Team.query.first()
+        baseline_id = (GameEvent.query.order_by(GameEvent.id.desc()).first() or type('x',(object,),{'id':0})()).id
+
+        emit_welcome_state('test_emit', marker='welcome')
+        emit_sequence_state('test_emit', marker='sequence')
+        create_event(session.id, 'team_dice_roll', team.id if team else None, {'marker': 'admin-stream-verify'})
+        db.session.commit()
+
+        with app.test_client() as client:
+            resp = client.get('/api/v1/stream?event_types=welcome_state,sequence_state,team_dice_roll&poll=0.5&keepalive=1&limit=10&since_id=' + str(baseline_id), buffered=False)
+            iterator = resp.response
+            flags = {'welcome_state': False, 'sequence_state': False, 'team_dice_roll': False}
+            for _ in range(20):
+                chunk = next(iterator).decode().strip()
+                for line in chunk.split('\n'):
+                    if line.startswith('event: '):
+                        name = line.split(':', 1)[1].strip()
+                        if name in flags:
+                            flags[name] = True
+                if all(flags.values()):
+                    break
+            resp.close()
+
+        for event in GameEvent.query.filter(GameEvent.id > baseline_id):
+            db.session.delete(event)
+        db.session.commit()
+    ```
+- Testergebnisse (vom User): erfolgreich (SSE liefert Event; Polling bleibt Reserve).
+- Auswirkungen/Backwards-Compat: Fallbacks vorhanden; Intervalle deutlich länger.
+- Nächste Schritte: Willkommen-/Sequence-spezifische Events erwägen; Legacy-Polling-Endpunkte dokumentieren/abschalten.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen
+
+---
+
+## Eintrag 37: Moderator-/Spezialansichten auf /api/v1/stream umstellen; Legacy-Polling aufräumen; Team-Answer-Event hinzufügen
+
+- Datum: 2025-01-XX (bitte User ausfüllen)
+- Änderung (Was):
+  - **moderation_mode.html**: Legacy-Polling (3s) → `/api/v1/stream` mit SSE-Events (team_answer_submitted, content_set, placements_recorded, dice_round_started/ended/finished, minigame_aborted, game_victory, field_minigame_*). Fallback-Polling: 5s. Würfelergebnis-Display zeigt nun auch `team_dice_roll`/`admin_dice_roll` Events (nicht nur `dice_roll`). Würfelergebnis bleibt 60s sichtbar auch nach Phasenwechsel (letztes Team-Problem gelöst). Statistiken (Höchster Wurf/Durchschnitt) entfernt.
+  - **welcome.html**: Legacy-Polling (2s Live-Modus, 5s Standby-Modus) → `/api/v1/stream` mit SSE-Events (welcome_state, player_registered, game_session_started). Standby-Intervall von 5s auf 10s erhöht. Fallback-Polling: 5s.
+  - **manage_sequence.html**: Legacy-Polling (3s) → `/api/v1/stream` mit SSE-Events (sequence_state, content_set, field_minigame_completed, question_auto_completed, placements_recorded). Fallback-Polling: 5s.
+  - **app/teams/routes.py**: `submit_question_answer` erzeugt nun `team_answer_submitted` Event, wenn ein Team eine Frage beantwortet.
+  - **app/main/routes.py**: `register_player` erzeugt nun `player_registered` Event, wenn ein Spieler sich registriert.
+  - **app/admin/routes.py**: `_get_latest_dice_result` erweitert um `team_dice_roll` und `admin_dice_roll` Events (nicht nur `dice_roll`). Würfelergebnis wird nun in ALLEN Phasen geladen, wenn `is_recent=true` (Fix für letztes Team nach Phasenwechsel).
+- Begründung/Ziel (Warum):
+  - Konsistentes Echtzeitsystem für alle Moderator-/Spezialansichten; Team-Antworten erscheinen sofort im Moderationsmodus; Würfelergebnisse aller Teams (inkl. letztes Team) werden korrekt angezeigt; reduzierte Netzlast durch Event-basierte Updates statt Dauer-Polling.
+- Test-Anleitung (Wie testen):
+  - **Moderationsmodus**:
+    1. Öffne `http://localhost:5001/admin/moderation_mode` + Browser Console (F12)
+    2. Prüfe Console-Logs: `[Moderation] Stream connected`
+    3. Würfeln (Admin/Team) → Console: `[Moderation] Received event: team_dice_roll` → UI zeigt Würfelergebnis sofort
+    4. Frage stellen → Console: `[Moderation] Received event: content_set` → UI zeigt Frage
+    5. Team antwortet → Console: `[Moderation] Received event: team_answer_submitted` → UI zeigt Team-Antwort sofort
+    6. Letztes Team würfelt → UI zeigt Würfelergebnis auch nach Phasenwechsel (60s)
+    7. Prüfe: Keine Statistiken (Höchster Wurf/Durchschnitt) mehr sichtbar
+  - **Welcome-System**:
+    1. Öffne `http://localhost:5001/welcome` + Console
+    2. Aktiviere Welcome-System (Admin) → Console: `[Welcome] Stream connected`
+    3. Spieler registrieren → Console: `[Welcome] Received event: player_registered` → UI zeigt neuen Spieler sofort
+    4. Teams erstellen (Admin) → Console: `[Welcome] Received event: welcome_state` → UI zeigt Teams sofort
+  - **Sequenz-Verwaltung**:
+    1. Öffne `http://localhost:5001/admin/manage_sequence/<folder_id>` + Console
+    2. Console: `[Sequence] Stream connected`
+    3. Minigame/Frage abschließen → Console: `[Sequence] Received event: field_minigame_completed` (oder `question_auto_completed`) → Progress Bar aktualisiert sofort
+- Testergebnisse (vom User): erfolgreich (alle Ansichten empfangen Events via SSE; Team-Antworten erscheinen in Echtzeit; letztes Team-Würfelergebnis bleibt sichtbar; Fallback-Polling funktioniert bei SSE-Fehler)
+- Auswirkungen/Backwards-Compat:
+  - Legacy-Polling vollständig entfernt (moderation_mode, welcome, manage_sequence)
+  - Fallback-Polling vorhanden (5s/10s) als Ausfallsicherung
+  - Neue Events: `team_answer_submitted`, `player_registered`
+  - Breaking Change: Statistiken (Höchster Wurf/Durchschnitt) im Moderationsmodus entfernt
+- Nächste Schritte: Legacy-Polling in anderen Views prüfen und dokumentieren; Event-Typen konsolidieren.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [bitte ausfüllen]
+- Status: Abgeschlossen

@@ -1,0 +1,4686 @@
+{% extends "base.html" %}
+
+{% block title %}Insel der Abenteuer{% endblock %}
+
+{% block head_extra %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+/* CSS Reset und body setup */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+}
+
+.game-container {
+    display: block !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: 800px !important;
+    height: 600px !important;
+    flex-direction: unset !important;
+    flex: none !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    background: radial-gradient(ellipse at center, #B3E5FC 0%, #4FC3F7 50%, #0288D1 100%) !important;
+    border-radius: 25px !important;
+    overflow: hidden !important;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25) !important;
+    z-index: 999999 !important;
+}
+
+#game-canvas-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 25px;
+    background: linear-gradient(to bottom, #B3E5FC 0%, #4FC3F7 40%, #0288D1 100%);
+}
+
+
+#game-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    border-radius: 25px;
+}
+
+#game-canvas:active {
+    cursor: grabbing;
+}
+
+.dice-result-display {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.98), rgba(255, 193, 7, 0.95));
+    border-radius: 20px;
+    width: 180px;
+    min-height: 140px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 50px rgba(255, 215, 0, 0.9), 0 15px 40px rgba(0, 0, 0, 0.4);
+    z-index: 999999;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border: 3px solid rgba(255, 255, 255, 0.8);
+}
+
+.dice-result-display.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.dice-result-part {
+    font-size: 1rem;
+    color: #5d4037;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.dice-result-total {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #bf360c;
+    margin-top: 6px;
+}
+
+.dice-result-number {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #1a237e;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
+    line-height: 1;
+    margin-left: 5px;
+}
+
+.dice-result-text {
+    font-size: 1rem;
+    color: #3f51b5;
+    font-weight: 700;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    margin-top: 4px;
+}
+
+.status-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(26, 35, 47, 0.96);
+    color: white;
+    padding: 22px 40px;
+    border-radius: 15px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    z-index: 1000;
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    animation: statusMessageAnim 3s ease-in-out forwards;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    max-width: 80%;
+}
+
+.status-message.status-error {
+    background: linear-gradient(135deg, rgba(200, 50, 50, 0.96) 0%, rgba(180, 30, 30, 0.94) 100%);
+}
+
+.status-message.status-success {
+    background: linear-gradient(135deg, rgba(50, 180, 50, 0.96) 0%, rgba(30, 160, 30, 0.94) 100%);
+}
+
+.status-message.status-info {
+    background: linear-gradient(135deg, rgba(50, 150, 200, 0.96) 0%, rgba(30, 120, 180, 0.94) 100%);
+}
+
+.status-message.status-special {
+    background: linear-gradient(135deg, rgba(138, 43, 226, 0.96) 0%, rgba(75, 0, 130, 0.94) 100%);
+}
+
+@keyframes statusMessageAnim {
+    0% { opacity: 0; transform: translate(-50%, -65%) scale(0.9); }
+    12% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    18% { transform: translate(-50%, -50%) scale(1); }
+    82% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -35%) scale(0.9); }
+}
+
+/* Spezial-Feld-Effekte */
+.special-field-display {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: linear-gradient(135deg, rgba(138, 43, 226, 0.98), rgba(75, 0, 130, 0.95));
+    border-radius: 25px;
+    width: 320px;
+    min-height: 180px;
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 60px rgba(138, 43, 226, 0.9), 0 20px 50px rgba(0, 0, 0, 0.4);
+    z-index: 250;
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border: 4px solid rgba(255, 255, 255, 0.9);
+    color: white;
+    text-align: center;
+}
+
+.special-field-display.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.special-field-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.special-field-title {
+    font-size: 1.5rem;
+    font-weight: 900;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.special-field-description {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.4;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Vollbild-Styles */
+#game-canvas-container:fullscreen,
+#game-canvas-container:-webkit-full-screen,
+#game-canvas-container:-moz-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    background: linear-gradient(to bottom, #B3E5FC 0%, #4FC3F7 40%, #0288D1 100%) !important;
+}
+
+#game-canvas-container:fullscreen #game-canvas,
+#game-canvas-container:-webkit-full-screen #game-canvas,
+#game-canvas-container:-moz-full-screen #game-canvas {
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .game-container {
+        width: 95vw;
+        height: 70vh;
+        max-width: 600px;
+        max-height: 450px;
+        border-radius: 20px;
+    }
+    
+    #game-canvas-container {
+        border-radius: 20px;
+    }
+    
+    #game-canvas {
+        border-radius: 20px;
+    }
+    
+    .dice-result-display {
+        width: 140px;
+        min-height: 110px;
+        padding: 12px;
+    }
+    
+    .dice-result-number {
+        font-size: 2.2rem;
+    }
+    
+    .special-field-display {
+        width: 280px;
+        min-height: 160px;
+        padding: 20px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="game-container">
+    <div id="game-canvas-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Würfelergebnis-Anzeige nur temporär beim Würfeln -->
+        <div id="dice-result-display" class="dice-result-display" style="display: none;">
+            <div id="dice-result-standard" class="dice-result-part">Standard: <span>-</span></div>
+            <div id="dice-result-bonus" class="dice-result-part" style="display: none;">Bonus: <span>-</span></div>
+            <div class="dice-result-total">Gesamt: <span class="dice-result-number">0</span></div>
+            <div class="dice-result-text">Felder</div>
+        </div>
+        
+        <!-- Sonderfeld-Anzeige -->
+        <div id="special-field-display" class="special-field-display" style="display: none;">
+            <div id="special-field-icon" class="special-field-icon">🎯</div>
+            <div id="special-field-title" class="special-field-title">Sonderfeld!</div>
+            <div id="special-field-description" class="special-field-description">Etwas Besonderes ist passiert!</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+
+<script src="{{ url_for('static', filename='js/characters/tungTungTungSahur.js') }}"></script>
+<script src="{{ url_for('static', filename='js/characters/ballerinaCappuccina.js') }}"></script>
+<script src="{{ url_for('static', filename='js/characters/bombardinoCrocodilo.js') }}"></script>
+<script src="{{ url_for('static', filename='js/characters/liriliLarila.js') }}"></script>
+<script src="{{ url_for('static', filename='js/characters/tralaleroTralala.js') }}"></script>
+<script src="{{ url_for('static', filename='js/characters/trippiTroppi.js') }}"></script>
+<script src="{{ url_for('static', filename='js/characters/defaultCharacter.js') }}"></script>
+
+<script>
+// DYNAMISCHE SPIELBRETT-KONFIGURATION
+let BOARD_CONFIG = {
+    fieldTypes: {
+        // Standard-Fallback-Farben - werden dynamisch überschrieben
+        start: { color: 0x00BFFF, emission: 0x0066CC, name: 'Start' },
+        normal: { color: 0x00FF00, emission: 0x00CC00, name: 'Normales Feld' },
+        bonus: { color: 0xFFD700, emission: 0xFF8C00, name: 'Bonusfeld' },
+        chance: { color: 0xADFF2F, emission: 0x9ACD32, name: 'Ereignisfeld' },
+        trap: { color: 0xFF4500, emission: 0xB22222, name: 'Falle' },
+        minigame: { color: 0x8A2BE2, emission: 0x6A1B9A, name: 'Minispiel' },
+        goal: { color: 0xFF6600, emission: 0xCC4400, name: 'Ziel' },
+        catapult_forward: { color: 0x32CD32, emission: 0x228B22, name: 'Katapult Vorwärts' },
+        catapult_backward: { color: 0xFF0000, emission: 0xCC0000, name: 'Katapult Rückwärts' },
+        player_swap: { color: 0x0080FF, emission: 0x0066CC, name: 'Spieler-Tausch' },
+        barrier: { color: 0x666666, emission: 0x333333, name: 'Sperre' }
+    },
+    fieldSize: 1.0,
+    fieldHeight: 0.25,
+    fieldRadius: 0.55,
+    pathWidth: 2.8,
+    pathSegmentBaseDepth: 0.25,
+    pathColor: 0xD7CCC8,
+    pathBorderColor: 0xBCAAA4,
+    characterElevation: 0.4,
+    characterSize: 0.4,
+    mountainHeight: 18,
+    mountainBaseRadius: 15,
+    mountainTopRadius: 2.0,
+    spiralHeight: 16,
+    spiralStartRadius: 18,
+    spiralLoops: 2.4,
+    pathDepth: 3.5,
+    cameraFollowOffset: new THREE.Vector3(0, 7, 12),
+    cameraFrontOffset: new THREE.Vector3(0, 4, -8)
+};
+
+const islandSurfaceY = 1.6;
+
+// DYNAMISCHE FELD-VERTEILUNG
+let DYNAMIC_FIELD_DISTRIBUTION = null; // Wird vom Server geladen
+let FIELD_DISTRIBUTION_LOADING = false;
+
+// FELDTYP-HILFSFUNKTIONEN
+function getFieldTypeAtPosition(position) {
+    // Verwende die dynamische Feld-Verteilung wenn verfügbar
+    if (DYNAMIC_FIELD_DISTRIBUTION && DYNAMIC_FIELD_DISTRIBUTION[position]) {
+        return DYNAMIC_FIELD_DISTRIBUTION[position];
+    }
+    
+    // Fallback auf die alte statische Logik falls noch nicht geladen
+    if (position === 0) return 'start';
+    else if (position === 72) return 'goal';
+    else if (position % 15 === 0) return 'catapult_forward';
+    else if (position % 13 === 0) return 'catapult_backward';
+    else if (position % 17 === 0) return 'player_swap';
+    else if (position % 19 === 0) return 'barrier';
+    else if (position % 8 === 0) return 'bonus';
+    else if (position % 12 === 0) return 'minigame';
+    else if (position % 20 === 0) return 'chance';
+    else if (position % 25 === 0) return 'trap';
+    else return 'normal';
+}
+
+// DYNAMISCHES LADEN DER FELD-KONFIGURATIONEN
+async function loadFieldConfigurations() {
+    if (FIELD_DISTRIBUTION_LOADING) return;
+    FIELD_DISTRIBUTION_LOADING = true;
+    
+    try {
+        console.log('Lade Feld-Konfigurationen vom Server...');
+        
+        // Lade Feld-Farben und Konfigurationen
+        const colorsResponse = await fetch("{{ url_for('admin.api_field_colors') }}", {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!colorsResponse.ok) {
+            throw new Error(`Fehler beim Laden der Feld-Farben: ${colorsResponse.status}`);
+        }
+        
+        const colorsData = await colorsResponse.json();
+        
+        if (colorsData.success && colorsData.color_mapping) {
+            // Aktualisiere BOARD_CONFIG mit den Farben vom Server
+            Object.keys(colorsData.color_mapping).forEach(fieldType => {
+                const config = colorsData.color_mapping[fieldType];
+                if (config.enabled) { // Nur aktivierte Feldtypen verwenden
+                    BOARD_CONFIG.fieldTypes[fieldType] = {
+                        color: parseInt(config.color.replace('#', '0x')),
+                        emission: parseInt(config.emission.replace('#', '0x')),
+                        name: config.display_name,
+                        icon: config.icon
+                    };
+                }
+            });
+            
+            console.log('✅ Feld-Farben erfolgreich geladen:', Object.keys(colorsData.color_mapping).length, 'Feldtypen');
+        }
+        
+        // Lade dynamische Feld-Verteilung
+        const previewResponse = await fetch("{{ url_for('admin.api_field_data') }}?max_fields=73", {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (previewResponse.ok) {
+            const previewData = await previewResponse.json();
+            
+            if (previewData.success && previewData.preview_data && previewData.preview_data.fields) {
+                // Erstelle Feld-Verteilungs-Map
+                DYNAMIC_FIELD_DISTRIBUTION = {};
+                previewData.preview_data.fields.forEach(field => {
+                    if (field.enabled) { // Nur aktivierte Felder verwenden
+                        DYNAMIC_FIELD_DISTRIBUTION[field.position] = field.field_type;
+                    } else {
+                        // Deaktivierte Sonderfelder werden zu normalen Feldern
+                        DYNAMIC_FIELD_DISTRIBUTION[field.position] = 'normal';
+                    }
+                });
+                
+                console.log('✅ Dynamische Feld-Verteilung geladen:', Object.keys(DYNAMIC_FIELD_DISTRIBUTION).length, 'Positionen');
+                console.log('📊 Feld-Statistiken:', previewData.field_stats);
+                
+                // WICHTIG: Aktualisiere das Spielbrett falls es bereits existiert
+                if (window.gameBoard && window.gameBoard.updateBoardFields) {
+                    window.gameBoard.updateBoardFields();
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Laden der Feld-Konfigurationen:', error);
+        console.log('🔄 Verwende Fallback-Konfiguration');
+        // DYNAMIC_FIELD_DISTRIBUTION bleibt null, fallback auf statische Logik
+    } finally {
+        FIELD_DISTRIBUTION_LOADING = false;
+    }
+}
+
+// NEU: Funktion zum Neuladen der Konfigurationen
+async function reloadFieldConfigurations() {
+    DYNAMIC_FIELD_DISTRIBUTION = null;
+    FIELD_DISTRIBUTION_LOADING = false;
+    await loadFieldConfigurations();
+    console.log('🔄 Feld-Konfigurationen neu geladen');
+}
+
+function showSpecialFieldEffect(actionType, title, description, duration = 4000) {
+    const display = document.getElementById('special-field-display');
+    const icon = document.getElementById('special-field-icon');
+    const titleEl = document.getElementById('special-field-title');
+    const descEl = document.getElementById('special-field-description');
+    
+    if (!display || !icon || !titleEl || !descEl) return;
+    
+    // Setze Icon basierend auf Aktion (verwende das Icon aus der Konfiguration wenn verfügbar)
+    const iconMap = {
+        'catapult_forward': BOARD_CONFIG.fieldTypes.catapult_forward?.icon || '🚀',
+        'catapult_backward': BOARD_CONFIG.fieldTypes.catapult_backward?.icon || '💥',
+        'player_swap': BOARD_CONFIG.fieldTypes.player_swap?.icon || '🔄',
+        'barrier_set': BOARD_CONFIG.fieldTypes.barrier?.icon || '🚧',
+        'barrier_released': '🎉'
+    };
+    
+    icon.textContent = iconMap[actionType] || '⭐';
+    titleEl.textContent = title;
+    descEl.textContent = description;
+    
+    display.style.display = 'flex';
+    display.classList.add('show');
+    
+    setTimeout(() => {
+        display.classList.remove('show');
+        setTimeout(() => {
+            display.style.display = 'none';
+        }, 500);
+    }, duration);
+}
+
+// Spielzustand
+const GAME_STATE = {
+    currentTeamIndex: 0,
+    isAnimating: false,
+    isDiceRolling: false,
+    isCharacterMoving: false,
+    diceResult: 0,
+    freeCameraMode: false,
+    isFullscreen: false,
+    cameraHeight: 18,
+    cameraDistance: 25,
+    isAnimatingCamera: false,
+    characterTurnSpeed: 0.08,
+    playerTurnInProgress: false,
+    cameraMode: 'front',
+    currentServerTeamTurnId: null,
+    diceRollOrderFromServer: [],
+    cinematicMode: false,
+    cinematicTimer: null
+};
+
+// Team-Daten
+let localTeams = [
+    {% for team in teams %}
+    {
+        id: {{ team.id }},
+        name: "{{ team.name | e }}",
+        position: {{ team.current_position if team.current_position is not none else 0 }},
+        color: "{{ team_colors[loop.index0 % team_colors|length] }}",
+        character_info: {% if team.character and team.character.name and team.character.js_file %}
+        {
+            name: "{{ team.character.name | e }}",
+            js_file: "{{ team.character.js_file | e }}",
+            image_file: "{{ team.character.image_file | default('') | e }}"
+        }
+        {% else %}
+        {
+            name: "Default",
+            js_file: "js/characters/defaultCharacter.js",
+            image_file: "default.png"
+        }
+        {% endif %},
+        bonus_dice_sides: {{ team.bonus_dice_sides if team.bonus_dice_sides else 0 }},
+        minigame_placement: {{ team.minigame_placement if team.minigame_placement else 'null' }},
+        is_blocked: {{ team.is_blocked|tojson if team.is_blocked is defined else 'false' }},
+        blocked_target_number: {{ team.blocked_target_number if team.blocked_target_number else 'null' }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Minispiel-Daten
+let currentMinigameName = "{{ active_session.current_minigame_name | e if active_session else '' }}";
+let currentMinigameDescription = "{{ active_session.current_minigame_description | e if active_session else '' }}";
+let currentGamePhase = "{{ active_session.current_phase | e if active_session else 'UNKNOWN' }}";
+
+let lastTeamTurnId = {{ active_session.current_team_turn_id if active_session and active_session.current_team_turn_id else 'null' }};
+let gameStarted = false;
+
+
+// Minigame folder name for category display
+const minigameFolderName = "{{ minigame_folder_name | e }}";
+
+const isAdmin = {{ is_admin|tojson }};
+
+class WiiPartyIsland {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.renderer = new THREE.WebGLRenderer({ 
+            canvas: this.canvas,
+            antialias: true
+        });
+        
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.2;
+        
+        this.updateCanvasSize();
+        
+        this.camera.position.set(22, 20, 22);
+        this.camera.lookAt(0, 4, 0);
+        
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.minDistance = 5;
+        this.controls.maxDistance = 60;
+        this.controls.maxPolarAngle = Math.PI / 1.8;
+        this.controls.target.set(0, 6, 0);
+        this.controls.enabled = false;
+        
+        this.pathPoints = [];
+        this.boardFields = [];
+        this.miiCharacters = {};
+        this.activeCharacterPath = null;
+        this.raycaster = new THREE.Raycaster();
+        
+        this.interactiveDice = null;
+        this.diceResultNumber = null;
+        this.island = null;
+        this.mountainMesh = null;
+        this.water = null;
+        this.clouds = [];
+        
+        this.characterCreationFunctions = {};
+        this.activeMovementAnimation = null;
+
+        this.init();
+    }
+
+    async init() {
+        // Lade zuerst die Feld-Konfigurationen
+        await loadFieldConfigurations();
+        
+        this.setupLighting();
+        this.createOcean();
+        this.createIslandAndMountain();
+        this.createSpiralPath();
+        this.createSimpleVegetation();
+        
+        if (localTeams && localTeams.length > 0) {
+            await this.createMiiCharacters();
+        }
+        
+        this.createSimpleEnvironmentalDetails();
+        this.createInteractiveDice();
+        
+        this.setupEventListeners();
+        this.animate();
+        
+        this.updateMinigameDisplay();
+        this.updateTeamDisplay();
+        this.fetchBoardStatusAndUpdate();
+        setInterval(() => this.fetchBoardStatusAndUpdate(), 2000);
+        
+        this.prepareNextPlayerTurn(true);
+    }
+
+    setupLighting() {
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+        this.scene.add(ambientLight);
+        
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.4);
+        sunLight.position.set(40, 50, 30);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        sunLight.shadow.camera.near = 1;
+        sunLight.shadow.camera.far = 150;
+        sunLight.shadow.camera.left = -40;
+        sunLight.shadow.camera.right = 40;
+        sunLight.shadow.camera.top = 40;
+        sunLight.shadow.camera.bottom = -40;
+        this.scene.add(sunLight);
+        
+        this.scene.background = new THREE.Color(0x87CEEB);
+        this.scene.fog = new THREE.Fog(0xb3d9ff, 60, 150);
+    }
+
+    createOcean() {
+        const oceanRadius = 80;
+        const waterGeometry = new THREE.PlaneGeometry(oceanRadius * 2, oceanRadius * 2, 64, 64);
+        const positions = waterGeometry.attributes.position.array;
+        
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i];
+            const z = positions[i + 2];
+            const distance = Math.sqrt(x * x + z * z);
+            
+            if (distance > 25) {
+                positions[i + 1] = Math.sin(x * 0.08) * 0.2 + Math.sin(z * 0.1) * 0.2;
+            } else {
+                positions[i + 1] = Math.sin(x * 0.15) * 0.08 + Math.sin(z * 0.15) * 0.08;
+            }
+        }
+        waterGeometry.attributes.position.needsUpdate = true;
+        waterGeometry.computeVertexNormals();
+
+        const waterMaterial = new THREE.MeshPhongMaterial({
+            color: 0x4DD0E1,
+            specular: 0xB0BEC5,
+            shininess: 60,
+            transparent: true,
+            opacity: 0.85
+        });
+        
+        const water = new THREE.Mesh(waterGeometry, waterMaterial);
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = -0.3;
+        water.receiveShadow = true;
+        this.scene.add(water);
+        
+        water.userData = {
+            animation: time => {
+                const positions = water.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    const x = positions[i];
+                    const z = positions[i+2];
+                    const distance = Math.sqrt(x * x + z * z);
+                    
+                    if (distance > 25) {
+                        positions[i + 1] = Math.sin(x * 0.08 + time * 0.6) * 0.2 + 
+                                         Math.sin(z * 0.1 + time * 0.4) * 0.2;
+                    } else {
+                        positions[i + 1] = Math.sin(x * 0.15 + time * 0.3) * 0.08 + 
+                                         Math.sin(z * 0.15 + time * 0.5) * 0.08;
+                    }
+                }
+                water.geometry.attributes.position.needsUpdate = true;
+                water.geometry.computeVertexNormals();
+            }
+        };
+        this.water = water;
+    }
+
+    createIslandAndMountain() {
+        const islandGeometry = new THREE.CylinderGeometry(22, 24, 3.2, 32, 1, false);
+        const islandPositions = islandGeometry.attributes.position.array;
+        
+        for (let i = 0; i < islandPositions.length; i += 3) {
+            const x = islandPositions[i];
+            const z = islandPositions[i + 2];
+            const distance = Math.sqrt(x * x + z * z);
+            
+            if (distance > 18) {
+                const waveHeight = Math.sin(distance * 0.5) * 0.2 + Math.cos(distance * 0.3) * 0.15;
+                islandPositions[i + 1] += waveHeight;
+            }
+        }
+        
+        islandGeometry.attributes.position.needsUpdate = true;
+        islandGeometry.computeVertexNormals();
+        
+        const islandMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xF5DEB3, 
+            shininess: 4 
+        });
+        
+        this.island = new THREE.Mesh(islandGeometry, islandMaterial);
+        this.island.position.y = 0;
+        this.island.receiveShadow = true;
+        this.island.castShadow = true;
+        this.scene.add(this.island);
+        
+        this.createIslandVegetation();
+        this.createMountainWithPath();
+    }
+
+    createIslandVegetation() {
+        const baseIslandTopY = islandSurfaceY;
+        
+        const vegGeometry = new THREE.CylinderGeometry(20, 20.5, 0.12, 24);
+        const vegMaterial = new THREE.MeshLambertMaterial({ color: 0x4CAF50 });
+        const vegetation = new THREE.Mesh(vegGeometry, vegMaterial);
+        vegetation.position.y = baseIslandTopY + 0.06;
+        vegetation.receiveShadow = true;
+        this.scene.add(vegetation);
+    }
+
+    createMountainWithPath() {
+        this.calculatePathPoints();
+
+        const detail = 128;
+        const mountainGeometry = new THREE.BufferGeometry();
+        const vertices = [];
+        const indices = [];
+        const uvs = [];
+        const flatTopRadius = BOARD_CONFIG.mountainTopRadius * 0.9;
+        const mountainFootY = islandSurfaceY;
+
+        for (let i = 0; i <= detail; i++) {
+            for (let j = 0; j <= detail; j++) {
+                const x = (i / detail - 0.5) * BOARD_CONFIG.mountainBaseRadius * 2;
+                const z = (j / detail - 0.5) * BOARD_CONFIG.mountainBaseRadius * 2;
+                const distance = Math.sqrt(x * x + z * z);
+                let y_shape = 0;
+
+                if (distance <= BOARD_CONFIG.mountainBaseRadius) {
+                    if (distance <= flatTopRadius) {
+                        y_shape = BOARD_CONFIG.mountainHeight;
+                    } else {
+                        const progress = (distance - flatTopRadius) / (BOARD_CONFIG.mountainBaseRadius - flatTopRadius);
+                        const smoothProgress = 1 - (progress * progress * (3 - 2 * progress));
+                        y_shape = BOARD_CONFIG.mountainHeight * smoothProgress;
+                        y_shape += (Math.sin(x * 0.8) * Math.cos(z * 0.8)) * 0.15 * (1 - smoothProgress);
+                    }
+                    
+                    const pathInfluence = this.getPathInfluence(x, z);
+                    if (pathInfluence > 0) {
+                        const pathHeightAbsolute = this.getInterpolatedPathHeight(x, z);
+                        const pathHeightRelativeToMountainFoot = pathHeightAbsolute - mountainFootY;
+                        const rinnenTiefe = BOARD_CONFIG.pathDepth * pathInfluence * 0.25;
+                        y_shape = Math.max(y_shape - rinnenTiefe, pathHeightRelativeToMountainFoot - rinnenTiefe * 0.15);
+                    }
+                } else if (distance <= BOARD_CONFIG.mountainBaseRadius * 1.1) {
+                    const fadeOut = 1 - ((distance - BOARD_CONFIG.mountainBaseRadius) / (BOARD_CONFIG.mountainBaseRadius * 0.1));
+                    y_shape = fadeOut * 0.05 - 0.03;
+                } else {
+                    y_shape = -0.03;
+                }
+                
+                vertices.push(x, mountainFootY + y_shape, z);
+                uvs.push(i / detail, j / detail);
+            }
+        }
+        
+        for (let i = 0; i < detail; i++) {
+            for (let j = 0; j < detail; j++) {
+                const a = i * (detail + 1) + j;
+                const b = a + 1;
+                const c = a + detail + 1;
+                const d = c + 1;
+                indices.push(a, b, c);
+                indices.push(b, d, c);
+            }
+        }
+        
+        mountainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        mountainGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        mountainGeometry.setIndex(indices);
+        mountainGeometry.computeVertexNormals();
+
+        const mountainMaterial = new THREE.MeshPhongMaterial({
+            vertexColors: true,
+            shininess: 6
+        });
+        
+        const mountainColorAttr = new Float32Array(vertices.length);
+        for (let k_color = 0; k_color < vertices.length; k_color += 3) {
+            const yPos = vertices[k_color + 1];
+            const height = Math.max(0, Math.min(1, (yPos - mountainFootY) / BOARD_CONFIG.mountainHeight));
+            
+            let r, g, b;
+            
+            if (height < 0.1) {
+                r = 0.3; g = 0.45; b = 0.2;
+            } else if (height < 0.6) {
+                r = 0.25; g = 0.6; b = 0.15;
+            } else if (height < 0.85) {
+                r = 0.5; g = 0.5; b = 0.4;
+            } else {
+                r = 0.85; g = 0.85; b = 0.9;
+            }
+            
+            mountainColorAttr[k_color] = r;
+            mountainColorAttr[k_color+1] = g;
+            mountainColorAttr[k_color+2] = b;
+        }
+        
+        mountainGeometry.setAttribute('color', new THREE.Float32BufferAttribute(mountainColorAttr, 3));
+        const mountainMesh = new THREE.Mesh(mountainGeometry, mountainMaterial);
+        mountainMesh.castShadow = true;
+        mountainMesh.receiveShadow = true;
+        this.scene.add(mountainMesh);
+        this.mountainMesh = mountainMesh;
+    }
+
+    calculatePathPoints() {
+        this.pathPoints = [];
+        const fieldCount = 73;
+        const lastFieldIndex = fieldCount - 1;
+        const mountainFootY = islandSurfaceY;
+
+        for (let i = 0; i < fieldCount; i++) {
+            const progress = i / (fieldCount - 1);
+            let x, y, z;
+            let onFlatLand = false;
+
+            if (i === 0) {
+                x = BOARD_CONFIG.spiralStartRadius;
+                z = 0;
+                y = islandSurfaceY + 0.25;
+                onFlatLand = true;
+            } else if (i === lastFieldIndex) {
+                x = 0;
+                y = mountainFootY + BOARD_CONFIG.mountainHeight + 0.15;
+                z = 0;
+                onFlatLand = false;
+            } else if (i === lastFieldIndex - 1) {
+                x = 0;
+                y = mountainFootY + BOARD_CONFIG.mountainHeight + 0.2;
+                z = 0.5;
+                onFlatLand = false;
+            } else {
+                let radius;
+                if (progress < 0.08) {
+                    radius = BOARD_CONFIG.spiralStartRadius * (1.0 - progress * 4);
+                } else if (progress < 0.85) {
+                    const localProgress = (progress - 0.08) / 0.77;
+                    const easedProgress = Math.pow(localProgress, 0.85);
+                    radius = THREE.MathUtils.lerp(
+                        BOARD_CONFIG.mountainBaseRadius - 0.5, 
+                        BOARD_CONFIG.mountainTopRadius * 1.6, 
+                        easedProgress
+                    );
+                } else {
+                    const gipfelProgress = (progress - 0.85) / 0.15;
+                    radius = BOARD_CONFIG.mountainTopRadius * (1.8 - gipfelProgress * 0.6);
+                }
+                
+                const spiralProgress = Math.pow(progress, 0.9);
+                const angle = spiralProgress * Math.PI * 2 * BOARD_CONFIG.spiralLoops;
+                x = Math.cos(angle) * radius;
+                z = Math.sin(angle) * radius;
+                const distanceToCenter = Math.sqrt(x * x + z * z);
+                
+                if (distanceToCenter > BOARD_CONFIG.mountainBaseRadius - 0.5) {
+                    y = islandSurfaceY + 0.25;
+                    onFlatLand = true;
+                } else {
+                    const mountainProgress = Math.max(0, Math.min(1, 
+                        1 - (distanceToCenter / (BOARD_CONFIG.mountainBaseRadius - 0.5))
+                    ));
+                    const smoothProgress = Math.pow(mountainProgress, 0.8);
+                    y = mountainFootY + smoothProgress * BOARD_CONFIG.mountainHeight;
+                    y += Math.sin(angle * 1.2) * 0.04;
+                    onFlatLand = false;
+                }
+            }
+            this.pathPoints.push({ x, y, z, index: i, onFlatLand });
+        }
+        
+        this.projectPathPointsOntoMountain();
+    }
+
+    projectPathPointsOntoMountain() {
+        if (!this.mountainMesh || !this.pathPoints) return;
+        
+        for (let i = 0; i < this.pathPoints.length - 2; i++) {
+            const point = this.pathPoints[i];
+            if (!point.onFlatLand) {
+                const raycaster = new THREE.Raycaster();
+                const origin = new THREE.Vector3(point.x, 40, point.z);
+                const direction = new THREE.Vector3(0, -1, 0);
+                raycaster.set(origin, direction);
+
+                const intersects = raycaster.intersectObject(this.mountainMesh, false);
+                if (intersects.length > 0) {
+                    point.y = Math.max(point.y, intersects[0].point.y + 0.08);
+                }
+            }
+        }
+    }
+
+    getTerrainHeightAt(x, z) {
+        const raycaster = new THREE.Raycaster(new THREE.Vector3(x, 40, z), new THREE.Vector3(0, -1, 0));
+        const objectsToIntersect = [];
+        if (this.mountainMesh) objectsToIntersect.push(this.mountainMesh);
+        if (this.island) objectsToIntersect.push(this.island);
+
+        const intersects = raycaster.intersectObjects(objectsToIntersect, false);
+        if (intersects.length > 0) {
+            return intersects[0].point.y;
+        }
+        return islandSurfaceY;
+    }
+
+    getPathInfluence(x, z) {
+        let minDistance = Infinity;
+        if (!this.pathPoints || this.pathPoints.length === 0) return 0;
+        
+        for (let i = 0; i < this.pathPoints.length; i++) {
+            const point = this.pathPoints[i];
+            const dx = x - point.x;
+            const dz = z - point.z;
+            minDistance = Math.min(minDistance, Math.sqrt(dx * dx + dz * dz));
+        }
+        
+        const pathWidth = BOARD_CONFIG.pathWidth * 0.7;
+        if (minDistance < pathWidth) {
+            return Math.pow(1 - (minDistance / pathWidth), 0.3);
+        }
+        return 0;
+    }
+
+    getInterpolatedPathHeight(x, z) {
+        let closestDistance = Infinity;
+        let closestIndex = -1;
+        let secondClosestDistance = Infinity;
+        let secondClosestIndex = -1;
+
+        if (!this.pathPoints || this.pathPoints.length === 0) return islandSurfaceY;
+
+        for (let i = 0; i < this.pathPoints.length; i++) {
+            const point = this.pathPoints[i];
+            const dx = x - point.x;
+            const dz = z - point.z;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+            
+            if (distance < closestDistance) {
+                secondClosestDistance = closestDistance;
+                secondClosestIndex = closestIndex;
+                closestDistance = distance;
+                closestIndex = i;
+            } else if (distance < secondClosestDistance) {
+                secondClosestDistance = distance;
+                secondClosestIndex = i;
+            }
+        }
+
+        if (closestIndex === -1) return islandSurfaceY;
+        if (closestDistance < 0.25) return this.pathPoints[closestIndex].y;
+
+        if (secondClosestIndex === -1) {
+            return this.pathPoints[closestIndex].y;
+        }
+            
+        const point1 = this.pathPoints[closestIndex];
+        const point2 = this.pathPoints[secondClosestIndex];
+            
+        const dx1 = x - point1.x; 
+        const dz1 = z - point1.z; 
+        const dist1 = Math.sqrt(dx1*dx1 + dz1*dz1);
+        const dx2 = x - point2.x; 
+        const dz2 = z - point2.z; 
+        const dist2 = Math.sqrt(dx2*dx2 + dz2*dz2);
+            
+        if (dist1 + dist2 === 0) return point1.y;
+        const weight1 = 1 - (dist1 / (dist1 + dist2));
+            
+        return point1.y * weight1 + point2.y * (1 - weight1);
+    }
+
+    createSpiralPath() {
+        this.createGameFields();
+    }
+
+    createGameFields() {
+        if (!this.pathPoints || this.pathPoints.length === 0) {
+            console.error("Path points not calculated before creating game fields.");
+            return;
+        }
+        
+        this.pathPoints.forEach((point, index) => {
+            // Verwende die dynamische Feld-Typ-Erkennung
+            const type = getFieldTypeAtPosition(index);
+            
+            const field = this.createGameField(point, type, index);
+            this.boardFields.push({ 
+                mesh: field, 
+                originalPathPoint: new THREE.Vector3(point.x, point.y, point.z), 
+                index: index, 
+                type: type 
+            });
+            this.scene.add(field);
+        });
+    }
+
+    createGameField(point, type, index) {
+        const group = new THREE.Group();
+        const config = BOARD_CONFIG.fieldTypes[type];
+        
+        // Fallback falls Feldtyp nicht in Konfiguration gefunden wird
+        if (!config) {
+            console.warn(`Feldtyp '${type}' nicht in BOARD_CONFIG gefunden, verwende normal`);
+            config = BOARD_CONFIG.fieldTypes.normal;
+        }
+        
+        const fieldGeometry = new THREE.CylinderGeometry(
+            BOARD_CONFIG.fieldRadius * 0.9, 
+            BOARD_CONFIG.fieldRadius * 1.0, 
+            BOARD_CONFIG.fieldHeight, 
+            12
+        );
+        
+        const fieldMaterial = new THREE.MeshLambertMaterial({ 
+            color: config.color
+        });
+        
+        const fieldMesh = new THREE.Mesh(fieldGeometry, fieldMaterial);
+        fieldMesh.position.y = BOARD_CONFIG.fieldHeight / 2;
+        fieldMesh.castShadow = true;
+        fieldMesh.receiveShadow = true;
+        group.add(fieldMesh);
+        
+        const ringGeometry = new THREE.TorusGeometry(BOARD_CONFIG.fieldRadius * 0.9, 0.025, 6, 16);
+        const ringMaterial = new THREE.MeshLambertMaterial({
+            color: new THREE.Color(config.color).multiplyScalar(1.2)
+        });
+        
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = BOARD_CONFIG.fieldHeight + 0.01;
+        group.add(ring);
+        
+        // Spezielle Dekorationen für Sonderfelder
+        this.addSpecialFieldDecoration(group, type, index);
+        
+        const baseGeometry = new THREE.CylinderGeometry(
+            BOARD_CONFIG.fieldRadius * 1.05, 
+            BOARD_CONFIG.fieldRadius * 1.15, 
+            0.08, 
+            12
+        );
+        
+        const baseMaterial = new THREE.MeshLambertMaterial({
+            color: new THREE.Color(config.color).multiplyScalar(0.7)
+        });
+        
+        const base = new THREE.Mesh(baseGeometry, baseMaterial);
+        base.position.y = -0.04;
+        base.castShadow = true;
+        base.receiveShadow = true;
+        group.add(base);
+        
+        group.position.set(point.x, point.y, point.z);
+        group.userData = { fieldIndex: index, fieldType: type };
+        
+        return group;
+    }
+
+    addSpecialFieldDecoration(group, type, index) {
+        let decoration = null;
+        
+        switch(type) {
+            case 'catapult_forward':
+                decoration = this.createArrowDecoration(0x4CAF50, 'up');
+                break;
+            case 'catapult_backward':
+                decoration = this.createArrowDecoration(0xF44336, 'down');
+                break;
+            case 'player_swap':
+                decoration = this.createSwirlDecoration(0x2196F3);
+                break;
+            case 'barrier':
+                decoration = this.createBarrierDecoration(0x9E9E9E);
+                break;
+        }
+        
+        if (decoration) {
+            decoration.position.y = BOARD_CONFIG.fieldHeight + 0.05;
+            group.add(decoration);
+        }
+    }
+
+    createArrowDecoration(color, direction) {
+        const group = new THREE.Group();
+        
+        const arrowGeometry = new THREE.ConeGeometry(0.15, 0.3, 6);
+        const arrowMaterial = new THREE.MeshLambertMaterial({ color: color });
+        const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
+        
+        if (direction === 'up') {
+            arrow.position.y = 0.15;
+        } else {
+            arrow.position.y = 0.15;
+            arrow.rotation.z = Math.PI;
+        }
+        
+        group.add(arrow);
+        
+        const baseGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.2, 6);
+        const base = new THREE.Mesh(baseGeometry, arrowMaterial);
+        base.position.y = 0.1;
+        group.add(base);
+        
+        return group;
+    }
+
+    createSwirlDecoration(color) {
+        const group = new THREE.Group();
+        
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 0.1 + (i / 8) * 0.2;
+            
+            const dotGeometry = new THREE.SphereGeometry(0.03, 6, 6);
+            const dotMaterial = new THREE.MeshLambertMaterial({ color: color });
+            const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+            
+            dot.position.x = Math.cos(angle) * radius;
+            dot.position.z = Math.sin(angle) * radius;
+            dot.position.y = 0.1 + Math.sin(angle * 2) * 0.05;
+            
+            group.add(dot);
+        }
+        
+        return group;
+    }
+
+    createBarrierDecoration(color) {
+        const group = new THREE.Group();
+        
+        const barGeometry = new THREE.BoxGeometry(0.4, 0.05, 0.05);
+        const barMaterial = new THREE.MeshLambertMaterial({ color: color });
+        
+        const bar1 = new THREE.Mesh(barGeometry, barMaterial);
+        bar1.rotation.y = Math.PI / 4;
+        bar1.position.y = 0.1;
+        group.add(bar1);
+        
+        const bar2 = new THREE.Mesh(barGeometry, barMaterial);
+        bar2.rotation.y = -Math.PI / 4;
+        bar2.position.y = 0.1;
+        group.add(bar2);
+        
+        return group;
+    }
+
+    createSimpleVegetation() {
+        for (let i = 0; i < 4; i++) {
+            const angle = (i / 4) * Math.PI * 2;
+            const radius = 18 + Math.random() * 2;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            
+            if (this.isPositionSafe(x, z, 1.5)) {
+                const palm = this.createSimplePalmTree();
+                palm.position.set(x, islandSurfaceY, z);
+                palm.scale.setScalar(0.7 + Math.random() * 0.2);
+                palm.rotation.y = Math.random() * Math.PI * 2;
+                this.scene.add(palm);
+            }
+        }
+        
+        for (let i = 0; i < 6; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 12 + Math.random() * 6;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            
+            if (this.isPositionSafe(x, z, 1)) {
+                const bush = this.createSimpleBush();
+                const terrainY = this.getTerrainHeightAt(x, z);
+                bush.position.set(x, terrainY, z);
+                bush.scale.setScalar(0.4 + Math.random() * 0.3);
+                this.scene.add(bush);
+            }
+        }
+    }
+
+    createSimplePalmTree() {
+        const palmGroup = new THREE.Group();
+        
+        const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.28, 4.5, 6);
+        const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+        
+        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+        trunk.position.y = 2.25;
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
+        palmGroup.add(trunk);
+        
+        const leavesGroup = new THREE.Group();
+        leavesGroup.position.y = 4.5;
+        
+        for (let i = 0; i < 6; i++) {
+            const leafGeometry = new THREE.PlaneGeometry(1, 2.2);
+            leafGeometry.translate(0, 1.1, 0);
+            
+            const leafMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x228B22, 
+                side: THREE.DoubleSide
+            });
+            
+            const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+            leaf.rotation.z = Math.PI / 10 + (Math.random() - 0.5) * 0.2;
+            leaf.rotation.y = (i / 6) * Math.PI * 2;
+            leaf.castShadow = true;
+            leaf.receiveShadow = true;
+            leavesGroup.add(leaf);
+        }
+        
+        palmGroup.add(leavesGroup);
+        return palmGroup;
+    }
+
+    createSimpleBush() {
+        const bushGroup = new THREE.Group();
+        const colors = [0x2E7D32, 0x388E3C, 0x4CAF50];
+        
+        for (let i = 0; i < 2; i++) {
+            const bushElement = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12 + Math.random() * 0.08, 6, 6),
+                new THREE.MeshLambertMaterial({ 
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                })
+            );
+            
+            bushElement.position.set(
+                (Math.random() - 0.5) * 0.4, 
+                0.1 + Math.random() * 0.1, 
+                (Math.random() - 0.5) * 0.4
+            );
+            bushElement.scale.setScalar(0.6 + Math.random() * 0.4);
+            bushElement.castShadow = true;
+            bushElement.receiveShadow = true;
+            bushGroup.add(bushElement);
+        }
+        
+        return bushGroup;
+    }
+
+    createSimpleEnvironmentalDetails() {
+        this.createSimpleClouds();
+    }
+
+    createSimpleClouds() {
+        this.clouds = [];
+        for (let i = 0; i < 2; i++) {
+            const cloudGroup = new THREE.Group();
+            
+            for (let j = 0; j < 2; j++) {
+                const size = 1.2 + Math.random() * 1.5;
+                const cloudMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
+                
+                const cloudMesh = new THREE.Mesh(
+                    new THREE.SphereGeometry(size, 8, 8),
+                    cloudMaterial
+                );
+                
+                cloudMesh.position.set(
+                    (Math.random() - 0.5) * size * 1.2, 
+                    (Math.random() - 0.5) * size * 0.2, 
+                    (Math.random() - 0.5) * size * 1.2
+                );
+                cloudGroup.add(cloudMesh);
+            }
+            
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 40 + Math.random() * 30;
+            cloudGroup.position.set(
+                Math.cos(angle) * distance, 
+                25 + Math.random() * 10, 
+                Math.sin(angle) * distance
+            );
+            
+            this.scene.add(cloudGroup);
+            this.clouds.push({ 
+                mesh: cloudGroup, 
+                baseY: cloudGroup.position.y, 
+                speed: 0.006 + Math.random() * 0.008, 
+                direction: Math.random() > 0.5 ? 1 : -1 
+            });
+        }
+    }
+
+    isPositionSafe(x, z, minDistance) {
+        const distanceToMountainCenter = Math.sqrt(x * x + z * z);
+        if (distanceToMountainCenter < BOARD_CONFIG.mountainBaseRadius + minDistance) return false;
+        
+        if (!this.pathPoints || this.pathPoints.length === 0) return true;
+        
+        for (const point of this.pathPoints) {
+            const dx = x - point.x;
+            const dz = z - point.z;
+            if (Math.sqrt(dx * dx + dz * dz) < minDistance) return false;
+        }
+        return true;
+    }
+
+    setupEventListeners() {
+        window.addEventListener('resize', () => this.updateCanvasSize());
+        
+        document.addEventListener('fullscreenchange', () => this.updateCanvasSize());
+        document.addEventListener('webkitfullscreenchange', () => this.updateCanvasSize());
+        document.addEventListener('mozfullscreenchange', () => this.updateCanvasSize());
+        document.addEventListener('MSFullscreenChange', () => this.updateCanvasSize());
+        
+        document.addEventListener('keydown', (event) => {
+            if (event.key.toLowerCase() === 'm') {
+                GAME_STATE.freeCameraMode = !GAME_STATE.freeCameraMode;
+                this.controls.enabled = GAME_STATE.freeCameraMode;
+                this.showStatusMessage(GAME_STATE.freeCameraMode ? 'Freie Kamera aktiviert' : 'Freie Kamera deaktiviert', 2000, 'info');
+                
+                if (!GAME_STATE.freeCameraMode) {
+                    GAME_STATE.isAnimating = false;
+                    GAME_STATE.isAnimatingCamera = false;
+                    GAME_STATE.playerTurnInProgress = false;
+                    this.stopCameraFollow();
+                    this.prepareNextPlayerTurn(false);
+                }
+            } else if (event.key.toLowerCase() === 'f') {
+                this.toggleFullscreen();
+            } else if (event.key.toLowerCase() === 'p') {
+                // Test minigame placements (P key - accessible for everyone)
+                console.log("🧪 Testing Minigame Placements (P key)");
+                if (localTeams && localTeams.length > 0) {
+                    console.log("📋 Adding test placements to local teams");
+                    localTeams.forEach((team, index) => {
+                        team.minigame_placement = index + 1;
+                    });
+                    console.log("✅ Local teams now have placements:", localTeams.map(t => ({name: t.name, placement: t.minigame_placement})));
+                    
+                    // Test simplified banner directly
+                    setTimeout(() => {
+                        console.log("🎯 Testing simplified banner with placements");
+                        this.showMinigameResultsSimple(localTeams);
+                    }, 500);
+                }
+            } else if (event.key.toLowerCase() === 'l') {
+                // Test team logging (L key - accessible for everyone)
+                console.log("🔍 LOCAL TEAMS DEBUG:", localTeams.map(t => ({
+                    name: t.name, 
+                    placement: t.minigame_placement,
+                    placementType: typeof t.minigame_placement,
+                    placementIsNull: t.minigame_placement === null,
+                    placementIsUndefined: t.minigame_placement === undefined
+                })));
+            } else if (event.key.toLowerCase() === 'r' && isAdmin) {
+                if (!GAME_STATE.isAnimating && !GAME_STATE.isDiceRolling && !GAME_STATE.isCharacterMoving && !GAME_STATE.playerTurnInProgress) {
+                    this.rollDice();
+                }
+            } else if (event.key.toLowerCase() === 'o') {
+                // Test camera overview (O key)
+                if (!GAME_STATE.isAnimating) {
+                    this.setCameraOverview(3000, () => {
+                        // After overview, focus back on current player
+                        if (!GAME_STATE.freeCameraMode && this.getCurrentTeam()) {
+                            this.focusCameraOnCurrentTeam(false);
+                        }
+                    });
+                }
+            } else if (event.key.toLowerCase() === 't' && isAdmin) {
+                // Test minigame results (T key for admin)
+                this.testMinigameResults();
+            } else if (event.key.toLowerCase() === 'g' && isAdmin) {
+                // Test game sequence (G key for admin)
+                this.executeGameSequence();
+            }
+        });
+    }
+
+    testMinigameResults() {
+        console.log("🧪 Testing minigame results display...");
+        
+        // Create test results based on current teams
+        const testResults = [];
+        if (localTeams && localTeams.length > 0) {
+            localTeams.forEach((team, index) => {
+                testResults.push({
+                    team_id: team.id,
+                    team_name: team.name,
+                    placement: index + 1
+                });
+            });
+        } else {
+            // Create dummy test data if no teams available
+            testResults.push(
+                { team_id: 1, team_name: "Team Alpha", placement: 1 },
+                { team_id: 2, team_name: "Team Beta", placement: 2 },
+                { team_id: 3, team_name: "Team Gamma", placement: 3 }
+            );
+        }
+        
+        console.log("🎯 Test results created:", testResults);
+        this.showMinigameResults(testResults);
+        this.showStatusMessage("Minigame Results Test ausgeführt (T-Taste)", 2000, 'info');
+    }
+
+    testAllBanners() {
+        console.log("🧪 Testing all banner types...");
+        
+        // Test different banners with delays
+        setTimeout(() => {
+            console.log("Testing minigame announcement banner");
+            this.showMinigameAnnouncement("Test Minispiel", "Das ist ein Test-Minispiel zur Banner-Überprüfung");
+        }, 500);
+        
+        setTimeout(() => {
+            console.log("Testing dice result banner");
+            this.showDiceResultBanner(4, 2, 6, "Test Team");
+        }, 5000);
+        
+        setTimeout(() => {
+            console.log("Testing barrier field banner");
+            this.showBarrierFieldBanner({display_text: "Würfle mindestens eine 4 um dich zu befreien!"});
+        }, 9000);
+        
+        setTimeout(() => {
+            console.log("Testing barrier release banner");
+            this.showBarrierReleaseBanner("Du hast dich befreit! Würfel: 6");
+        }, 14000);
+        
+        setTimeout(() => {
+            console.log("Testing barrier failed banner");
+            this.showBarrierFailedBanner("Noch blockiert! Würfel: 2");
+        }, 18000);
+        
+        setTimeout(() => {
+            console.log("Testing info banner");
+            this.showInfoBanner("Test Information", "Das ist ein Test", "Alle Banner funktionieren korrekt");
+        }, 22000);
+        
+        setTimeout(() => {
+            console.log("Testing team turn banner");
+            this.showTeamTurnBanner("Test Team");
+        }, 26000);
+        
+        setTimeout(() => {
+            console.log("Testing round end banner");
+            this.showRoundEndBanner();
+        }, 30000);
+        
+        setTimeout(() => {
+            console.log("Testing special field banner");
+            this.showSpecialFieldBanner("Test Team", "Katapult-Feld! +3 Felder vorwärts");
+        }, 34000);
+        
+        this.showStatusMessage("Banner Test gestartet - alle 9 Banner werden nacheinander gezeigt", 3000, 'info');
+    }
+
+    testTurnSequence() {
+        console.log("🧪 Testing turn sequence...");
+        
+        // Simulate proper turn sequence timing
+        setTimeout(() => {
+            console.log("STEP 1: Team turn start");
+            this.showTeamTurnBanner("Test Team");
+        }, 500);
+        
+        setTimeout(() => {
+            console.log("STEP 2: Dice result");
+            this.showDiceResultBanner(5, 2, 7, "Test Team");
+        }, 4000);
+        
+        setTimeout(() => {
+            console.log("STEP 3: Movement starts (no banners)");
+            this.showStatusMessage("🏃 Figur bewegt sich... (keine Banner)", 2000, 'info');
+        }, 8000);
+        
+        setTimeout(() => {
+            console.log("STEP 4: Movement ends, field landing");
+            this.showSpecialFieldBanner("Test Team", "Katapult-Feld! +3 Felder");
+        }, 12000);
+        
+        setTimeout(() => {
+            console.log("STEP 5: Turn complete");
+            this.showInfoBanner("Zug beendet", "Test Team hat den Zug beendet", "Nächstes Team ist dran");
+        }, 16000);
+        
+        this.showStatusMessage("Turn Sequence Test gestartet - richtige Reihenfolge wird demonstriert", 3000, 'info');
+    }
+    
+    // ====== QUEUE SYSTEM DEBUG & TEST FUNKTIONEN ======
+    
+    testQueueSystem() {
+        console.log("🧪 Testing Global Banner Queue System...");
+        
+        // Test 1: Minigame Results Banner
+        console.log("📋 Test 1: Minigame Results");
+        const testResults = [
+            { team_id: 1, team_name: "Team Alpha", placement: 1 },
+            { team_id: 2, team_name: "Team Beta", placement: 2 },
+            { team_id: 3, team_name: "Team Gamma", placement: 3 }
+        ];
+        this.addMinigameResultsBanner(testResults);
+        
+        // Test 2: Team Banner Sequences
+        setTimeout(() => {
+            console.log("📋 Test 2: Team Alpha Sequence");
+            this.addTeamBannerSequence(1, "Team Alpha", 
+                { standard: 4, bonus: 2, total: 6 }, 
+                { message: "Katapult-Feld erreicht! +3 Felder" }
+            );
+        }, 1000);
+        
+        setTimeout(() => {
+            console.log("📋 Test 3: Team Beta Sequence");
+            this.addTeamBannerSequence(2, "Team Beta", 
+                { standard: 3, bonus: 0, total: 3 }, 
+                null
+            );
+        }, 2000);
+        
+        setTimeout(() => {
+            console.log("📋 Test 4: Team Gamma Sequence");
+            this.addTeamBannerSequence(3, "Team Gamma", 
+                { standard: 6, bonus: 1, total: 7 }, 
+                { message: "Sperre erreicht! Würfle eine 5 oder 6!" }
+            );
+        }, 3000);
+        
+        // Test 5: Info Banner
+        setTimeout(() => {
+            console.log("📋 Test 5: Info Banner");
+            this.addInfoBanner("Test Information", "Queue-System Test", "Alle Banner-Typen werden getestet");
+        }, 4000);
+        
+        // Test 6: Minigame Announcement
+        setTimeout(() => {
+            console.log("📋 Test 6: Minigame Announcement");
+            this.addMinigameAnnouncementBanner("Test Minispiel", "Das ist ein Test der neuen Queue-Funktionalität");
+        }, 5000);
+        
+        this.showStatusMessage("Queue System Test gestartet - alle Banner werden sequenziell über Queue verarbeitet (Q-Taste)", 4000, 'info');
+        
+        // Debug-Info ausgeben
+        setTimeout(() => {
+            this.debugQueueStatus();
+        }, 6000);
+    }
+    
+    resetQueueSystem() {
+        console.log("🔄 Resetting Global Banner Queue System...");
+        
+        globalBannerQueue.clear();
+        
+        // Reset turn sequence state
+        turnSequenceState = {
+            currentTurnTeamId: null,
+            hasShownTurnBanner: false,
+            hasShownDiceResult: false,
+            isMoving: false,
+            hasShownFieldBanner: false,
+            turnCompleted: false
+        };
+        
+        // Reset NEW turn management
+        teamTurnManagement = {
+            processedTeamIds: new Set(),
+            pendingTeamData: new Map(),
+            lastCompletedTeam: null
+        };
+        
+        // Reset tracking variables
+        hasShowMinigameResults = false;
+        lastDiceResult = null;
+        
+        this.showStatusMessage("Queue System zurückgesetzt - alle Banner und Team-States geleert (R-Taste)", 3000, 'info');
+        
+        console.log("✅ Queue System Reset abgeschlossen");
+    }
+    
+    debugQueueStatus() {
+        console.log("🔍 Debug: Global Banner Queue Status");
+        
+        const status = globalBannerQueue.getStatus();
+        
+        console.log("📊 Queue Status:", status);
+        console.log("📋 Turn Sequence State:", turnSequenceState);
+        console.log("🎯 Team Turn Management:", {
+            processedTeams: Array.from(teamTurnManagement.processedTeamIds),
+            pendingTeams: Array.from(teamTurnManagement.pendingTeamData.keys()),
+            lastCompleted: teamTurnManagement.lastCompletedTeam
+        });
+        console.log("🎮 Game State:", {
+            isCharacterMoving: GAME_STATE.isCharacterMoving,
+            isAnimating: GAME_STATE.isAnimating,
+            currentGamePhase: currentGamePhase,
+            currentMinigameName: currentMinigameName
+        });
+        
+        // Status als Banner anzeigen
+        const statusText = `Queue: ${status.queueLength} normale + ${status.teamSequences} Team-Sequenzen | ` +
+                          `Verarbeitung: ${status.isProcessing ? 'Aktiv' : 'Inaktiv'} | ` +
+                          `Status: ${status.isPaused ? 'Pausiert' : 'Aktiv'} | ` +
+                          `Aktuell: ${status.currentBanner || 'Keiner'}`;
+        
+        const teamInfo = `Verarbeitet: ${Array.from(teamTurnManagement.processedTeamIds)} | ` +
+                        `Wartend: ${Array.from(teamTurnManagement.pendingTeamData.keys())} | ` +
+                        `Letztes: ${teamTurnManagement.lastCompletedTeam}`;
+        
+        this.addInfoBanner("Queue Debug-Info", statusText, teamInfo);
+        
+        this.showStatusMessage("Queue Debug-Info angezeigt - siehe Console für Details (D-Taste)", 3000, 'info');
+    }
+    
+    // Test für Movement-Integration
+    testMovementIntegration() {
+        console.log("🧪 Testing Movement Integration...");
+        
+        // Simuliere Bewegungsstart
+        console.log("1. Simuliere Bewegungsstart");
+        GAME_STATE.isCharacterMoving = true;
+        GAME_STATE.isAnimating = true;
+        globalBannerQueue.pause('test movement simulation');
+        
+        // Füge Banner zur Queue hinzu (sollten pausiert sein)
+        this.addTeamBannerSequence(1, "Test Team", 
+            { standard: 5, bonus: 0, total: 5 }, 
+            { message: "Test während Bewegung" }
+        );
+        
+        this.debugQueueStatus();
+        
+        // Simuliere Bewegungsende nach 3 Sekunden
+        setTimeout(() => {
+            console.log("2. Simuliere Bewegungsende");
+            GAME_STATE.isCharacterMoving = false;
+            GAME_STATE.isAnimating = false;
+            globalBannerQueue.resume('test movement completed');
+            
+            this.debugQueueStatus();
+        }, 3000);
+        
+        this.showStatusMessage("Movement Integration Test gestartet - Queue wird pausiert/fortgesetzt", 4000, 'info');
+    }
+    
+    // ====== COMPLETE GAME FLOW TEST ======
+    
+    testCompleteGameFlow() {
+        console.log("🧪 Testing Complete Game Flow - NEUE Turn Management Logik");
+        
+        // Reset everything first
+        this.resetQueueSystem();
+        
+        setTimeout(() => {
+            console.log("📋 STEP 1: Minigame Results");
+            // 1. Minigame Results (höchste Priorität)
+            const testResults = [
+                { team_id: 1, team_name: "Jonas", placement: 1 },
+                { team_id: 2, team_name: "Leonie", placement: 2 }
+            ];
+            this.addMinigameResultsBanner(testResults);
+            
+            // 2. Simuliere Jonas (ERSTES TEAM) - nach Minigame Results
+            setTimeout(() => {
+                console.log("📋 STEP 2: Simuliere Jonas Turn - ERSTES TEAM (wartet auf Minigame Results)");
+                
+                // Reset für Test
+                teamTurnManagement.processedTeamIds.clear();
+                teamTurnManagement.pendingTeamData.clear();
+                
+                // Jonas wird als erstes Team behandelt (automatisch nach Queue-Check)
+                setTimeout(() => {
+                    console.log("📋 STEP 2B: Jonas Banner-Sequenz starten");
+                    this.addTeamBannerSequence(1, "Jonas", { standard: 4, bonus: 2, total: 6 });
+                    teamTurnManagement.processedTeamIds.add(1);
+                    
+                    // Simuliere Movement-Ende für Jonas nach 7 Sekunden
+                    setTimeout(() => {
+                        console.log("📋 STEP 3: Jonas Movement Ende - füge Post-Movement Banner hinzu");
+                        this.addPostMovementBanners(1, "Jonas", 15); // Sonderfeld
+                        
+                        // JETZT automatisch: Nach "Zug beendet" wird Leonie gestartet!
+                        
+                    }, 7000); // Warte auf Turn+Dice Banner
+                }, 3000); // Warte nach Minigame Results
+                
+            }, 1000); // Nach Minigame Results gestartet
+            
+            // 3. Simuliere Leonie Turn - wird in Pending gesetzt
+            setTimeout(() => {
+                console.log("📋 STEP 4: Simuliere Leonie Turn - wird in Pending gesetzt");
+                
+                // Team 2 wird in Pending gesetzt (Jonas läuft noch)
+                teamTurnManagement.pendingTeamData.set(2, {
+                    name: "Leonie",
+                    diceResult: { standard: 3, bonus: 0, total: 3 }
+                });
+                
+                console.log("📋 Leonie wartet jetzt in Pending - wird erst gestartet wenn Jonas fertig ist!");
+                
+            }, 5000); // Früh setzen - Leonie wartet
+            
+        }, 1000); // Nach Reset
+        
+        this.showStatusMessage(`NEUER GAME FLOW TEST (X-Taste):
+
+🟢 Jonas: Sofort gestartet (erstes Team)
+🟡 Leonie: In Pending gesetzt - wartet auf Jonas
+
+Nach Jonas "Zug beendet" → Leonie automatisch gestartet!
+        
+RICHTIGE REIHENFOLGE OHNE ÜBERSCHNEIDUNG!`, 8000, 'info');
+    }
+    
+    // ====== BLOCKED TEAM TEST ======
+    
+    testBlockedTeamFlow() {
+        console.log("🧪 Testing Blocked Team Flow");
+        
+        // Reset everything first
+        this.resetQueueSystem();
+        
+        setTimeout(() => {
+            console.log("📋 STEP 1: Minigame Results");
+            const testResults = [
+                { team_id: 1, team_name: "Jonas", placement: 1 },
+                { team_id: 2, team_name: "Leonie", placement: 2 }
+            ];
+            this.addMinigameResultsBanner(testResults);
+            
+            setTimeout(() => {
+                console.log("📋 STEP 2: Jonas normaler Zug");
+                teamTurnManagement.processedTeamIds.clear();
+                this.addTeamBannerSequence(1, "Jonas", 
+                    { standard: 4, bonus: 0, total: 4, wasBlocked: false }, 
+                    false, null
+                );
+                teamTurnManagement.processedTeamIds.add(1);
+                
+                setTimeout(() => {
+                    console.log("📋 STEP 3: Jonas Post-Movement");
+                    this.addPostMovementBanners(1, "Jonas", 10); // Normales Feld
+                    
+                }, 7000); // Nach Jonas Turn+Dice Banner
+                
+            }, 2000); // Nach Minigame Results
+            
+            // Leonie ist blockiert und bleibt blockiert
+            setTimeout(() => {
+                console.log("📋 STEP 4: Leonie BLOCKIERT - wird in Pending gesetzt");
+                teamTurnManagement.pendingTeamData.set(2, {
+                    name: "Leonie",
+                    diceResult: { standard: 2, bonus: 0, total: 2, wasBlocked: true },
+                    isBlocked: true,
+                    blockInfo: { targetNumber: 5, turnsRemaining: 2 }
+                });
+                
+                console.log("📋 Leonie wartet in Pending - blockierter Zug wird nach Jonas verarbeitet!");
+                
+            }, 3000);
+            
+        }, 1000);
+        
+        this.showStatusMessage(`BLOCKED TEAM TEST (Z-Taste):
+
+🟢 Jonas: Normaler Zug mit Bewegung
+🚧 Leonie: BLOCKIERT - würfelt 2, benötigt 5+ 
+
+Leonie: ist am Zug → würfelt 2 → BLEIBT BLOCKIERT → Zug beendet
+
+BLOCKIERTE TEAMS HÄNGEN NICHT MEHR!`, 8000, 'info');
+    }
+    
+    // ====== SIMPLIFIED BANNER TEST ======
+    
+    testSimplifiedBanners() {
+        console.log("🧪 Testing Simplified Banner System (S key)");
+        
+        // Test 0: Add test placements to local teams
+        if (localTeams && localTeams.length > 0) {
+            console.log("📋 TEST 0: Adding test placements to local teams");
+            localTeams.forEach((team, index) => {
+                team.minigame_placement = index + 1;
+            });
+            console.log("✅ Local teams now have placements:", localTeams.map(t => ({name: t.name, placement: t.minigame_placement})));
+        }
+        
+        // Test 1: Direct minigame results (bypassing queue)
+        setTimeout(() => {
+            console.log("📋 TEST 1: Simplified Minigame Results");
+            const testTeams = [
+                { name: "Team Alpha", minigame_placement: 1, is_current_user: false },
+                { name: "Team Beta", minigame_placement: 2, is_current_user: true },
+                { name: "Team Gamma", minigame_placement: 3, is_current_user: false }
+            ];
+            
+            this.showMinigameResultsSimple(testTeams);
+        }, 500);
+        
+        // Test 2: Check if simplified logic would trigger with real phase change
+        setTimeout(() => {
+            console.log("📋 TEST 2: Simulating Phase Change Logic");
+            
+            // Simulate phase change detection
+            const previousPhase = lastPhase;
+            lastPhase = 'MINIGAMES'; // Change from DICE_ROLLING
+            hasShowMinigameResults = false;
+            
+            console.log(`🔄 Phase simulation: ${previousPhase} → DICE_ROLLING`);
+            console.log(`🎯 Would show minigame results: ${!hasShowMinigameResults}`);
+            
+            // Reset for actual test
+            setTimeout(() => {
+                lastPhase = 'DICE_ROLLING';
+                hasShowMinigameResults = true;
+                console.log("✅ Phase detection test complete");
+            }, 2000);
+            
+        }, 6000);
+        
+        this.showStatusMessage(`SIMPLIFIED BANNER TEST (S-Taste):
+
+🎯 Test 1: Direct minigame results display (bypassing queue)
+🔄 Test 2: Phase change detection simulation
+
+This tests the team_dashboard.html-style banner logic on game_board.html`, 8000, 'info');
+    }
+
+    showStatusMessage(message, duration = 3000, type = 'info') {
+        
+        const existingMessage = document.querySelector('.status-message');
+        if (existingMessage) existingMessage.remove();
+        
+        const statusDiv = document.createElement('div');
+        statusDiv.className = `status-message status-${type}`;
+        statusDiv.textContent = message;
+        document.body.appendChild(statusDiv);
+        
+        setTimeout(() => {
+            if (statusDiv.parentNode) statusDiv.remove();
+        }, duration);
+    }
+
+
+
+
+
+    
+    // Team-basierte Banner-Sequenz hinzufügen (VOR Bewegung)
+    addTeamBannerSequence(teamId, teamName, diceResult = null, isBlocked = false, blockInfo = null) {
+        if (!teamId || !teamName) return;
+        
+        console.log('🎯 Erstelle Banner-Sequenz für Team:', teamName, 'ID:', teamId, 'Blockiert:', isBlocked);
+        
+        // 1. Team Turn Banner
+        globalBannerQueue.enqueue({
+            type: 'TEAM_TURN',
+            teamId: teamId,
+            sequenceGroup: 'turn',
+            displayFunction: this.showTeamTurnBannerDirect.bind(this),
+            args: [teamName],
+            duration: 3000
+        });
+        
+        // 2. Dice Result Banner (wenn Würfelergebnis vorhanden)
+        if (diceResult) {
+            globalBannerQueue.enqueue({
+                type: 'DICE_RESULT',
+                teamId: teamId,
+                sequenceGroup: 'turn',
+                displayFunction: this.showDiceResultBannerDirect.bind(this),
+                args: [diceResult.standard, diceResult.bonus || 0, diceResult.total, teamName],
+                duration: 3000
+            });
+        }
+        
+        // 3. Blockierungs-Banner (wenn Team blockiert ist)
+        if (isBlocked && diceResult) {
+            if (diceResult.wasBlocked) {
+                // Team bleibt blockiert
+                const targetNumber = blockInfo?.targetNumber || '?';
+                globalBannerQueue.enqueue({
+                    type: 'BARRIER',
+                    teamId: teamId,
+                    sequenceGroup: 'turn',
+                    displayFunction: this.showBarrierFailedBannerDirect.bind(this),
+                    args: [`${teamName} bleibt blockiert! Benötigt ${targetNumber}+ zum Befreien.`],
+                    duration: 4000
+                });
+                
+                // WICHTIG: Zug-Beendet Banner für blockierte Teams
+                globalBannerQueue.enqueue({
+                    type: 'INFO',
+                    teamId: teamId,
+                    sequenceGroup: 'turn',
+                    displayFunction: this.showTurnCompleteBannerWithCallback.bind(this),
+                    args: [teamName, teamId],
+                    duration: 2000
+                });
+            } else {
+                // Team wurde befreit
+                globalBannerQueue.enqueue({
+                    type: 'BARRIER',
+                    teamId: teamId,
+                    sequenceGroup: 'turn',
+                    displayFunction: this.showBarrierReleaseBannerDirect.bind(this),
+                    args: [`${teamName} ist befreit! Kann sich jetzt bewegen.`],
+                    duration: 4000
+                });
+                // Normale Post-Movement Banner werden später hinzugefügt
+            }
+        }
+    }
+    
+    // Banner NACH Bewegung zur gleichen Team-Sequenz hinzufügen
+    addPostMovementBanners(teamId, teamName, finalPosition) {
+        console.log('📍 Füge Post-Movement Banner hinzu für Team:', teamName, 'Position:', finalPosition);
+        
+        const isSpecial = this.isSpecialField(finalPosition);
+        
+        // 3. Feld-Landing Banner
+        if (isSpecial) {
+            globalBannerQueue.enqueue({
+                type: 'SPECIAL_FIELD',
+                teamId: teamId,
+                sequenceGroup: 'turn',
+                displayFunction: this.showSpecialFieldBannerDirect.bind(this),
+                args: [teamName, "Sonderfeld erreicht!"],
+                duration: 4000
+            });
+        } else {
+            globalBannerQueue.enqueue({
+                type: 'INFO',
+                teamId: teamId,
+                sequenceGroup: 'turn',
+                displayFunction: this.showInfoBannerDirect.bind(this),
+                args: [teamName, `Feld ${finalPosition} erreicht`, ""],
+                duration: 2000
+            });
+        }
+        
+        // 4. Zug-Beendet Banner MIT CALLBACK für nächstes Team
+        globalBannerQueue.enqueue({
+            type: 'INFO',
+            teamId: teamId,
+            sequenceGroup: 'turn',
+            displayFunction: this.showTurnCompleteBannerWithCallback.bind(this),
+            args: [teamName, teamId],
+            duration: 2000
+        });
+    }
+    
+    // Zug-Beendet Banner mit Callback für nächstes Team
+    showTurnCompleteBannerWithCallback(teamName, teamId) {
+        // Zeige Banner
+        this.showInfoBannerDirect("✅ Zug beendet", `${teamName} hat den Zug beendet`, "");
+        
+        // Markiere Team als komplett fertig
+        teamTurnManagement.lastCompletedTeam = teamId;
+        console.log(`🏁 TEAM COMPLETED: ${teamName} (ID: ${teamId}) ist komplett fertig`);
+        
+        // Prüfe ob wartende Teams existieren und starte nächstes
+        setTimeout(() => {
+            this.processNextPendingTeam();
+        }, 2500); // Nach Banner-Anzeige
+    }
+    
+    // Verarbeite nächstes wartendes Team
+    processNextPendingTeam() {
+        // Prüfe ob alle Teams fertig sind (für Round End)
+        const totalTeams = localTeams ? localTeams.length : 0;
+        const completedTeams = teamTurnManagement.processedTeamIds.size;
+        const pendingTeams = teamTurnManagement.pendingTeamData.size;
+        
+        console.log(`🔍 Turn Check: ${completedTeams}/${totalTeams} Teams fertig, ${pendingTeams} warten`);
+        
+        if (pendingTeams === 0) {
+            // Keine wartenden Teams mehr
+            if (completedTeams >= totalTeams && totalTeams > 0) {
+                // ALLE Teams sind fertig - zeige "Würfelrunde beendet"
+                console.log("🏁 ALLE TEAMS FERTIG: Zeige 'Würfelrunde beendet' Banner");
+                setTimeout(() => {
+                    globalBannerQueue.enqueue({
+                        type: 'INFO',
+                        teamId: null,
+                        sequenceGroup: null,
+                        displayFunction: this.showRoundEndBannerDirect.bind(this),
+                        args: [],
+                        duration: 4000
+                    });
+                }, 1000); // Kurze Pause nach letztem Team
+            }
+            return;
+        }
+        
+        // Starte nächstes wartendes Team
+        for (let [teamId, teamData] of teamTurnManagement.pendingTeamData) {
+            console.log(`🎯 NEXT TEAM: Starte nur Team Turn Banner für ${teamData.name}`);
+            
+            // Zeige nur Team Turn Banner für nächstes Team
+            globalBannerQueue.enqueue({
+                type: 'TEAM_TURN',
+                teamId: teamId,
+                sequenceGroup: 'turn',
+                displayFunction: this.showTeamTurnBannerDirect.bind(this),
+                args: [teamData.name],
+                duration: 3000
+            });
+            
+            // Entferne aus Pending und markiere als verarbeitet
+            teamTurnManagement.pendingTeamData.delete(teamId);
+            teamTurnManagement.processedTeamIds.add(teamId);
+            
+            console.log(`✅ Team ${teamData.name} Turn Banner gestartet`);
+            break; // Nur ein Team zur Zeit
+        }
+    }
+    
+    // Minigame-Ergebnisse zur Queue hinzufügen (höchste Priorität)
+    addMinigameResultsBanner(results) {
+        globalBannerQueue.enqueue({
+            type: 'MINIGAME_RESULTS',
+            teamId: null,
+            sequenceGroup: 'minigame',
+            displayFunction: this.showMinigameResultsDirect.bind(this),
+            args: [results],
+            duration: 5000
+        });
+    }
+    
+    // Minigame-Ankündigung zur Queue hinzufügen
+    addMinigameAnnouncementBanner(name, description) {
+        globalBannerQueue.enqueue({
+            type: 'MINIGAME_ANNOUNCEMENT',
+            teamId: null,
+            sequenceGroup: 'minigame',
+            displayFunction: this.showMinigameAnnouncementDirect.bind(this),
+            args: [name, description],
+            duration: 4000
+        });
+    }
+    
+    // Info-Banner zur Queue hinzufügen
+    addInfoBanner(title, subtitle, description, teamId = null) {
+        globalBannerQueue.enqueue({
+            type: 'INFO',
+            teamId: teamId,
+            sequenceGroup: teamId ? 'turn' : null,
+            displayFunction: this.showInfoBannerDirect.bind(this),
+            args: [title, subtitle, description],
+            duration: 3000
+        });
+    }
+    
+    // *** DIREKTE BANNER-DISPLAY-FUNKTIONEN (für Queue) ***
+    
+    showTeamTurnBannerDirect(teamName) {
+        const banner = document.getElementById('team-turn-banner');
+        const teamEl = document.getElementById('turn-banner-team');
+        
+        if (banner && teamEl) {
+            teamEl.textContent = `${teamName} ist am Zug!`;
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 3000);
+        }
+    }
+    
+    showDiceResultBannerDirect(standard, bonus, total, teamName) {
+        const banner = document.getElementById('dice-result-banner');
+        const teamEl = document.getElementById('dice-banner-team');
+        const resultEl = document.getElementById('dice-banner-result');
+        
+        if (banner && teamEl && resultEl) {
+            teamEl.textContent = teamName ? `${teamName} würfelt:` : 'Würfelergebnis:';
+            
+            let resultText = `🎯 ${standard}`;
+            if (bonus > 0) {
+                resultText += ` + ${bonus} (Bonus) = ${total} Felder`;
+            } else {
+                resultText += ` Felder`;
+            }
+            resultEl.textContent = resultText;
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 3000);
+        }
+    }
+    
+    showInfoBannerDirect(title, subtitle, description) {
+        const banner = document.getElementById('info-banner');
+        const titleEl = document.getElementById('info-banner-title');
+        const subtitleEl = document.getElementById('info-banner-subtitle');
+        const descEl = document.getElementById('info-banner-description');
+        
+        if (banner && titleEl && subtitleEl && descEl) {
+            titleEl.textContent = title || 'Information';
+            subtitleEl.textContent = subtitle || '';
+            descEl.textContent = description || '';
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 3000);
+        }
+    }
+    
+    showMinigameAnnouncementDirect(name, description) {
+        const banner = document.getElementById('minigame-announcement-banner');
+        const nameEl = document.getElementById('minigame-banner-name');
+        const descEl = document.getElementById('minigame-banner-description');
+        
+        if (banner && nameEl && descEl) {
+            nameEl.textContent = name;
+            descEl.textContent = description || '';
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 4000);
+        }
+    }
+    
+    showSpecialFieldBannerDirect(teamName, message) {
+        const banner = document.getElementById('special-field-banner');
+        const teamEl = document.getElementById('special-field-banner-team');
+        const messageEl = document.getElementById('special-field-banner-message');
+        
+        if (banner && teamEl && messageEl) {
+            teamEl.textContent = teamName;
+            messageEl.textContent = message;
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 4000);
+        }
+    }
+    
+    showMinigameResultsDirect(results) {
+        if (!results || results.length === 0) {
+            console.warn("❌ Keine Minispiel-Ergebnisse zu zeigen");
+            return;
+        }
+
+        console.log("🏆 Zeige Minispiel-Ergebnisse an:", results);
+
+        const banner = document.getElementById('minigame-results-banner');
+        const resultsList = document.getElementById('minigame-results-list');
+        
+        if (banner && resultsList) {
+            // Sort results by placement
+            const sortedResults = [...results].sort((a, b) => (a.placement || 999) - (b.placement || 999));
+            
+            resultsList.innerHTML = '';
+            sortedResults.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                
+                let medalIcon = '';
+                if (result.placement === 1) medalIcon = '🥇';
+                else if (result.placement === 2) medalIcon = '🥈';
+                else if (result.placement === 3) medalIcon = '🥉';
+                else medalIcon = `${result.placement}.`;
+                
+                resultItem.innerHTML = `${medalIcon} ${result.team_name || `Team ${result.team_id}`}`;
+                resultsList.appendChild(resultItem);
+            });
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 5000);
+        }
+        
+        console.log("✅ Minispiel-Ergebnisse erfolgreich angezeigt:", results);
+    }
+    
+    showBarrierReleaseBannerDirect(message) {
+        const banner = document.getElementById('barrier-release-banner');
+        const messageEl = document.getElementById('release-banner-message');
+        
+        if (banner && messageEl) {
+            messageEl.textContent = message || 'Du hast dich erfolgreich befreit!';
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 4000);
+        }
+    }
+    
+    showBarrierFailedBannerDirect(message) {
+        const banner = document.getElementById('barrier-failed-banner');
+        const messageEl = document.getElementById('failed-banner-message');
+        
+        if (banner && messageEl) {
+            messageEl.textContent = message || 'Du bleibst blockiert!';
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 4000);
+        }
+    }
+    
+    // *** LEGACY-FUNKTIONEN (für Rückwärtskompatibilität) ***
+    
+    showTeamTurnBanner(teamName, teamId = null) {
+        // ⚠️ LEGACY-FUNKTION: ALLE Aufrufe werden über Queue geleitet!
+        console.log("⚠️ LEGACY: showTeamTurnBanner aufgerufen für", teamName, "- leite an Queue weiter");
+        
+        globalBannerQueue.enqueue({
+            type: 'TEAM_TURN',
+            teamId: teamId,
+            sequenceGroup: teamId ? 'turn' : null,
+            displayFunction: this.showTeamTurnBannerDirect.bind(this),
+            args: [teamName],
+            duration: 3000
+        });
+    }
+    
+    showDiceResultBanner(standard, bonus, total, teamName, teamId = null) {
+        // ⚠️ LEGACY-FUNKTION: ALLE Aufrufe werden über Queue geleitet!
+        console.log("⚠️ LEGACY: showDiceResultBanner aufgerufen für", teamName, "- leite an Queue weiter");
+        
+        globalBannerQueue.enqueue({
+            type: 'DICE_RESULT',
+            teamId: teamId,
+            sequenceGroup: teamId ? 'turn' : null,
+            displayFunction: this.showDiceResultBannerDirect.bind(this),
+            args: [standard, bonus, total, teamName],
+            duration: 3000
+        });
+    }
+    
+    showSpecialFieldBanner(teamName, effect, teamId = null) {
+        // ⚠️ LEGACY-FUNKTION: ALLE Aufrufe werden über Queue geleitet!
+        console.log("⚠️ LEGACY: showSpecialFieldBanner aufgerufen für", teamName, "- leite an Queue weiter");
+        
+        globalBannerQueue.enqueue({
+            type: 'SPECIAL_FIELD',
+            teamId: teamId,
+            sequenceGroup: teamId ? 'turn' : null,
+            displayFunction: this.showSpecialFieldBannerDirect.bind(this),
+            args: [teamName, effect],
+            duration: 4000
+        });
+    }
+    
+    showMinigameAnnouncement(name, description) {
+        // ⚠️ LEGACY-FUNKTION: Leite an Queue weiter
+        console.log("⚠️ LEGACY: showMinigameAnnouncement aufgerufen - leite an Queue weiter");
+        this.addMinigameAnnouncementBanner(name, description);
+    }
+    
+    showMinigameResults(results) {
+        // ⚠️ LEGACY-FUNKTION: Leite an Queue weiter
+        console.log("⚠️ LEGACY: showMinigameResults aufgerufen - leite an Queue weiter");
+        this.addMinigameResultsBanner(results);
+    }
+    
+    showInfoBanner(title, subtitle, description, teamId = null) {
+        // Legacy-Funktion: Leitet an Queue weiter
+        this.addInfoBanner(title, subtitle, description, teamId);
+    }
+
+    showRoundEndBanner() {
+        // ⚠️ LEGACY-FUNKTION: Leite an Queue weiter
+        console.log("⚠️ LEGACY: showRoundEndBanner aufgerufen - leite an Queue weiter");
+        
+        globalBannerQueue.enqueue({
+            type: 'INFO',
+            teamId: null,
+            sequenceGroup: null,
+            displayFunction: this.showRoundEndBannerDirect.bind(this),
+            args: [],
+            duration: 3000
+        });
+    }
+    
+    showRoundEndBannerDirect() {
+        const banner = document.getElementById('round-end-banner');
+        
+        if (banner) {
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 3000);
+        }
+    }
+    
+    // ====== SIMPLIFIED BANNER FUNCTIONS (team_dashboard style) ======
+    
+    /**
+     * Minigame results display - EXACT copy from team_dashboard.html
+     */
+    showMinigameResults(teams) {
+        console.log("🏆 TEAM_DASHBOARD: Showing minigame results (exact team_dashboard logic):", teams);
+        
+        const banner = document.getElementById('minigame-results-banner');
+        const resultsList = document.getElementById('minigame-results-list');
+        
+        if (banner && resultsList) {
+            const teamsWithPlacements = teams
+                .filter(team => team.minigame_placement)
+                .sort((a, b) => a.minigame_placement - b.minigame_placement);
+            
+            resultsList.innerHTML = '';
+            teamsWithPlacements.forEach(team => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                
+                let medalIcon = '';
+                if (team.minigame_placement === 1) medalIcon = '🥇';
+                else if (team.minigame_placement === 2) medalIcon = '🥈';
+                else if (team.minigame_placement === 3) medalIcon = '🥉';
+                else medalIcon = `${team.minigame_placement}.`;
+                
+                resultItem.innerHTML = `${medalIcon} ${team.name}`;
+                if (team.is_current_user) {
+                    resultItem.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                    resultItem.style.fontWeight = 'bold';
+                }
+                resultsList.appendChild(resultItem);
+            });
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 5000);
+        }
+    }
+    
+    /**
+     * Simplified minigame results display - bypasses queue system
+     * Same logic as team_dashboard.html for reliable display
+     */
+    showMinigameResultsSimple(teams) {
+        console.log("🏆 SIMPLE: Showing minigame results directly:", teams);
+        
+        const banner = document.getElementById('minigame-results-banner');
+        const resultsList = document.getElementById('minigame-results-list');
+        
+        if (banner && resultsList) {
+            const teamsWithPlacements = teams
+                .filter(team => team.minigame_placement)
+                .sort((a, b) => a.minigame_placement - b.minigame_placement);
+            
+            resultsList.innerHTML = '';
+            teamsWithPlacements.forEach(team => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                
+                let medalIcon = '';
+                if (team.minigame_placement === 1) medalIcon = '🥇';
+                else if (team.minigame_placement === 2) medalIcon = '🥈';
+                else if (team.minigame_placement === 3) medalIcon = '🥉';
+                else medalIcon = `${team.minigame_placement}.`;
+                
+                resultItem.innerHTML = `${medalIcon} ${team.name}`;
+                if (team.is_current_user) {
+                    resultItem.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                    resultItem.style.fontWeight = 'bold';
+                }
+                resultsList.appendChild(resultItem);
+            });
+            
+            banner.classList.add('show');
+            
+            setTimeout(() => {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.classList.remove('show', 'hide');
+                }, 500);
+            }, 5000);
+        }
+    }
+
+    // ALTE showSpecialFieldBanner ENTFERNT - wird durch Legacy-Version ersetzt
+
+    // ====== QUEUE-BASIERTES TURN BANNER SYSTEM ======
+    
+    processQueueBasedTurnSystem(data) {
+        const currentTeamId = data.game_session.current_team_turn_id;
+        const currentTeam = localTeams.find(t => t.id === currentTeamId);
+        
+        if (!currentTeam) return;
+        
+        // Nur neue Team-Züge verarbeiten
+        if (turnSequenceState.currentTurnTeamId !== currentTeamId) {
+            console.log("🎯 TURN DETECTED: Neuer Zug erkannt für Team:", currentTeam.name, "ID:", currentTeamId);
+            
+            // Sammle Banner-Daten für dieses Team
+            let diceResult = null;
+            let isBlocked = currentTeam.is_blocked || false;
+            let blockInfo = null;
+            
+            // Blockierungs-Info sammeln
+            if (isBlocked) {
+                blockInfo = {
+                    targetNumber: currentTeam.blocked_target_number,
+                    turnsRemaining: currentTeam.blocked_turns_remaining
+                };
+                console.log("🚧 BLOCKED TEAM: Team", currentTeam.name, "ist blockiert, benötigt", blockInfo.targetNumber);
+            }
+            
+            // Würfelergebnis sammeln - nicht verfügbar in executeGameSequence (kein data parameter)
+            // Diese Funktion wird hauptsächlich für Tests und Camera Overview verwendet
+            diceResult = null; // Skip dice result logic in this context
+            
+            // ENTSCHEIDUNG: Sofort starten oder warten?
+            if (teamTurnManagement.processedTeamIds.size === 0) {
+                // ERSTES TEAM - sofort starten (aber ERST nach Minigame Results!)
+                console.log("🟢 FIRST TEAM: Erstes Team erkannt -", currentTeam.name);
+                
+                // Prüfe ob Minigame Results laufen
+                const queueStatus = globalBannerQueue.getStatus();
+                if (queueStatus.queueLength > 0 || queueStatus.isProcessing) {
+                    // Minigame Results laufen noch - warte
+                    console.log("⏳ FIRST TEAM: Warte auf Minigame Results für", currentTeam.name);
+                    setTimeout(() => {
+                        console.log("🟢 FIRST TEAM: Starte Banner-Sequenz für", currentTeam.name);
+                        this.addTeamBannerSequence(currentTeamId, currentTeam.name, diceResult, isBlocked, blockInfo);
+                        teamTurnManagement.processedTeamIds.add(currentTeamId);
+                    }, 2000); // Warte 2 Sekunden
+                } else {
+                    // Keine Minigame Results - sofort starten
+                    console.log("🟢 FIRST TEAM: Starte sofort Banner-Sequenz für", currentTeam.name);
+                    this.addTeamBannerSequence(currentTeamId, currentTeam.name, diceResult, isBlocked, blockInfo);
+                    teamTurnManagement.processedTeamIds.add(currentTeamId);
+                }
+            } else if (teamTurnManagement.processedTeamIds.has(currentTeamId)) {
+                // TEAM SCHON VERARBEITET - ignorieren
+                console.log("⚠️ ALREADY PROCESSED: Team", currentTeam.name, "bereits verarbeitet - ignoriere");
+            } else {
+                // WEITERES TEAM - in Pending setzen
+                console.log("🟡 PENDING: Team", currentTeam.name, "zu Pending hinzugefügt - wartet auf vorheriges Team");
+                teamTurnManagement.pendingTeamData.set(currentTeamId, {
+                    name: currentTeam.name,
+                    diceResult: diceResult,
+                    isBlocked: isBlocked,
+                    blockInfo: blockInfo
+                });
+            }
+            
+            // Turn state aktualisieren
+            turnSequenceState = {
+                currentTurnTeamId: currentTeamId,
+                hasShownTurnBanner: true,
+                hasShownDiceResult: true,
+                isMoving: false,
+                hasShownFieldBanner: true,
+                turnCompleted: false
+            };
+        }
+    }
+    
+    isSpecialField(position) {
+        // Simple check - could be enhanced with actual field data
+        return [5, 10, 15, 20, 25].includes(position); // Example special field positions
+    }
+
+    // ====== DEAKTIVIERTE OLD GAME SEQUENCE FUNCTIONS ======
+    // Diese Funktionen sind deaktiviert - alles läuft jetzt über das Queue-System!
+
+    showTurnCompleteBanner(teamName, teamId = null) {
+        // ⚠️ LEGACY-FUNKTION: Leite an Queue weiter
+        console.log("⚠️ LEGACY: showTurnCompleteBanner aufgerufen für", teamName, "- leite an Queue weiter");
+        this.addInfoBanner("✅ Zug beendet", `${teamName} hat den Zug beendet.`, "", teamId);
+    }
+
+
+    setCameraOverview(duration = 3000, callback = null) {
+        if (GAME_STATE.freeCameraMode) {
+            console.log("Kamera-Übersicht übersprungen (freie Kamera aktiv)");
+            if (callback) callback();
+            return;
+        }
+
+        console.log("Setze Kamera auf Übersichts-Position");
+        GAME_STATE.isAnimating = true;
+
+        // Calculate overview position - higher and further back to see whole island
+        const overviewPosition = {
+            x: 0,
+            y: 35, // Higher than normal camera
+            z: 45  // Further back than normal camera
+        };
+
+        const overviewTarget = {
+            x: 0,
+            y: 0,
+            z: 0  // Look at center of island
+        };
+
+        // Animate camera to overview position
+        const startPos = this.camera.position.clone();
+        const startTarget = this.controls.target.clone();
+        const startTime = Date.now();
+
+        const animateToOverview = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / 1500, 1); // 1.5 second animation
+            const eased = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+
+            // Interpolate camera position
+            this.camera.position.lerpVectors(startPos, new THREE.Vector3(overviewPosition.x, overviewPosition.y, overviewPosition.z), eased);
+            
+            // Interpolate look-at target
+            this.controls.target.lerpVectors(startTarget, new THREE.Vector3(overviewTarget.x, overviewTarget.y, overviewTarget.z), eased);
+            this.controls.update();
+
+            if (progress < 1) {
+                requestAnimationFrame(animateToOverview);
+            } else {
+                // Overview complete, wait for duration then callback
+                setTimeout(() => {
+                    GAME_STATE.isAnimating = false;
+                    if (callback) callback();
+                    console.log("Kamera-Übersicht beendet");
+                }, duration);
+            }
+        };
+
+        animateToOverview();
+    }
+
+    checkAllPlayersFinished() {
+        // Check if all teams have completed their turns for the current round
+        if (!localTeams || localTeams.length === 0) {
+            return false;
+        }
+
+        // Simple check: if game phase is ROUND_OVER, all players finished
+        if (currentGamePhase === 'ROUND_OVER') {
+            return true;
+        }
+
+        // Alternative check: if no team is currently active, might indicate round end
+        if (!GAME_STATE.currentServerTeamTurnId) {
+            return currentGamePhase === 'ROUND_OVER';
+        }
+
+        return false;
+    }
+
+    executeGameSequence() {
+        console.log("🎯 Starte Spielsequenz-Ausführung - Phase:", currentGamePhase, "Minigame:", currentMinigameName);
+        
+        // Check if minigame was just announced
+        if (currentMinigameName && currentGamePhase === 'MINIGAME_ANNOUNCED') {
+            console.log("📢 Zeige Minispiel-Ankündigung:", currentMinigameName);
+            this.showMinigameAnnouncement(currentMinigameName, currentMinigameDescription);
+            return;
+        }
+
+        // ====== SIMPLIFIED BANNER LOGIC (team_dashboard style) ======
+        // Debug info for banner logic
+        console.log("🔍 Banner Debug:", {
+            currentPhase: data.game_session.current_phase,
+            lastPhase: lastPhase,
+            hasShowMinigameResults: hasShowMinigameResults,
+            localTeamsLength: localTeams ? localTeams.length : 0,
+            teamsWithPlacements: localTeams ? localTeams.filter(team => team.minigame_placement).length : 0
+        });
+
+        // Check for minigame/question results using same logic as team_dashboard  
+        if (currentGamePhase === 'DICE_ROLLING' && lastPhase !== 'DICE_ROLLING' && !hasShowMinigameResults && localTeams) {
+            console.log("🏆 SIMPLE: Phase changed to DICE_ROLLING - showing minigame results");
+            
+            // Filter teams with placements (same as team_dashboard)
+            const teamsWithPlacements = localTeams.filter(team => team.minigame_placement);
+            
+            console.log("🔍 Teams with placements:", teamsWithPlacements.map(t => ({
+                name: t.name, 
+                placement: t.minigame_placement,
+                placementType: typeof t.minigame_placement
+            })));
+            
+            if (teamsWithPlacements.length > 0) {
+                console.log("🎯 SIMPLE: Showing minigame results for teams:", teamsWithPlacements.map(t => ({name: t.name, placement: t.minigame_placement})));
+                this.showMinigameResultsSimple(teamsWithPlacements);
+                hasShowMinigameResults = true;
+            } else {
+                console.log("❌ SIMPLE: No teams with placements found");
+            }
+        } else if (data.game_session.current_phase !== 'DICE_ROLLING') {
+            hasShowMinigameResults = false;
+        }
+        
+        // ====== ORIGINAL COMPLEX LOGIC (for comparison) ======
+        // Check if minigame results should be displayed
+        if (currentGamePhase === 'MINIGAME_RESULTS' && localTeams) {
+            console.log("🏆 Prüfe Minispiel-Ergebnisse Phase - Teams:", localTeams.map(t => ({id: t.id, name: t.name, placement: t.minigame_placement})));
+            
+            const results = localTeams.filter(team => team.minigame_placement !== null && team.minigame_placement !== undefined)
+                                   .map(team => ({
+                                       team_id: team.id,
+                                       team_name: team.name,
+                                       placement: team.minigame_placement
+                                   }));
+            
+            console.log("🎯 Gefilterte Minispiel-Ergebnisse:", results);
+            
+            if (results.length > 0) {
+                console.log("✅ Zeige Minispiel-Ergebnisse an");
+                this.showMinigameResults(results);
+                return;
+            } else {
+                console.log("⚠️ Keine Minispiel-Ergebnisse zu zeigen (keine Platzierungen gesetzt)");
+                console.log("🔍 Debug: Team placements details:", localTeams.map(t => ({
+                    id: t.id, 
+                    name: t.name, 
+                    placement: t.minigame_placement, 
+                    placementType: typeof t.minigame_placement
+                })));
+            }
+        } else {
+            console.log("🔍 Minigame results check failed:", {
+                currentGamePhase,
+                expectedPhase: 'MINIGAME_RESULTS',
+                hasLocalTeams: !!localTeams,
+                localTeamsLength: localTeams ? localTeams.length : 0
+            });
+        }
+
+        // Check if all players finished their turns - show overview
+        if (this.checkAllPlayersFinished()) {
+            this.setCameraOverview(3000, () => {
+                // Don't focus back on player when round is over - stay in overview
+                console.log("Round overview complete - staying in overview mode");
+            });
+            return;
+        }
+
+        console.log("Keine besonderen Sequenz-Aktionen erforderlich");
+    }
+
+    getCurrentTeam() {
+        if (localTeams && localTeams.length > 0 && GAME_STATE.currentServerTeamTurnId != null) {
+            return localTeams.find(t => t.id === GAME_STATE.currentServerTeamTurnId);
+        }
+        
+        if (localTeams && localTeams.length > 0 && GAME_STATE.diceRollOrderFromServer && GAME_STATE.diceRollOrderFromServer.length > 0) {
+            const firstTeamIdInOrder = parseInt(GAME_STATE.diceRollOrderFromServer[0]);
+            if (!isNaN(firstTeamIdInOrder)) {
+                return localTeams.find(t => t.id === firstTeamIdInOrder);
+            }
+        }
+        return null;
+    }
+
+    checkBarrierRelease(diceRoll, bonusRoll, totalRoll, barrierConfig) {
+        // Mirror the server-side logic for barrier release
+        if (!barrierConfig || !barrierConfig.numbers) {
+            return { released: false, method: null };
+        }
+        
+        // Check standard die
+        if (barrierConfig.numbers.includes(diceRoll)) {
+            return { released: true, method: 'standard' };
+        }
+        
+        // Check bonus die if available
+        if (bonusRoll > 0 && barrierConfig.numbers.includes(bonusRoll)) {
+            return { released: true, method: 'bonus' };
+        }
+        
+        // Check total roll
+        if (barrierConfig.numbers.includes(totalRoll)) {
+            return { released: true, method: 'total' };
+        }
+        
+        return { released: false, method: null };
+    }
+
+    updateTeamDisplay() {}
+    
+    updateMinigameDisplay() {
+        // Update any minigame-related UI elements
+        console.log(`Minigame Display Update - Name: ${currentMinigameName}, Phase: ${currentGamePhase}`);
+    }
+
+    async loadCharacterScript(jsPath) {
+        let rawFunctionName = jsPath.split('/').pop().replace(/\.js$/, '');
+        let functionName = rawFunctionName;
+
+        if (rawFunctionName === 'defaultCharacter') {
+            functionName = 'createDefaultCharacter';
+        } else if (!rawFunctionName.toLowerCase().startsWith('create')) {
+            functionName = 'create' + rawFunctionName.charAt(0).toUpperCase() + rawFunctionName.slice(1);
+        }
+
+        if (this.characterCreationFunctions[functionName]) {
+            return this.characterCreationFunctions[functionName];
+        }
+
+        const fallbackCreateFunction = window.createDefaultCharacter;
+        if (typeof fallbackCreateFunction !== 'function') {
+            console.error("FATAL: window.createDefaultCharacter ist nicht verfügbar!");
+            return () => new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 1, 0.5), 
+                new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true})
+            );
+        }
+
+        return new Promise((resolve) => {
+            if (!jsPath || jsPath.trim() === "") {
+                resolve(fallbackCreateFunction);
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = `{{ url_for('static', filename='') }}${jsPath}?v=${new Date().getTime()}`;
+
+            script.onload = () => {
+                if (typeof window[functionName] === 'function') {
+                    this.characterCreationFunctions[functionName] = window[functionName];
+                    resolve(window[functionName]);
+                } else {
+                    console.error(`Charakter-Funktion ${functionName} nicht gefunden. Verwende Default.`);
+                    resolve(fallbackCreateFunction);
+                }
+            };
+            
+            script.onerror = (e) => {
+                console.error(`Fehler beim Laden des Charakter-Skripts ${jsPath}:`, e);
+                resolve(fallbackCreateFunction);
+            };
+            
+            document.head.appendChild(script);
+        });
+    }
+
+    async createMiiCharacters() {
+        if (typeof window.createDefaultCharacter !== 'function') {
+            try {
+                await this.loadCharacterScript('js/characters/defaultCharacter.js');
+                if (typeof window.createDefaultCharacter !== 'function') {
+                    console.error('Konnte window.createDefaultCharacter nicht laden.');
+                    return;
+                }
+            } catch (e) {
+                console.error('Fehler beim Laden von defaultCharacter.js:', e);
+                return;
+            }
+        }
+
+        for (const team of localTeams) {
+            let createFunction;
+            let characterJsFile = "js/characters/defaultCharacter.js";
+
+            if (team.character_info && team.character_info.js_file && team.character_info.js_file.trim() !== "") {
+                characterJsFile = team.character_info.js_file;
+            }
+
+            try {
+                createFunction = await this.loadCharacterScript(characterJsFile);
+            } catch (error) {
+                console.error(`Fehler beim Laden des Skripts ${characterJsFile}:`, error);
+                createFunction = window.createDefaultCharacter;
+            }
+
+            if (typeof createFunction !== 'function') {
+                createFunction = window.createDefaultCharacter;
+            }
+
+            const characterMesh = createFunction(team.color || '#CCCCCC');
+            if (!characterMesh || typeof characterMesh.scale === 'undefined') {
+                this.miiCharacters[team.id] = window.createDefaultCharacter(team.color || '#CCCCCC');
+                if(this.miiCharacters[team.id]) {
+                    this.miiCharacters[team.id].scale.setScalar(BOARD_CONFIG.characterSize);
+                } else {
+                    continue;
+                }
+            } else {
+                this.miiCharacters[team.id] = characterMesh;
+                this.miiCharacters[team.id].scale.setScalar(BOARD_CONFIG.characterSize);
+            }
+
+            this.miiCharacters[team.id].castShadow = true;
+            this.miiCharacters[team.id].receiveShadow = true;
+            this.miiCharacters[team.id].traverse(node => {
+                if (node.isMesh) {
+                    node.castShadow = true;
+                    node.receiveShadow = true;
+                }
+            });
+
+            const startField = this.boardFields[team.position];
+            if (startField && startField.mesh) {
+                this.miiCharacters[team.id].position.copy(startField.mesh.position);
+                this.miiCharacters[team.id].position.y += BOARD_CONFIG.characterElevation;
+            } else {
+                this.miiCharacters[team.id].position.set(
+                    BOARD_CONFIG.spiralStartRadius + (Math.random()-0.5)*2, 
+                    islandSurfaceY + BOARD_CONFIG.characterElevation, 
+                    (Math.random()-0.5)*2
+                );
+            }
+            
+            if (team.is_blocked) {
+                this.addBlockedTeamEffect(this.miiCharacters[team.id]);
+            }
+            
+            this.scene.add(this.miiCharacters[team.id]);
+        }
+        
+        this.updateTeamDisplay();
+    }
+
+    addBlockedTeamEffect(characterMesh) {
+        const glowGeometry = new THREE.SphereGeometry(BOARD_CONFIG.characterSize * 1.5, 16, 16);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFF4444,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.BackSide
+        });
+        
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.userData.isBlockedEffect = true;
+        characterMesh.add(glow);
+        
+        glow.userData.animation = (time) => {
+            glow.material.opacity = 0.2 + Math.sin(time * 3) * 0.15;
+            glow.scale.setScalar(1 + Math.sin(time * 2) * 0.1);
+        };
+    }
+
+    removeBlockedTeamEffect(characterMesh) {
+        const blockedEffects = characterMesh.children.filter(child => 
+            child.userData && child.userData.isBlockedEffect
+        );
+        
+        blockedEffects.forEach(effect => {
+            characterMesh.remove(effect);
+            if (effect.geometry) effect.geometry.dispose();
+            if (effect.material) effect.material.dispose();
+        });
+    }
+
+    fetchBoardStatusAndUpdate() {
+        if (GAME_STATE.isCharacterMoving) {
+            return;
+        }
+
+        fetch("{{ url_for('main.board_status') }}?t=" + new Date().getTime())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errData => {
+                        throw new Error(errData.error || `Serverfehler: ${response.status}`);
+                    }).catch(() => {
+                        throw new Error(`Serverfehler: ${response.status} - ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error("Server-Fehler:", data.error);
+                    this.showStatusMessage(`Serverproblem: ${data.error}`, 4000, 'error', true, 'Server-Fehler');
+                    return;
+                }
+
+                if (data.game_session) {
+                    // Banner trigger logic (same as team_dashboard)
+                    
+                    // === SEQUENTIAL TURN SYSTEM ===
+                    
+                    // 1. Minigame System (separate from turn system) - QUEUE-BASIERT
+                    if (data.game_session.current_minigame_name && 
+                        data.game_session.current_minigame_name !== lastMinigameName && 
+                        lastMinigameName !== "") {
+                        console.log("🎮 New minigame detected, adding to queue:", data.game_session.current_minigame_name);
+                        this.addMinigameAnnouncementBanner(data.game_session.current_minigame_name, data.game_session.current_minigame_description);
+                    }
+                    
+                    // === MINIGAME RESULTS BANNER (queue-based with high priority) ===
+                    if (data.game_session.current_phase === 'DICE_ROLLING' && lastPhase !== 'DICE_ROLLING' && !hasShowMinigameResults) {
+                        console.log("🏆 Phase changed to DICE_ROLLING - adding minigame results to queue with HIGH priority");
+                        
+                        // Use server teams data (like team dashboard does) instead of localTeams
+                        const serverTeams = data.teams || [];
+                        
+                        // Debug: Check team placements from server
+                        console.log("🔍 DEBUG: Server teams check for minigame results:", serverTeams.map(t => ({
+                            name: t.name, 
+                            placement: t.minigame_placement,
+                            placementType: typeof t.minigame_placement,
+                            placementIsNull: t.minigame_placement === null,
+                            placementIsUndefined: t.minigame_placement === undefined
+                        })));
+                        
+                        // Filter teams with placements
+                        const teamsWithPlacements = serverTeams.filter(team => team.minigame_placement);
+                        
+                        if (teamsWithPlacements.length > 0 && !hasShownTurnDiceSequence) {
+                            console.log("✅ Showing minigame results IMMEDIATELY before turn system");
+                            hasShownTurnDiceSequence = true; // Prevent showing again
+                            
+                            
+                            // Show minigame results immediately, then show turn banner
+                            this.showMinigameResults(serverTeams);
+
+                            // Show turn banner immediately after minigame results
+                            setTimeout(() => {
+                                console.log("🔄 Showing turn banner after minigame results");
+                                const currentTeamId = data.game_session.current_team_turn_id;
+                                const currentTeam = localTeams.find(t => t.id === currentTeamId);
+                                
+                                if (currentTeam) {
+                                    
+                                    // Check for dice result and show it after turn banner
+                                    setTimeout(() => {
+                                        const diceResult = data.last_dice_result || window.pendingDiceResult;
+                                        console.log("🔍 DEBUG: Checking for dice result after turn banner:", {
+                                            hasDataDiceResult: !!data.last_dice_result,
+                                            hasPendingDiceResult: !!window.pendingDiceResult,
+                                            diceResult: diceResult,
+                                            currentTeamId: currentTeamId,
+                                            dataTimestamp: data.last_dice_result?.timestamp,
+                                            pendingTimestamp: window.pendingDiceResult?.timestamp,
+                                            currentTime: new Date().toLocaleTimeString()
+                                        });
+                                        
+                                        if (diceResult && diceResult.standard_roll !== undefined) {
+                                            console.log("🎲 Processing dice result after turn banner");
+                                            
+                                            // Clear pending dice result to prevent showing again
+                                            window.pendingDiceResult = null;
+                                            
+                                            // Focus camera and allow movement
+                                            setTimeout(() => {
+                                                console.log("🎯 Focusing camera and allowing movement");
+                                                this.focusCameraOnCurrentTeam(false);
+                                            }, 200);
+                                        } else {
+                                            // No dice result yet, just focus camera after turn banner
+                                            console.log("🎯 Focusing camera after turn banner (no dice yet)");
+                                            this.focusCameraOnCurrentTeam(false);
+                                        }
+                                    }, 3200); // After turn banner duration
+                                }
+                            }, 5200); // Right after minigame results banner
+                        }
+                        hasShowMinigameResults = true;
+                    } else if (data.game_session.current_phase !== 'DICE_ROLLING') {
+                        hasShowMinigameResults = false;
+                        hasShownTurnDiceSequence = false; // Reset for next minigame
+                        window.pendingDiceResult = null; // Clear old dice results
+                    }
+                    
+                    // 2. Round End System - DEAKTIVIERT! Wird über Turn Management gehandhabt
+                    // if (data.game_session.current_phase === 'ROUND_OVER' && lastPhase !== 'ROUND_OVER') {
+                    //     console.log("🏁 Round ended, showing round end banner");
+                    //     this.showRoundEndBanner();
+                    // }
+                    
+                    // 3. QUEUE-BASIERTES TURN SYSTEM - DEAKTIVIERT nach Minigame Results
+                    // WICHTIG: Wird jetzt direkt nach Minigame Results gehandhabt!
+                    // if (!GAME_STATE.isCharacterMoving && !GAME_STATE.isAnimating) {
+                    //     this.processQueueBasedTurnSystem(data);
+                    // }
+
+                    // Update tracking variables
+                    lastMinigameName = data.game_session.current_minigame_name || "";
+                    lastPhase = data.game_session.current_phase || "UNKNOWN";
+                    lastTeamTurnId = data.game_session.current_team_turn_id;
+                    
+                    // Update global state variables
+                    currentMinigameName = data.game_session.current_minigame_name;
+                    currentMinigameDescription = data.game_session.current_minigame_description;
+                    currentGamePhase = data.game_session.current_phase;
+                    
+                    // Update minigame folder name if provided by server
+                    if (data.game_session.minigame_folder_name) {
+                        window.currentMinigameFolderName = data.game_session.minigame_folder_name;
+                        console.log("📁 Minigame Folder aktualisiert:", data.game_session.minigame_folder_name);
+                    }
+
+                    this.updateMinigameDisplay();
+
+                    GAME_STATE.currentServerTeamTurnId = data.game_session.current_team_turn_id;
+                    
+                    if (typeof data.game_session.dice_roll_order === 'string' && data.game_session.dice_roll_order.length > 0) {
+                        GAME_STATE.diceRollOrderFromServer = data.game_session.dice_roll_order.split(',');
+                    } else if (Array.isArray(data.game_session.dice_roll_order)) {
+                        GAME_STATE.diceRollOrderFromServer = data.game_session.dice_roll_order;
+                    } else {
+                        GAME_STATE.diceRollOrderFromServer = [];
+                    }
+
+                    if (data.teams && Array.isArray(data.teams)) {
+                        let teamWhosePositionChanged = null;
+                        let newPositionForAnimation = 0;
+                        let oldPositionForAnimation = 0;
+
+                        data.teams.forEach(serverTeam => {
+                            const localTeam = localTeams.find(t => t.id === serverTeam.id);
+                            if (localTeam) {
+                                if (localTeam.position !== serverTeam.position &&
+                                    !GAME_STATE.isCharacterMoving &&
+                                    (!this.activeMovementAnimation || this.activeMovementAnimation.teamId !== localTeam.id)
+                                ) {
+                                    teamWhosePositionChanged = localTeam;
+                                    oldPositionForAnimation = localTeam.position;
+                                    newPositionForAnimation = serverTeam.position;
+                                }
+                                
+                                localTeam.position = serverTeam.position;
+                                localTeam.bonus_dice_sides = serverTeam.bonus_dice_sides;
+                                localTeam.minigame_placement = serverTeam.minigame_placement;
+                                
+                                const wasBlocked = localTeam.is_blocked;
+                                localTeam.is_blocked = serverTeam.is_blocked || false;
+                                localTeam.blocked_target_number = serverTeam.blocked_target_number || null;
+                                
+                                const character = this.miiCharacters[localTeam.id];
+                                if (character) {
+                                    if (!wasBlocked && localTeam.is_blocked) {
+                                        this.addBlockedTeamEffect(character);
+                                    } else if (wasBlocked && !localTeam.is_blocked) {
+                                        this.removeBlockedTeamEffect(character);
+                                    }
+                                }
+                            }
+                        });
+
+                        this.updateAllTeamBadges();
+
+                        if (teamWhosePositionChanged && this.miiCharacters[teamWhosePositionChanged.id]) {
+                            if (!GAME_STATE.isCharacterMoving) {
+                                this.activeMovementAnimation = { teamId: teamWhosePositionChanged.id };
+                                this.animateCharacterToNewPosition(teamWhosePositionChanged, oldPositionForAnimation, newPositionForAnimation);
+                            }
+                        }
+                    }
+
+                    // Process special field events (same as team_dashboard)
+                    if (data.special_field_event) {
+                        console.log("🎯 Special field event detected:", data.special_field_event);
+                        
+                        if (data.special_field_event.type === 'barrier_set') {
+                            this.showBarrierFieldBanner(data.special_field_event.target_config);
+                        } else if (data.special_field_event.type === 'barrier_released') {
+                            const message = `Du hast dich befreit! Würfel: ${data.special_field_event.dice_roll}`;
+                            this.showBarrierReleaseBanner(message);
+                        } else if (data.special_field_event.type === 'barrier_failed') {
+                            const message = `Noch blockiert! Würfel: ${data.special_field_event.dice_roll}`;
+                            this.showBarrierFailedBanner(message);
+                        }
+                    }
+
+                    // Track last dice result to prevent loops, but don't show banner here
+                    // (Banner will be shown in proper sequence after minigame results)
+                    if (data.last_dice_result && data.last_dice_result !== lastDiceResult) {
+                        console.log("🎲 Last dice result detected from admin:", data.last_dice_result);
+                        lastDiceResult = data.last_dice_result;
+                        
+                        // Store dice result for use in minigame sequence
+                        window.pendingDiceResult = data.last_dice_result;
+                    }
+
+                    this.updateTeamDisplay();
+                }
+            })
+            .catch(error => {
+                console.error("Fehler beim Board-Status:", error);
+                this.showStatusMessage(`Verbindungsproblem: ${error.message}`, 3000, "error", true, 'Verbindungsfehler');
+            });
+    }
+
+    updateAllTeamBadges() {}
+    updateTeamBadgeForTeam(teamId, position) {}
+
+    animateCharacterToNewPosition(team, oldPositionIndex, newPositionIndex) {
+        const mii = this.miiCharacters[team.id];
+        if (!mii) {
+            this.handleMovementCompletion(team, null, newPositionIndex);
+            return;
+        }
+        
+        if (oldPositionIndex === newPositionIndex) {
+            const targetField = this.boardFields[newPositionIndex];
+            if (targetField && targetField.mesh) {
+                mii.position.copy(targetField.mesh.position);
+                mii.position.y += BOARD_CONFIG.characterElevation;
+            }
+            this.handleMovementCompletion(team, mii, newPositionIndex);
+            return;
+        }
+
+        GAME_STATE.isCharacterMoving = true;
+        GAME_STATE.isAnimating = true;
+        
+        // Mark in turn sequence that movement started - no banners during movement!
+        turnSequenceState.isMoving = true;
+        console.log("🚫 Movement started - blocking banners for", team.name);
+        
+        // Start camera following during movement
+        this.startCameraFollow(mii);
+
+        const pointsToMove = [];
+        const startIdx = Math.min(this.boardFields.length - 1, Math.max(0, oldPositionIndex));
+        const endIdx = Math.min(this.boardFields.length - 1, Math.max(0, newPositionIndex));
+
+        if (startIdx < endIdx) {
+            for (let i = startIdx; i <= endIdx; i++) {
+                if (this.boardFields[i] && this.boardFields[i].mesh) {
+                    const fieldPos = this.boardFields[i].mesh.position.clone();
+                    fieldPos.y += BOARD_CONFIG.characterElevation;
+                    pointsToMove.push(fieldPos);
+                }
+            }
+        } else if (startIdx > endIdx) {
+            for (let i = startIdx; i >= endIdx; i--) {
+                if (this.boardFields[i] && this.boardFields[i].mesh) {
+                    const fieldPos = this.boardFields[i].mesh.position.clone();
+                    fieldPos.y += BOARD_CONFIG.characterElevation;
+                    pointsToMove.push(fieldPos);
+                }
+            }
+        } else {
+            this.handleMovementCompletion(team, mii, newPositionIndex);
+            return;
+        }
+
+        if (pointsToMove.length === 0) {
+            this.handleMovementCompletion(team, mii, newPositionIndex);
+            return;
+        }
+
+        let animationPath = [];
+        if (mii.position.distanceTo(pointsToMove[0]) > 0.1) {
+            animationPath.push(mii.position.clone());
+        }
+        animationPath = animationPath.concat(pointsToMove);
+
+        if (animationPath.length > 0) {
+            const onMovementComplete = () => {
+                this.handleMovementCompletion(team, mii, newPositionIndex);
+            };
+            this.animateCharacterAlongPath(mii, animationPath, onMovementComplete, Math.abs(endIdx - startIdx));
+        } else {
+            this.handleMovementCompletion(team, mii, newPositionIndex);
+        }
+    }
+
+    animateCharacterAlongPath(character, pathPoints, onComplete, steps) {
+        if (!character || pathPoints.length === 0) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        let currentPointIndex = 0;
+        const durationPerStep = 400;
+
+        const moveToNextPoint = () => {
+            if (currentPointIndex >= pathPoints.length - 1) {
+                if (onComplete) onComplete();
+                return;
+            }
+
+            const startPosition = character.position.clone();
+            const endPosition = pathPoints[currentPointIndex + 1];
+            
+            this.animateCharacterMove(character, endPosition, () => {
+                currentPointIndex++;
+                this.showFieldEffect(character.position, 0x66ff66, 400);
+                moveToNextPoint();
+            }, durationPerStep);
+        };
+
+        if (pathPoints.length > 1) {
+            moveToNextPoint();
+        } else {
+            if(onComplete) onComplete();
+        }
+    }
+
+    animateCharacterMove(character, targetPosition, callback, totalDuration = 300) {
+        GAME_STATE.isAnimating = true;
+        GAME_STATE.isCharacterMoving = true;
+        
+
+        const startPosition = character.position.clone();
+        const distance = startPosition.distanceTo(targetPosition);
+        const duration = Math.max(120, Math.min(totalDuration, distance * 60));
+        const startTime = Date.now();
+
+        const direction = new THREE.Vector3().subVectors(targetPosition, startPosition);
+        const startRotation = character.quaternion.clone();
+        const endRotation = new THREE.Quaternion();
+        
+        if (direction.lengthSq() > 0.0001) {
+            const angle = Math.atan2(direction.x, direction.z);
+            endRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+        } else {
+            endRotation.copy(startRotation);
+        }
+        
+        if (character.userData && character.userData.isFlyingCharacter) {
+            if(character.userData) character.userData.isMoving = true;
+        }
+
+        const animateMoveFrame = () => {
+            const currentTime = Date.now();
+            const progress = Math.min(1, (currentTime - startTime) / duration);
+            const easeProgress = this.easeInOutCubic(progress);
+
+            const currentLerpedPos = new THREE.Vector3().lerpVectors(startPosition, targetPosition, easeProgress);
+            
+            character.position.x = currentLerpedPos.x;
+            character.position.z = currentLerpedPos.z;
+
+            if (character.userData && character.userData.isFlyingCharacter) {
+                const flightAmplitude = 0.06;
+                const flightFrequency = 2;
+                const baseFlightY = THREE.MathUtils.lerp(startPosition.y, targetPosition.y, easeProgress);
+                character.position.y = baseFlightY + Math.sin(easeProgress * Math.PI * flightFrequency) * flightAmplitude;
+            } else {
+                const jumpHeight = distance < 0.3 ? 0.12 : 0.25;
+                const jumpOffset = Math.sin(easeProgress * Math.PI) * jumpHeight;
+                character.position.y = THREE.MathUtils.lerp(startPosition.y, targetPosition.y, easeProgress) + jumpOffset;
+            }
+            
+            character.quaternion.slerpQuaternions(startRotation, endRotation, easeProgress);
+
+            if (progress < 1) {
+                requestAnimationFrame(animateMoveFrame);
+            } else {
+                character.position.copy(targetPosition);
+                character.quaternion.copy(endRotation);
+                if (character.userData && character.userData.isFlyingCharacter) {
+                    if(character.userData) character.userData.isMoving = false;
+                }
+                if (callback) callback();
+            }
+        };
+        animateMoveFrame();
+    }
+
+    handleMovementCompletion(currentTeam, mii, finalPositionIndex) {
+        this.updateTeamBadgeForTeam(currentTeam.id, finalPositionIndex);
+
+        GAME_STATE.isCharacterMoving = false;
+        GAME_STATE.isAnimating = false;
+        this.activeMovementAnimation = null;
+        
+        // Movement completed - allow banners again and continue sequence
+        turnSequenceState.isMoving = false;
+        console.log("✅ Movement completed - allowing banners for", currentTeam.name, "at position", finalPositionIndex);
+        
+        
+        // Stop camera following after movement
+        this.stopCameraFollow();
+
+
+        // Spezielle Behandlung für Zielfeld
+        if (finalPositionIndex === this.boardFields.length - 1) {
+            setTimeout(() => {
+                this.triggerVictoryFireworks();
+                this.animateVictory(mii, currentTeam);
+            }, 2000);
+            // Victory ends the sequence
+            return;
+        }
+
+        // Continue game sequence
+        setTimeout(() => {
+            this.continueGameSequence(currentTeam);
+        }, 1000);
+
+        this.updateTeamDisplay();
+    }
+
+    continueGameSequence(completedTeam) {
+        // Status-Nachrichten für Spielphasen
+        if (currentGamePhase === 'ROUND_OVER') {
+            // All players finished - show overview then next minigame message
+            setTimeout(() => {
+                this.executeGameSequence(); // This will trigger camera overview
+                
+                setTimeout(() => {
+                    this.showStatusMessage("Alle Teams haben gewürfelt. Admin kann nächstes Minispiel setzen.", 3000, 'success', true, 'Runde beendet');
+                }, 3200); // After overview
+            }, 500);
+        } else if (GAME_STATE.currentServerTeamTurnId && currentGamePhase === 'DICE_ROLLING') {
+            // Only focus camera on next team if it's actively their turn to roll dice
+            const nextTeam = localTeams.find(t => t.id === GAME_STATE.currentServerTeamTurnId);
+            if (nextTeam) {
+                console.log("📹 Fokussiere Kamera auf nächsten Spieler:", nextTeam.name, "Phase:", currentGamePhase);
+                setTimeout(() => {
+                    // Focus camera on next player
+                    if (!GAME_STATE.freeCameraMode) {
+                        this.focusCameraOnCurrentTeam(false, () => {
+                            // Show next team message after camera focuses
+                            if (nextTeam.is_blocked) {
+                                this.showStatusMessage(`${nextTeam.name} ist am Zug (BLOCKIERT - muss ${nextTeam.blocked_target_number}+ würfeln).`, 3000, 'warning', true, 'Blockiertes Team am Zug');
+                            } else {
+                                this.showStatusMessage(`${nextTeam.name} ist am Zug.`, 2500, 'info', true, 'Team am Zug');
+                            }
+                        });
+                    } else {
+                        // If free camera mode, just show the message
+                        if (nextTeam.is_blocked) {
+                            this.showStatusMessage(`${nextTeam.name} ist am Zug (BLOCKIERT - muss ${nextTeam.blocked_target_number}+ würfeln).`, 3000, 'warning', true, 'Blockiertes Team am Zug');
+                        } else {
+                            this.showStatusMessage(`${nextTeam.name} ist am Zug.`, 2500, 'info', true, 'Team am Zug');
+                        }
+                    }
+                }, 1000); // Brief pause before switching to next player
+            }
+        } else {
+            console.log("🚫 Kein Kamera-Fokus: Phase =", currentGamePhase, "Team =", GAME_STATE.currentServerTeamTurnId);
+        }
+    }
+
+    showFieldEffect(position, color, duration = 800) {
+        const particleCount = 20;
+        const particlePositions = new Float32Array(particleCount * 3);
+        const effectBaseY = position.y + BOARD_CONFIG.fieldHeight / 2;
+
+        for (let i = 0; i < particleCount; i++) {
+            particlePositions[i * 3] = position.x;
+            particlePositions[i * 3 + 1] = effectBaseY;
+            particlePositions[i * 3 + 2] = position.z;
+        }
+        
+        const particleGeometry = new THREE.BufferGeometry();
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        
+        const particleMaterial = new THREE.PointsMaterial({ 
+            color: color, 
+            size: 0.12, 
+            transparent: true, 
+            opacity: 1 
+        });
+        
+        const particles = new THREE.Points(particleGeometry, particleMaterial);
+        this.scene.add(particles);
+        
+        let time = 0;
+        const animateEffect = () => {
+            time += 0.03;
+            if (time > 1) {
+                if (particles.parent) this.scene.remove(particles);
+                particleGeometry.dispose();
+                particleMaterial.dispose();
+                return;
+            }
+            
+            const currentPositions = particles.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                const angle = i / particleCount * Math.PI * 2 + time * 2;
+                const radius = time * 1.2;
+                currentPositions[i * 3] = position.x + Math.cos(angle) * radius;
+                currentPositions[i * 3 + 1] = effectBaseY + time * 0.8 + Math.sin(time * 4 + i) * 0.1;
+                currentPositions[i * 3 + 2] = position.z + Math.sin(angle) * radius;
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+            particleMaterial.opacity = Math.max(0, 1 - time);
+            requestAnimationFrame(animateEffect);
+        };
+        animateEffect();
+    }
+
+    prepareNextPlayerTurn(immediate = false) {
+        if (GAME_STATE.playerTurnInProgress) return;
+        GAME_STATE.playerTurnInProgress = true;
+        GAME_STATE.cameraMode = 'front';
+
+        this.focusCameraOnCurrentTeam(immediate, () => {
+            const currentMii = this.miiCharacters[this.getCurrentTeam()?.id];
+            if (currentMii) {
+                this.animateCharacterTurn(currentMii, this.camera.position, () => {
+                    GAME_STATE.playerTurnInProgress = false;
+                    GAME_STATE.isAnimating = false;
+                }, 600);
+            } else {
+                GAME_STATE.playerTurnInProgress = false;
+                GAME_STATE.isAnimating = false;
+            }
+        });
+    }
+
+    nextTeam() {
+        GAME_STATE.currentTeamIndex = (GAME_STATE.currentTeamIndex + 1) % localTeams.length;
+        this.updateTeamDisplay();
+        
+        // Check if all players finished their turns after updating team index
+        if (this.checkAllPlayersFinished()) {
+            // Trigger game sequence which will handle camera overview
+            setTimeout(() => {
+                this.executeGameSequence();
+            }, 500);
+        } else if (!GAME_STATE.freeCameraMode) {
+            this.prepareNextPlayerTurn(false);
+        }
+    }
+
+    focusCameraOnCurrentTeam(immediate = false, callback) {
+        if (GAME_STATE.freeCameraMode && !immediate) {
+            if(callback) callback();
+            return;
+        }
+        GAME_STATE.isAnimating = true;
+
+        const currentTeam = this.getCurrentTeam();
+        if (!currentTeam || !this.miiCharacters[currentTeam.id]) {
+            this.animateCameraToPosition(new THREE.Vector3(18, 16, 18), new THREE.Vector3(0, 6, 0), immediate ? 0 : 800, callback);
+            return;
+        }
+        
+        const character = this.miiCharacters[currentTeam.id];
+        const targetPosition = character.position.clone();
+        
+        let cameraPosition, lookAtPosition;
+        
+        if (GAME_STATE.cameraMode === 'front') {
+            const currentPositionIndex = currentTeam.position;
+            const offset = BOARD_CONFIG.cameraFrontOffset.clone();
+            
+            if (currentPositionIndex === 0) {
+                cameraPosition = new THREE.Vector3(
+                    targetPosition.x - 6, 
+                    targetPosition.y + offset.y + 1.5, 
+                    targetPosition.z - Math.abs(offset.z)
+                );
+                lookAtPosition = targetPosition.clone();
+                lookAtPosition.y += 1;
+            } else {
+                cameraPosition = targetPosition.clone().add(new THREE.Vector3(0, offset.y, Math.abs(offset.z)));
+                
+                if (currentPositionIndex > 0 && this.boardFields[currentPositionIndex - 1]) {
+                    const prevFieldPos = this.boardFields[currentPositionIndex - 1].mesh.position;
+                    const currentFieldPos = targetPosition.clone();
+                    
+                    const direction = new THREE.Vector3().subVectors(currentFieldPos, prevFieldPos);
+                    direction.y = 0;
+                    direction.normalize();
+                    
+                    const cameraDistance = Math.abs(offset.z);
+                    cameraPosition = prevFieldPos.clone().sub(direction.multiplyScalar(cameraDistance * 0.5));
+                    cameraPosition.y = Math.max(targetPosition.y + offset.y, prevFieldPos.y + offset.y);
+                    
+                    const directionToPlayer = new THREE.Vector3().subVectors(targetPosition, cameraPosition);
+                    directionToPlayer.normalize();
+                    
+                    this.raycaster.set(cameraPosition, directionToPlayer);
+                    const intersects = this.raycaster.intersectObject(this.mountainMesh, false);
+                    
+                    if (intersects.length > 0) {
+                        const hitDistance = intersects[0].distance;
+                        const targetDistance = cameraPosition.distanceTo(targetPosition);
+                        
+                        if (hitDistance < targetDistance * 0.8) {
+                            cameraPosition.y += 2;
+                            cameraPosition.sub(direction.multiplyScalar(1.2));
+                            
+                            this.raycaster.set(cameraPosition, directionToPlayer);
+                            const intersects2 = this.raycaster.intersectObject(this.mountainMesh, false);
+                            
+                            if (intersects2.length > 0 && intersects2[0].distance < cameraPosition.distanceTo(targetPosition) * 0.8) {
+                                cameraPosition = targetPosition.clone().add(new THREE.Vector3(3, offset.y + 1, 3));
+                            }
+                        }
+                    }
+                }
+                
+                lookAtPosition = targetPosition.clone();
+                lookAtPosition.y += 1;
+            }
+            
+        } else {
+            const offset = BOARD_CONFIG.cameraFollowOffset.clone();
+            const characterDirection = new THREE.Vector3();
+            character.getWorldDirection(characterDirection);
+            characterDirection.y = 0;
+            characterDirection.normalize();
+            
+            cameraPosition = targetPosition.clone().sub(characterDirection.multiplyScalar(offset.z));
+            cameraPosition.y = targetPosition.y + offset.y;
+            
+            lookAtPosition = targetPosition.clone();
+            lookAtPosition.y += 0.6;
+        }
+
+        this.animateCameraToPosition(cameraPosition, lookAtPosition, immediate ? 0 : 800, callback);
+    }
+
+    startCameraFollow(character) {
+        if (GAME_STATE.freeCameraMode) return;
+        GAME_STATE.cameraMode = 'follow';
+        this.isFollowingCharacter = true;
+        this.followTarget = character;
+        this.updateCameraFollow(true);
+    }
+
+    stopCameraFollow() {
+        this.isFollowingCharacter = false;
+        this.followTarget = null;
+    }
+
+    updateCameraFollow(immediate = false) {
+        if (!this.isFollowingCharacter || !this.followTarget || GAME_STATE.freeCameraMode || GAME_STATE.isAnimatingCamera) return;
+        
+        const character = this.followTarget;
+        const targetPosition = character.position.clone();
+        
+        const characterDirection = new THREE.Vector3();
+        character.getWorldDirection(characterDirection);
+        characterDirection.y = 0;
+        characterDirection.normalize();
+
+        const offset = BOARD_CONFIG.cameraFollowOffset.clone();
+        let cameraPosition = targetPosition.clone().sub(characterDirection.multiplyScalar(offset.z));
+        cameraPosition.y += offset.y;
+        
+        const lookAtPosition = targetPosition.clone();
+        lookAtPosition.y += 0.6;
+
+        this.raycaster.set(lookAtPosition, cameraPosition.clone().sub(lookAtPosition).normalize());
+        const intersects = this.raycaster.intersectObject(this.mountainMesh, false);
+        let minDistance = cameraPosition.distanceTo(lookAtPosition);
+
+        if (intersects.length > 0) {
+            if (intersects[0].distance < minDistance) {
+                minDistance = intersects[0].distance;
+                const newCamDir = cameraPosition.clone().sub(lookAtPosition).normalize();
+                cameraPosition = lookAtPosition.clone().add(newCamDir.multiplyScalar(Math.max(intersects[0].distance - 1, 3)));
+            }
+        }
+        
+        if (immediate) {
+            this.camera.position.copy(cameraPosition);
+            this.controls.target.copy(lookAtPosition);
+        } else {
+            this.camera.position.lerp(cameraPosition, 0.06);
+            this.controls.target.lerp(lookAtPosition, 0.06);
+        }
+        this.camera.lookAt(this.controls.target);
+    }
+
+    animateCameraToPosition(targetCamPos, targetLookAtPos, duration = 1000, callback) {
+        if (duration === 0) {
+            this.camera.position.copy(targetCamPos);
+            this.controls.target.copy(targetLookAtPos);
+            this.camera.lookAt(this.controls.target);
+            GAME_STATE.isAnimatingCamera = false;
+            if (callback) callback();
+            return;
+        }
+        
+        const startCamPos = this.camera.position.clone();
+        const startLookAt = this.controls.target.clone();
+        const startTime = Date.now();
+        GAME_STATE.isAnimatingCamera = true;
+
+        const animateCameraFrame = () => {
+            const currentTime = Date.now();
+            const progress = Math.min(1, (currentTime - startTime) / duration);
+            const easeProgress = this.easeInOutCubic(progress);
+
+            this.camera.position.lerpVectors(startCamPos, targetCamPos, easeProgress);
+            this.controls.target.lerpVectors(startLookAt, targetLookAtPos, easeProgress);
+            this.camera.lookAt(this.controls.target);
+
+            if (progress < 1) {
+                requestAnimationFrame(animateCameraFrame);
+            } else {
+                this.camera.position.copy(targetCamPos);
+                this.controls.target.copy(targetLookAtPos);
+                this.camera.lookAt(this.controls.target);
+                GAME_STATE.isAnimatingCamera = false;
+                if (callback) callback();
+            }
+        };
+        animateCameraFrame();
+    }
+
+    easeInOutCubic(t) { 
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
+    }
+
+    createDiceFaceTexture(number) {
+        const canvas = document.createElement('canvas');
+        const size = 256;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.5, '#f8f8f8');
+        gradient.addColorStop(1, '#eeeeee');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = size / 20;
+        ctx.strokeRect(ctx.lineWidth/2, ctx.lineWidth/2, size - ctx.lineWidth, size - ctx.lineWidth);
+
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = size / 32;
+        ctx.strokeRect(size/16, size/16, size - size/8, size - size/8);
+
+        ctx.fillStyle = '#2c2c2c';
+        const dotRadius = size / 12;
+        const padding = size / 4.5;
+
+        const positions = {
+            1: [[size / 2, size / 2]],
+            2: [[padding, padding], [size - padding, size - padding]],
+            3: [[padding, padding], [size / 2, size / 2], [size - padding, size - padding]],
+            4: [[padding, padding], [size - padding, padding], [padding, size - padding], [size - padding, size - padding]],
+            5: [[padding, padding], [size - padding, padding], [size / 2, size / 2], [padding, size - padding], [size - padding, size - padding]],
+            6: [[padding, padding], [size - padding, padding], [padding, size / 2], [size - padding, size / 2], [padding, size - padding], [size - padding, size - padding]],
+        };
+
+        if (positions[number]) {
+            positions[number].forEach(pos => {
+                ctx.fillStyle = '#1a1a1a';
+                ctx.beginPath();
+                ctx.arc(pos[0] + 2, pos[1] + 2, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                const dotGradient = ctx.createRadialGradient(
+                    pos[0] - dotRadius/3, pos[1] - dotRadius/3, 0, 
+                    pos[0], pos[1], dotRadius
+                );
+                dotGradient.addColorStop(0, '#444444');
+                dotGradient.addColorStop(0.7, '#2c2c2c');
+                dotGradient.addColorStop(1, '#1a1a1a');
+                
+                ctx.fillStyle = dotGradient;
+                ctx.beginPath();
+                ctx.arc(pos[0], pos[1], dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#666666';
+                ctx.beginPath();
+                ctx.arc(pos[0] - dotRadius/4, pos[1] - dotRadius/4, dotRadius/4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+    }
+
+    createInteractiveDice() {
+        const diceSize = 0.45;
+        const geometry = new THREE.BoxGeometry(diceSize, diceSize, diceSize);
+        
+        const materials = [];
+        for (let i = 1; i <= 6; i++) {
+            materials.push(new THREE.MeshPhongMaterial({ 
+                map: this.createDiceFaceTexture(i), 
+                shininess: 100,
+                specular: 0xffffff
+            }));
+        }
+        
+        const orderedMaterials = [
+            materials[0], materials[5], materials[1], 
+            materials[4], materials[2], materials[3]
+        ];
+        
+        this.interactiveDice = new THREE.Mesh(geometry, orderedMaterials);
+        this.interactiveDice.castShadow = true;
+        this.interactiveDice.receiveShadow = true;
+        this.interactiveDice.visible = false;
+        this.interactiveDice.userData.isDice = true;
+        this.scene.add(this.interactiveDice);
+        
+        this.createDiceResultNumber();
+    }
+
+    createDiceResultNumber() {
+        const numberGroup = new THREE.Group();
+        
+        const circleGeometry = new THREE.CircleGeometry(0.4, 24);
+        const circleMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFFD700,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide
+        });
+        const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+        numberGroup.add(circle);
+        
+        numberGroup.visible = false;
+        this.scene.add(numberGroup);
+        this.diceResultNumber = numberGroup;
+    }
+
+    animateCharacterTurn(character, targetLookAtPosition, callback, duration = 500) {
+        GAME_STATE.isAnimating = true;
+        const startRotation = character.quaternion.clone();
+        
+        const characterPos = character.position.clone();
+        const targetPos = targetLookAtPosition.clone();
+        targetPos.y = characterPos.y;
+        
+        const direction = new THREE.Vector3().subVectors(targetPos, characterPos);
+        direction.normalize();
+        
+        const endRotation = new THREE.Quaternion();
+        if (direction.lengthSq() > 0.0001) {
+            const angle = Math.atan2(direction.x, direction.z);
+            endRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+        } else {
+            endRotation.copy(startRotation);
+        }
+
+        const startTime = Date.now();
+        const animateTurnFrame = () => {
+            const currentTime = Date.now();
+            const progress = Math.min(1, (currentTime - startTime) / duration);
+            const easeProgress = this.easeInOutCubic(progress);
+            
+            character.quaternion.slerpQuaternions(startRotation, endRotation, easeProgress);
+
+            if (progress < 1) {
+                requestAnimationFrame(animateTurnFrame);
+            } else {
+                character.quaternion.copy(endRotation);
+                GAME_STATE.isAnimating = false;
+                if (callback) callback();
+            }
+        };
+        animateTurnFrame();
+    }
+
+    rollDice() {
+        if (GAME_STATE.isAnimating || GAME_STATE.isDiceRolling || GAME_STATE.isCharacterMoving || !this.interactiveDice) return;
+        
+        GAME_STATE.isAnimating = true;
+        GAME_STATE.isDiceRolling = true;
+
+        const currentTeam = this.getCurrentTeam();
+        if (!currentTeam) { 
+            GAME_STATE.isAnimating = false; 
+            GAME_STATE.isDiceRolling = false; 
+            return; 
+        }
+        
+        const mii = this.miiCharacters[currentTeam.id];
+        if (!mii) { 
+            GAME_STATE.isAnimating = false; 
+            GAME_STATE.isDiceRolling = false; 
+            return; 
+        }
+
+        this.interactiveDice.position.copy(mii.position).add(new THREE.Vector3(0, 1, 0));
+        this.interactiveDice.visible = true;
+        this.interactiveDice.rotation.set(
+            Math.random() * Math.PI, 
+            Math.random() * Math.PI, 
+            Math.random() * Math.PI
+        );
+
+        this.animateInteractiveDiceRoll((diceResult) => {
+            GAME_STATE.diceResult = diceResult;
+            
+            // Zeige Würfelergebnis direkt auf dem Spielfeld
+            this.showDiceResultOnField(mii.position, diceResult, currentTeam.bonus_dice_sides, currentTeam.name);
+            
+            // Zeige Würfelergebnis-Banner
+            const bonusRoll = currentTeam.bonus_dice_sides > 0 ? Math.floor(Math.random() * currentTeam.bonus_dice_sides) + 1 : 0;
+            const totalRoll = diceResult + bonusRoll;
+            this.showDiceResultBanner(diceResult, bonusRoll, totalRoll, currentTeam.name);
+            
+            // Warte 3.2 Sekunden bevor die Bewegung startet (sync mit Banner/Display)
+            setTimeout(() => {
+                this.interactiveDice.visible = false;
+
+                const currentPositionIndex = currentTeam.position;
+                let nextFieldIndex = Math.min(currentPositionIndex + 1, this.boardFields.length - 1);
+                if (currentPositionIndex === this.boardFields.length - 1) {
+                    nextFieldIndex = currentPositionIndex;
+                }
+                
+                const nextField = this.boardFields[nextFieldIndex];
+                let lookAtTargetPos = mii.position.clone().add(new THREE.Vector3(0, 0, 1));
+                if(nextField && nextField.mesh) {
+                    lookAtTargetPos = nextField.mesh.position.clone();
+                }
+
+                this.animateCharacterTurn(mii, lookAtTargetPos, () => {
+                    GAME_STATE.isDiceRolling = false;
+                    if (!GAME_STATE.freeCameraMode) {
+                        this.startCameraFollow(mii);
+                    }
+                    this.actuallyMoveCharacter(currentTeam, mii, diceResult, currentPositionIndex);
+                });
+            }, 3200);
+        });
+    }
+
+    showDiceResultOnField(position, standardRoll, bonusDiceSides, teamName = null) {
+        // Entferne vorherige Würfelergebnis-Anzeige
+        const existingResult = this.scene.getObjectByName('diceResultDisplay');
+        if (existingResult) this.scene.remove(existingResult);
+
+        const group = new THREE.Group();
+        group.name = 'diceResultDisplay';
+        
+        // Erstelle Hintergrund-Kreis
+        const circleGeometry = new THREE.CircleGeometry(0.8, 24);
+        const circleMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFFD700,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide
+        });
+        const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+        circle.rotation.x = -Math.PI / 2;
+        group.add(circle);
+
+        // Erstelle Zahlen-Text (simuliert mit Geometrie)
+        const numberGeometry = new THREE.RingGeometry(0.3, 0.5, 8);
+        const numberMaterial = new THREE.MeshBasicMaterial({
+            color: 0x1a237e,
+            transparent: true,
+            opacity: 0.8
+        });
+        const numberDisplay = new THREE.Mesh(numberGeometry, numberMaterial);
+        numberDisplay.rotation.x = -Math.PI / 2;
+        numberDisplay.position.y = 0.02;
+        group.add(numberDisplay);
+
+        // Positioniere über dem Character
+        group.position.copy(position);
+        group.position.y += 2.5;
+        
+        this.scene.add(group);
+
+        // Berechne Bonus-Würfel und Gesamtergebnis
+        const bonusRoll = bonusDiceSides > 0 ? Math.floor(Math.random() * bonusDiceSides) + 1 : 0;
+        const totalRoll = standardRoll + bonusRoll;
+        
+        // Zeige Würfelergebnis als Banner
+        const teamPrefix = teamName ? `${teamName} würfelt: ` : 'Würfelergebnis: ';
+        let diceMessage = `${teamPrefix}${standardRoll}`;
+        if (bonusRoll > 0) {
+            diceMessage += ` + ${bonusRoll} (Bonus) = ${totalRoll} Felder`;
+        } else {
+            diceMessage += ` Felder`;
+        }
+        
+        // Prüfe ob es ein Befreiungsversuch ist
+        const currentTeam = this.getCurrentTeam();
+        if (currentTeam && currentTeam.is_blocked) {
+            // Note: The actual barrier check logic is done server-side which considers
+            // both individual dice and the total. This is just a preview.
+            const requiredNumber = currentTeam.blocked_target_number || 4;
+            let requirementText = `benötigt ${requiredNumber}+`;
+            let barrierConfig = null;
+            
+            // Try to get more detailed requirement from blocked_config if available
+            if (currentTeam.blocked_config) {
+                try {
+                    barrierConfig = JSON.parse(currentTeam.blocked_config);
+                    if (barrierConfig.display_text) {
+                        requirementText = barrierConfig.display_text;
+                    }
+                } catch (e) {
+                    // Fallback to simple requirement
+                }
+            }
+            
+            // Check barrier release with the same logic as server-side
+            const canBeFreed = this.checkBarrierRelease(standardRoll, bonusRoll, totalRoll, barrierConfig || {numbers: Array.from({length: 7-requiredNumber}, (_, i) => i + requiredNumber)});
+            
+            if (canBeFreed.released) {
+                let freeMethod = '';
+                if (canBeFreed.method === 'standard') {
+                    freeMethod = ' (Standard-Würfel befreit!)';
+                } else if (canBeFreed.method === 'bonus') {
+                    freeMethod = ' (Bonus-Würfel befreit!)';
+                } else if (canBeFreed.method === 'total') {
+                    freeMethod = ' (Gesamtwurf befreit!)';
+                }
+                diceMessage += freeMethod;
+                this.showBarrierReleaseBanner(diceMessage);
+            } else {
+                diceMessage += ` - ${requirementText}`;
+                this.showBarrierFailedBanner(diceMessage);
+            }
+        } else {
+            // Use dedicated dice result banner for normal dice rolls
+            this.showDiceResultBanner(standardRoll, bonusRoll, totalRoll, teamName);
+        }
+        
+        // Also show the dice result overlay for better visibility
+        // Note: bonusRoll and totalRoll are already calculated above
+        console.log("🎲 Zeige Dice Result Display:", {standard: standardRoll, bonus: bonusRoll, total: totalRoll});
+        this.showDiceResult(standardRoll, bonusRoll, totalRoll, 3000); // Increased to 3 seconds
+
+        // Animation der 3D-Anzeige
+        let time = 0;
+        const animateDiceResult = () => {
+            time += 0.02;
+            if (time > 1) {
+                this.scene.remove(group);
+                return;
+            }
+            
+            // Pulsing Animation
+            const scale = 1 + Math.sin(time * Math.PI * 4) * 0.1;
+            group.scale.setScalar(scale);
+            
+            // Fade out
+            if (time > 0.7) {
+                const fadeProgress = (time - 0.7) / 0.3;
+                circle.material.opacity = 0.9 * (1 - fadeProgress);
+                numberDisplay.material.opacity = 0.8 * (1 - fadeProgress);
+            }
+            
+            requestAnimationFrame(animateDiceResult);
+        };
+        animateDiceResult();
+    }
+
+    showFieldTypeAnnouncement(fieldType, position, teamName) {
+        const fieldConfig = BOARD_CONFIG.fieldTypes[fieldType] || BOARD_CONFIG.fieldTypes.normal;
+        
+        // Bestimme Nachricht basierend auf Feldtyp
+        let title = fieldConfig.name || fieldType;
+        let description = "";
+        let icon = fieldConfig.icon || "⬜";
+        let bannerColor = "#4FC3F7"; // Standard-Blau
+        let bannerType = "info"; // Für das bestehende Banner-System
+        
+        // Spezielle Nachrichten für verschiedene Feldtypen mit detaillierten Informationen
+        switch(fieldType) {
+            case 'start':
+                title = "Startfeld";
+                description = `${teamName} ist am Startfeld angekommen!`;
+                icon = "🏁";
+                bannerColor = "#4FC3F7";
+                bannerType = "info";
+                break;
+            case 'goal':
+                title = "ZIEL ERREICHT!";
+                description = `🎉 ${teamName} hat das Spiel gewonnen! 🎉`;
+                icon = "🎯";
+                bannerColor = "#FFD700";
+                bannerType = "success";
+                break;
+            case 'normal':
+                title = "Normales Feld";
+                description = `${teamName} ist auf einem ruhigen Feld gelandet. Nichts Besonderes passiert.`;
+                icon = "⬜";
+                bannerColor = "#81C784";
+                bannerType = "info";
+                break;
+            case 'bonus':
+                title = "Bonusfeld!";
+                description = `${teamName} hat ein Bonusfeld erreicht! Du erhältst einen Vorteil für den nächsten Zug oder bekommst einen Extrawurf.`;
+                icon = "⭐";
+                bannerColor = "#FFD54F";
+                bannerType = "success";
+                break;
+            case 'minigame':
+                title = "Minispiel-Feld";
+                description = `${teamName} ist auf einem Minispiel-Feld gelandet! Bereite dich auf eine Herausforderung vor.`;
+                icon = "🎮";
+                bannerColor = "#BA68C8";
+                bannerType = "special";
+                break;
+            case 'chance':
+                title = "Ereignisfeld";
+                description = `${teamName} hat ein Ereignisfeld erreicht! Ein zufälliges Ereignis wird ausgelöst - das kann gut oder schlecht sein.`;
+                icon = "🎲";
+                bannerColor = "#AED581";
+                bannerType = "special";
+                break;
+            case 'trap':
+                title = "Falle!";
+                description = `${teamName} ist in eine Falle geraten! Du verlierst möglicherweise deinen nächsten Zug oder wirst zurückgesetzt.`;
+                icon = "⚠️";
+                bannerColor = "#E57373";
+                bannerType = "error";
+                break;
+            case 'catapult_forward':
+                title = "Katapult Vorwärts!";
+                description = `${teamName} wurde von einem Katapult erfasst! Du wirst 3-5 Felder nach vorne geschleudert.`;
+                icon = "🚀";
+                bannerColor = "#4CAF50";
+                bannerType = "success";
+                break;
+            case 'catapult_backward':
+                title = "Katapult Rückwärts!";
+                description = `${teamName} wurde von einem Katapult erfasst! Du wirst 2-4 Felder zurück geschleudert.`;
+                icon = "💥";
+                bannerColor = "#F44336";
+                bannerType = "error";
+                break;
+            case 'player_swap':
+                title = "Spieler-Tausch!";
+                description = `${teamName} aktiviert einen Positionstausch! Du tauschst deine Position mit einem anderen zufällig ausgewählten Team.`;
+                icon = "🔄";
+                bannerColor = "#2196F3";
+                bannerType = "special";
+                break;
+            case 'barrier':
+                title = "Sperrfeld!";
+                description = `${teamName} ist auf einem Sperrfeld gelandet! Du bist blockiert und musst die konfigurierte Anforderung erfüllen, um dich zu befreien.`;
+                icon = "🚧";
+                bannerColor = "#9E9E9E";
+                bannerType = "warning";
+                break;
+            default:
+                title = fieldConfig.name || "Unbekanntes Feld";
+                description = `${teamName} betritt ${title}.`;
+                bannerType = "info";
+                break;
+        }
+
+        // Zeige das Feld-Ankündigungs-Banner mit dem neuen Banner-System
+        if (bannerType === "warning") {
+            this.showBarrierFieldBanner(targetConfig);
+        } else {
+            this.showInfoBanner(title, description, "");
+        }
+    }
+
+    showFieldAnnouncementBanner(title, description, icon, color) {
+        const display = document.getElementById('special-field-display');
+        const iconEl = document.getElementById('special-field-icon');
+        const titleEl = document.getElementById('special-field-title');
+        const descEl = document.getElementById('special-field-description');
+        
+        if (!display || !iconEl || !titleEl || !descEl) return;
+        
+        // Setze Inhalt
+        iconEl.textContent = icon;
+        titleEl.textContent = title;
+        descEl.textContent = description;
+        
+        // Setze Farbe basierend auf Feldtyp
+        const colorValue = parseInt(color.replace('#', '0x'));
+        const r = (colorValue >> 16) & 255;
+        const g = (colorValue >> 8) & 255;
+        const b = colorValue & 255;
+        
+        display.style.background = `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.98), rgba(${Math.floor(r*0.8)}, ${Math.floor(g*0.8)}, ${Math.floor(b*0.8)}, 0.95))`;
+        
+        display.style.display = 'flex';
+        display.classList.add('show');
+        
+        // Banner nach 3 Sekunden automatisch ausblenden
+        setTimeout(() => {
+            display.classList.remove('show');
+            setTimeout(() => {
+                display.style.display = 'none';
+            }, 500);
+        }, 3000);
+    }
+
+    showDiceResult(standard, bonus, total, autoHideDuration = 2500) {
+        console.log("🎯 showDiceResult aufgerufen:", {standard, bonus, total, autoHideDuration});
+        
+        const display = document.getElementById('dice-result-display');
+        const standardEl = document.getElementById('dice-result-standard')?.querySelector('span');
+        const bonusElGroup = document.getElementById('dice-result-bonus');
+        const bonusEl = bonusElGroup?.querySelector('span');
+        const totalEl = display?.querySelector('.dice-result-number');
+
+        if (display && standardEl && bonusElGroup && bonusEl && totalEl) {
+            console.log("✅ Alle Dice Result Elemente gefunden, zeige Display an");
+            
+            standardEl.textContent = standard;
+            if (bonus > 0) {
+                bonusEl.textContent = bonus;
+                bonusElGroup.style.display = 'block';
+                console.log("💰 Bonus-Würfel angezeigt:", bonus);
+            } else {
+                bonusElGroup.style.display = 'none';
+            }
+            totalEl.textContent = total;
+            display.style.display = 'flex';
+            display.classList.add('show');
+            
+            // Auto-hide after specified duration
+            if (autoHideDuration > 0) {
+                setTimeout(() => {
+                    console.log("⏰ Auto-hide Dice Result nach", autoHideDuration, "ms");
+                    this.hideDiceResult();
+                }, autoHideDuration);
+            }
+        } else {
+            console.error("❌ Dice Result Display Elemente nicht gefunden:", {
+                display: !!display,
+                standardEl: !!standardEl,
+                bonusElGroup: !!bonusElGroup,
+                bonusEl: !!bonusEl,
+                totalEl: !!totalEl
+            });
+        }
+    }
+
+    hideDiceResult() {
+        const display = document.getElementById('dice-result-display');
+        if (display) {
+            display.classList.remove('show');
+            setTimeout(() => {
+                display.style.display = 'none';
+            }, 300);
+        }
+    }
+
+    animateInteractiveDiceRoll(callback) {
+        const rollAnimationDuration = 1400;
+        const settleDuration = 300;
+        const startTime = Date.now();
+        
+        const diceStartPos = this.interactiveDice.position.clone();
+        const jumpHeight = 0.25;
+        
+        const initialAngularVelocity = {
+            x: (Math.random() - 0.5) * 0.25,
+            y: (Math.random() - 0.5) * 0.25,
+            z: (Math.random() - 0.5) * 0.25
+        };
+
+        const targetRotations = {
+            1: new THREE.Euler(0, 0, -Math.PI / 2),
+            2: new THREE.Euler(0, 0, 0),
+            3: new THREE.Euler(Math.PI / 2, 0, 0),
+            4: new THREE.Euler(-Math.PI / 2, 0, 0),
+            5: new THREE.Euler(Math.PI, 0, 0),
+            6: new THREE.Euler(0, 0, Math.PI / 2)
+        };
+        
+        const finalDiceResult = Math.floor(Math.random() * 6) + 1;
+        const finalRotation = targetRotations[finalDiceResult];
+        
+        const toCameraVector = new THREE.Vector3().subVectors(this.camera.position, this.interactiveDice.position);
+        toCameraVector.y = 0;
+        toCameraVector.normalize();
+        const angleToCamera = Math.atan2(toCameraVector.x, toCameraVector.z);
+        
+        const finalQuaternion = new THREE.Quaternion();
+        const euler = new THREE.Euler(finalRotation.x, angleToCamera, finalRotation.z);
+        finalQuaternion.setFromEuler(euler);
+
+        let bounceCount = 0;
+        let lastBounceTime = startTime;
+        
+        const animateDiceFrame = () => {
+            const currentTime = Date.now();
+            const elapsedTime = currentTime - startTime;
+            
+            if (elapsedTime < rollAnimationDuration) {
+                const rollProgress = elapsedTime / rollAnimationDuration;
+                const rollSpeed = Math.max(0.1, 1 - rollProgress * 0.7);
+                
+                const dampening = Math.pow(rollSpeed, 1.2);
+                this.interactiveDice.rotation.x += initialAngularVelocity.x * dampening;
+                this.interactiveDice.rotation.y += initialAngularVelocity.y * dampening;
+                this.interactiveDice.rotation.z += initialAngularVelocity.z * dampening;
+
+                const timeSinceLastBounce = currentTime - lastBounceTime;
+                const bounceInterval = 250 - (bounceCount * 30);
+                
+                if (timeSinceLastBounce > bounceInterval && bounceCount < 3) {
+                    bounceCount++;
+                    lastBounceTime = currentTime;
+                }
+                
+                const bounceProgress = (timeSinceLastBounce % bounceInterval) / bounceInterval;
+                const currentBounceHeight = jumpHeight * Math.max(0.3, 1 - (bounceCount * 0.2));
+                const bounceY = Math.sin(bounceProgress * Math.PI) * currentBounceHeight;
+                
+                this.interactiveDice.position.y = diceStartPos.y + bounceY;
+
+                requestAnimationFrame(animateDiceFrame);
+            } else {
+                const settleStartTime = startTime + rollAnimationDuration;
+                const settleElapsedTime = currentTime - settleStartTime;
+                const settleProgress = Math.min(1, settleElapsedTime / settleDuration);
+                
+                const landingCurve = 1 - Math.pow(1 - settleProgress, 2.5);
+                this.interactiveDice.position.y = diceStartPos.y + (jumpHeight * 0.08) * (1 - landingCurve);
+                
+                const rotationProgress = this.easeInOutCubic(settleProgress);
+                THREE.Quaternion.slerp(
+                    this.interactiveDice.quaternion, 
+                    finalQuaternion, 
+                    this.interactiveDice.quaternion, 
+                    rotationProgress * 0.12
+                );
+
+                if (settleProgress < 1) {
+                    requestAnimationFrame(animateDiceFrame);
+                } else {
+                    this.interactiveDice.quaternion.copy(finalQuaternion);
+                    this.interactiveDice.position.y = diceStartPos.y;
+                    if (callback) callback(finalDiceResult);
+                }
+            }
+        };
+        animateDiceFrame();
+    }
+
+    actuallyMoveCharacter(currentTeam, mii, diceRoll, startPositionIndex) {
+        GAME_STATE.isCharacterMoving = true;
+        GAME_STATE.isAnimating = true;
+
+        const endPositionIndex = Math.min(startPositionIndex + diceRoll, this.boardFields.length - 1);
+                
+        const pathPositions = [];
+        if (startPositionIndex < endPositionIndex) {
+            for (let i = startPositionIndex; i <= endPositionIndex; i++) {
+                if (this.boardFields[i] && this.boardFields[i].mesh) {
+                    const fieldBaseY = this.boardFields[i].mesh.position.y;
+                    const characterY = fieldBaseY + BOARD_CONFIG.characterElevation;
+                    pathPositions.push(new THREE.Vector3(
+                        this.boardFields[i].mesh.position.x, 
+                        characterY, 
+                        this.boardFields[i].mesh.position.z
+                    ));
+                }
+            }
+        } else {
+            this.handleMovementCompletion(currentTeam, mii, endPositionIndex);
+            return;
+        }
+
+        if (pathPositions.length <= 1 && startPositionIndex === endPositionIndex) {
+            this.handleMovementCompletion(currentTeam, mii, endPositionIndex);
+            return;
+        }
+        
+        if (pathPositions.length >= 2) {
+            this.activeCharacterPath = new THREE.CatmullRomCurve3(pathPositions, false, 'catmullrom', 0.5);
+            this.animateCharacterAlongPath(mii, pathPositions, () => {
+                this.handleMovementCompletion(currentTeam, mii, endPositionIndex);
+            });
+        } else if (pathPositions.length === 1 && startPositionIndex < endPositionIndex) {
+            this.animateCharacterMove(mii, pathPositions[0], () => {
+                this.handleMovementCompletion(currentTeam, mii, endPositionIndex);
+            }, 300);
+        } else {
+            this.handleMovementCompletion(currentTeam, mii, endPositionIndex);
+        }
+    }
+
+    triggerVictoryFireworks() {
+        this.showVictoryEffect();
+    }
+
+    animateVictory(character, team) {
+        GAME_STATE.isAnimating = true;
+        const startPosition = character.position.clone();
+        let jumpCount = 0;
+        
+        const celebrateJump = () => {
+            const jumpDuration = 300;
+            const jumpStartTime = Date.now();
+            const jumpHeight = 0.5;
+            
+            const animateSingleJump = () => {
+                const jumpTime = Date.now() - jumpStartTime;
+                const jumpProgress = Math.min(1, jumpTime / jumpDuration);
+                character.position.y = startPosition.y + Math.sin(jumpProgress * Math.PI) * jumpHeight;
+                character.rotation.y += 0.12;
+                
+                if (jumpProgress < 1) {
+                    requestAnimationFrame(animateSingleJump);
+                } else {
+                    jumpCount++;
+                    if (jumpCount < 4) {
+                        setTimeout(celebrateJump, 60);
+                    } else {
+                        character.position.y = startPosition.y;
+                    }
+                }
+            };
+            animateSingleJump();
+        };
+        celebrateJump();
+    }
+
+    showVictoryEffect() {
+        const colors = [0xFF0066, 0x00FF66, 0x0066FF, 0xFFFF00, 0xFF00FF, 0x00FFFF];
+        
+        for (let i = 0; i < 4; i++) {
+            setTimeout(() => {
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const baseEffectY = islandSurfaceY + BOARD_CONFIG.mountainHeight + 3;
+                const pos = new THREE.Vector3(
+                    (Math.random() - 0.5) * 6, 
+                    baseEffectY + Math.random() * 3, 
+                    (Math.random() - 0.5) * 6
+                );
+                
+                const particleCount = 30;
+                const fireworkPositions = new Float32Array(particleCount * 3);
+                
+                for (let j = 0; j < particleCount; j++) {
+                    fireworkPositions[j * 3] = pos.x;
+                    fireworkPositions[j * 3 + 1] = pos.y;
+                    fireworkPositions[j * 3 + 2] = pos.z;
+                }
+                
+                const fireworkGeometry = new THREE.BufferGeometry();
+                fireworkGeometry.setAttribute('position', new THREE.BufferAttribute(fireworkPositions, 3));
+                
+                const fireworkMaterial = new THREE.PointsMaterial({ 
+                    color: color, 
+                    size: 0.2, 
+                    transparent: true, 
+                    opacity: 1 
+                });
+                
+                const fireworks = new THREE.Points(fireworkGeometry, fireworkMaterial);
+                this.scene.add(fireworks);
+                
+                let time = 0;
+                const animateFirework = () => {
+                    time += 0.03;
+                    if (time > 1.5) {
+                        if(fireworks.parent) this.scene.remove(fireworks);
+                        fireworkGeometry.dispose();
+                        fireworkMaterial.dispose();
+                        return;
+                    }
+                    
+                    const currentPositions = fireworks.geometry.attributes.position.array;
+                    for (let j = 0; j < particleCount; j++) {
+                        const angle1 = Math.random() * Math.PI * 2;
+                        const angle2 = Math.random() * Math.PI;
+                        const speed = 0.06 + Math.random() * 0.06;
+                        
+                        currentPositions[j * 3] += Math.sin(angle2) * Math.cos(angle1) * speed;
+                        currentPositions[j * 3 + 1] += Math.cos(angle2) * speed - 0.01;
+                        currentPositions[j * 3 + 2] += Math.sin(angle2) * Math.sin(angle1) * speed;
+                    }
+                    fireworks.geometry.attributes.position.needsUpdate = true;
+                    fireworkMaterial.opacity = Math.max(0, 1 - (time / 1.5));
+                    requestAnimationFrame(animateFirework);
+                };
+                animateFirework();
+            }, i * 200);
+        }
+    }
+
+    updateCanvasSize() {
+        const container = document.getElementById('game-canvas-container');
+        if (!container) return;
+        
+        let width, height;
+        
+        const isInFullscreen = document.fullscreenElement === container ||
+                              document.webkitFullscreenElement === container ||
+                              document.mozFullScreenElement === container;
+        
+        if (isInFullscreen) {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            GAME_STATE.isFullscreen = true;
+        } else {
+            // Respektiere die CSS-Zentrierung - verwende die festen Container-Dimensionen
+            width = 800;
+            height = 600;
+            GAME_STATE.isFullscreen = false;
+        }
+        
+        // Setze nur die Renderer-Größe, nicht die Container-Größe (CSS bleibt intakt)
+        this.renderer.setSize(width, height, false);
+        
+        if (this.camera) {
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix();
+        }
+    }
+
+    toggleFullscreen() {
+        const container = document.getElementById('game-canvas-container');
+        
+        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
+            if (container && container.requestFullscreen) {
+                container.requestFullscreen().then(() => {
+                    setTimeout(() => this.updateCanvasSize(), 200);
+                }).catch(err => {
+                    this.showStatusMessage(`Fehler Vollbild: ${err.message}`, 4000, 'error');
+                });
+            } else if (container && container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+                setTimeout(() => this.updateCanvasSize(), 200);
+            } else if (container && container.mozRequestFullScreen) {
+                container.mozRequestFullScreen();
+                setTimeout(() => this.updateCanvasSize(), 200);
+            } else {
+                this.showStatusMessage('Vollbild wird nicht unterstützt', 4000, 'error');
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            }
+        }
+    }
+
+    updateCharacterAnimations(time) {
+        Object.values(this.miiCharacters).forEach(characterModel => {
+            if (characterModel.userData && characterModel.userData.animation) {
+                characterModel.userData.animation(time);
+            }
+            
+            characterModel.children.forEach(child => {
+                if (child.userData && child.userData.isBlockedEffect && child.userData.animation) {
+                    child.userData.animation(time);
+                }
+            });
+        });
+        
+        this.boardFields.forEach(field => {
+            if (field.mesh.userData.animation) {
+                field.mesh.userData.animation(time);
+            }
+        });
+    }
+
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        const time = Date.now() * 0.001;
+
+        if (this.water && this.water.userData.animation) {
+            this.water.userData.animation(time);
+        }
+        
+        if (this.clouds) {
+            this.clouds.forEach(cloudData => {
+                const cloud = cloudData.mesh;
+                cloud.position.x += cloudData.speed * cloudData.direction * (GAME_STATE.freeCameraMode ? 0.3 : 1);
+                cloud.position.y = cloudData.baseY + Math.sin(time * 0.15 + cloudData.speed * 6) * 1.2;
+                
+                if (cloud.position.x > 80 && cloudData.direction === 1) cloud.position.x = -80;
+                if (cloud.position.x < -80 && cloudData.direction === -1) cloud.position.x = 80;
+            });
+        }
+
+        if (!GAME_STATE.freeCameraMode && this.isFollowingCharacter && !GAME_STATE.isAnimatingCamera) {
+            this.updateCameraFollow();
+        }
+        
+        if (GAME_STATE.freeCameraMode) {
+            this.controls.update();
+        }
+        
+        this.updateCharacterAnimations(time);
+        this.renderer.render(this.scene, this.camera);
+    }
+}
+
+// SONDERFELD-AKTIONEN HANDLER
+let previousSpecialFieldResponse = null;
+
+function handleSpecialFieldResponse(data) {
+    if (!data || !data.special_field) return;
+    
+    const specialField = data.special_field;
+    if (!specialField.success) return;
+    
+    console.log('Sonderfeld-Aktion erkannt:', specialField.action, specialField);
+    
+    switch(specialField.action) {
+        case 'catapult_forward':
+            showSpecialFieldEffect(
+                'catapult_forward',
+                'Katapult Vorwärts!',
+                `${data.team_name} fliegt ${specialField.catapult_distance} Felder vorwärts!`,
+                5000
+            );
+            break;
+        case 'catapult_backward':
+            showSpecialFieldEffect(
+                'catapult_backward',
+                'Katapult Rückwärts!',
+                `${data.team_name} wird ${specialField.catapult_distance} Felder zurück geschleudert!`,
+                5000
+            );
+            break;
+        case 'player_swap':
+            showSpecialFieldEffect(
+                'player_swap',
+                'Positionstausch!',
+                `${data.team_name} tauscht mit ${specialField.swap_team_name}!`,
+                5000
+            );
+            break;
+        case 'barrier_set':
+            showSpecialFieldEffect(
+                'barrier_set',
+                'Blockiert!',
+                `${data.team_name} muss eine ${specialField.target_number} oder höher würfeln!`,
+                6000
+            );
+            break;
+    }
+    
+    if (specialField.message) {
+        setTimeout(() => {
+            window.gameBoard.showStatusMessage(specialField.message, 3000, 'special', true, 'Besonderes Feld');
+        }, 2000);
+    }
+}
+
+function handleBarrierCheckResponse(data) {
+    if (!data || !data.barrier_check) return;
+    
+    const barrierCheck = data.barrier_check;
+    console.log('Sperren-Check erkannt:', barrierCheck);
+    
+    // Build detailed dice description
+    let diceDescription = `${barrierCheck.dice_roll}`;
+    if (barrierCheck.bonus_roll > 0) {
+        diceDescription += ` + ${barrierCheck.bonus_roll} (Bonus) = ${barrierCheck.total_roll}`;
+    }
+    
+    if (barrierCheck.released) {
+        let releaseMessage = `${data.team_name} hat ${diceDescription} gewürfelt und ist frei!`;
+        
+        // Add specific information about which die freed the team
+        if (barrierCheck.release_method === 'standard') {
+            releaseMessage += ' (Standard-Würfel hat befreit!)';
+        } else if (barrierCheck.release_method === 'bonus') {
+            releaseMessage += ' (Bonus-Würfel hat befreit!)';
+        } else if (barrierCheck.release_method === 'total') {
+            releaseMessage += ' (Gesamtwurf hat befreit!)';
+        }
+        
+        showSpecialFieldEffect(
+            'barrier_released',
+            'Befreit!',
+            releaseMessage,
+            4000
+        );
+    } else {
+        // Get display text from barrier config
+        let requiredText = barrierCheck.barrier_config?.display_text || `${barrierCheck.barrier_config?.min_number || 4}+ benötigt`;
+        
+        setTimeout(() => {
+            window.gameBoard.showStatusMessage(
+                `${data.team_name} bleibt blockiert! (${diceDescription} gewürfelt, ${requiredText})`, 
+                3000, 
+                'warning', 
+                true, 
+                'Blockiert'
+            );
+        }, 1500);
+    }
+}
+
+// HAUPTINITIALISIERUNG
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        if (document.getElementById('game-canvas')) {
+            console.log('🎮 Initialisiere dynamisches Spielbrett...');
+            
+            // Erstelle Spielbrett-Instanz
+            window.gameBoard = new WiiPartyIsland('game-canvas');
+            
+            console.log('✅ Spielbrett mit dynamischen Feld-Konfigurationen geladen!');
+            
+        } else {
+            const canvasContainer = document.getElementById('game-canvas-container');
+            if(canvasContainer) {
+                canvasContainer.innerHTML = "<p style='color:red; text-align:center; padding-top: 50px;'>Fehler: Canvas-Element konnte nicht gefunden werden.</p>";
+            }
+        }
+    } catch (error) {
+        console.error("❌ Fehler beim Initialisieren der Insel:", error);
+        const canvasContainer = document.getElementById('game-canvas-container');
+        if(canvasContainer) {
+            canvasContainer.innerHTML = "<p style='color:red; text-align:center; padding-top: 50px;'>Fehler beim Laden des Spielbretts. Details in der Konsole.</p>";
+        }
+    }
+});
+</script>
+{% endblock %}

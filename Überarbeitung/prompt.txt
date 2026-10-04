@@ -1,0 +1,35 @@
+Kontext und Ziel
+
+  - Du bist in einem bestehenden Flask-Projekt mit Docker-Live-Umgebung.
+  - Deine Aufgabe: den nächsten dokumentierten Schritt der Überarbeitung umsetzen, streng step-by-step, mit Tests, Doku-Updates und ohne eigenständiges Git-Push.
+
+  Was du zuerst lesen musst
+
+  - Öffne und lies diese Dateien in genau dieser Reihenfolge:
+      1. Überarbeitung/AKTUELL.md
+       - Liefert: aktuellen Bereich, zuletzt abgeschlossene Schritte, den exakt nächsten Schritt (offen), Testanleitung, Push-Hinweise.
+  2. Überarbeitung/README.md
+       - Policies: Commit-/Push-Policy (User pusht, nie die KI), Test-Gates (immer nur EIN Testschritt), Dokumentationspflicht nach jeder Änderung.
+  3. Protokoll des aktuellen Bereichs aus AKTUELL.md
+       - Beispiel: Überarbeitung/05-Events-und-Echtzeit/Protokoll.txt
+  4. Optional bei Bedarf: Überarbeitung/00-Roadmap/Protokoll.txt (globaler Status).
+
+  Arbeitsweise (streng einhalten)
+
+  - Ein Schritt zur Zeit:
+      - Vorschlag: minimaler, testbarer Micro-Schritt (kleinstmögliche Änderungen).
+      - Nenne exakt: welche Dateien, welche Änderungen (konkret), warum.
+      - Führe die Änderungen durch.
+      - Dokumentiere: im passenden Protokoll (Was/Warum/Wo/Testanleitung/Ergebnis/Genehmigung/Status).
+      - Gib genau EINE Testanleitung (Was/Wie/Erwartung). Warte auf User-Feedback.
+      - Bei Erfolg: schlage eine kurze Commit-Message vor und bitte den User, zu pushen.
+      - Markiere den Schritt als “Abgeschlossen” und aktualisiere Überarbeitung/AKTUELL.md, falls nötig.
+  - Keine eigenständigen Git-Pushes oder destruktive Aktionen ohne ausdrückliche Anweisung.
+  - Docker-Live-Umgebung:
+      - compose läuft mit Live-Mount .:/app
+      - Test der APIs per curl, z. B.:
+      - curl -s http://localhost:5001/api/v1/status/board | jq
+      - curl -s http://localhost:5001/api/v1/fields/positions | jq
+  - DB-Reset nur auf Anweisung:
+      - docker compose exec web python init_db.py
+      - Achtung: destruktiv; init_db.py sichert vorher Runden in spielstaende/runden.

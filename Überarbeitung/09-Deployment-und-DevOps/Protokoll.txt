@@ -1,0 +1,14 @@
+Protokoll – 09-Deployment-und-DevOps
+====================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/09-Deployment-und-DevOps
+- Änderung: Initiales Protokoll angelegt; Prod-Setup/Compose-Profile/Healthchecks geplant.
+- Begründung/Ziel: Reproduzierbare Deployments, klare Umgebungen, Migrationsschritt automatisiert.
+- Auswirkungen/Backwards-Compat: Docker-/Compose-Änderungen; Start-/Entrypoint-Anpassungen.
+- Tests/Validierung: Test-Compose, Healthchecks, Logs.
+- Nächste Schritte: Compose-Profile (dev/prod/test) definieren; gunicorn/nginx konfigurieren.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

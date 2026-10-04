@@ -1,0 +1,27 @@
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Python (Legacy)
+__pycache__/
+*.pyc
+
+# Legacy-Laufzeitdaten (enthalten Passwörter/Fotos – nicht versionieren)
+app.db
+legacy/app.db
+spielstaende/
+legacy/spielstaende/
+app/static/team_images/
+legacy/app/static/team_images/
+
+# Node / Build
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.vite/
+
+# Laufzeitdaten Neubau
+data/
+.env

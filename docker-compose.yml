@@ -1,0 +1,21 @@
+services:
+  web:
+    build: . # Baut das Image basierend auf dem Dockerfile im aktuellen Verzeichnis
+    # Port-Mapping statt network_mode "host": Auf Docker Desktop (macOS) bindet "host"
+    # nur im Linux-VM, der Port ist vom Mac aus nicht erreichbar. Port 5000 ist auf macOS
+    # vom AirPlay-Empfänger belegt, daher 5001.
+    ports:
+      - "5001:5001"
+    command: flask run --host=0.0.0.0 --port=5001
+    volumes:
+      # Mountet das gesamte lokale Projektverzeichnis in das /app Verzeichnis im Container.
+      # Dadurch werden Code-Änderungen live übernommen und im Container erstellte Dateien
+      # (wie app.db und der migrations-Ordner, wenn sie in /app erstellt werden)
+      # bleiben auf dem Host-System erhalten.
+      - .:/app
+    environment:
+      # Überschreibt ggf. ENV-Variablen aus dem Dockerfile oder setzt sie, falls nicht im Dockerfile
+      - FLASK_APP=app:create_app # Wichtig für die Flask-Anwendungsfabrik
+      - FLASK_DEBUG=1
+      - PYTHONPATH=/app # Stellt sicher, dass Python Module im /app Verzeichnis findet
+      # - DATABASE_URL=sqlite:////app/app.db # Könnte explizit gesetzt werden, aber deine config.py sollte das handhaben

@@ -1,0 +1,1194 @@
+{% extends "base.html" %}
+
+{% block title %}Massen-Bearbeitung Feld-Konfigurationen - Admin Dashboard{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* Admin Dashboard Theme - Dark Professional */
+    .admin-dashboard-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        min-height: 100vh;
+        color: white;
+        position: relative;
+        padding: 0;
+        margin: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-dashboard-container::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(-45deg, rgba(52, 73, 94, 0.1) 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%),
+                    linear-gradient(-45deg, transparent 75%, rgba(52, 73, 94, 0.1) 75%);
+        background-size: 60px 60px;
+        background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+        animation: movePattern 20s linear infinite;
+        opacity: 0.15;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    @keyframes movePattern {
+        0% { transform: translateX(0px) translateY(0px); }
+        100% { transform: translateX(60px) translateY(60px); }
+    }
+
+    .admin-content {
+        position: relative;
+        z-index: 2;
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .admin-content .container {
+        max-width: 1200px;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    /* Header styling */
+    .admin-content h1 {
+        color: white;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    /* Alert styling */
+    .alert {
+        border-radius: 15px;
+        border: none;
+        padding: 1rem 1.5rem;
+        backdrop-filter: blur(10px);
+        font-weight: 500;
+        margin-bottom: 1.5rem;
+    }
+
+    .alert-success {
+        background: rgba(39, 174, 96, 0.2);
+        border: 1px solid rgba(39, 174, 96, 0.3);
+        color: white;
+    }
+
+    .alert-danger {
+        background: rgba(231, 76, 60, 0.2);
+        border: 1px solid rgba(231, 76, 60, 0.3);
+        color: white;
+    }
+
+    .alert-warning {
+        background: rgba(241, 196, 15, 0.2);
+        border: 1px solid rgba(241, 196, 15, 0.3);
+        color: white;
+    }
+
+    .alert-info {
+        background: rgba(26, 188, 156, 0.2);
+        border: 1px solid rgba(26, 188, 156, 0.3);
+        color: white;
+    }
+
+    /* Button styling */
+    .btn {
+        border-radius: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        border: none;
+        padding: 12px 20px;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        color: white;
+        box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
+    }
+
+    .btn-secondary:hover {
+        background: linear-gradient(45deg, #7f8c8d, #6c7b7d);
+        color: white;
+        box-shadow: 0 8px 20px rgba(149, 165, 166, 0.4);
+    }
+
+    .btn-success {
+        background: linear-gradient(45deg, #27ae60, #229954);
+        color: white;
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(45deg, #229954, #1e8449);
+        color: white;
+        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        color: white;
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #2980b9, #21618c);
+        color: white;
+        box-shadow: 0 8px 20px rgba(52, 152, 219, 0.4);
+    }
+
+    .btn-warning {
+        background: linear-gradient(45deg, #f1c40f, #f39c12);
+        color: #2c3e50;
+        box-shadow: 0 5px 15px rgba(241, 196, 15, 0.3);
+    }
+
+    .btn-warning:hover {
+        background: linear-gradient(45deg, #f39c12, #e67e22);
+        color: #2c3e50;
+        box-shadow: 0 8px 20px rgba(241, 196, 15, 0.4);
+    }
+
+    .btn-danger {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        color: white;
+        box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    .btn-danger:hover {
+        background: linear-gradient(45deg, #c0392b, #a93226);
+        color: white;
+        box-shadow: 0 8px 20px rgba(231, 76, 60, 0.4);
+    }
+
+    .btn-sm {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+
+    .btn-group {
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    /* Card styling */
+    .card {
+        background: rgba(44, 62, 80, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        color: white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .card-header {
+        background: rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px 18px 0 0;
+        padding: 1.5rem 2rem;
+    }
+
+    .card-header h5, .card-header h4 {
+        margin: 0;
+        font-weight: 700;
+        color: white;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* Table styling */
+    .table {
+        color: white;
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        border-color: rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.05);
+        color: white;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.9rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .table tbody td {
+        border-color: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.02);
+        vertical-align: middle;
+    }
+
+    .table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .table-responsive {
+        border-radius: 15px;
+        overflow: hidden;
+        max-height: 600px;
+    }
+
+    /* Form styling */
+    .form-control {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        color: white;
+        padding: 10px 15px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(52, 152, 219, 0.5);
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        color: white;
+    }
+
+    .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* Select styling */
+    select.form-control {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 12px center;
+        background-repeat: no-repeat;
+        background-size: 16px 12px;
+        padding-right: 40px;
+    }
+
+    /* Checkbox styling */
+    .form-check-input {
+        width: 1.25em;
+        height: 1.25em;
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        transform: scale(1.2);
+    }
+
+    .form-check-input:checked {
+        background-color: #3498db;
+        border-color: #3498db;
+    }
+
+    .form-check-input:focus {
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    }
+
+    .form-check-label {
+        color: rgba(255, 255, 255, 0.9);
+        margin-left: 0.5rem;
+    }
+
+    /* Badge styling */
+    .badge {
+        border-radius: 15px;
+        padding: 0.4rem 0.8rem;
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-success {
+        background: linear-gradient(45deg, #27ae60, #229954);
+        color: white;
+    }
+
+    .badge-warning {
+        background: linear-gradient(45deg, #f1c40f, #f39c12);
+        color: #2c3e50;
+    }
+
+    .badge-danger {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        color: white;
+    }
+
+    .badge-info {
+        background: linear-gradient(45deg, #1abc9c, #16a085);
+        color: white;
+    }
+
+    .badge-secondary {
+        background: rgba(149, 165, 166, 0.8);
+        color: white;
+    }
+
+    /* Progress styling */
+    .progress {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        height: 20px;
+        margin-bottom: 10px;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+        background: linear-gradient(45deg, #27ae60, #229954);
+    }
+
+    /* Text colors */
+    .text-muted {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+
+    /* Close button for alerts */
+    .close {
+        color: rgba(255, 255, 255, 0.8);
+        text-shadow: none;
+        opacity: 0.8;
+    }
+
+    .close:hover {
+        color: white;
+        opacity: 1;
+    }
+
+    /* Loading spinner */
+    .spinner-border {
+        color: white;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Bulk edit specific styles */
+    .bulk-actions {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .selection-summary {
+        background: rgba(52, 152, 219, 0.1);
+        border: 1px solid rgba(52, 152, 219, 0.3);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        color: white;
+    }
+
+    .field-preview {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        margin-right: 10px;
+        color: white;
+        text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.8);
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+
+    .field-preview:hover {
+        transform: scale(1.2);
+        border-color: rgba(255, 255, 255, 1);
+    }
+
+    @media (max-width: 768px) {
+        .admin-content .container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .card-body, .card-header {
+            padding: 1.5rem;
+        }
+
+        .btn-group {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .btn-group .btn {
+            border-radius: 0;
+            margin-bottom: 1px;
+            margin-right: 0;
+        }
+
+        .btn-group .btn:first-child {
+            border-radius: 10px 10px 0 0;
+        }
+
+        .btn-group .btn:last-child {
+            border-radius: 0 0 10px 10px;
+            margin-bottom: 0;
+        }
+
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .bulk-actions {
+            padding: 1rem;
+        }
+
+        .table-responsive {
+            font-size: 0.85rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard-container">
+    <div class="admin-content">
+        <div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-edit"></i> Massen-Bearbeitung Feld-Konfigurationen</h1>
+                <a href="{{ url_for('admin.manage_fields') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Verwaltung
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Nachrichten -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('admin.bulk_edit_fields') }}" id="bulkEditForm">
+        {{ form.hidden_tag() }}
+        
+        <div class="row">
+            <!-- Feld-Auswahl -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-check-square"></i> Feld-Konfigurationen auswählen
+                            </h5>
+                            <div class="selection-controls">
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="selectAll()">
+                                    <i class="fas fa-check-double"></i> Alle auswählen
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="selectNone()">
+                                    <i class="fas fa-times"></i> Auswahl aufheben
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="selectInverse()">
+                                    <i class="fas fa-exchange-alt"></i> Umkehren
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="field-selection-container">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th style="width: 50px;">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+                                                    <label class="form-check-label" for="selectAllCheckbox"></label>
+                                                </div>
+                                            </th>
+                                            <th>Feld-Typ</th>
+                                            <th>Name</th>
+                                            <th>Status</th>
+                                            <th>Häufigkeit</th>
+                                            <th>Farbe</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Feld-Konfigurationen werden hier dynamisch geladen -->
+                                        <tr id="loadingRow">
+                                            <td colspan="6" class="text-center py-4">
+                                                <i class="fas fa-spinner fa-spin"></i> Lade Feld-Konfigurationen...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <span id="selectionCount">0</span> von <span id="totalCount">0</span> Feldern ausgewählt
+                                </small>
+                            </div>
+                            <div class="col-md-6 text-right">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="selectByStatus('enabled')">
+                                        <i class="fas fa-check"></i> Nur Aktive
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="selectByStatus('disabled')">
+                                        <i class="fas fa-times"></i> Nur Deaktivierte
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" onclick="selectByType('special')">
+                                        <i class="fas fa-star"></i> Nur Sonderfelder
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aktions-Panel -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tools"></i> Massen-Aktion
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            {{ form.action.label(class="form-control-label") }}
+                            {{ form.action(class="form-control", id="actionSelect") }}
+                            <small class="form-text text-muted">
+                                Wählen Sie die Aktion aus, die auf alle ausgewählten Felder angewendet werden soll
+                            </small>
+                        </div>
+
+                        <!-- Häufigkeits-Änderung -->
+                        <div class="action-options" id="changeFrequencyOptions" style="display: none;">
+                            <div class="form-group">
+                                {{ form.new_frequency_type.label(class="form-control-label") }}
+                                {{ form.new_frequency_type(class="form-control") }}
+                            </div>
+                            <div class="form-group">
+                                {{ form.new_frequency_value.label(class="form-control-label") }}
+                                {{ form.new_frequency_value(class="form-control", min="0", max="100") }}
+                                <small class="form-text text-muted">
+                                    Wert hängt vom Häufigkeits-Typ ab (Modulo-Wert, Prozent, etc.)
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Farb-Änderung -->
+                        <div class="action-options" id="changeColorsOptions" style="display: none;">
+                            <div class="form-group">
+                                {{ form.new_color_hex.label(class="form-control-label") }}
+                                <div class="input-group">
+                                    {{ form.new_color_hex(class="form-control", id="newColorHex") }}
+                                    <div class="input-group-append">
+                                        <div class="input-group-text color-preview" id="newColorPreview" 
+                                             style="background-color: #81C784; width: 40px;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                {{ form.new_emission_hex.label(class="form-control-label") }}
+                                <div class="input-group">
+                                    {{ form.new_emission_hex(class="form-control", id="newEmissionHex") }}
+                                    <div class="input-group-append">
+                                        <div class="input-group-text color-preview" id="newEmissionPreview" 
+                                             style="background-color: #4CAF50; width: 40px;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">
+                                    Leer lassen um Effektfarbe unverändert zu lassen
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Lösch-Warnung -->
+                        <div class="action-options" id="deleteWarning" style="display: none;">
+                            <div class="alert alert-danger">
+                                <h6><i class="fas fa-exclamation-triangle"></i> Vorsicht!</h6>
+                                <p class="mb-0">
+                                    Gelöschte Feld-Konfigurationen können nicht wiederhergestellt werden. 
+                                    System-Felder (start, goal, normal) können nicht gelöscht werden.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="action-submit mt-4">
+                            {{ form.submit(class="btn btn-success btn-lg btn-block", id="submitButton", disabled=true) }}
+                        </div>
+
+                        <!-- Vorschau -->
+                        <div class="action-preview mt-3" id="actionPreview" style="display: none;">
+                            <h6><i class="fas fa-eye"></i> Vorschau</h6>
+                            <div class="preview-content bg-light p-3 rounded">
+                                <div id="previewText">Wählen Sie Felder und eine Aktion aus</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schnell-Aktionen -->
+                <div class="card mt-4">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-bolt"></i> Schnell-Aktionen
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="quick-actions">
+                            <button type="button" class="btn btn-outline-success btn-sm btn-block mb-2" 
+                                    onclick="quickAction('enable_all_special')">
+                                <i class="fas fa-check-circle"></i> Alle Sonderfelder aktivieren
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm btn-block mb-2" 
+                                    onclick="quickAction('disable_all_special')">
+                                <i class="fas fa-pause-circle"></i> Alle Sonderfelder deaktivieren
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-block mb-2" 
+                                    onclick="quickAction('reset_colors')">
+                                <i class="fas fa-palette"></i> Standard-Farben wiederherstellen
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-block" 
+                                    onclick="quickAction('balance_frequencies')">
+                                <i class="fas fa-balance-scale"></i> Häufigkeiten ausbalancieren
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let fieldConfigs = [];
+let selectedFields = new Set();
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFieldConfigurations();
+    setupEventListeners();
+});
+
+function loadFieldConfigurations() {
+    // Lade Feld-Konfigurationen vom Server
+    fetch('/admin/api/field_colors')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Konvertiere zu Array für einfachere Handhabung
+                fieldConfigs = Object.entries(data.color_mapping).map(([fieldType, config]) => ({
+                    field_type: fieldType,
+                    ...config
+                }));
+                renderFieldTable();
+            } else {
+                showError('Fehler beim Laden der Feld-Konfigurationen');
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Feld-Konfigurationen:', error);
+            showError('Netzwerkfehler beim Laden der Daten');
+        });
+}
+
+function renderFieldTable() {
+    const tbody = document.querySelector('table tbody');
+    tbody.innerHTML = '';
+    
+    fieldConfigs.forEach((config, index) => {
+        const row = document.createElement('tr');
+        row.className = 'field-row';
+        row.dataset.fieldType = config.field_type;
+        
+        // Häufigkeits-Text
+        let frequencyText = 'Standard';
+        if (config.frequency_type === 'modulo') {
+            frequencyText = `Alle ${config.frequency_value}`;
+        } else if (config.frequency_type === 'fixed_positions') {
+            frequencyText = 'Feste Positionen';
+        } else if (config.frequency_type === 'probability') {
+            frequencyText = `${config.frequency_value}%`;
+        }
+        
+        row.innerHTML = `
+            <td>
+                <div class="form-check">
+                    <input class="form-check-input field-checkbox" type="checkbox" 
+                           value="${config.field_type}" id="field_${index}"
+                           ${isSystemField(config.field_type) ? 'data-system="true"' : ''}>
+                    <label class="form-check-label" for="field_${index}"></label>
+                </div>
+            </td>
+            <td>
+                <span class="field-type-badge" style="background-color: ${config.color};">
+                    ${config.icon || '?'} ${config.field_type}
+                </span>
+            </td>
+            <td>
+                <strong>${config.display_name}</strong>
+                ${isSystemField(config.field_type) ? '<span class="badge badge-warning badge-custom ml-1">System</span>' : ''}
+            </td>
+            <td>
+                ${config.enabled ? 
+                    '<span class="badge badge-success badge-custom">Aktiv</span>' : 
+                    '<span class="badge badge-secondary badge-custom">Deaktiviert</span>'
+                }
+            </td>
+            <td>
+                <span class="badge badge-primary badge-custom">${frequencyText}</span>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="color-preview mr-2" 
+                         style="width: 20px; height: 20px; background-color: ${config.color}; border: 1px solid #ccc; border-radius: 3px;"
+                         title="Hauptfarbe: ${config.color}"></div>
+                    ${config.emission && config.emission !== config.color ? `
+                        <div class="color-preview" 
+                             style="width: 20px; height: 20px; background-color: ${config.emission}; border: 1px solid #ccc; border-radius: 3px;"
+                             title="Effektfarbe: ${config.emission}"></div>
+                    ` : ''}
+                </div>
+            </td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+    
+    updateCounts();
+    setupRowEventListeners();
+}
+
+function setupEventListeners() {
+    const actionSelect = document.getElementById('actionSelect');
+    const submitButton = document.getElementById('submitButton');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const newColorHex = document.getElementById('newColorHex');
+    const newEmissionHex = document.getElementById('newEmissionHex');
+    
+    // Action Selection
+    if (actionSelect) {
+        actionSelect.addEventListener('change', function() {
+            updateActionOptions(this.value);
+            updatePreview();
+            updateSubmitButton();
+        });
+    }
+    
+    // Select All Checkbox
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                selectAll();
+            } else {
+                selectNone();
+            }
+        });
+    }
+    
+    // Color Previews
+    if (newColorHex) {
+        newColorHex.addEventListener('input', function() {
+            document.getElementById('newColorPreview').style.backgroundColor = this.value;
+            updatePreview();
+        });
+    }
+    
+    if (newEmissionHex) {
+        newEmissionHex.addEventListener('input', function() {
+            document.getElementById('newEmissionPreview').style.backgroundColor = this.value;
+            updatePreview();
+        });
+    }
+    
+    // Form Submission
+    const form = document.getElementById('bulkEditForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (selectedFields.size === 0) {
+                e.preventDefault();
+                alert('Bitte wählen Sie mindestens ein Feld aus.');
+                return;
+            }
+            
+            const action = actionSelect.value;
+            if (action === 'delete') {
+                const systemFields = Array.from(selectedFields).filter(isSystemField);
+                if (systemFields.length > 0) {
+                    e.preventDefault();
+                    alert(`System-Felder können nicht gelöscht werden: ${systemFields.join(', ')}`);
+                    return;
+                }
+                
+                if (!confirm(`Möchten Sie wirklich ${selectedFields.size} Feld-Konfigurationen löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) {
+                    e.preventDefault();
+                    return;
+                }
+            }
+            
+            // Ausgewählte Felder zum Form hinzufügen
+            selectedFields.forEach(fieldType => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'selected_fields';
+                input.value = getFieldId(fieldType);
+                form.appendChild(input);
+            });
+        });
+    }
+}
+
+function setupRowEventListeners() {
+    const checkboxes = document.querySelectorAll('.field-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const fieldType = this.value;
+            const row = this.closest('tr');
+            
+            if (this.checked) {
+                selectedFields.add(fieldType);
+                row.classList.add('selected');
+            } else {
+                selectedFields.delete(fieldType);
+                row.classList.remove('selected');
+            }
+            
+            updateCounts();
+            updatePreview();
+            updateSubmitButton();
+            updateSelectAllCheckbox();
+        });
+    });
+}
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.field-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+        selectedFields.add(checkbox.value);
+        checkbox.closest('tr').classList.add('selected');
+    });
+    updateCounts();
+    updatePreview();
+    updateSubmitButton();
+    updateSelectAllCheckbox();
+}
+
+function selectNone() {
+    const checkboxes = document.querySelectorAll('.field-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        selectedFields.delete(checkbox.value);
+        checkbox.closest('tr').classList.remove('selected');
+    });
+    updateCounts();
+    updatePreview();
+    updateSubmitButton();
+    updateSelectAllCheckbox();
+}
+
+function selectInverse() {
+    const checkboxes = document.querySelectorAll('.field-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = !checkbox.checked;
+        const fieldType = checkbox.value;
+        const row = checkbox.closest('tr');
+        
+        if (checkbox.checked) {
+            selectedFields.add(fieldType);
+            row.classList.add('selected');
+        } else {
+            selectedFields.delete(fieldType);
+            row.classList.remove('selected');
+        }
+    });
+    updateCounts();
+    updatePreview();
+    updateSubmitButton();
+    updateSelectAllCheckbox();
+}
+
+function selectByStatus(status) {
+    selectNone();
+    
+    fieldConfigs.forEach(config => {
+        const shouldSelect = (status === 'enabled' && config.enabled) || 
+                           (status === 'disabled' && !config.enabled);
+        
+        if (shouldSelect) {
+            const checkbox = document.querySelector(`input[value="${config.field_type}"]`);
+            if (checkbox) {
+                checkbox.checked = true;
+                selectedFields.add(config.field_type);
+                checkbox.closest('tr').classList.add('selected');
+            }
+        }
+    });
+    
+    updateCounts();
+    updatePreview();
+    updateSubmitButton();
+    updateSelectAllCheckbox();
+}
+
+function selectByType(type) {
+    selectNone();
+    
+    fieldConfigs.forEach(config => {
+        const isSpecial = !isSystemField(config.field_type);
+        const shouldSelect = (type === 'special' && isSpecial);
+        
+        if (shouldSelect) {
+            const checkbox = document.querySelector(`input[value="${config.field_type}"]`);
+            if (checkbox) {
+                checkbox.checked = true;
+                selectedFields.add(config.field_type);
+                checkbox.closest('tr').classList.add('selected');
+            }
+        }
+    });
+    
+    updateCounts();
+    updatePreview();
+    updateSubmitButton();
+    updateSelectAllCheckbox();
+}
+
+function updateActionOptions(action) {
+    // Verstecke alle Optionen
+    document.querySelectorAll('.action-options').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Zeige relevante Optionen
+    if (action === 'change_frequency') {
+        document.getElementById('changeFrequencyOptions').style.display = 'block';
+    } else if (action === 'change_colors') {
+        document.getElementById('changeColorsOptions').style.display = 'block';
+    } else if (action === 'delete') {
+        document.getElementById('deleteWarning').style.display = 'block';
+    }
+}
+
+function updatePreview() {
+    const action = document.getElementById('actionSelect').value;
+    const previewDiv = document.getElementById('actionPreview');
+    const previewText = document.getElementById('previewText');
+    
+    if (selectedFields.size === 0 || !action) {
+        previewDiv.style.display = 'none';
+        return;
+    }
+    
+    previewDiv.style.display = 'block';
+    
+    let preview = `<strong>${selectedFields.size}</strong> Feld(er) ausgewählt: `;
+    preview += Array.from(selectedFields).slice(0, 3).join(', ');
+    if (selectedFields.size > 3) {
+        preview += ` und ${selectedFields.size - 3} weitere`;
+    }
+    
+    preview += '<br><br>';
+    
+    switch (action) {
+        case 'enable':
+            preview += '<span class="text-success"><i class="fas fa-check"></i> Werden aktiviert</span>';
+            break;
+        case 'disable':
+            preview += '<span class="text-warning"><i class="fas fa-pause"></i> Werden deaktiviert</span>';
+            break;
+        case 'change_frequency':
+            const freqType = document.getElementById('id_new_frequency_type').value;
+            const freqValue = document.getElementById('id_new_frequency_value').value;
+            if (freqType && freqValue) {
+                preview += `<span class="text-info"><i class="fas fa-chart-pie"></i> Häufigkeit wird geändert zu: ${freqType} = ${freqValue}</span>`;
+            } else {
+                preview += '<span class="text-muted">Häufigkeits-Parameter erforderlich</span>';
+            }
+            break;
+        case 'change_colors':
+            const newColor = document.getElementById('newColorHex').value;
+            if (newColor) {
+                preview += `<span class="text-info"><i class="fas fa-palette"></i> Neue Hauptfarbe: </span>`;
+                preview += `<span class="badge" style="background-color: ${newColor}; color: white;">${newColor}</span>`;
+            } else {
+                preview += '<span class="text-muted">Neue Hauptfarbe erforderlich</span>';
+            }
+            break;
+        case 'delete':
+            const systemFields = Array.from(selectedFields).filter(isSystemField);
+            if (systemFields.length > 0) {
+                preview += `<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> FEHLER: System-Felder können nicht gelöscht werden: ${systemFields.join(', ')}</span>`;
+            } else {
+                preview += '<span class="text-danger"><i class="fas fa-trash"></i> Werden unwiderruflich gelöscht</span>';
+            }
+            break;
+        default:
+            preview += '<span class="text-muted">Wählen Sie eine Aktion aus</span>';
+    }
+    
+    previewText.innerHTML = preview;
+}
+
+function updateCounts() {
+    document.getElementById('selectionCount').textContent = selectedFields.size;
+    document.getElementById('totalCount').textContent = fieldConfigs.length;
+}
+
+function updateSubmitButton() {
+    const submitButton = document.getElementById('submitButton');
+    const action = document.getElementById('actionSelect').value;
+    
+    let isValid = selectedFields.size > 0 && action;
+    
+    // Zusätzliche Validierung basierend auf Aktion
+    if (action === 'change_frequency') {
+        const freqType = document.getElementById('id_new_frequency_type').value;
+        const freqValue = document.getElementById('id_new_frequency_value').value;
+        isValid = isValid && freqType && freqValue;
+    } else if (action === 'change_colors') {
+        const newColor = document.getElementById('newColorHex').value;
+        isValid = isValid && newColor;
+    }
+    
+    submitButton.disabled = !isValid;
+    
+    // Button-Text aktualisieren
+    if (isValid) {
+        const actionNames = {
+            'enable': 'Aktivieren',
+            'disable': 'Deaktivieren',
+            'change_frequency': 'Häufigkeit ändern',
+            'change_colors': 'Farben ändern',
+            'delete': 'Löschen'
+        };
+        submitButton.textContent = `${actionNames[action] || 'Ausführen'} (${selectedFields.size})`;
+    } else {
+        submitButton.textContent = 'Massen-Bearbeitung ausführen';
+    }
+}
+
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const totalCheckboxes = document.querySelectorAll('.field-checkbox').length;
+    
+    if (selectedFields.size === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedFields.size === totalCheckboxes) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+function quickAction(action) {
+    switch (action) {
+        case 'enable_all_special':
+            selectByType('special');
+            document.getElementById('actionSelect').value = 'enable';
+            updateActionOptions('enable');
+            break;
+        case 'disable_all_special':
+            selectByType('special');
+            document.getElementById('actionSelect').value = 'disable';
+            updateActionOptions('disable');
+            break;
+        case 'reset_colors':
+            selectAll();
+            document.getElementById('actionSelect').value = 'change_colors';
+            updateActionOptions('change_colors');
+            // Setze Standard-Farben
+            document.getElementById('newColorHex').value = '#81C784';
+            document.getElementById('newEmissionHex').value = '#4CAF50';
+            document.getElementById('newColorPreview').style.backgroundColor = '#81C784';
+            document.getElementById('newEmissionPreview').style.backgroundColor = '#4CAF50';
+            break;
+        case 'balance_frequencies':
+            selectByType('special');
+            document.getElementById('actionSelect').value = 'change_frequency';
+            updateActionOptions('change_frequency');
+            // Setze ausbalancierte Werte
+            document.getElementById('id_new_frequency_type').value = 'modulo';
+            document.getElementById('id_new_frequency_value').value = '15';
+            break;
+    }
+    
+    updatePreview();
+    updateSubmitButton();
+}
+
+function isSystemField(fieldType) {
+    return ['start', 'goal', 'normal'].includes(fieldType);
+}
+
+function getFieldId(fieldType) {
+    // Verwende Feldtyp als Identifikator (Backend arbeitet mit field_type)
+    const config = fieldConfigs.find(c => c.field_type === fieldType);
+    return config ? fieldType : null;
+}
+
+function showError(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentElement) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

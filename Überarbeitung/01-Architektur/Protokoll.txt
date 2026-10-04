@@ -1,0 +1,14 @@
+Protokoll – 01-Architektur
+==========================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/01-Architektur
+- Änderung: Initiales Protokoll angelegt.
+- Begründung/Ziel: Architekturrichtlinien und Servicestruktur dokumentiert; Basis für Refactor.
+- Auswirkungen/Backwards-Compat: Keine Codeänderungen.
+- Tests/Validierung: N/A
+- Nächste Schritte: Services-Skelette planen; Fehler-/Response-Handler definieren.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

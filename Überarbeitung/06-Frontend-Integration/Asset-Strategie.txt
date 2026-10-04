@@ -1,0 +1,17 @@
+Asset-Strategie
+===============
+
+Ziele
+- Klare Lade-Reihenfolge; Caching; optional Minifizierung/Bundling.
+
+Minimal (ohne Build-Tool)
+- ES-Module direkt im Browser laden (`type="module"`).
+- Versionierte Query-Parameter bei Deploy (cache busting), z. B. `?v={{ now_year }}` oder mit Hash.
+- Strikte Ordnerstruktur (siehe JS-/CSS-Dateien) und Entry-Points pro Seite.
+
+Optional (mit Build-Tool)
+- esbuild/rollup: Bundling + Minify + Hashing; Map-Dateien; separate Vendor-Bundle.
+- SCSS-Support; PostCSS (Autoprefixer) für Browser-Kompatibilität.
+
+Empfehlung
+- Start mit Minimalvariante; bei wachsender Komplexität auf Build-Tool migrieren.

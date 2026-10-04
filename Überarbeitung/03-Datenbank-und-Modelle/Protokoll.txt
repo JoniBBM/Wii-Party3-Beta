@@ -1,0 +1,14 @@
+Protokoll – 03-Datenbank-und-Modelle
+====================================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/03-Datenbank-und-Modelle
+- Änderung: Initiales Protokoll angelegt; Normalisierung/Indizes/Events-Schema geplant.
+- Begründung/Ziel: Robustheit, Performance, saubere Constraints und Schemata.
+- Auswirkungen/Backwards-Compat: Migrations- und Datenüberführung nötig.
+- Tests/Validierung: Alembic-Migrationen + Datenkonsistenzprüfungen.
+- Nächste Schritte: PlayedContent Tabelle designen, Migrationen schreiben.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+

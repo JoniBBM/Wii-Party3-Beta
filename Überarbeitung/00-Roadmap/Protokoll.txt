@@ -1,0 +1,130 @@
+Protokoll – 00-Roadmap
+======================
+
+Eintrag 1
+- Datum/Uhrzeit: [bitte ausfüllen]
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung: Initiales Protokoll angelegt basierend auf Protokoll-Template.
+- Begründung/Ziel: Konsistente Dokumentation aller Änderungen entlang der Roadmap.
+- Auswirkungen/Backwards-Compat: Keine Codeänderungen.
+- Tests/Validierung: N/A
+- Nächste Schritte: Roadmap-Schritte nacheinander abarbeiten; pro Schritt Protokolleintrag erstellen.
+- Genehmigung des Users: [bitte ausfüllen]
+- Commit/Push (nur User): [bitte ausfüllen]
+
+Eintrag 2
+- Datum/Uhrzeit: 2025-10-14 09:00 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 1 abgeschlossen – API v1 (read-only) mit Status/Board und Fields/Positions implementiert und registriert.
+- Begründung/Ziel (Warum): Stabile Schnittstelle für Frontend.
+- Test-Anleitung: Einzelfalltests je Endpunkt mit curl; beide erfolgreich.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: keine.
+- Nächste Schritte: Schritt 2 – Event-Service und JSON-Events.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 3
+- Datum/Uhrzeit: 2025-10-14 09:10 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 2a – Event-Service angelegt; Legacy-Admin-Würfelroute umgestellt.
+- Begründung/Ziel (Warum): Einheitliche, sichere Event-Erzeugung (JSON).
+- Test-Anleitung: Würfeln + v1 Status prüfen; erfolgreich.
+- Testergebnisse (vom User): erfolgreich; last_dice/special angezeigt.
+- Auswirkungen/Backwards-Compat: keine negativen.
+- Nächste Schritte: Weitere Event-Erzeugungen migrieren (kleine Schritte), dann Eval-Fallbacks abbauen.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 4
+- Datum/Uhrzeit: 2025-10-14 11:02 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 2b–2d abgeschlossen – Event-Service eingesetzt für player_swap, catapult_forward/backward, barrier_set/released/blocked; eval-Fallbacks in /api/board-status und Team-Dashboard entfernt.
+- Begründung/Ziel (Warum): Einheitliche, sichere Event-Erzeugung; Wegfall eval-Abhängigkeit; Stabilität am Board.
+- Test-Anleitung: Einzeltests je Schritt (Würfel/Spezialfeld + API/Board/Team-UI prüfen).
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Legacy-Events ohne JSON werden ignoriert (nur im 10s-Fenster der Legacy-API relevant).
+- Nächste Schritte: 6) Stream-Konsolidierung (SSE) oder 7–8) Frontend-Umstellung (Gameboard) gemäß Roadmap.
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 5
+- Datum/Uhrzeit: 2025-10-15 11:35 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Arbeitsrichtlinie aktualisiert – KI führt Tests künftig selbstständig durch, gibt dem User nur dann Testanweisungen, wenn ein Schritt nicht automatisiert möglich ist.
+- Begründung/Ziel (Warum): Nutzerwunsch; beschleunigt Feedback-Schleifen und reduziert manuelle Testlast.
+- Test-Anleitung: KI-Lesekontrolle des aktualisierten Abschnitts in `Überarbeitung/README.md`.
+- Testergebnisse (vom User): bestätigt (Chat-Rückmeldung).
+- Auswirkungen/Backwards-Compat: Keine funktionalen Änderungen am Projekt, nur Prozessanpassung.
+- Nächste Schritte: Weiter mit Session-Service/Event-Stream (siehe Bereich 05).
+- Genehmigung des Users: ja
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 6
+- Datum/Uhrzeit: 2025-10-17 08:45 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6a umgesetzt – zentraler SSE-Endpoint `/api/v1/stream` implementiert, nutzt Event-/Session-Service.
+- Begründung/Ziel (Warum): Konsolidierter Echtzeitkanal für Admin- & Team-Frontends, Grundlage für Board/Events ohne Legacy-Fallbacks.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 32 (`docker compose exec web python - <<'PY' ...`).
+- Testergebnisse (vom User): erfolgreich (Stream liefert `stream_connected` + Testevent).
+- Auswirkungen/Backwards-Compat: Keine Breaking Changes, neuer Endpoint optional.
+- Nächste Schritte: Frontend/Gameboard auf neuen Stream umstellen, Admin-SSE zusammenführen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 7
+- Datum/Uhrzeit: 2025-10-17 08:55 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6b teilweise umgesetzt – Admin-Feldupdates & Gameboard nutzen den zentralen Stream (SSE) inkl. Poll-Fallback; Board-API liest aus GameEvents.
+- Begründung/Ziel (Warum): Echtzeitquellen vereinheitlichen, In-Memory-Puffer entfernen, Basis für weitere Clients schaffen.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 33 (SSE/Poll/Board-Status-Skript).
+- Testergebnisse (vom User): erfolgreich (SSE-Event empfangen, Poll liefert Event, Board-Zeitstempel > 0).
+- Auswirkungen/Backwards-Compat: Bestehende Poll-Endpunkte liefern strukturierte Events, SSE verfügbar unter `/api/v1/stream`.
+- Nächste Schritte: Restliche Frontends/Dashboards auf Stream umstellen, Legacy-Poll entfernen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 8
+- Datum/Uhrzeit: 2025-10-17 09:00 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6c gestartet – Team-Dashboard konsumiert `/api/v1/stream`; Polling nur noch als Fallback.
+- Begründung/Ziel (Warum): Einheitliche Echtzeitgrundlage auch für Team-Clients; reduziert Last durch ständiges Polling.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 34 (SSE-Skript mit `team_dice_roll`).
+- Testergebnisse (vom User): erfolgreich (Stream liefert `team_dice_roll`, Fallback bleibt Reserve).
+- Auswirkungen/Backwards-Compat: Minimal – Polling existiert weiterhin als Backup.
+- Nächste Schritte: Admin-/Moderator-Dashboards auf Stream migrieren, danach Polling-Altrouten entfernen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 9
+- Datum/Uhrzeit: 2025-10-17 09:12 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Roadmap Schritt 6c erweitert – Admin-Dashboard nutzt jetzt den zentralen Stream; Polling dient nur als Reserve.
+- Begründung/Ziel (Warum): Einheitlicher Echtzeitpfad über alle Steuerungsoberflächen hinweg.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 34/35 (SSE-Skript mit `team_dice_roll`).
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Keine; Fallbacks vorhanden.
+- Nächste Schritte: Welcome/Sequenzen auf Stream heben, Polling entfernen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen
+
+Eintrag 10
+- Datum/Uhrzeit: 2025-10-17 09:26 (ungefähr)
+- Ort/Ordner: Überarbeitung/00-Roadmap
+- Änderung (Was): Welcome-/Sequence-Fallbacks verlängert; Aktualisierung läuft Event-getrieben über den Stream (Roadmap Schritt 6c weitergeführt).
+- Begründung/Ziel (Warum): Minimiert Polling-Last und fördert Echtzeitverhalten.
+- Test-Anleitung: Siehe Bereichsprotokoll Eintrag 36.
+- Testergebnisse (vom User): erfolgreich.
+- Auswirkungen/Backwards-Compat: Fallback-Intervalle bestehen weiter.
+- Nächste Schritte: Welcome-spezifische Events planen, nicht mehr benötigte Poll-APIs abbauen.
+- Genehmigung des Users: [ausstehend]
+- Commit/Push (nur User): [vom User nach Push ausfüllen]
+- Status: Abgeschlossen

@@ -1,0 +1,60 @@
+BoardState / Datenverträge
+--------------------------
+
+GET /api/v1/status/board
+{
+  "success": true,
+  "data": {
+    "teams": [
+      { "id": 1, "name": "Team 1", "position": 12, "color": "#FF5252", "character": { "id": 3, "name": "…", "color": "#…" },
+        "bonus_dice_sides": 0, "minigame_placement": null,
+        "special": { "is_blocked": false, "blocked_turns": 0, "extra_moves": 0, "has_shield": false }
+      }
+    ],
+    "session": {
+      "id": 5, "phase": "DICE_ROLLING", "round": { "id": 2, "name": "Standard-Spiel", "folder": "Default" },
+      "current_team_turn_id": 1, "dice_roll_order": [1,2,3],
+      "question": { "id": null },
+      "field_minigame": { "active": false }
+    },
+    "last_dice": {
+      "team_id": 1, "standard": 4, "bonus": 2, "total": 6, "old_pos": 7, "new_pos": 13, "ts": "2025-01-01T12:00:00Z"
+    },
+    "last_special": {
+      "type": "special_field_catapult_forward", "team_id": 2, "data": { "distance": 4, "old_pos": 10, "new_pos": 14 }, "ts": "…"
+    }
+  },
+  "meta": { "version": "v1", "ts": 1234567890 }
+}
+
+GET /api/v1/fields/positions
+{
+  "success": true,
+  "data": {
+    "start": [0], "goal": [72],
+    "catapult_forward": [15,30,45,60],
+    "catapult_backward": [13,26,39,52,65],
+    "player_swap": [17,34,51,68],
+    "barrier": [19,38,57]
+  },
+  "meta": { "version": "v1", "ts": 1234567890 }
+}
+
+Stream-Events (SSE/WebSocket)
+-----------------------------
+Envelope:
+{ "id": "evt_abc", "type": "dice_roll", "ts": "…", "data": { … } }
+
+Typen und Daten:
+- dice_roll: { "team_id", "standard", "bonus", "total", "old_pos", "new_pos" }
+- special_field: { "subtype": "catapult_forward|catapult_backward|player_swap|barrier_*", "team_id", "data": { … } }
+- phase_change: { "from", "to", "reason" }
+- content_selected: { "id", "name", "type" }
+- question_started: { "id", "title", "type" }
+- question_completed: { "id", "placements": [ { "team_id", "place" } ] }
+- field_update: { "field_type", "display_name", "message" }
+
+Hinweise
+--------
+- Alle IDs numerisch (wo möglich), Zeiten ISO 8601.
+- Events sind idempotent; Client speichert letzte `id` und ignoriert Duplikate.
