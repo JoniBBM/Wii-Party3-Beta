@@ -1,0 +1,29 @@
+{
+  "name": "insel-der-abenteuer",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Partyspiel im Stil von Wii Party: 3D-Insel auf dem Beamer, Regie, Moderator und Team-Handys – live synchronisiert.",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/web"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"npm run dev -w @insel/server\" \"npm run dev -w @insel/web\"",
+    "build": "npm run build -w @insel/web && npm run build -w @insel/server",
+    "start": "npm run start -w @insel/server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p packages/shared && tsc -p packages/server && tsc -p packages/web",
+    "import:legacy": "npm run import:legacy -w @insel/server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

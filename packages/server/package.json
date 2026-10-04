@@ -1,0 +1,30 @@
+{
+  "name": "@insel/server",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spielserver: Fastify (REST) + Socket.IO (Live), SQLite-Speicher.",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "import:legacy": "tsx src/tools/import-legacy.ts"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^10.1.2",
+    "@fastify/static": "^10.1.5",
+    "@insel/shared": "*",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.5",
+    "sharp": "^0.35.5",
+    "socket.io": "^4.8.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.19.0",
+    "socket.io-client": "^4.8.4",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15"
+  }
+}

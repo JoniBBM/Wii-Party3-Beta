@@ -1,0 +1,13 @@
+{
+  "name": "@insel/shared",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Gemeinsame Typen, Schemas und die Spiel-Engine (pure Logik, ohne I/O).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}
