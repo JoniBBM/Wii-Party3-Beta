@@ -51,8 +51,9 @@ function chooseItem(tx: Tx, cmd: CommandOf<'content.select'>): ContentItem {
       return item;
     }
     case 'random': {
-      const pool = tx.ctx.pool.filter((i) => i.roundUse);
-      if (pool.length === 0) fail('In den gewählten Sammlungen gibt es keine Inhalte');
+      const kinds = cmd.kinds?.length ? new Set(cmd.kinds) : null;
+      const pool = tx.ctx.pool.filter((i) => i.roundUse && (!kinds || kinds.has(i.kind)));
+      if (pool.length === 0) fail(kinds ? 'Keine passenden Inhalte in den gewählten Sammlungen' : 'In den gewählten Sammlungen gibt es keine Inhalte');
       let fresh = pool.filter((i) => !s.playedItemIds.includes(i.id));
       if (fresh.length === 0) {
         const ids = new Set(pool.map((i) => i.id));

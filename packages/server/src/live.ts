@@ -100,7 +100,35 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
     }
   }
 
-  runtime.on('state', (state) => pushState(state));
+  /** Wie viele Geräte sind je Team verbunden? (Für die Regie) */
+  function presence(): Record<string, number> {
+    const out: Record<string, number> = {};
+    const state = runtime.state;
+    if (!state) return out;
+    for (const socket of io.sockets.sockets.values() as Iterable<LiveSocket>) {
+      const key = viewKey(sessionOf(socket), state);
+      if (key.startsWith('team:')) out[key.slice(5)] = (out[key.slice(5)] ?? 0) + 1;
+      else if (key === 'public' && socket.data.view === 'beamer') out.beamer = (out.beamer ?? 0) + 1;
+    }
+    return out;
+  }
+
+  let presenceTimer: NodeJS.Timeout | null = null;
+  function pushPresence() {
+    if (presenceTimer) return;
+    presenceTimer = setTimeout(() => {
+      presenceTimer = null;
+      const p = presence();
+      for (const socket of io.sockets.sockets.values() as Iterable<LiveSocket>) {
+        if (isPrivileged(sessionOf(socket).role)) socket.emit('presence', p);
+      }
+    }, 150);
+  }
+
+  runtime.on('state', (state) => {
+    pushState(state);
+    pushPresence();
+  });
   runtime.on('effects', (effects) => io.emit('effects', effects));
 
   io.on('connection', (rawSocket) => {
@@ -111,10 +139,13 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
 
     socket.emit('hello', { appName: getSettings(database).appName, serverNow: Date.now() });
     pushState(runtime.state, socket);
+    pushPresence();
+    socket.on('disconnect', () => pushPresence());
 
     socket.on('auth', (token: string, ack?: (a: Ack) => void) => {
       socket.data.session = verifyToken(token) ?? { role: 'guest' };
       pushState(runtime.state, socket);
+      pushPresence();
       ack?.({ ok: true });
     });
 

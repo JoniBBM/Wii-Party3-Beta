@@ -192,6 +192,8 @@ export const commandSchema = z.discriminatedUnion('type', [
     type: z.literal('content.select'),
     source: z.enum(['manual', 'random', 'plan', 'adhoc']),
     itemId: id.optional(),
+    /** Nur für source = random: auf diese Arten beschränken. */
+    kinds: z.array(z.enum(CONTENT_KINDS)).max(5).optional(),
     adhoc: contentItemInputSchema.optional(),
   }),
   z.object({ type: z.literal('content.redraw'), teamId: id.optional() }),
@@ -237,5 +239,7 @@ export const commandSchema = z.discriminatedUnion('type', [
 ]);
 
 export type Command = z.infer<typeof commandSchema>;
+/** Was Clients senden (Standardwerte dürfen fehlen). */
+export type CommandInput = z.input<typeof commandSchema>;
 export type CommandType = Command['type'];
 export type CommandOf<T extends CommandType> = Extract<Command, { type: T }>;

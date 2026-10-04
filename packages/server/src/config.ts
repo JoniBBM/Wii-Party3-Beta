@@ -40,7 +40,8 @@ function secret(): string {
 }
 
 export const config = {
-  port: Number(env.PORT ?? 8080),
+  // INSEL_PORT hat Vorrang (Entwicklung: PORT wird oft von Werkzeugen gesetzt)
+  port: Number(env.INSEL_PORT ?? env.PORT ?? 8080),
   host: env.HOST ?? '0.0.0.0',
   dataDir: DATA_DIR,
   dbFile: join(DATA_DIR, 'insel.db'),

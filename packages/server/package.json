@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Spielserver: Fastify (REST) + Socket.IO (Live), SQLite-Speicher.",
   "scripts": {
-    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "dev": "INSEL_PORT=8080 tsx watch --clear-screen=false src/main.ts",
     "build": "tsup",
     "start": "node dist/main.js",
     "import:legacy": "tsx src/tools/import-legacy.ts"
