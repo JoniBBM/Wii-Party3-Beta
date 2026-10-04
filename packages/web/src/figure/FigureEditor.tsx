@@ -77,7 +77,7 @@ export function FigureEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-sky-200 via-sky-100 to-white">
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'linear-gradient(180deg, #bfe6ff, #e6f6ff 55%, #ffffff)' }}>
         <FigurePreview figure={f} color={color} height={260} />
         <button
           type="button"

@@ -274,3 +274,28 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Namensschilder über den Figuren (Beamer) */
+.board-tag-wrap {
+  pointer-events: none;
+}
+.board-tag {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(11px, 0.85vw, 15px);
+  color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 85%, white), var(--c));
+  border: 2px solid #fff;
+  padding: 1px 10px 2px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.25);
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.25);
+  transition: transform 0.25s, font-size 0.25s;
+}
+.board-tag.active {
+  font-size: clamp(14px, 1.2vw, 20px);
+  transform: translateY(-6px);
+  animation: float-y 1.6s ease-in-out infinite;
+}

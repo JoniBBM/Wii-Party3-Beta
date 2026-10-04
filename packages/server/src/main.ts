@@ -50,7 +50,8 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
     await app.register(fastifyStatic, { root: config.webDist, prefix: '/', wildcard: false });
     // Single-Page-App: alle unbekannten Seiten liefern index.html
     app.setNotFoundHandler((req, reply) => {
-      if (req.url.startsWith('/api/') || req.url.startsWith('/media/') || req.method !== 'GET') {
+      const path = req.url.split('?')[0] ?? '';
+      if (path.startsWith('/api/') || path.startsWith('/media/') || req.method !== 'GET' || /\.[a-z0-9]{2,5}$/i.test(path)) {
         return reply.status(404).send({ error: 'Nicht gefunden' });
       }
       return reply.type('text/html').sendFile('index.html', config.webDist, { maxAge: 0 });

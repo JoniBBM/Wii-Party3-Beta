@@ -185,7 +185,7 @@ export function FigureAvatar({ figure, color, size = 48, className = '' }: { fig
     return () => cancelAnimationFrame(id);
   }, [figure, color]);
   return (
-    <span className={`inline-block shrink-0 overflow-hidden rounded-full bg-gradient-to-b from-sky-100 to-white ${className}`} style={{ width: size, height: size }}>
+    <span className={`inline-block shrink-0 overflow-hidden rounded-full ${className}`} style={{ width: size, height: size, background: 'linear-gradient(180deg, #dff3ff, #ffffff)' }}>
       {src && <img src={src} alt="" className="size-full object-cover" draggable={false} />}
     </span>
   );

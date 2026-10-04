@@ -18,6 +18,7 @@
     "@insel/shared": "*",
     "lucide-react": "^1.52.0",
     "motion": "^14.0.0",
+    "n8ao": "^2.0.1",
     "postprocessing": "^6.39.5",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
