@@ -25,3 +25,7 @@ coverage/
 # Laufzeitdaten Neubau
 data/
 .env
+
+# Screenshot-Werkzeug
+docs/screens-tmp/
+test-results/

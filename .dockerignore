@@ -1,0 +1,10 @@
+.git
+.claude
+**/node_modules
+**/dist
+data
+legacy
+e2e
+.env
+*.db
+**/.DS_Store

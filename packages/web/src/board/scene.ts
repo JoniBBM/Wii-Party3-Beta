@@ -162,7 +162,7 @@ export class BoardScene {
     this.water = createWater(heightTexture(field), { segments: preset.water, fog: HORIZON, fogNear: 110, fogFar: 330 });
     this.water.setSun(this.sun.position, this.sun.color);
     this.scene.add(this.water.mesh);
-    this.scene.add(createRiver(layout.river, riverLevel, (t) => 0.9 + t * 1.5));
+    this.scene.add(createRiver(layout.river, riverLevel, (t) => 1.2 + t * 1.6));
 
     // Felder
     progress(0.45, 'Spielfelder werden gelegt …');

@@ -20,7 +20,8 @@ import { seedIfEmpty } from './seed.ts';
 export async function startServer(opts: { port?: number; dbFile?: string; quiet?: boolean } = {}) {
   const database = openDb(opts.dbFile);
   const app = Fastify({
-    logger: opts.quiet ? false : { level: config.isProduction ? 'info' : 'warn' },
+    // Anfragen werden auf Info-Ebene protokolliert – im Betrieb nur Warnungen und Fehler
+    logger: opts.quiet ? false : { level: process.env.LOG_LEVEL ?? 'warn' },
     bodyLimit: 5 * 1024 * 1024,
     trustProxy: true,
   });

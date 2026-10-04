@@ -8,7 +8,7 @@ import { useSystemSync } from '../../lib/system.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { BoardCanvas, boardAudio } from './BoardCanvas.tsx';
 import { CaptionBanner, Ranking, SettingsMenu, toggleFullscreen, TopBar } from './Hud.tsx';
-import { PhaseOverlay } from './Overlays.tsx';
+import { DiceBanner, PhaseOverlay } from './Overlays.tsx';
 import { useBeamerPrefs } from './prefs.ts';
 
 export default function BeamerApp() {
@@ -77,6 +77,7 @@ export default function BeamerApp() {
           </div>
         )}
         {state && <PhaseOverlay state={state} />}
+        {state && <DiceBanner state={state} />}
         {!state && (
           <div className="absolute inset-0 grid place-items-center">
             <div className="glass rounded-[2rem] px-10 py-8 text-center">

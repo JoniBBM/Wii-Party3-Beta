@@ -398,3 +398,70 @@ function Finished({ state }: { state: GameState }) {
     </div>
   );
 }
+
+function RoundEnd({ state }: { state: GameState }) {
+  if (state.phase.name !== 'round_end') return null;
+  const s = state.phase.summary;
+  const moves = [...s.moves].sort((a, b) => b.to - b.from - (a.to - a.from));
+  return (
+    <div className="flex flex-col gap-3 p-7">
+      <p className="font-display text-5xl font-semibold text-ink">🏁 Runde {s.round} geschafft!</p>
+      {s.eruption && <p className="rounded-2xl bg-bad px-4 py-2 font-display text-2xl font-semibold text-white">🌋 Der Vulkan ist ausgebrochen!</p>}
+      <div className="flex flex-col gap-1.5">
+        {moves.map((m, i) => {
+          const t = teamById(state, m.teamId);
+          const d = m.to - m.from;
+          return (
+            <motion.div
+              key={m.teamId}
+              initial={{ x: -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.1 * i }}
+              className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-1.5 text-2xl font-bold"
+            >
+              <span className="size-5 rounded-full" style={{ background: teamColor(t?.color ?? 'red').hex }} />
+              <span className="flex-1 font-display text-ink">{t?.name}</span>
+              <span className="text-ink-2 tabular-nums">
+                {m.from} → {m.to}
+              </span>
+              <span className={`w-16 text-right tabular-nums ${d > 0 ? 'text-good' : d < 0 ? 'text-bad' : 'text-muted'}`}>{d > 0 ? `+${d}` : d}</span>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Kleines Banner oben in der Mitte während der Würfelrunde. */
+export function DiceBanner({ state }: { state: GameState }) {
+  const show = state.phase.name === 'dice' && !(state.phase.dice.fieldGame && state.phase.dice.fieldGame.stage === 'running');
+  return (
+    <div className="pointer-events-none absolute top-5 left-1/2 z-10 -translate-x-1/2">
+      <AnimatePresence>
+        {show && state.phase.name === 'dice' && (
+          <motion.div initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -40, opacity: 0 }} className="glass flex items-center gap-2 rounded-full px-4 py-2">
+            <span className="mr-1 font-display text-xl font-semibold text-ink">🎲 Würfelrunde</span>
+            {state.phase.dice.order.map((id, i) => {
+              const t = teamById(state, id);
+              const dice = state.phase.name === 'dice' ? state.phase.dice : null;
+              const done = !!dice?.rolls.some((r) => r.teamId === id);
+              const active = dice?.index === i;
+              return (
+                <span
+                  key={id}
+                  className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-base font-bold transition ${active ? 'scale-110 text-white shadow-soft' : done ? 'bg-white/50 text-muted' : 'bg-white/80 text-ink-2'}`}
+                  style={active ? { background: teamColor(t?.color ?? 'red').hex } : undefined}
+                >
+                  {!active && <span className="size-3 rounded-full" style={{ background: teamColor(t?.color ?? 'red').hex }} />}
+                  {t?.name}
+                  {done && ' ✓'}
+                </span>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

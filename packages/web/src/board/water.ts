@@ -187,6 +187,8 @@ export function createRiver(points: { x: number; z: number }[], levelAt: (t: num
   geo.computeVertexNormals();
   const material = new THREE.ShaderMaterial({
     transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false,
     uniforms: { uTime: { value: 0 } },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -201,11 +203,13 @@ export function createRiver(points: { x: number; z: number }[], levelAt: (t: num
         return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
       }
       void main() {
-        float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x);
+        float edge = smoothstep(0.0, 0.1, vUv.x) * smoothstep(1.0, 0.9, vUv.x);
         float flow = vnoise(vec2(vUv.x * 6.0, vUv.y * 3.0 - uTime * 1.6));
-        vec3 col = mix(vec3(0.24, 0.72, 0.85), vec3(0.55, 0.9, 0.95), flow * 0.6);
-        col = mix(vec3(1.0), col, edge);
-        gl_FragColor = vec4(col, mix(0.85, 0.95, edge));
+        float streak = smoothstep(0.62, 0.8, vnoise(vec2(vUv.x * 14.0, vUv.y * 8.0 - uTime * 2.4)));
+        vec3 col = mix(vec3(0.09, 0.5, 0.72), vec3(0.24, 0.72, 0.86), flow);
+        col = mix(col, vec3(0.85, 0.96, 1.0), streak * 0.45);
+        col = mix(vec3(0.9, 0.97, 1.0), col, edge);
+        gl_FragColor = vec4(col, mix(0.7, 0.92, edge));
         #include <colorspace_fragment>
       }
     `,

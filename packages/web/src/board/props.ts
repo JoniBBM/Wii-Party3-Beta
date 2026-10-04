@@ -22,7 +22,7 @@ export const MODEL_LIST = [
   ...['rock_largeA', 'rock_largeB', 'rock_largeC', 'rock_largeD', 'rock_largeE', 'rock_largeF'].map(N),
   ...['rock_smallA', 'rock_smallB', 'rock_smallC', 'rock_smallD', 'rock_smallE', 'rock_smallF'].map(N),
   ...['rock_tallA', 'rock_tallB', 'rock_tallC', 'rock_tallD', 'rock_tallE', 'stone_tallA', 'stone_tallB', 'stone_tallC'].map(N),
-  ...['bridge_wood', 'log', 'log_large', 'stump_round', 'mushroom_red', 'mushroom_redGroup', 'campfire_stones', 'tent_detailedOpen', 'canoe', 'lily_large', 'lily_small', 'statue_head', 'sign'].map(N),
+  ...['log', 'log_large', 'stump_round', 'mushroom_red', 'mushroom_redGroup', 'campfire_stones', 'tent_detailedOpen', 'canoe', 'lily_large', 'lily_small', 'statue_head', 'sign'].map(N),
   ...['structure-platform-dock', 'structure-platform-dock-small', 'boat-row-small', 'boat-row-large', 'ship-pirate-large', 'ship-wreck', 'barrel', 'crate', 'chest', 'flag-pirate-high', 'tower-watch', 'rocks-sand-a', 'rocks-sand-b', 'rocks-sand-c', 'palm-detailed-bend', 'palm-detailed-straight'].map(P),
 ];
 
@@ -195,9 +195,8 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   add(P('ship-pirate-large'), { x: 31, y: -0.35, z: 26, rotY: -2.3, scale: 1 }, 9);
   add(P('ship-wreck'), { x: -31, y: -0.6, z: -17, rotY: 0.8, scale: 1 }, 4);
 
-  // Brücke über den Fluss
-  const br = layout.bridge;
-  add(N('bridge_wood'), { x: br.x, y: br.y - 0.32, z: br.z, rotY: -br.heading + Math.PI / 2, scale: br.length / 1.04 });
+  // Brücke über den Fluss (selbst gebaut, damit sie exakt auf dem Weg liegt)
+  root.add(buildBridge(layout));
   // Seerosen & Kanu am Fluss
   layout.river.slice(3).forEach((p, i) => {
     if (i % 2 === 0) add(N(i % 4 === 0 ? 'lily_large' : 'lily_small'), { x: p.x + 0.6, y: riverLevel(0.55 + i * 0.1) + 0.02, z: p.z - 0.4, rotY: i, scale: 1 }, 0.12);
@@ -227,4 +226,51 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   add(P('flag-pirate-high'), { x: goal.x + Math.cos(out + 0.9) * 1.6, y: goal.y, z: goal.z + Math.sin(out + 0.9) * 1.6, rotY: 0, scale: 1 }, 3.4);
 
   return root;
+}
+
+/** Hängebrücke aus Planken, Pfosten und Seilen entlang des Weges. */
+function buildBridge(layout: IslandLayout): THREE.Group {
+  const g = new THREE.Group();
+  const br = layout.bridge;
+  const plankMat = new THREE.MeshStandardMaterial({ color: '#a8754a', roughness: 0.9 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: '#6b4630', roughness: 0.9 });
+  const ropeMat = new THREE.MeshStandardMaterial({ color: '#d9c39a', roughness: 1 });
+  // Wegpunkte im Bereich der Brücke
+  const pts = layout.path.filter((p) => Math.hypot(p.x - br.x, p.z - br.z) < br.length / 2);
+  if (pts.length < 2) return g;
+  const width = layout.fieldRadius * 2.6;
+  const plankGeo = new THREE.BoxGeometry(width, 0.12, 0.34);
+  const step = Math.max(1, Math.floor(pts.length / 14));
+  const sides: THREE.Vector3[][] = [[], []];
+  for (let i = 0; i < pts.length - 1; i += step) {
+    const a = pts[i]!;
+    const b = pts[Math.min(pts.length - 1, i + 1)]!;
+    const heading = Math.atan2(b.z - a.z, b.x - a.x);
+    const plank = new THREE.Mesh(plankGeo, i % (step * 3) === 0 ? darkMat : plankMat);
+    plank.position.set(a.x, a.y - 0.04, a.z);
+    plank.rotation.y = -heading + Math.PI / 2;
+    plank.castShadow = plank.receiveShadow = true;
+    g.add(plank);
+    const nx = Math.cos(heading + Math.PI / 2) * width * 0.5;
+    const nz = Math.sin(heading + Math.PI / 2) * width * 0.5;
+    sides[0]!.push(new THREE.Vector3(a.x + nx, a.y + 0.7, a.z + nz));
+    sides[1]!.push(new THREE.Vector3(a.x - nx, a.y + 0.7, a.z - nz));
+  }
+  const postGeo = new THREE.CylinderGeometry(0.09, 0.11, 1.4, 8);
+  for (const side of sides) {
+    for (const p of [side[0], side[side.length - 1]]) {
+      if (!p) continue;
+      const post = new THREE.Mesh(postGeo, darkMat);
+      post.position.set(p.x, p.y - 0.25, p.z);
+      post.castShadow = true;
+      g.add(post);
+    }
+    if (side.length > 1) {
+      const curve = new THREE.CatmullRomCurve3(side.map((p, i, arr) => p.clone().setY(p.y - Math.sin((i / (arr.length - 1)) * Math.PI) * 0.25)));
+      const rope = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.04, 6, false), ropeMat);
+      rope.castShadow = true;
+      g.add(rope);
+    }
+  }
+  return g;
 }

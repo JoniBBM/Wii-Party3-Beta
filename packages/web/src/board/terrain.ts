@@ -129,7 +129,7 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
       // Flussbett (nicht unter der Brücke auffüllen)
       const rv = riverGrid.nearest(x, z);
       if (rv.i >= 0) {
-        const w = lerp(0.9, 2.4, rv.t);
+        const w = lerp(1.2, 2.8, rv.t);
         const k = 1 - smoothstep(w, w + 1.6, rv.d);
         const bed = riverLevel(rv.t) - 0.55;
         const nearBridge = Math.hypot(x - bridge.x, z - bridge.z) < bridge.length * 0.6;
