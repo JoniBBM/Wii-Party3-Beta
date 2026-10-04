@@ -23,7 +23,8 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
     // Anfragen werden auf Info-Ebene protokolliert – im Betrieb nur Warnungen und Fehler
     logger: opts.quiet ? false : { level: process.env.LOG_LEVEL ?? 'warn' },
     bodyLimit: 5 * 1024 * 1024,
-    trustProxy: true,
+    // Nur lokalen Proxys vertrauen (Tunnel/Caddy im Docker-Netz) – sonst ließe sich die IP fälschen
+    trustProxy: ['127.0.0.1', '::1', '172.16.0.0/12'],
   });
 
   seedIfEmpty(database, (m) => app.log.warn(m));

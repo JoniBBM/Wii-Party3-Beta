@@ -445,3 +445,88 @@ describe('Antwortvergleich', () => {
     expect(isTextAnswerCorrect('', ['x'])).toBe(false);
   });
 });
+
+describe('Korrekturen aus dem Review', () => {
+  it('„genau treffen“ gilt auch beim Befreien aus der Sperre', () => {
+    const h = harness({ config: { board: boardWith({ 38: 'barrier' }) } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.mutate((s) => {
+      s.config.rules.winRule = 'exact';
+      s.config.rules.barrier = { mode: 'atLeast', value: 5 };
+      s.teams[0]!.position = 38;
+      s.teams[0]!.blocked = { attempts: 0, since: 0 };
+    });
+    h.toDice([a.id, b.id]);
+    h.run({ type: 'dice.roll', main: 5 }, ADMIN);
+    expect(h.s.winnerTeamId).toBeNull();
+    expect(h.team(0).position).toBe(37);
+  });
+
+  it('Abbrechen gibt den Punkt im Ablaufplan zurück', () => {
+    const h = harness({ config: { plan: ['q1', 'g1'] } }).setup();
+    h.run({ type: 'content.select', source: 'plan' });
+    expect(phase(h.s, 'content').content.item.id).toBe('q1');
+    h.run({ type: 'content.abort' });
+    expect(h.s.planIndex).toBe(0);
+    h.run({ type: 'content.select', source: 'plan' });
+    // Ersetzen durch manuelle Auswahl gibt den Planpunkt ebenfalls zurück
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q2' });
+    expect(h.s.planIndex).toBe(0);
+  });
+
+  it('leere Antworten zählen nicht', () => {
+    const h = harness().setup();
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q1' });
+    h.run({ type: 'content.open' });
+    expect(() => h.run({ type: 'answer.submit', value: '  ' }, { role: 'team', teamId: h.team(0).id })).toThrow(/Antwort/);
+    expect(phase(h.s, 'content').content.answers[h.team(0).id]).toBeUndefined();
+  });
+
+  it('im laufenden Spiel bleiben mindestens 2 Teams', () => {
+    const h = harness().setup();
+    expect(() => h.run({ type: 'team.remove', teamId: h.team(0).id })).toThrow(/mindestens/);
+  });
+
+  it('der Siegeswurf steht im Verlauf', () => {
+    const h = harness().setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.mutate((s) => (s.teams[0]!.position = 40));
+    h.toDice([a.id, b.id]);
+    h.run({ type: 'dice.roll', main: 6 }, ADMIN);
+    expect(h.s.winnerTeamId).toBe(a.id);
+    expect(h.s.history.at(-1)!.rolls).toEqual([{ teamId: a.id, total: 6 }]);
+  });
+
+  it('Spieler dürfen keinen Fotopfad setzen', () => {
+    const h = harness().setup();
+    const p = h.s.players[0]!;
+    expect(() => h.run({ type: 'player.update', playerId: p.id, photo: `/media/g/${p.id}-abc.webp` }, { role: 'player', playerId: p.id })).toThrow();
+    expect(() => commandSchema.parse({ type: 'player.update', playerId: p.id, photo: '/media/../x' })).toThrow();
+  });
+
+  it('Buzzer: zweiter Buzz pausiert den Countdown erneut', () => {
+    const h = harness().setup(3);
+    const [a, b] = [h.team(0), h.team(1)];
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q4' });
+    h.run({ type: 'timer.start', seconds: 30 });
+    h.run({ type: 'content.open' });
+    h.run({ type: 'buzz' }, { role: 'team', teamId: a.id });
+    expect(phase(h.s, 'content').content.timer!.startedAt).toBeNull();
+    h.run({ type: 'buzz.judge', teamId: a.id, correct: false }, MOD);
+    expect(phase(h.s, 'content').content.timer!.startedAt).not.toBeNull();
+    h.run({ type: 'buzz' }, { role: 'team', teamId: b.id });
+    expect(phase(h.s, 'content').content.timer!.startedAt).toBeNull();
+  });
+
+  it('Neu auslosen bei „ganzes Team“ verändert die Zähler nicht', () => {
+    const h = harness().setup();
+    const all = buildItem({ kind: 'game', title: 'Alle', playerCount: 'all' }, { id: 'all', collectionId: 'c1', now: 0 });
+    ITEMS.push(all);
+    h.run({ type: 'content.select', source: 'manual', itemId: 'all' });
+    h.run({ type: 'content.redraw' });
+    h.run({ type: 'content.redraw' });
+    expect(h.s.players.every((p) => p.playCount === 0)).toBe(true);
+    ITEMS.pop();
+  });
+});
+

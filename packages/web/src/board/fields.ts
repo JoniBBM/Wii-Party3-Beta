@@ -191,7 +191,22 @@ export function buildFields(layout: IslandLayout): FieldMeshes {
   const iconGeo = new THREE.PlaneGeometry(1, 1);
   iconGeo.rotateX(-Math.PI / 2);
 
+  const iconMaterials = new Map<FieldType, THREE.MeshBasicMaterial>();
+  const iconMaterial = (type: FieldType, tex: THREE.Texture) => {
+    let m = iconMaterials.get(type);
+    if (!m) {
+      m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false });
+      iconMaterials.set(type, m);
+    }
+    return m;
+  };
+  let lastKey = '';
+
   const setFields = (fields: FieldType[]) => {
+    // Nur neu aufbauen, wenn sich die Belegung wirklich geändert hat
+    const key = fields.join(',');
+    if (key === lastKey) return;
+    lastKey = key;
     const c = new THREE.Color();
     icons.clear();
     layout.fields.forEach((f, i) => {
@@ -201,10 +216,7 @@ export function buildFields(layout: IslandLayout): FieldMeshes {
       caps.setColorAt(i, c);
       const tex = iconTexture(type);
       if (tex) {
-        const icon = new THREE.Mesh(
-          iconGeo,
-          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }),
-        );
+        const icon = new THREE.Mesh(iconGeo, iconMaterial(type, tex));
         const size = radii[i]! * (type === 'start' ? 1.2 : 1.45);
         icon.scale.set(size, 1, size);
         icon.position.set(f.x, topY[i]! + 0.03, f.z);

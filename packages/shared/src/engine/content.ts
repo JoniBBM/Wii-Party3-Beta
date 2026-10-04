@@ -242,9 +242,11 @@ export function handleContentCommand(
       if (replacing) {
         undoDraw(tx, p.content.drawn, p.content.item.playerCount);
         s.playedItemIds = s.playedItemIds.filter((id) => id !== p.content.item.id);
+        s.planIndex = p.content.planIndexBefore;
       } else {
         s.round += 1;
       }
+      const planIndexBefore = s.planIndex;
       const item = chooseItem(tx, cmd);
       const drawn = shouldDraw(item) ? drawForTeams(tx, s.teams.map((t) => t.id), item.playerCount) : {};
       if (!s.playedItemIds.includes(item.id)) s.playedItemIds.push(item.id);
@@ -262,6 +264,7 @@ export function handleContentCommand(
           buzzJudged: {},
           ranking: null,
           startedAt: now,
+          planIndexBefore,
         },
       };
       tx.effects.push({ type: 'content', stage: 'intro', kind: item.kind, title: item.title });
@@ -278,7 +281,7 @@ export function handleContentCommand(
       const previous: Record<string, string[]> = {};
       for (const id of teamIds) previous[id] = c.drawn[id] ?? [];
       undoDraw(tx, previous, c.item.playerCount);
-      Object.assign(c.drawn, drawForTeams(tx, teamIds, c.item.playerCount === 'all' ? '1' : c.item.playerCount));
+      Object.assign(c.drawn, drawForTeams(tx, teamIds, c.item.playerCount));
       tx.effects.push({ type: 'drawn' });
       tx.label = 'Neu ausgelost';
       return;
@@ -349,6 +352,7 @@ export function handleContentCommand(
       const c = activeContent(tx);
       undoDraw(tx, c.drawn, c.item.playerCount);
       s.playedItemIds = s.playedItemIds.filter((id) => id !== c.item.id);
+      s.planIndex = c.planIndexBefore ?? s.planIndex;
       s.round = Math.max(0, s.round - 1);
       s.phase = { name: 'idle' };
       tx.label = 'Inhalt abgebrochen';
@@ -396,6 +400,7 @@ export function handleContentCommand(
       if (c.stage !== 'open' && !(isStaff(tx.actor) && c.stage === 'closed')) fail('Antworten sind gerade nicht möglich');
       if (c.answers[team.id] && !isStaff(tx.actor)) fail('Euer Team hat schon geantwortet');
       let value: number | string = cmd.value;
+      if (typeof value === 'string' && !value.trim()) fail('Bitte eine Antwort eingeben');
       if (item.kind === 'choice') {
         const idx = Number(value);
         if (!Number.isInteger(idx) || idx < 0 || idx >= item.options.length) fail('Ungültige Antwort');
@@ -445,10 +450,12 @@ export function handleContentCommand(
       if (c.stage !== 'open') fail('Der Buzzer ist nicht aktiv');
       const team = resolveTeamFor(tx, cmd.teamId);
       if (c.buzzQueue.some((b) => b.teamId === team.id)) return; // doppelt gedrückt – egal
+      if (c.buzzJudged[team.id] === false) fail('Euer Team hat schon falsch geantwortet');
+      const waiting = c.buzzQueue.some((b) => c.buzzJudged[b.teamId] === undefined);
       c.buzzQueue.push({ teamId: team.id, at: now });
       tx.effects.push({ type: 'buzz', teamId: team.id, position: c.buzzQueue.length });
       tx.label = `Buzzer: ${teamLabel(team)}`;
-      if (c.buzzQueue.length === 1) pauseTimer(c.timer, now);
+      if (!waiting) pauseTimer(c.timer, now);
       return;
     }
 

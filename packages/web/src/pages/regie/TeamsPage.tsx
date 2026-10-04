@@ -1,5 +1,5 @@
 /** Teams & Spieler verwalten: Farben, Namen, PIN/QR, Mitglieder, Fotos, Auslosung. */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dices, Pencil, Plus, Printer, QrCode as QrIcon, RefreshCw, Trash2, UserPlus } from 'lucide-react';
 import { MAX_TEAMS, PLAYER_EMOJIS, TEAM_COLORS, type GameState, type Player, type Team } from '@insel/shared';
 import { api } from '../../lib/api.ts';
@@ -49,7 +49,7 @@ export function TeamsPage() {
         <Card className="p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="font-display font-semibold">Ohne Team ({unassigned.length})</p>
-            {state.teams.length > 0 && (
+            {state.teams.length >= 2 && (
               <Button size="sm" icon={<Dices className="size-4" />} onClick={() => run({ type: 'teams.auto', count: state.teams.length, reshuffle: false })}>
                 Zufällig verteilen
               </Button>
@@ -79,6 +79,11 @@ function TeamCard({ state, team }: { state: GameState; team: Team }) {
   const { run } = useCommand();
   const joinUrl = useJoinUrl();
   const [name, setName] = useState(team.name);
+  const [editing, setEditing] = useState(false);
+  // Änderungen von anderen Geräten übernehmen, solange hier nicht getippt wird
+  useEffect(() => {
+    if (!editing) setName(team.name);
+  }, [team.name, editing]);
   const [qr, setQr] = useState(false);
   const [newPlayer, setNewPlayer] = useState('');
   const members = state.players.filter((p) => p.teamId === team.id);
@@ -94,7 +99,11 @@ function TeamCard({ state, team }: { state: GameState; team: Team }) {
             className="w-full rounded-xl bg-transparent px-2 py-1 font-display text-xl font-semibold outline-none focus:bg-surface"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onBlur={() => name.trim() && name !== team.name && run({ type: 'team.update', teamId: team.id, name: name.trim() })}
+            onFocus={() => setEditing(true)}
+            onBlur={() => {
+              setEditing(false);
+              if (name.trim() && name !== team.name) void run({ type: 'team.update', teamId: team.id, name: name.trim() });
+            }}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             aria-label="Teamname"
           />

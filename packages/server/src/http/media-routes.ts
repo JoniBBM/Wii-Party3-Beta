@@ -8,8 +8,7 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import { isPrivileged } from '@insel/shared';
-import { config } from '../config.ts';
-import { removeFile } from '../media.ts';
+import { gameMediaDir, removeFile } from '../media.ts';
 import type { GameRuntime } from '../runtime.ts';
 import { HttpError, sessionOf } from './common.ts';
 
@@ -49,7 +48,7 @@ export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
     } catch {
       throw new HttpError(400, 'Das Bild konnte nicht gelesen werden');
     }
-    const dir = join(config.mediaDir, state.id);
+    const dir = gameMediaDir(state.id);
     mkdirSync(dir, { recursive: true });
     const name = `${player.id}-${randomBytes(4).toString('hex')}.webp`;
     writeFileSync(join(dir, name), output);

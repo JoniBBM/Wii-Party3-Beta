@@ -48,7 +48,7 @@ export const contentItemInputSchema = z.discriminatedUnion('kind', [
     ...itemBase,
     question: shortText(1000).min(1, 'Frage fehlt'),
     options: z.array(shortText(300).min(1)).min(2, 'Mindestens zwei Antworten').max(8),
-    correctIndex: z.number().int().min(0),
+    correctIndex: z.number().int().min(0, 'Bitte die richtige Antwort markieren (und ausfüllen)'),
   }),
   z.object({
     kind: z.literal('text'),
@@ -157,7 +157,11 @@ export const commandSchema = z.discriminatedUnion('type', [
     name: shortText(40).min(1).optional(),
     emoji: shortText(16).optional(),
     selectable: z.boolean().optional(),
-    photo: z.string().max(300).nullable().optional(),
+    photo: z
+      .string()
+      .regex(/^\/media\/[a-z0-9]+\/[a-z0-9]+-[0-9a-f]+\.webp$/, 'Ungültiger Fotopfad')
+      .nullable()
+      .optional(),
   }),
   z.object({ type: z.literal('player.remove'), playerId: id }),
   z.object({ type: z.literal('player.assign'), playerId: id, teamId: id.nullable() }),

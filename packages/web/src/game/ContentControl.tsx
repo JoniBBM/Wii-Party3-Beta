@@ -1,5 +1,5 @@
 /** Steuerung eines laufenden Inhalts: Start, Countdown, Antworten, Buzzer, Platzierung, Auflösung. */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Eye, Flag, Lock, Pause, Play, RotateCcw, Square, Timer as TimerIcon, Trophy, X } from 'lucide-react';
 import { isQuestion, type ActiveContent, type GameState, type RankEntry } from '@insel/shared';
 import { useCommand, useServerNow } from '../lib/hooks.ts';
@@ -272,6 +272,15 @@ export function RankingEditor({
   title?: string;
 }) {
   const [tie, setTie] = useState(false);
+  // Lokal sofort weiterarbeiten (schnelles Antippen), vom Server bestätigte Fassung übernehmen
+  const [local, setLocal] = useState(ranking);
+  const serverKey = JSON.stringify(ranking);
+  useEffect(() => setLocal(JSON.parse(serverKey) as RankEntry[]), [serverKey]);
+  const update = (next: RankEntry[]) => {
+    setLocal(next);
+    onChange(next);
+  };
+  ranking = local;
   const ranked = [...ranking].sort((a, b) => a.rank - b.rank);
   const lastRank = ranked.at(-1)?.rank ?? 0;
   const nextRank = tie && lastRank > 0 ? lastRank : ranked.length + 1;
@@ -280,9 +289,9 @@ export function RankingEditor({
     if (existing) {
       // Entfernen und dahinter liegende nachrücken lassen
       const rest = ranking.filter((r) => r.teamId !== teamId);
-      onChange(normalize(rest));
+      update(normalize(rest));
     } else {
-      onChange([...ranking, { teamId, rank: nextRank }]);
+      update([...ranking, { teamId, rank: nextRank }]);
       setTie(false);
     }
   };
@@ -295,7 +304,7 @@ export function RankingEditor({
           <Button size="sm" variant={tie ? 'primary' : 'soft'} disabled={ranked.length === 0} onClick={() => setTie(!tie)}>
             = Gleichstand
           </Button>
-          <Button size="sm" variant="ghost" icon={<RotateCcw className="size-3.5" />} disabled={ranked.length === 0} onClick={() => onChange([])}>
+          <Button size="sm" variant="ghost" icon={<RotateCcw className="size-3.5" />} disabled={ranked.length === 0} onClick={() => update([])}>
             Neu
           </Button>
         </div>

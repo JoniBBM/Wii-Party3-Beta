@@ -2,7 +2,7 @@
  * Sitzungen als signierte Tokens (HMAC-SHA256). Kein Server-Session-Speicher nötig:
  * Geräte behalten ihr Token im localStorage und schicken es bei REST und WebSocket mit.
  */
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Role, Session } from '@insel/shared';
 import { config } from './config.ts';
 
@@ -11,8 +11,14 @@ interface TokenPayload {
   g?: string | null;
   t?: string | null;
   p?: string | null;
+  k?: string | null;
   iat: number;
   exp: number;
+}
+
+/** Kurzer Fingerabdruck des Team-Schlüssels: Neue PIN → alte Team-Geräte ungültig. */
+export function teamKey(joinToken: string): string {
+  return createHash('sha256').update(joinToken).digest('base64url').slice(0, 12);
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -36,6 +42,7 @@ export function issueToken(session: Session, lifetimeMs?: number): string {
     g: session.gameId ?? null,
     t: session.teamId ?? null,
     p: session.playerId ?? null,
+    k: session.key ?? null,
     iat: now,
     exp: now + (lifetimeMs ?? LIFETIME[session.role] ?? DAY),
   };
@@ -53,7 +60,7 @@ export function verifyToken(token: string | undefined | null): Session | null {
   try {
     const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as TokenPayload;
     if (typeof p.exp !== 'number' || p.exp < Date.now()) return null;
-    return { role: p.r, gameId: p.g ?? null, teamId: p.t ?? null, playerId: p.p ?? null };
+    return { role: p.r, gameId: p.g ?? null, teamId: p.t ?? null, playerId: p.p ?? null, key: p.k ?? null };
   } catch {
     return null;
   }
@@ -79,13 +86,41 @@ export function newSecretToken(): string {
   return randomBytes(18).toString('base64url');
 }
 
-/** Sehr einfache Bremse gegen PIN-/Passwort-Raten (pro IP). */
-const attempts = new Map<string, { count: number; since: number }>();
-export function rateLimited(key: string, max = 12, windowMs = 60_000): boolean {
+/**
+ * Bremse gegen Raten von PIN und Passwort. Gezählt werden nur **Fehlversuche** – sowohl je IP als
+ * auch insgesamt. (Hinter Docker Desktop teilen sich oft alle Handys eine IP; erfolgreiche
+ * Anmeldungen dürfen deshalb nie gebremst werden.)
+ */
+const failures = new Map<string, { count: number; since: number }>();
+
+function bucket(key: string, windowMs: number) {
   const now = Date.now();
-  const a = attempts.get(key);
+  let b = failures.get(key);
+  if (!b || now - b.since > windowMs) {
+    b = { count: 0, since: now };
+    failures.set(key, b);
+  }
+  if (failures.size > 5000) failures.clear();
+  return b;
+}
+
+export function tooManyFailures(scope: string, ip: string, perIp = 10, global = 40, windowMs = 60_000): boolean {
+  return bucket(`${scope}:${ip}`, windowMs).count >= perIp || bucket(`${scope}:*`, windowMs).count >= global;
+}
+
+export function noteFailure(scope: string, ip: string, windowMs = 60_000) {
+  bucket(`${scope}:${ip}`, windowMs).count += 1;
+  bucket(`${scope}:*`, windowMs).count += 1;
+}
+
+/** Einfache Mengenbremse (z. B. Anmeldungen), großzügig bemessen. */
+const counters = new Map<string, { count: number; since: number }>();
+export function rateLimited(key: string, max: number, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const a = counters.get(key);
   if (!a || now - a.since > windowMs) {
-    attempts.set(key, { count: 1, since: now });
+    if (counters.size > 5000) counters.clear();
+    counters.set(key, { count: 1, since: now });
     return false;
   }
   a.count += 1;

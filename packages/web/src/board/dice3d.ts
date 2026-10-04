@@ -55,9 +55,10 @@ function faceTexture(value: number, kind: 'pips' | 'number', bg: string, fg: str
 class Die {
   mesh: THREE.Mesh;
   values: number[];
-  constructor(kind: 'main' | 'bonus', sides = 6) {
+  constructor(kind: 'main' | 'bonus', sides = 6, rolled = 1) {
     const geo = new RoundedBoxGeometry(1, 1, 1, 5, 0.16);
-    this.values = kind === 'main' ? D6_FACES : D6_FACES.map((_, i) => (i % sides) + 1);
+    // Bonuswürfel: gewürfelte Zahl liegt sicher auf einer Seite (auch W8–W12)
+    this.values = kind === 'main' ? D6_FACES : D6_FACES.map((_, i) => ((rolled - 1 + i) % sides) + 1);
     const mats = this.values.map(
       (v) =>
         new THREE.MeshPhysicalMaterial({
@@ -115,7 +116,7 @@ export class DiceOverlay {
       this.bonus = null;
     }
     if (bonus > 0) {
-      this.bonus = new Die('bonus', bonusSides);
+      this.bonus = new Die('bonus', bonusSides, bonus);
       this.scene.add(this.bonus.mesh);
     }
     this.visible = true;

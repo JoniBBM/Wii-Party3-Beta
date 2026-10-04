@@ -14,7 +14,7 @@ import {
   type GameState,
   type Session,
 } from '@insel/shared';
-import { verifyToken } from './auth.ts';
+import { teamKey, verifyToken } from './auth.ts';
 import { getSettings, type DB } from './db.ts';
 import type { GameRuntime } from './runtime.ts';
 
@@ -38,7 +38,10 @@ export function resolveSession(raw: Session | null, state: GameState | null, vie
   if (!raw) return fallback;
   if (raw.role === 'admin' || raw.role === 'moderator') return raw;
   if (!state || raw.gameId !== state.id) return fallback;
-  if (raw.role === 'team') return state.teams.some((t) => t.id === raw.teamId) ? raw : fallback;
+  if (raw.role === 'team') {
+    const team = state.teams.find((t) => t.id === raw.teamId);
+    return team && raw.key === teamKey(team.joinToken) ? raw : fallback;
+  }
   if (raw.role === 'player') return state.players.some((p) => p.id === raw.playerId) ? raw : fallback;
   return fallback;
 }
@@ -153,7 +156,11 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
       const reply = ack ?? (() => {});
       try {
         const cmd = commandSchema.parse(raw);
-        const result = runtime.dispatch(cmd, actorFor(sessionOf(socket)));
+        const session = sessionOf(socket);
+        if (cmd.type === 'player.register' && session.role === 'guest') {
+          throw new EngineError('Bitte über die Anmeldeseite mitspielen', 'forbidden');
+        }
+        const result = runtime.dispatch(cmd, actorFor(session));
         reply({ ok: true, meta: result.meta });
       } catch (err) {
         reply(errorMessage(err));

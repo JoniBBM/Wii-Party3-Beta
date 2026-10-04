@@ -10,6 +10,7 @@ import {
   type GameState,
 } from '@insel/shared';
 import { useCommand } from '../../lib/hooks.ts';
+import { parseEstimate } from '../../lib/parse.ts';
 import { Button, Card } from '../../ui/basics.tsx';
 import { BonusDieBadge, Countdown, KindBadge, TeamChip } from '../../ui/game.tsx';
 import { DrawnPlayers, placeLabel } from '../../game/bits.tsx';
@@ -192,7 +193,7 @@ function TextAnswer() {
 function EstimateAnswer({ unit }: { unit: string }) {
   const { run, pending } = useCommand();
   const [v, setV] = useState('');
-  const n = Number(v.replace(/\./g, '').replace(',', '.'));
+  const n = parseEstimate(v);
   return (
     <form
       className="flex flex-col gap-2.5"

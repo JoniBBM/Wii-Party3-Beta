@@ -81,9 +81,10 @@ function RollControl({ state, dice }: { state: GameState; dice: DiceRound }) {
               size="lg"
               icon={<Dices className="size-5" />}
               loading={pending === 'dice.roll'}
-              onClick={() => run({ type: 'dice.roll', force: busyMs > 0 })}
+              disabled={busyMs > 0}
+              onClick={() => run({ type: 'dice.roll' })}
             >
-              Für Team würfeln
+              {busyMs > 0 ? 'Animation läuft …' : 'Für Team würfeln'}
             </Button>
             <div className="flex gap-2">
               <Button size="sm" icon={<Hand className="size-4" />} onClick={() => setManual(true)}>
@@ -99,7 +100,7 @@ function RollControl({ state, dice }: { state: GameState; dice: DiceRound }) {
 
       {last && <LastRoll state={state} roll={last} />}
 
-      <ManualRollModal open={manual} onClose={() => setManual(false)} bonusDie={team?.bonusDie ?? 0} onRoll={(main, bonus) => {
+      <ManualRollModal key={`${currentId}-${manual}`} open={manual} onClose={() => setManual(false)} bonusDie={team?.bonusDie ?? 0} onRoll={(main, bonus) => {
         setManual(false);
         void run({ type: 'dice.roll', main, ...(bonus ? { bonus } : {}), force: true });
       }} />

@@ -25,6 +25,10 @@ export class Director {
   private idleTimer: number | null = null;
   private fireworks: number | null = null;
   private disposed = false;
+  /** Wird bei Rückgängig erhöht – laufende Abläufe brechen dann ab. */
+  private generation = 0;
+  private captionTimer: number | null = null;
+  private currentCaption = 0;
 
   constructor(
     private s: BoardScene,
@@ -33,8 +37,12 @@ export class Director {
 
   private say(c: Omit<Caption, 'id'>, ms = 2600) {
     const cap = { ...c, id: ++captionSeq };
+    this.currentCaption = cap.id;
     this.caption(cap);
-    window.setTimeout(() => this.caption(null), ms);
+    if (this.captionTimer) clearTimeout(this.captionTimer);
+    this.captionTimer = window.setTimeout(() => {
+      if (this.currentCaption === cap.id) this.caption(null);
+    }, ms);
     return cap;
   }
 
@@ -103,8 +111,12 @@ export class Director {
     for (const e of effects) {
       if (e.type === 'undo') {
         this.queue = [];
+        this.generation += 1;
+        this.s.pieces.abortAll();
         this.s.tweens.finishAll();
         this.stopFireworks();
+        this.caption(null);
+        void this.s.dice.hide(0);
         window.setTimeout(() => {
           this.reconcile();
           this.idleCamera();
@@ -121,11 +133,13 @@ export class Director {
     this.running = true;
     while (this.queue.length && !this.disposed) {
       const e = this.queue.shift()!;
+      const gen = this.generation;
       try {
         await this.play(e);
       } catch (err) {
         console.warn('Animation fehlgeschlagen', err);
       }
+      if (gen !== this.generation) continue;
       this.s.tweens.speed = this.queue.length > 8 ? 2.2 : this.queue.length > 4 ? 1.5 : 1;
     }
     this.running = false;
@@ -378,5 +392,6 @@ export class Director {
     this.stopFireworks();
     if (this.reconcileTimer) clearTimeout(this.reconcileTimer);
     if (this.idleTimer) clearTimeout(this.idleTimer);
+    if (this.captionTimer) clearTimeout(this.captionTimer);
   }
 }

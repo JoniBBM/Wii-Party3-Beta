@@ -230,10 +230,10 @@ function AdhocTab() {
       case 'game':
         return { kind, title: t, description, playerCount, timerSec };
       case 'choice': {
-        const opts = options.map((o) => o.trim()).filter(Boolean);
-        if (!question.trim() || opts.length < 2) return null;
-        const idx = Math.min(correct, opts.length - 1);
-        return { kind, title: t, question, options: opts, correctIndex: idx, playerCount: 'all', timerSec };
+        const filled = options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
+        const idx = filled.findIndex((x) => x.i === correct);
+        if (!question.trim() || filled.length < 2 || idx < 0) return null;
+        return { kind, title: t, question, options: filled.map((x) => x.o), correctIndex: idx, playerCount: 'all', timerSec };
       }
       case 'text':
         if (!question.trim() || !answer.trim()) return null;

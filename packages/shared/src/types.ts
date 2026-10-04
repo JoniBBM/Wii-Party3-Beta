@@ -234,6 +234,8 @@ export interface ActiveContent {
   /** Eingetragene/berechnete Platzierung. */
   ranking: RankEntry[] | null;
   startedAt: number;
+  /** Stand des Ablaufplans vor der Auswahl (für Abbrechen/Ersetzen). */
+  planIndexBefore: number;
 }
 
 export interface ResultEntry {
@@ -396,4 +398,6 @@ export interface Session {
   gameId?: string | null;
   teamId?: string | null;
   playerId?: string | null;
+  /** Team-Geräte: Fingerabdruck des Team-Schlüssels (neue PIN sperrt alte Geräte aus). */
+  key?: string | null;
 }

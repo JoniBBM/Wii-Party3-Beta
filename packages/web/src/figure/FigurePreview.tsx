@@ -128,6 +128,7 @@ export function FigurePreview({
       ro.disconnect();
       rig.dispose();
       renderer.dispose();
+      renderer.forceContextLoss();
       renderer.domElement.remove();
       api.current = null;
     };
@@ -135,9 +136,10 @@ export function FigurePreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const figureKey = JSON.stringify(figure);
   useEffect(() => {
-    api.current?.set(figure, color, mode);
-  }, [figure, color, mode]);
+    api.current?.set(JSON.parse(figureKey) as FigureConfig, color, mode);
+  }, [figureKey, color, mode]);
 
   return <div ref={host} className={`relative w-full cursor-grab active:cursor-grabbing ${className}`} style={{ height }} />;
 }
@@ -156,6 +158,11 @@ export function figureSnapshot(figure: FigureConfig, color: TeamColorKey, size =
   if (hit) return hit;
   if (!snapRenderer) {
     snapRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    // Verliert der Browser den Kontext (zu viele WebGL-Kontexte), beim nächsten Mal neu anlegen
+    snapRenderer.domElement.addEventListener('webglcontextlost', () => {
+      snapRenderer = null;
+      snapCache.clear();
+    });
     snapRenderer.toneMapping = THREE.ACESFilmicToneMapping;
     snapRenderer.outputColorSpace = THREE.SRGBColorSpace;
     snapScene = new THREE.Scene();

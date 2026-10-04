@@ -3,7 +3,7 @@ import { FIELD_GAME_MODE_LABEL, FIELD_INFO, type FieldGameMode } from '../consta
 import { pick, randInt } from '../rng.ts';
 import type { CommandOf } from '../schemas.ts';
 import type { BarrierCondition, DiceRound, EffectInput, Phase, RollRecord, Team } from '../types.ts';
-import { drawForTeams } from './draw.ts';
+import { drawForTeams, undoDraw } from './draw.ts';
 import { effectsDuration } from './durations.ts';
 import { fail, feed, findTeam, goalOf, isStaff, resolveTeamFor, teamLabel, type Tx } from './tx.ts';
 
@@ -46,6 +46,21 @@ function move(tx: Tx, team: Team, to: number, reason: Extract<EffectInput, { typ
   if (to === team.position) return;
   tx.effects.push({ type: 'move', teamId: team.id, from: team.position, to, reason });
   team.position = to;
+}
+
+/**
+ * Vorwärts ziehen unter Beachtung der Zielregel: Bei „genau treffen“ prallt die Figur
+ * vom Gipfel zurück, sonst endet der Weg am Gipfel.
+ */
+function advance(tx: Tx, team: Team, steps: number, reason: Extract<EffectInput, { type: 'move' }>['reason']) {
+  const goal = goalOf(tx.s);
+  const target = team.position + steps;
+  if (tx.s.config.rules.winRule === 'exact' && target > goal) {
+    move(tx, team, goal, reason);
+    move(tx, team, goal - (target - goal), reason);
+  } else {
+    move(tx, team, target, reason);
+  }
 }
 
 function victory(tx: Tx, team: Team) {
@@ -119,10 +134,9 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'field_game'
   switch (field) {
     case 'catapult_forward': {
       const dist = randInt(tx.ctx.rng, rules.catapultForward.min, rules.catapultForward.max);
-      const to = Math.min(goal, pos + dist);
-      tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: `+${to - pos}` });
-      move(tx, team, to, 'catapult');
-      feed(tx, FIELD_INFO[field].icon, `Katapult! ${teamLabel(team)} fliegt ${to - pos} Felder vor`, team.id);
+      tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: `+${Math.min(dist, goal - pos)}` });
+      advance(tx, team, dist, 'catapult');
+      feed(tx, FIELD_INFO[field].icon, `Katapult! ${teamLabel(team)} fliegt ${team.position - pos} Felder vor`, team.id);
       return checkArrival(tx, team) ? 'finished' : 'done';
     }
     case 'catapult_backward': {
@@ -271,6 +285,8 @@ export function handleDiceCommand(
       const from = team.position;
       tx.effects.push({ type: 'dice', teamId: team.id, main, bonus, bonusDie, total, manual });
       team.bonusDie = 0;
+      const record: RollRecord = { teamId: team.id, main, bonus, bonusDie, total, from, to: from, outcome: '', manual, at: now };
+      dice.rolls.push(record);
       let outcome = '';
       let result: 'done' | 'field_game' | 'finished' = 'done';
       const rollText = bonus ? `${main} + ${bonus} = ${total}` : `${main}`;
@@ -291,7 +307,7 @@ export function handleDiceCommand(
           team.blocked = null;
           tx.effects.push({ type: 'barrier', teamId: team.id, roll: main, result: 'released' });
           feed(tx, '🔓', `${teamLabel(team)} würfelt ${main} und ist frei!`, team.id);
-          move(tx, team, from + total, 'dice');
+          advance(tx, team, total, 'dice');
           outcome = `Befreit, ${total} Felder`;
           result = checkArrival(tx, team) ? 'finished' : applyField(tx, phase, team);
         } else {
@@ -309,37 +325,18 @@ export function handleDiceCommand(
           }
         }
       } else {
-        let to = from + total;
-        if (rules.winRule === 'exact' && to > goal) {
-          // Zurückprallen vom Ziel
-          move(tx, team, goal, 'dice');
-          to = goal - (to - goal);
-          move(tx, team, to, 'dice');
-        } else {
-          move(tx, team, to, 'dice');
-        }
+        advance(tx, team, total, 'dice');
         feed(tx, '🎲', `${teamLabel(team)} würfelt ${rollText} → Feld ${team.position}`, team.id);
         outcome = `${total} Felder`;
         result = checkArrival(tx, team) ? 'finished' : applyField(tx, phase, team);
       }
 
-      const record: RollRecord = {
-        teamId: team.id,
-        main,
-        bonus,
-        bonusDie,
-        total,
-        from,
-        to: team.position,
-        outcome,
-        manual,
-        at: now,
-      };
+      record.to = team.position;
+      record.outcome = outcome;
       if (result === 'finished') {
         tx.label = `Siegeswurf ${teamLabel(team)}`;
         return;
       }
-      dice.rolls.push(record);
       tx.label = `Wurf ${teamLabel(team)}: ${rollText}`;
       if (result !== 'field_game') advanceTurn(tx, phase);
       if (s.phase.name === 'dice' || s.phase.name === 'round_end') bump(tx, phase, start);
@@ -350,7 +347,11 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const id = currentTeamId(phase.dice);
       if (!id) fail('Niemand ist mehr dran');
-      if (phase.dice.fieldGame) phase.dice.fieldGame = null;
+      const openFg = phase.dice.fieldGame;
+      if (openFg) {
+        if (openFg.stage === 'running') undoDraw(tx, openFg.drawn, openFg.item?.playerCount ?? '1');
+        phase.dice.fieldGame = null;
+      }
       const t = findTeam(s, id);
       t.bonusDie = 0;
       feed(tx, '⏭️', `${teamLabel(t)} wurde übersprungen`, t.id);
@@ -363,6 +364,7 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const fg = phase.dice.fieldGame;
       if (!fg) fail('Kein Feld-Minispiel offen');
+      if (fg.stage === 'running') undoDraw(tx, fg.drawn, fg.item?.playerCount ?? '1');
       const others = s.teams.filter((t) => t.id !== fg.teamId);
       if (others.length === 0) fail('Es gibt keine Gegner');
       let item = null;
@@ -408,7 +410,7 @@ export function handleDiceCommand(
       tx.effects.push({ type: 'field_game', teamId: team.id, stage: cmd.won ? 'won' : 'lost' });
       phase.dice.fieldGame = null;
       if (cmd.won) {
-        move(tx, team, team.position + rules.fieldGame.rewardWin, 'reward');
+        advance(tx, team, rules.fieldGame.rewardWin, 'reward');
         feed(tx, '🏅', `${teamLabel(team)} gewinnt das Feld-Minispiel und zieht ${rules.fieldGame.rewardWin} Felder vor!`, team.id);
         tx.label = `Feld-Minispiel gewonnen: ${teamLabel(team)}`;
         if (checkArrival(tx, team)) return;
@@ -426,6 +428,7 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const fg = phase.dice.fieldGame;
       if (!fg) fail('Kein Feld-Minispiel offen');
+      if (fg.stage === 'running') undoDraw(tx, fg.drawn, fg.item?.playerCount ?? '1');
       phase.dice.fieldGame = null;
       tx.effects.push({ type: 'field_game', teamId: fg.teamId, stage: 'cancelled' });
       tx.label = 'Feld-Minispiel übersprungen';

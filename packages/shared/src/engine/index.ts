@@ -13,7 +13,7 @@ import { handleTeamCommand } from './teams.ts';
 import { fail, feed, goalOf, teamLabel, type EngineContext, type Tx } from './tx.ts';
 
 export { EngineError, type EngineContext } from './tx.ts';
-export { mayExecute, COMMAND_ROLES, NON_UNDOABLE } from './permissions.ts';
+export { mayExecute, COMMAND_ROLES, NON_UNDOABLE, NON_UNDOABLE_FROM_TEAMS } from './permissions.ts';
 export { projectState, stripItemSecrets, isPrivileged } from './project.ts';
 export { effectDuration, effectsDuration, DURATION } from './durations.ts';
 export { currentTeamId, barrierText } from './dice.ts';

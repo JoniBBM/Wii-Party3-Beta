@@ -2,7 +2,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { EngineError, teamColor } from '@insel/shared';
-import { checkPassword, issueToken, rateLimited } from '../auth.ts';
+import { checkPassword, issueToken, noteFailure, rateLimited, teamKey, tooManyFailures } from '../auth.ts';
 import { config } from '../config.ts';
 import type { GameRuntime } from '../runtime.ts';
 import { clientIp, HttpError, requireRole, sessionOf, ADMIN } from './common.ts';
@@ -10,22 +10,30 @@ import { clientIp, HttpError, requireRole, sessionOf, ADMIN } from './common.ts'
 export function authRoutes(app: FastifyInstance, runtime: GameRuntime) {
   app.post('/api/auth/admin', async (req) => {
     const body = z.object({ password: z.string().max(200).default('') }).parse(req.body ?? {});
-    if (rateLimited(`admin:${clientIp(req)}`)) throw new HttpError(429, 'Zu viele Versuche – bitte kurz warten');
+    const ip = clientIp(req);
+    if (tooManyFailures('admin', ip, 8, 30)) throw new HttpError(429, 'Zu viele Fehlversuche – bitte eine Minute warten');
     if (!config.authDisabled) {
       if (!config.adminPassword) throw new HttpError(500, 'Es ist kein ADMIN_PASSWORD gesetzt (siehe .env)');
-      if (!checkPassword(body.password, config.adminPassword)) throw new HttpError(401, 'Falsches Passwort');
+      if (!checkPassword(body.password, config.adminPassword)) {
+        noteFailure('admin', ip);
+        throw new HttpError(401, 'Falsches Passwort');
+      }
     }
     return { token: issueToken({ role: 'admin' }) };
   });
 
   app.post('/api/auth/moderator', async (req) => {
     const body = z.object({ password: z.string().max(200).default('') }).parse(req.body ?? {});
-    if (rateLimited(`mod:${clientIp(req)}`)) throw new HttpError(429, 'Zu viele Versuche – bitte kurz warten');
+    const ip = clientIp(req);
+    if (tooManyFailures('mod', ip, 8, 30)) throw new HttpError(429, 'Zu viele Fehlversuche – bitte eine Minute warten');
     const ok =
       config.authDisabled ||
       (config.moderatorPassword && checkPassword(body.password, config.moderatorPassword)) ||
       (config.adminPassword && checkPassword(body.password, config.adminPassword));
-    if (!ok) throw new HttpError(401, 'Falsches Passwort');
+    if (!ok) {
+      noteFailure('mod', ip);
+      throw new HttpError(401, 'Falsches Passwort');
+    }
     return { token: issueToken({ role: 'moderator' }) };
   });
 
@@ -37,11 +45,15 @@ export function authRoutes(app: FastifyInstance, runtime: GameRuntime) {
 
   app.post('/api/auth/pin', async (req) => {
     const body = z.object({ pin: z.string().trim().regex(/^\d{4}$/, 'Die PIN hat 4 Ziffern') }).parse(req.body);
-    if (rateLimited(`pin:${clientIp(req)}`, 15)) throw new HttpError(429, 'Zu viele Versuche – bitte kurz warten');
+    const ip = clientIp(req);
+    if (tooManyFailures('pin', ip)) throw new HttpError(429, 'Zu viele falsche PINs – bitte eine Minute warten');
     const state = runtime.state;
     const team = state?.teams.find((t) => t.pin === body.pin);
-    if (!state || !team) throw new HttpError(404, 'Diese PIN gibt es nicht');
-    return { token: issueToken({ role: 'team', gameId: state.id, teamId: team.id }), teamName: team.name };
+    if (!state || !team) {
+      noteFailure('pin', ip);
+      throw new HttpError(404, 'Diese PIN gibt es nicht');
+    }
+    return { token: issueToken({ role: 'team', gameId: state.id, teamId: team.id, key: teamKey(team.joinToken) }), teamName: team.name };
   });
 
   /** Beitritt per Team-QR-Code: /join/t/<teamId>.<joinToken> */
@@ -51,13 +63,13 @@ export function authRoutes(app: FastifyInstance, runtime: GameRuntime) {
     const state = runtime.state;
     const team = state?.teams.find((t) => t.id === teamId);
     if (!state || !team || !secret || team.joinToken !== secret) throw new HttpError(404, 'Dieser Team-Code ist nicht (mehr) gültig');
-    return { token: issueToken({ role: 'team', gameId: state.id, teamId: team.id }), teamName: team.name };
+    return { token: issueToken({ role: 'team', gameId: state.id, teamId: team.id, key: teamKey(team.joinToken) }), teamName: team.name };
   });
 
   /** Öffentliche Anmeldung als Spieler (Lobby). */
   app.post('/api/auth/register', async (req) => {
     const body = z.object({ name: z.string().trim().min(1, 'Bitte einen Namen eingeben').max(40), emoji: z.string().max(16).optional() }).parse(req.body);
-    if (rateLimited(`reg:${clientIp(req)}`, 20)) throw new HttpError(429, 'Zu viele Anmeldungen – bitte kurz warten');
+    if (rateLimited(`reg:${clientIp(req)}`, 120)) throw new HttpError(429, 'Zu viele Anmeldungen – bitte kurz warten');
     const state = runtime.state;
     if (!state) throw new HttpError(404, 'Es läuft gerade kein Spiel');
     const session = sessionOf(req, state);
@@ -78,7 +90,7 @@ export function authRoutes(app: FastifyInstance, runtime: GameRuntime) {
     if (session.role !== 'team' && session.role !== 'player') throw new HttpError(401, 'Bitte zuerst mit der Team-PIN beitreten');
     const ownTeam = session.role === 'team' ? session.teamId : state?.players.find((p) => p.id === session.playerId)?.teamId;
     const player = state?.players.find((p) => p.id === body.playerId);
-    if (!state || !player || player.teamId !== ownTeam) throw new HttpError(404, 'Spieler nicht in eurem Team');
+    if (!state || !player || !ownTeam || player.teamId !== ownTeam) throw new HttpError(404, 'Spieler nicht in eurem Team');
     return { token: issueToken({ role: 'player', gameId: state.id, playerId: player.id }) };
   });
 

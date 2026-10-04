@@ -59,9 +59,22 @@ export function mayExecute(type: CommandType, role: Role): boolean {
   return COMMAND_ROLES[type]?.includes(role) ?? false;
 }
 
-/** Befehle, die nicht als eigener Rückgängig-Schritt zählen (hochfrequent / von Teams). */
+/** Befehle, die nie ein eigener Rückgängig-Schritt sind (hochfrequent). */
 export const NON_UNDOABLE: ReadonlySet<CommandType> = new Set<CommandType>([
   'timer.start',
   'timer.pause',
   'timer.add',
+]);
+
+/**
+ * Von Teams/Spielern stammende Befehle, die nicht auf den Rückgängig-Stapel kommen –
+ * sonst würde „Rückgängig“ der Regie stillschweigend eine Antwort statt der eigenen Aktion löschen.
+ * Würfelwürfe der Teams bleiben rückgängig machbar (häufigste Korrektur).
+ */
+export const NON_UNDOABLE_FROM_TEAMS: ReadonlySet<CommandType> = new Set<CommandType>([
+  'answer.submit',
+  'buzz',
+  'player.register',
+  'player.update',
+  'team.update',
 ]);

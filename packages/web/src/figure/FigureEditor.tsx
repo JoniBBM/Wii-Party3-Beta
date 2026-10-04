@@ -71,7 +71,9 @@ export function FigureEditor({
 }) {
   const [f, setF] = useState(figure);
   const [tab, setTab] = useState<Tab>('face');
-  useEffect(() => setF(figure), [figure]);
+  // Nur übernehmen, wenn sich die gespeicherte Figur wirklich geändert hat (nicht bei jedem Server-Update)
+  const savedKey = JSON.stringify(figure);
+  useEffect(() => setF(JSON.parse(savedKey) as FigureConfig), [savedKey]);
   const set = <K extends keyof FigureConfig>(k: K, v: FigureConfig[K]) => setF((x) => ({ ...x, [k]: v }));
   const dirty = JSON.stringify(f) !== JSON.stringify(figure);
 

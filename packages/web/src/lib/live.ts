@@ -114,8 +114,13 @@ export function sendCommand(cmd: CommandInput): Promise<Ack> {
 
 export function sendUndo(): Promise<Ack> {
   return new Promise((resolve) => {
-    if (!socket) return resolve({ ok: false, error: 'Keine Verbindung' });
-    socket.emit('undo', (ack: Ack) => resolve(ack));
+    // Offline nicht puffern – sonst würde das Rückgängig später etwas anderes zurücknehmen
+    if (!socket || !socket.connected) return resolve({ ok: false, error: 'Keine Verbindung zum Spielserver' });
+    const timer = setTimeout(() => resolve({ ok: false, error: 'Der Server antwortet nicht' }), 8000);
+    socket.emit('undo', (ack: Ack) => {
+      clearTimeout(timer);
+      resolve(ack);
+    });
   });
 }
 

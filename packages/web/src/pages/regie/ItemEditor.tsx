@@ -87,7 +87,8 @@ function fromDraft(d: Draft): ContentItemInput {
       return { kind: 'game', ...common };
     case 'choice': {
       const filled = d.options.map((o, i) => ({ o: o.trim(), i })).filter((x) => x.o);
-      const idx = Math.max(0, filled.findIndex((x) => x.i === d.correctIndex));
+      // -1 → Schema meldet „richtige Antwort fehlt“ statt still Antwort A zu nehmen
+      const idx = filled.findIndex((x) => x.i === d.correctIndex);
       return { kind: 'choice', ...common, question: d.question, options: filled.map((x) => x.o), correctIndex: idx };
     }
     case 'text':
@@ -182,7 +183,17 @@ export function ItemEditor({
                   <span className="w-5 font-display font-semibold text-muted">{String.fromCharCode(65 + i)}</span>
                   <input className="min-w-0 flex-1 bg-transparent px-1 py-1.5 outline-none" value={o} onChange={(e) => set('options', d.options.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`Antwort ${String.fromCharCode(65 + i)}`} />
                   {d.options.length > 2 && (
-                    <IconButton label="Antwort entfernen" className="size-8" onClick={() => set('options', d.options.filter((_, j) => j !== i))}>
+                    <IconButton
+                      label="Antwort entfernen"
+                      className="size-8"
+                      onClick={() =>
+                        setD((x) => ({
+                          ...x,
+                          options: x.options.filter((_, j) => j !== i),
+                          correctIndex: x.correctIndex === i ? 0 : x.correctIndex > i ? x.correctIndex - 1 : x.correctIndex,
+                        }))
+                      }
+                    >
                       <Trash2 className="size-4" />
                     </IconButton>
                   )}

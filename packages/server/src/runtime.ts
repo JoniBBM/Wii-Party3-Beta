@@ -9,6 +9,7 @@ import {
   createGame,
   EngineError,
   NON_UNDOABLE,
+  NON_UNDOABLE_FROM_TEAMS,
   timerRemaining,
   type Actor,
   type Command,
@@ -95,7 +96,9 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
     const result = applyCommand(before, cmd, actor, this.context(before));
     this.state = result.state;
 
-    if (!NON_UNDOABLE.has(cmd.type)) {
+    const fromTeam = actor.role === 'team' || actor.role === 'player' || actor.role === 'guest';
+    const undoable = !actor.system && !NON_UNDOABLE.has(cmd.type) && !(fromTeam && NON_UNDOABLE_FROM_TEAMS.has(cmd.type));
+    if (undoable) {
       this.undoStack.push({ state: before, label: result.label });
       if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
     }
@@ -120,7 +123,16 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
   undo(): string {
     const entry = this.undoStack.pop();
     if (!entry || !this.state) throw new EngineError('Es gibt nichts rückgängig zu machen');
-    this.state = { ...entry.state, rev: this.state.rev + 1, updatedAt: Date.now() };
+    const restored = structuredClone(entry.state);
+    // Ein inzwischen abgelaufener Countdown würde sofort wieder schließen → anhalten
+    if (restored.phase.name === 'content') {
+      const t = restored.phase.content.timer;
+      if (t && t.startedAt !== null && timerRemaining(t, Date.now()) <= 0) {
+        t.startedAt = null;
+        t.remainingMs = 0;
+      }
+    }
+    this.state = { ...restored, rev: this.state.rev + 1, updatedAt: Date.now() };
     db.saveGame(this.database, this.state);
     db.appendLog(this.database, {
       gameId: this.state.id,

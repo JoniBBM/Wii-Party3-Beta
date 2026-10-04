@@ -1,19 +1,20 @@
 /** Spiele (anlegen, aktivieren, löschen, exportieren) und Vorlagen. */
 import { rmSync } from 'node:fs';
-import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { defaultConfig, gameConfigSchema, templateInputSchema, type GameConfig } from '@insel/shared';
 import { newId } from '../auth.ts';
-import { config } from '../config.ts';
 import * as db from '../db.ts';
+import { gameMediaDir } from '../media.ts';
 import type { Live } from '../live.ts';
 import type { GameRuntime } from '../runtime.ts';
 import { ADMIN, HttpError, requireRole, sendJsonFile, STAFF } from './common.ts';
 
 export function removeGameMedia(gameId: string) {
-  rmSync(join(config.mediaDir, gameId), { recursive: true, force: true });
+  rmSync(gameMediaDir(gameId), { recursive: true, force: true });
 }
+
+const gameIdParam = z.object({ id: z.string().regex(/^[a-z0-9]{4,40}$/, 'Ungültige Spiel-ID') });
 
 export function gameRoutes(app: FastifyInstance, runtime: GameRuntime, database: db.DB, live: Live) {
   const changed = () => live.notifyStaff('games');
@@ -46,7 +47,7 @@ export function gameRoutes(app: FastifyInstance, runtime: GameRuntime, database:
 
   app.post('/api/games/:id/activate', async (req) => {
     requireRole(req, runtime, ADMIN);
-    const { id } = req.params as { id: string };
+    const { id } = gameIdParam.parse(req.params);
     if (!db.getGame(database, id)) throw new HttpError(404, 'Spiel nicht gefunden');
     runtime.activate(id);
     changed();
@@ -62,7 +63,8 @@ export function gameRoutes(app: FastifyInstance, runtime: GameRuntime, database:
 
   app.delete('/api/games/:id', async (req) => {
     requireRole(req, runtime, ADMIN);
-    const { id } = req.params as { id: string };
+    const { id } = gameIdParam.parse(req.params);
+    if (!db.getGame(database, id)) throw new HttpError(404, 'Spiel nicht gefunden');
     if (runtime.state?.id === id) runtime.activate(null);
     db.deleteGame(database, id);
     removeGameMedia(id);
@@ -72,7 +74,7 @@ export function gameRoutes(app: FastifyInstance, runtime: GameRuntime, database:
 
   app.get('/api/games/:id/export', async (req, reply) => {
     requireRole(req, runtime, ADMIN);
-    const state = db.getGame(database, (req.params as { id: string }).id);
+    const state = db.getGame(database, gameIdParam.parse(req.params).id);
     if (!state) throw new HttpError(404, 'Spiel nicht gefunden');
     const safe = { ...state, teams: state.teams.map((t) => ({ ...t, pin: '', joinToken: '' })) };
     sendJsonFile(reply, `spielstand-${state.config.name}.json`, { format: 'insel-spielstand', version: 1, state: safe });
@@ -87,7 +89,8 @@ export function gameRoutes(app: FastifyInstance, runtime: GameRuntime, database:
   /** Alle Fotos des aktiven Spiels löschen (Datenschutz nach dem Spieleabend). */
   app.post('/api/games/:id/photos/delete', async (req) => {
     requireRole(req, runtime, ADMIN);
-    const { id } = req.params as { id: string };
+    const { id } = gameIdParam.parse(req.params);
+    if (!db.getGame(database, id)) throw new HttpError(404, 'Spiel nicht gefunden');
     removeGameMedia(id);
     if (runtime.state?.id === id) {
       runtime.mutate((s) => {

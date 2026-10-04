@@ -28,9 +28,9 @@ export function requireRole(req: FastifyRequest, runtime: GameRuntime, roles: Ro
 export const STAFF: Role[] = ['admin', 'moderator'];
 export const ADMIN: Role[] = ['admin'];
 
+/** Client-IP. Weitergeleitete Header gelten nur von lokalen Proxys (siehe trustProxy in main.ts). */
 export function clientIp(req: FastifyRequest): string {
-  const fwd = req.headers['x-forwarded-for'];
-  return (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0])?.trim() || req.ip;
+  return req.ip;
 }
 
 export function sendJsonFile(reply: FastifyReply, filename: string, data: unknown) {

@@ -262,6 +262,7 @@ export class BoardScene {
     this.effects.update(dt);
     this.water.update(t);
     this.rig.update(dt);
+    this.pieces.updateTags(this.camera);
     if (this.composer) this.composer.render(dt);
     else this.renderer.render(this.scene, this.camera);
     if (this.dice.visible) {
@@ -319,6 +320,7 @@ export class BoardScene {
       else mat?.dispose();
     });
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
     this.labels.domElement.remove();
   }

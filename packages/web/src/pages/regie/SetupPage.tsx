@@ -21,17 +21,22 @@ export function SetupPage() {
   const state = useLive((s) => s.state);
   const [tab, setTab] = useState<Tab>('content');
   const [draft, setDraft] = useState<GameConfig | null>(state?.config ?? null);
+  const [baseline, setBaseline] = useState<GameConfig | null>(state?.config ?? null);
   const { run, pending } = useCommand();
   const tpl = useAsync();
   const [saveAs, setSaveAs] = useState(false);
 
-  // Bei Spielwechsel / externer Änderung übernehmen, solange nichts ungespeichert ist
-  const serverConfig = state?.config;
-  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(serverConfig), [draft, serverConfig]);
+  // „Ungespeichert“ heißt: Entwurf weicht von der zuletzt übernommenen Serverfassung ab
+  const serverConfig = state?.config ?? null;
+  const serverKey = JSON.stringify(serverConfig);
+  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(baseline), [draft, baseline]);
   useEffect(() => {
-    if (!dirty || draft === null) setDraft(serverConfig ?? null);
+    // Neue Serverfassung (Speichern, Rückgängig, anderes Gerät, Spielwechsel):
+    // ohne eigene Änderungen direkt übernehmen, sonst den Entwurf behalten
+    setDraft((d) => (d === null || JSON.stringify(d) === JSON.stringify(baseline) ? serverConfig : d));
+    setBaseline(serverConfig);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverConfig, state?.id]);
+  }, [serverKey, state?.id]);
 
   if (!state || !draft) return <EmptyState icon="🏝️" title="Kein Spiel aktiv">Lege zuerst unter „Live“ ein Spiel an.</EmptyState>;
 
@@ -56,7 +61,7 @@ export function SetupPage() {
             Als Vorlage
           </Button>
           {dirty && (
-            <Button variant="ghost" icon={<Undo2 className="size-4" />} onClick={() => setDraft(state.config)}>
+            <Button variant="ghost" icon={<Undo2 className="size-4" />} onClick={() => setDraft(baseline)}>
               Verwerfen
             </Button>
           )}

@@ -1,5 +1,5 @@
 /** Anmeldung, Teams und Spieler. */
-import { MAX_TEAMS, PLAYER_EMOJIS, TEAM_COLORS, teamColor, type TeamColorKey } from '../constants.ts';
+import { MAX_TEAMS, MIN_TEAMS, PLAYER_EMOJIS, TEAM_COLORS, teamColor, type TeamColorKey } from '../constants.ts';
 import { randomFigure } from '../defaults.ts';
 import { pick, randInt, shuffle } from '../rng.ts';
 import type { CommandOf } from '../schemas.ts';
@@ -116,7 +116,11 @@ export function handleTeamCommand(tx: Tx, cmd: CommandOf<
         p.name = name;
       }
       if (cmd.emoji !== undefined) p.emoji = cmd.emoji;
-      if (cmd.photo !== undefined) p.photo = cmd.photo;
+      if (cmd.photo !== undefined) {
+        // Fotos setzt nur der Server nach dem Hochladen (oder die Regie)
+        if (!isStaff(tx.actor)) fail('Fotos bitte über den Foto-Knopf hochladen', 'forbidden');
+        p.photo = cmd.photo;
+      }
       if (cmd.selectable !== undefined) {
         if (!isStaff(tx.actor)) fail('Keine Berechtigung', 'forbidden');
         p.selectable = cmd.selectable;
@@ -175,6 +179,7 @@ export function handleTeamCommand(tx: Tx, cmd: CommandOf<
     case 'team.remove': {
       requireMutableTeams(tx);
       const t = findTeam(s, cmd.teamId);
+      if (s.status === 'running' && s.teams.length <= MIN_TEAMS) fail(`Im laufenden Spiel braucht es mindestens ${MIN_TEAMS} Teams`);
       s.teams = s.teams.filter((x) => x.id !== t.id);
       for (const p of s.players) if (p.teamId === t.id) p.teamId = null;
       tx.label = `${teamLabel(t)} entfernt`;

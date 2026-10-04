@@ -52,7 +52,14 @@ export function TeamInfo({ state, me }: { state: GameState; me: Me }) {
             </Button>
           </form>
         ) : (
-          <button type="button" className="flex w-full items-center gap-2 text-left font-display text-xl font-semibold" onClick={() => setEditingName(true)}>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 text-left font-display text-xl font-semibold"
+            onClick={() => {
+              setName(team.name);
+              setEditingName(true);
+            }}
+          >
             {team.name} <Pencil className="size-4 text-muted" />
           </button>
         )}

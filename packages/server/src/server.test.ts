@@ -191,6 +191,41 @@ describe('Server', () => {
     expect(await new Promise((res) => anna.socket.emit('undo', res))).toMatchObject({ ok: false });
   });
 
+  it('schließt die im Review gefundenen Lücken', async () => {
+    const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
+    const { data: tpl } = await api<{ templates: { id: string; name: string }[] }>('/api/templates', { token: admin });
+    await api('/api/games', { token: admin, body: { name: 'Review', templateId: tpl.templates[0]!.id } });
+    const regie = await client(admin);
+    const a = (await api<{ token: string }>('/api/auth/register', { body: { name: 'Ada' } })).data.token;
+    const b = await api<{ token: string; playerId: string }>('/api/auth/register', { body: { name: 'Bob' } });
+    // 1) Ohne Team keine fremde Identität übernehmen
+    expect((await api('/api/auth/become-player', { token: a, body: { playerId: b.data.playerId } })).status).toBe(404);
+
+    // 6) Neue PIN sperrt alte Team-Geräte aus
+    await regie.cmd({ type: 'teams.auto', count: 2 });
+    const team = (await regie.waitFor((s) => s.teams.length === 2)).teams[0]!;
+    const joined = (await api<{ token: string }>('/api/auth/pin', { body: { pin: team.pin } })).data.token;
+    const device = await client(joined);
+    expect(device.session()?.role).toBe('team');
+    await regie.cmd({ type: 'team.regeneratePin', teamId: team.id });
+    const me = await api<{ session: { role: string } }>('/api/auth/me', { token: joined });
+    expect(me.data.session.role).toBe('guest');
+
+    // 4) Abgelaufener Countdown blockiert Rückgängig nicht
+    await regie.cmd({ type: 'game.start' });
+    const { data: lib } = await api<{ items: { id: string; kind: string }[] }>('/api/library/items', { token: admin });
+    await regie.cmd({ type: 'content.select', source: 'manual', itemId: lib.items.find((i) => i.kind === 'choice')!.id });
+    await regie.cmd({ type: 'timer.start', seconds: 5 });
+    await regie.cmd({ type: 'content.open' });
+    await regie.cmd({ type: 'timer.add', seconds: -5 });
+    await regie.waitFor((s) => s.phase.name === 'content' && s.phase.content.stage === 'closed');
+    const undo = await new Promise<{ ok: boolean; meta?: { label: string } }>((res) => regie.socket.emit('undo', res));
+    expect(undo.meta?.label).not.toBe('Antworten geschlossen');
+
+    // 5) Manipulierte Spiel-IDs werden abgewiesen
+    expect((await api('/api/games/..%2F..', { method: 'DELETE', token: admin })).status).toBe(400);
+  });
+
   it('liefert Systeminfos mit Beitrittsadressen', async () => {
     const { data } = await api<{ appName: string; joinUrls: unknown[] }>('/api/system/info');
     expect(data.appName).toBe('Insel der Abenteuer');

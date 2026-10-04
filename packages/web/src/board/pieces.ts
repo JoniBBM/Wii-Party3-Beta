@@ -31,6 +31,13 @@ export class Pieces {
   readonly group = new THREE.Group();
   private pieces = new Map<string, Piece>();
   private teams: Team[] = [];
+  /** Erhöht bei Abbruch (Rückgängig): laufende Lauf-/Flug-Schleifen beenden sich. */
+  private epoch = 0;
+
+  abortAll() {
+    this.epoch += 1;
+    for (const p of this.pieces.values()) p.busy = false;
+  }
 
   constructor(
     private layout: IslandLayout,
@@ -198,7 +205,9 @@ export class Pieces {
     p.rig.setMode('walk');
     const dir = to > from ? 1 : -1;
     let cur = from;
+    const epoch = this.epoch;
     while (cur !== to) {
+      if (epoch !== this.epoch) return;
       const next = cur + dir;
       const a = p.holder.position.clone();
       const last = next === to;
@@ -211,6 +220,7 @@ export class Pieces {
         p.holder.position.y += Math.sin(t * Math.PI) * hop;
         p.holder.rotation.y = r0 + shortAngle(r0, yaw) * Math.min(1, t * 2.5);
       }, ease.linear);
+      if (epoch !== this.epoch) return;
       cur = next;
       p.position = cur;
       this.cb.onStep?.(teamId, cur);
@@ -239,11 +249,13 @@ export class Pieces {
     const height = opts.height ?? 3 + dist * 0.35;
     const spin = opts.spin ?? Math.PI * 2;
     const r0 = p.holder.rotation.y;
+    const epoch = this.epoch;
     await this.tweens.run(opts.duration ?? DURATION.flight / 1000 - 0.4, (t) => {
       p.holder.position.lerpVectors(a, b, t);
       p.holder.position.y += Math.sin(t * Math.PI) * height;
       p.holder.rotation.y = r0 + spin * t;
     }, ease.inOut);
+    if (epoch !== this.epoch) return;
     p.holder.rotation.y = this.facing(to);
     p.busy = false;
     p.rig.setMode('idle');
@@ -274,8 +286,21 @@ export class Pieces {
     for (const p of this.pieces.values()) p.tag.element.firstElementChild?.classList.toggle('active', p.teamId === teamId);
   }
 
+  private tagsOn = true;
+  private ndc = new THREE.Vector3();
+
   setTagsVisible(on: boolean) {
+    this.tagsOn = on;
     for (const p of this.pieces.values()) p.tag.visible = on;
+  }
+
+  /** Schilder von Figuren außerhalb des Bildes ausblenden (sonst kleben sie am Rand). */
+  updateTags(camera: THREE.Camera) {
+    if (!this.tagsOn) return;
+    for (const p of this.pieces.values()) {
+      this.ndc.copy(p.holder.position).project(camera);
+      p.tag.visible = this.ndc.z < 1 && Math.abs(this.ndc.x) < 0.98 && this.ndc.y < 0.95 && this.ndc.y > -1.05;
+    }
   }
 
   update(t: number, dt: number) {
