@@ -1,0 +1,58 @@
+{
+  "format": "insel-inhalte",
+  "version": 1,
+  "exportedAt": "2026-10-04T00:00:00.000Z",
+  "collections": [
+    {
+      "name": "Quiz-Mix (Beispiel)",
+      "description": "Je ein paar Auswahl-, Freitext-, Schätz- und Buzzer-Fragen zum Ausprobieren.",
+      "items": [
+        { "kind": "choice", "title": "Riesenplanet", "question": "Welcher Planet ist der größte unseres Sonnensystems?", "options": ["Mars", "Jupiter", "Saturn", "Neptun"], "correctIndex": 1, "playerCount": "all", "timerSec": 30 },
+        { "kind": "choice", "title": "Krabbeltier", "question": "Wie viele Beine hat eine Spinne?", "options": ["6", "8", "10", "12"], "correctIndex": 1, "playerCount": "all", "timerSec": 20 },
+        { "kind": "choice", "title": "Sprinter", "question": "Welches ist das schnellste Landtier der Welt?", "options": ["Löwe", "Gepard", "Antilope", "Windhund"], "correctIndex": 1, "playerCount": "all", "timerSec": 20 },
+        { "kind": "choice", "title": "Hauptstadt Australiens", "question": "Wie heißt die Hauptstadt von Australien?", "options": ["Sydney", "Melbourne", "Canberra", "Perth"], "correctIndex": 2, "playerCount": "all", "timerSec": 30 },
+        { "kind": "choice", "title": "Farbenlehre", "question": "Welche Farbe entsteht, wenn man Blau und Gelb mischt?", "options": ["Grün", "Lila", "Orange", "Braun"], "correctIndex": 0, "playerCount": "all", "timerSec": 15 },
+        { "kind": "choice", "title": "Wahr oder falsch: Oktopus", "question": "Wahr oder falsch: Ein Oktopus hat drei Herzen.", "options": ["Wahr", "Falsch"], "correctIndex": 0, "playerCount": "all", "timerSec": 15 },
+        { "kind": "text", "title": "Höchster Berg", "question": "Wie heißt der höchste Berg Deutschlands?", "answers": ["Zugspitze"], "playerCount": "all", "timerSec": 30 },
+        { "kind": "text", "title": "Chemie", "question": "Welches Element hat das chemische Symbol „O“?", "answers": ["Sauerstoff"], "playerCount": "all", "timerSec": 30 },
+        { "kind": "text", "title": "Stiefelland", "question": "Welches Land hat auf der Landkarte die Form eines Stiefels?", "answers": ["Italien"], "playerCount": "all", "timerSec": 20 },
+        { "kind": "text", "title": "Längster Fluss", "question": "Wie heißt der längste Fluss der Welt?", "answers": ["Nil", "Amazonas"], "notes": "Je nach Messung gilt der Nil oder der Amazonas als längster Fluss – beides zählt.", "playerCount": "all", "timerSec": 30 },
+        { "kind": "estimate", "title": "Zugspitze", "question": "Wie hoch ist die Zugspitze?", "target": 2962, "unit": "m", "playerCount": "all", "timerSec": 30 },
+        { "kind": "estimate", "title": "Knochen", "question": "Wie viele Knochen hat ein erwachsener Mensch?", "target": 206, "unit": "", "playerCount": "all", "timerSec": 30 },
+        { "kind": "estimate", "title": "Mauerfall", "question": "In welchem Jahr fiel die Berliner Mauer?", "target": 1989, "unit": "", "playerCount": "all", "timerSec": 25 },
+        { "kind": "estimate", "title": "Blauwal", "question": "Wie schwer kann ein ausgewachsener Blauwal ungefähr werden?", "target": 150, "unit": "t", "notes": "Größte gemessene Tiere: rund 150–190 Tonnen.", "playerCount": "all", "timerSec": 30 },
+        { "kind": "buzzer", "title": "Mona Lisa", "question": "Wer malte die Mona Lisa?", "answer": "Leonardo da Vinci", "playerCount": "all", "timerSec": 20 },
+        { "kind": "buzzer", "title": "Ahornblatt", "question": "Wie heißt die Hauptstadt von Kanada?", "answer": "Ottawa", "playerCount": "all", "timerSec": 20 },
+        { "kind": "buzzer", "title": "Wappentier", "question": "Welches Tier ist das Wappentier Deutschlands?", "answer": "Der Adler (Bundesadler)", "playerCount": "all", "timerSec": 15 },
+        { "kind": "buzzer", "title": "Fußball", "question": "Wie viele Spieler einer Mannschaft stehen beim Fußball gleichzeitig auf dem Feld?", "answer": "11", "playerCount": "all", "timerSec": 15 }
+      ]
+    },
+    {
+      "name": "Partyspiele (Beispiel)",
+      "description": "Bewegungs- und Geschicklichkeitsspiele für die Gruppe vor Ort.",
+      "items": [
+        { "kind": "game", "title": "Becherturm", "description": "Baut in 60 Sekunden den höchsten Turm aus Plastikbechern. Der Turm muss 3 Sekunden frei stehen, sonst zählt die letzte stabile Höhe.", "materials": "Ca. 30 Plastikbecher pro Team, Maßband", "playerCount": "2", "timerSec": 60 },
+        { "kind": "game", "title": "Luftballon-Staffel", "description": "Staffellauf: Jede Person läuft mit einem Luftballon zwischen den Knien bis zur Markierung und zurück. Platzt oder fällt der Ballon, geht es von vorne los.", "materials": "Luftballons, Markierungshütchen", "playerCount": "all" },
+        { "kind": "game", "title": "Pantomime-Blitz", "description": "Eine Person stellt Begriffe pantomimisch dar, das eigene Team rät. Wer in 90 Sekunden die meisten Begriffe schafft, gewinnt.", "materials": "Begriffskärtchen", "playerCount": "1", "timerSec": 90 },
+        { "kind": "game", "title": "Montagsmaler", "description": "Eine Person zeichnet einen Begriff, das Team muss ihn erraten. Schnellstes Team gewinnt. Buchstaben und Zahlen sind verboten!", "materials": "Flipchart oder Papier, dicke Stifte, Begriffskärtchen", "playerCount": "1", "timerSec": 60 },
+        { "kind": "game", "title": "Löffel-Ei-Lauf", "description": "Mit einem Ei (oder Tischtennisball) auf dem Löffel um den Parcours. Fällt es herunter, an der Stelle wieder auflegen und 3 Sekunden warten.", "materials": "Löffel, Eier oder Tischtennisbälle, Parcours", "playerCount": "1" },
+        { "kind": "game", "title": "Blind zählen", "description": "Das ganze Team schließt die Augen und zählt gemeinsam bis 20 – jede Zahl darf nur von einer Person gesagt werden. Sprechen zwei gleichzeitig, beginnt das Team von vorn. Schnellstes Team gewinnt.", "materials": "Stoppuhr", "playerCount": "all" },
+        { "kind": "game", "title": "Papierflieger-Weitflug", "description": "In 2 Minuten einen Papierflieger falten, dann zählt der weiteste von zwei Würfen.", "materials": "DIN-A4-Papier, Maßband", "playerCount": "1", "timerSec": 120 },
+        { "kind": "game", "title": "Kim-Spiel", "description": "20 Gegenstände liegen 30 Sekunden offen auf einem Tablett und werden dann abgedeckt. Welches Team schreibt die meisten auf?", "materials": "Tablett, 20 Gegenstände, Tuch, Papier und Stifte", "playerCount": "2", "timerSec": 90 }
+      ]
+    },
+    {
+      "name": "Feld-Minispiele (Beispiel)",
+      "description": "Kurze Spiele für die Minispiel-Felder: Duell gegen ein Team oder allein gegen alle.",
+      "items": [
+        { "kind": "game", "title": "Schnick-Schnack-Schnuck", "description": "Je eine Person pro Team. Wer zuerst drei Runden gewinnt, gewinnt das Duell.", "playerCount": "1", "roundUse": false, "fieldModes": ["duel"] },
+        { "kind": "game", "title": "Nicht lachen!", "description": "Zwei Personen schauen sich in die Augen. Wer zuerst lacht oder wegschaut, verliert. Das Publikum darf Grimassen schneiden – aber nicht berühren.", "playerCount": "1", "roundUse": false, "fieldModes": ["duel"] },
+        { "kind": "game", "title": "Daumen-Catchen", "description": "Klassisches Daumenringen, zwei Gewinnsätze.", "playerCount": "1", "roundUse": false, "fieldModes": ["duel"] },
+        { "kind": "game", "title": "Münze an die Wand", "description": "Aus 3 Metern Entfernung eine Münze möglichst nah an die Wand schnippen. Je zwei Versuche, der beste zählt.", "materials": "Münzen, Klebeband als Abwurflinie", "playerCount": "1", "roundUse": false, "fieldModes": ["duel", "vs_all"] },
+        { "kind": "game", "title": "30 Sekunden im Kopf", "description": "Alle stehen auf und setzen sich, wenn sie glauben, dass genau 30 Sekunden vergangen sind. Wer am nächsten dran ist, gewinnt. Das Team auf dem Feld muss besser sein als alle anderen.", "materials": "Stoppuhr", "playerCount": "1", "roundUse": false, "fieldModes": ["vs_all", "duel"] },
+        { "kind": "game", "title": "Wörterkette", "description": "Das Team auf dem Feld nennt in 30 Sekunden 10 Begriffe zur angesagten Kategorie (z. B. Obstsorten, Tiere mit F). Schafft es das, gewinnt es gegen alle.", "playerCount": "all", "timerSec": 30, "roundUse": false, "fieldModes": ["vs_all"] },
+        { "kind": "game", "title": "Zielwurf", "description": "Fünf Würfe mit einem Sockenball in einen Eimer aus 4 Metern. Das Team auf dem Feld muss mehr Treffer schaffen als das beste andere Team.", "materials": "Eimer, Sockenbälle, Abwurflinie", "playerCount": "1", "roundUse": false, "fieldModes": ["vs_all", "duel"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,520 @@
+{
+  "format": "insel-inhalte",
+  "version": 1,
+  "exportedAt": "2026-10-04T21:31:32.348Z",
+  "collections": [
+    {
+      "name": "Default (Import)",
+      "description": "Standard-Minispiele",
+      "items": [
+        {
+          "kind": "text",
+          "title": "Hauptstadt von deutschland",
+          "description": "",
+          "question": "Was ist die Hauptstadt von Deutschland",
+          "answers": [
+            "Berlin"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Hauptstadt von BW",
+          "description": "",
+          "question": "Was ist die Hauptstadt von BW",
+          "answers": [
+            "Stuttgart"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Hauptstadt von Bayern",
+          "description": "",
+          "question": "Was ist die Hauptstadt von Bayern",
+          "answers": [
+            "München"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Cooles",
+          "description": "",
+          "question": "Wie Coll bin ich?",
+          "options": [
+            "Sehr",
+            "Gar nicht",
+            "Mäh"
+          ],
+          "correctIndex": 1,
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Spontane Frage",
+          "description": "",
+          "question": "Wie gehts",
+          "answers": [
+            "Gut"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Spontane Frage",
+          "description": "",
+          "question": "Wer ist cooler?",
+          "options": [
+            "Deniz Undav",
+            "Alexander Nübel",
+            "Ermedin Demirovic"
+          ],
+          "correctIndex": 1,
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Spontane Frage",
+          "description": "",
+          "question": "Wie heiße ich",
+          "answers": [
+            "Kaka"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "game",
+          "title": "Test-Nochmal",
+          "description": "Test",
+          "materials": "",
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Spontane Frage",
+          "description": "",
+          "question": "kakaka",
+          "options": [
+            "kak",
+            "sksk"
+          ],
+          "correctIndex": 0,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Spontane Frage",
+          "description": "",
+          "question": "lololo",
+          "options": [
+            "lol",
+            "qqqq",
+            "lololoo"
+          ],
+          "correctIndex": 0,
+          "playerCount": "all"
+        }
+      ]
+    },
+    {
+      "name": "Teenie 2025 (Import)",
+      "description": "",
+      "items": [
+        {
+          "kind": "game",
+          "title": "Ball pusten",
+          "description": "In einer Reihe stehen 8 Becher. Jede Gruppe hat noch einen Becher, mit dem sie bei sich Wasser schöpfen können. Mit dem Becher läuft der erste TN los und füllt den vordersten Becher auf. Dadurch schwimmt ein Ball der im ersten Becher lag nach oben und der TN kann den Ball in den zweiten Becher puste",
+          "materials": "",
+          "playerCount": "all"
+        },
+        {
+          "kind": "game",
+          "title": "Reise nach Jerusalem",
+          "description": "",
+          "materials": "",
+          "playerCount": "all"
+        },
+        {
+          "kind": "game",
+          "title": "Strecke schätzen",
+          "description": "Aus jedem Team muss ein TN eine Strecke schätzen",
+          "materials": "",
+          "playerCount": "1"
+        },
+        {
+          "kind": "game",
+          "title": "Zeit schätzen",
+          "description": "Jedes Team erhält einen TT-Ball. Dabei muss jeder TN eine gewisse Zeit den Ball halten und dann weitergeben. Das Team, welches am Ende am nähesten an der Gesamtzeit ist. gewinnt",
+          "materials": "",
+          "playerCount": "all"
+        },
+        {
+          "kind": "game",
+          "title": "Bounce",
+          "description": "MA prellt vorne den Ball, TN müssen klatschen, wenn der Ball den Boden berührt. Klatscht man, obwohl der Ball nicht den Boden berührt hat, dann ist diese Person draußen",
+          "materials": "",
+          "playerCount": "all"
+        },
+        {
+          "kind": "game",
+          "title": "Codenames",
+          "description": "Von jedem Team kommt ein TN nach vorne. Dieser TN erhält einen Überbegriff, zu dem er passende Unterbegriffe nennen soll.",
+          "materials": "",
+          "playerCount": "1"
+        },
+        {
+          "kind": "game",
+          "title": "Hobby Horsing",
+          "description": "Parcours mit Hobby Horsing auf Zeit",
+          "materials": "",
+          "playerCount": "1"
+        },
+        {
+          "kind": "game",
+          "title": "Kartenhaus bauen auf Zeit",
+          "description": "",
+          "materials": "",
+          "playerCount": "1"
+        },
+        {
+          "kind": "game",
+          "title": "Becherstapel mit Luftballon",
+          "description": "Einen Becherstapel machen nur mithilfe eines Luftballons",
+          "materials": "",
+          "playerCount": "1"
+        },
+        {
+          "kind": "game",
+          "title": "Tisch Tennis Ball hochalten",
+          "description": "",
+          "materials": "",
+          "playerCount": "1"
+        },
+        {
+          "kind": "choice",
+          "title": "Komponist Nachtmusik",
+          "description": "",
+          "question": "Welcher Komponist schrieb „Die kleine Nachtmusik“?",
+          "options": [
+            "Ludvig van Beethoven",
+            "Antonio Salieri",
+            "Franz Liszt",
+            "Wolfgang Amadeus Mozart"
+          ],
+          "correctIndex": 3,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Film aus 1976",
+          "description": "",
+          "question": "Welcher Film aus dem Jahr 1976 wurde mit mehreren Oscars ausgezeichnet, in dem Sylvester Stallone als Hauptdarsteller mitspielte?",
+          "options": [
+            "Rambo",
+            "Rocky",
+            "F.I.S.T - Ein Mann geht seinen Weg",
+            "Vorhof zum Paradies"
+          ],
+          "correctIndex": 1,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Alkohol in Japan",
+          "description": "",
+          "question": "Was ist ein beliebtes alkoholisches Getränk in Japan?",
+          "options": [
+            "Koto",
+            "Sake",
+            "Katana",
+            "Mate"
+          ],
+          "correctIndex": 1,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Edelgas",
+          "description": "",
+          "question": "Welches dieser Elemente ist ein Edelgas",
+          "options": [
+            "Sauerstoff",
+            "Stickstoff",
+            "Helium",
+            "Kohlenstoff"
+          ],
+          "correctIndex": 2,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Mount Everest",
+          "description": "",
+          "question": "Wer war der erste Mensch, der den Mount Everest ohne zusätzlichen Sauerstoff bestieg, und das im Jahr 1978?",
+          "options": [
+            "Luis Trenkner",
+            "Anderl Heckmair",
+            "Reinhold Messner",
+            "Toni Kurz"
+          ],
+          "correctIndex": 2,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Eiphone",
+          "description": "",
+          "question": "In welchem Jahr kam das aller erste iPhone auf den Markt?",
+          "options": [
+            "2010",
+            "2007",
+            "2003",
+            "2009"
+          ],
+          "correctIndex": 1,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Brasilien",
+          "description": "",
+          "question": "Was für eine Amtssprache wird in Brasilien gesprochen?",
+          "options": [
+            "Portugiesisch",
+            "Spanisch",
+            "Englisch",
+            "Französisch"
+          ],
+          "correctIndex": 0,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Brandenburger Tor",
+          "description": "",
+          "question": "Wie viele Pferde sind auf dem Brandenburger Tor zu sehen?",
+          "options": [
+            "6",
+            "5",
+            "4",
+            "3"
+          ],
+          "correctIndex": 2,
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Wellholz",
+          "description": "Nur ein Wort",
+          "question": "Wo findet man ein Wellholz?",
+          "answers": [
+            "Küche"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Franz Kafka",
+          "description": "",
+          "question": "Für welches Werk ist der Author Franz Kafka unter anderem berühmt?",
+          "options": [
+            "Vom Winde verweht",
+            "Wilhelm Tell",
+            "Der Sturm",
+            "Die Verwandlung"
+          ],
+          "correctIndex": 3,
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Tiefste Punkt",
+          "description": "",
+          "question": "Welcher ist der tiefste Punkt der Erde?",
+          "answers": [
+            "Marianengraben"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Sonnensystem",
+          "description": "Nur als Zahl eingeben, nicht ausgeschrieben (z.B. 3)",
+          "question": "Wie viele Planeten hat unser Sonnensystem seit 2006 offiziell?",
+          "answers": [
+            "8"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Jugendreferenten",
+          "description": "Nur als Ziffer eingeben, nicht ausschreiben (z.b.5)!",
+          "question": "Wie viele Jugenreferenten gibt es im CVJM Fellbach?",
+          "answers": [
+            "3"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Bibelbücher",
+          "description": "",
+          "question": "Wie viele Bücher hat die Bibel?",
+          "options": [
+            "23",
+            "42",
+            "81",
+            "66"
+          ],
+          "correctIndex": 3,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "CVJM Gründung",
+          "description": "",
+          "question": "In welchem Jahr wurde der CVJM Fellbach Gegründet?",
+          "options": [
+            "1864",
+            "1891",
+            "1853",
+            "1898"
+          ],
+          "correctIndex": 0,
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Fünfseitiges Vieleck",
+          "description": "",
+          "question": "Wie nennt man ein fünfseitiges Vieleck?",
+          "answers": [
+            "Pentagon"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Evangelien",
+          "description": "Bitte Antwort als Ziffer eingeben, nicht ausschreiben (z.B.8)",
+          "question": "Wie viele Evangelien gibt es?",
+          "answers": [
+            "4"
+          ],
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Arche",
+          "description": "",
+          "question": "Wem hat Gott aufgetragen, eine Arche zu bauen?",
+          "options": [
+            "Noaah",
+            "Noha",
+            "Noah",
+            "Noa"
+          ],
+          "correctIndex": 2,
+          "playerCount": "all"
+        },
+        {
+          "kind": "choice",
+          "title": "Gottes Friedenszeichen",
+          "description": "",
+          "question": "Was war Gottes Zeichen für Noah, dass er die Erde nie wieder zerstören würde?",
+          "options": [
+            "Taube",
+            "Regenbogen",
+            "Olivenbaum Zweig"
+          ],
+          "correctIndex": 1,
+          "playerCount": "all"
+        },
+        {
+          "kind": "text",
+          "title": "Bumerang",
+          "description": "",
+          "question": "Wie nennt man einen Bumerang der nicht zurückkommt?",
+          "answers": [
+            "Stock"
+          ],
+          "playerCount": "all"
+        }
+      ]
+    },
+    {
+      "name": "Feld-Minispiele (Import)",
+      "description": "Aus der alten Version übernommen",
+      "items": [
+        {
+          "kind": "game",
+          "title": "Test single team",
+          "description": "LOL",
+          "materials": "",
+          "playerCount": "1",
+          "roundUse": false,
+          "fieldModes": [
+            "vs_all"
+          ]
+        },
+        {
+          "kind": "game",
+          "title": "test 1 spieler pro team (team gegen alle)",
+          "description": "ss",
+          "materials": "",
+          "playerCount": "1",
+          "roundUse": false,
+          "fieldModes": [
+            "vs_all"
+          ]
+        },
+        {
+          "kind": "game",
+          "title": "test 2 spieler pro team (team gegen alle)",
+          "description": "lolololol",
+          "materials": "",
+          "playerCount": "2",
+          "roundUse": false,
+          "fieldModes": [
+            "vs_all"
+          ]
+        },
+        {
+          "kind": "game",
+          "title": "Test",
+          "description": "lol",
+          "materials": "",
+          "playerCount": "1",
+          "roundUse": false,
+          "fieldModes": [
+            "duel"
+          ]
+        },
+        {
+          "kind": "game",
+          "title": "test 1 spieler pro team (team gegen team)",
+          "description": "LOL",
+          "materials": "",
+          "playerCount": "1",
+          "roundUse": false,
+          "fieldModes": [
+            "duel"
+          ]
+        },
+        {
+          "kind": "game",
+          "title": "test 2 spieler pro team (team gegen team)",
+          "description": "lololo",
+          "materials": "",
+          "playerCount": "2",
+          "roundUse": false,
+          "fieldModes": [
+            "duel"
+          ]
+        }
+      ]
+    }
+  ]
+}
