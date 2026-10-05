@@ -38,11 +38,12 @@ export HOST_IP
 PORT=$(grep -E '^HOST_PORT=' .env 2>/dev/null | cut -d= -f2 || true)
 export HOST_PORT=${PORT:-8080}
 
-PROFILE=()
-[ "${1:-}" = "online" ] && PROFILE=(--profile online)
+# (kein Array: die Bash 3.2 von macOS kennt leere Arrays mit `set -u` nicht)
+PROFILE=""
+[ "${1:-}" = "online" ] && PROFILE="--profile online"
 
 echo "🏝️  Baue und starte die Insel …"
-docker compose "${PROFILE[@]}" up -d --build
+docker compose $PROFILE up -d --build
 
 printf "⏳ Warte auf den Server"
 for _ in $(seq 1 60); do
