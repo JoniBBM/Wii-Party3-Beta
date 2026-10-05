@@ -10,6 +10,7 @@ import { useLive } from '../../lib/live.ts';
 import { Button, Card, EmptyState, Spinner } from '../../ui/basics.tsx';
 import { PhasePanel } from '../../game/PhasePanel.tsx';
 import { Feed, Standings } from '../../game/Standings.tsx';
+import { BeamerQuick } from '../../game/BeamerControl.tsx';
 
 export function LivePage() {
   const { state, received } = useLive();
@@ -28,6 +29,7 @@ export function LivePage() {
       </div>
       <div className="flex flex-col gap-5">
         <Standings state={state} editable />
+        <BeamerQuick />
         <Feed state={state} />
       </div>
     </div>
@@ -45,7 +47,7 @@ function NoGame() {
   const chosen = templateId || fallback?.id || '';
   const create = () => run(() => api('/api/games', { slot: 'admin', body: { name, devices, ...(chosen ? { templateId: chosen } : {}) } }), 'Spiel angelegt – viel Spaß!');
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto flex max-w-xl flex-col gap-5">
       <Card className="p-6">
         <EmptyState icon="🏝️" title="Kein Spiel aktiv">
           Lege ein neues Spiel an. Die Vorlage bestimmt Spielfeld, Regeln und Inhalte – alles lässt sich danach noch ändern.
@@ -77,6 +79,7 @@ function NoGame() {
           </Button>
         </div>
       </Card>
+      <BeamerQuick />
     </div>
   );
 }

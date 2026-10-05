@@ -3,7 +3,7 @@ import { FIELD_GAME_MODE_LABEL, FIELD_INFO, type FieldGameMode } from '../consta
 import { islandLandmarks } from '../island.ts';
 import { pick, randInt } from '../rng.ts';
 import type { CommandOf } from '../schemas.ts';
-import type { BarrierCondition, DiceRound, EffectInput, Phase, RollRecord, Team } from '../types.ts';
+import type { BarrierCondition, DiceRound, EffectInput, Mood, Phase, RollRecord, Team } from '../types.ts';
 import { drawForTeams, undoDraw } from './draw.ts';
 import { effectsDuration } from './durations.ts';
 import { fail, feed, findTeam, goalOf, isStaff, resolveTeamFor, teamLabel, type Tx } from './tx.ts';
@@ -244,6 +244,71 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'pending' | 
   }
 }
 
+/** Wie fühlt sich das Team nach seinem Zug? Steuert die kurze Reaktion der Figur auf dem Beamer. */
+export function moodAfterTurn(effects: readonly EffectInput[], teamId: string, gain: number): Mood {
+  let mood: Mood | null = null;
+  let positive = false;
+  for (const e of effects) {
+    if (e.type === 'eruption') {
+      if (e.affected.some((a) => a.teamId === teamId)) mood = 'shock';
+      continue;
+    }
+    if (!('teamId' in e) || e.teamId !== teamId) {
+      if (e.type === 'swap' && (e.a === teamId || e.b === teamId)) positive ||= gain > 0;
+      continue;
+    }
+    switch (e.type) {
+      case 'summit':
+        return 'super';
+      case 'crater':
+        if (e.result === 'fall') mood = 'shock';
+        else if (e.result === 'climb') mood ??= 'meh';
+        else positive = true;
+        break;
+      case 'cave':
+        mood = 'angry';
+        break;
+      case 'river':
+        if (e.result === 'fall') mood ??= 'sad';
+        else positive = true;
+        break;
+      case 'barrier':
+        if (e.result === 'blocked' || e.result === 'stuck') mood ??= 'angry';
+        else positive = true;
+        break;
+      case 'final_roll':
+        if (!e.success) mood = 'sad';
+        break;
+      case 'field':
+        if (e.field === 'catapult_backward') mood = 'shock';
+        if (e.field === 'catapult_forward') positive = true;
+        break;
+      case 'vine':
+        positive = true;
+        break;
+      case 'field_game':
+        if (e.stage === 'won') positive = true;
+        if (e.stage === 'lost') mood ??= 'sad';
+        break;
+      default:
+        break;
+    }
+  }
+  if (mood) return mood;
+  if (gain < 0) return gain <= -5 ? 'angry' : 'sad';
+  if (gain >= 7 || (positive && gain >= 4)) return 'super';
+  if (gain >= 4 || positive) return 'happy';
+  if (gain >= 2) return 'ok';
+  return 'meh';
+}
+
+/** Reaktion am Ende des Zuges anhängen (Gewinn bezogen auf die Position vor dem Wurf). */
+function react(tx: Tx, team: Team, from: number, startEffects: number) {
+  if (tx.ctx.reactions === false) return;
+  const gain = team.position - from;
+  tx.effects.push({ type: 'react', teamId: team.id, mood: moodAfterTurn(tx.effects.slice(startEffects), team.id, gain), gain });
+}
+
 function pushHistory(tx: Tx, phase: DicePhase) {
   const s = tx.s;
   if (s.history.some((h) => h.round === s.round)) return;
@@ -402,7 +467,10 @@ export function handleDiceCommand(
         return;
       }
       tx.label = `Wurf ${teamLabel(team)}: ${rollText}`;
-      if (result !== 'pending') advanceTurn(tx, phase);
+      if (result !== 'pending') {
+        react(tx, team, from, start);
+        advanceTurn(tx, phase);
+      }
       if (s.phase.name === 'dice' || s.phase.name === 'round_end') bump(tx, phase, start);
       return;
     }
@@ -449,6 +517,7 @@ export function handleDiceCommand(
       }
       tx.label = `Lianen-Wurf ${teamLabel(team)}: ${roll}`;
       if (checkArrival(tx, team)) return;
+      react(tx, team, record?.from ?? from, start);
       advanceTurn(tx, phase);
       if (s.phase.name === 'dice' || s.phase.name === 'round_end') bump(tx, phase, start);
       return;
@@ -513,6 +582,8 @@ export function handleDiceCommand(
         feed(tx, '😕', `${teamLabel(team)} verliert das Feld-Minispiel`, team.id);
         tx.label = `Feld-Minispiel verloren: ${teamLabel(team)}`;
       }
+      const record = [...phase.dice.rolls].reverse().find((r) => r.teamId === team.id);
+      react(tx, team, record?.from ?? team.position, start);
       advanceTurn(tx, phase);
       bump(tx, phase, start);
       return;

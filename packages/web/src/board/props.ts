@@ -167,7 +167,8 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
     for (const [name, placements] of buckets) {
       const model = models.get(name);
       if (!model) continue;
-      root.add(instanceModel(model, placements, { targetHeight: 1, castShadow: o.castShadow ?? true, wind: o.wind, tint: o.tint, colors: o.colors, vary: o.vary }));
+      // Kleinkram (unter 1 m) wirft keinen Schatten – spart einen großen Teil des Schattendurchgangs
+      root.add(instanceModel(model, placements, { targetHeight: 1, castShadow: o.castShadow ?? size[1] >= 1, wind: o.wind, tint: o.tint, colors: o.colors, vary: o.vary }));
     }
   };
 

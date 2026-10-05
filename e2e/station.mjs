@@ -74,7 +74,7 @@ try {
   await phone.locator('input[inputmode=numeric]').fill(team.pin);
   await phone.waitForURL(/\/team/, { timeout: 10000 });
   await sleep(1500);
-  await phone.getByRole('button', { name: 'Team' }).click();
+  await phone.getByRole('button', { name: 'Team', exact: true }).click();
   await sleep(800);
   await phone.getByRole('button', { name: 'Person hinzufügen' }).click();
   await phone.getByPlaceholder('Vorname').fill('Nachzügler');

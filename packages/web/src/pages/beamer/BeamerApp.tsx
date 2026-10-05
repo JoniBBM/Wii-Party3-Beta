@@ -1,15 +1,19 @@
-/** Beamer: 3D-Insel mit allen Einblendungen. Läuft ohne Anmeldung. */
+/**
+ * Beamer: 3D-Insel mit allen Einblendungen. Läuft ohne Anmeldung und wird komplett aus der
+ * Regie gesteuert (Grafik, Ton, Musik, Kamera, Vollbild) – kein Einstellungsmenü am Beamer.
+ */
 import { useCallback, useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { Volume2 } from 'lucide-react';
 import type { Caption } from '../../board/director.ts';
+import type { BoardScene } from '../../board/scene.ts';
 import { useLive, useLiveConnection } from '../../lib/live.ts';
 import { useSystemSync } from '../../lib/system.ts';
 import { useTheme } from '../../lib/theme.ts';
-import { BoardCanvas, boardAudio } from './BoardCanvas.tsx';
-import { CaptionBanner, Ranking, SettingsMenu, toggleFullscreen, TopBar } from './Hud.tsx';
-import { DiceBanner, PhaseOverlay } from './Overlays.tsx';
-import { useBeamerPrefs } from './prefs.ts';
+import { BoardCanvas } from './BoardCanvas.tsx';
+import { Explainer } from './Explainer.tsx';
+import { BeamerStatus, CaptionBanner, Ranking, toggleFullscreen, TopBar } from './Hud.tsx';
+import { DiceBanner, PhaseOverlay, VictoryBanner } from './Overlays.tsx';
+import { PhotoBubbles } from './PhotoBubbles.tsx';
+import { useShowControl } from './useShowControl.ts';
 
 export default function BeamerApp() {
   useTheme(false);
@@ -17,8 +21,11 @@ export default function BeamerApp() {
   useSystemSync();
   const { state, status, appName } = useLive();
   const [caption, setCaption] = useState<Caption | null>(null);
-  const [audioOn, setAudioOn] = useState(false);
+  const [scene, setScene] = useState<BoardScene | null>(null);
   const onCaption = useCallback((c: Caption | null) => setCaption(c), []);
+  const onReady = useCallback((s: BoardScene | null) => setScene(s), []);
+  const show = useShowControl(scene, state);
+  const [fps, setFps] = useState(0);
 
   // Schriftgröße skaliert mit der Bildschirmbreite (720p bis 4K)
   useEffect(() => {
@@ -32,53 +39,44 @@ export default function BeamerApp() {
     };
   }, []);
 
-  // Ton braucht eine Nutzeraktion
-  useEffect(() => {
-    const unlock = () => {
-      void boardAudio.unlock().then(() => {
-        const p = useBeamerPrefs.getState();
-        boardAudio.setEnabled({ sound: p.sound, music: p.music, ambience: p.ambience });
-        setAudioOn(true);
-      });
-    };
-    window.addEventListener('pointerdown', unlock, { once: true });
-    window.addEventListener('keydown', unlock, { once: true });
-    return () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-  }, []);
-
-  // Tastenkürzel
+  // Tastenkürzel: F = Vollbild (Kamera-Tasten siehe board/manual.ts)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-      const prefs = useBeamerPrefs.getState();
       if (e.key === 'f' || e.key === 'F') toggleFullscreen();
-      if (e.key === 'q' || e.key === 'Q') prefs.set({ quality: prefs.quality === 'beauty' ? 'fast' : 'beauty' });
-      if (e.key === 'm' || e.key === 'M') prefs.set({ sound: !prefs.sound });
-      if (e.key === 't' || e.key === 'T') prefs.set({ tags: !prefs.tags });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  useEffect(() => {
+    if (!show.settings.fps || !scene) return;
+    const id = window.setInterval(() => setFps(scene.fps), 1000);
+    return () => clearInterval(id);
+  }, [show.settings.fps, scene]);
+
+  const explaining = show.explainer.running;
+  const hud = show.settings.hud && !explaining;
+
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#8fd8ff] select-none">
-      <BoardCanvas state={state} onCaption={onCaption} />
+      <BoardCanvas state={state} onCaption={onCaption} onReady={onReady} />
 
       <div className="pointer-events-none absolute inset-0 z-10">
-        <div className="absolute top-5 left-6">
-          <TopBar state={state} appName={appName} />
-        </div>
-        {state && state.teams.length > 0 && state.status !== 'lobby' && (
+        {hud && (
+          <div className="absolute top-5 left-6">
+            <TopBar state={state} appName={appName} />
+          </div>
+        )}
+        {hud && state && state.teams.length > 0 && state.status !== 'lobby' && (
           <div className="absolute top-5 right-6">
             <Ranking state={state} />
           </div>
         )}
-        {state && <PhaseOverlay state={state} />}
-        {state && <DiceBanner state={state} />}
-        {!state && (
+        {state && !explaining && <PhaseOverlay state={state} />}
+        {state && !explaining && <DiceBanner state={state} />}
+        {state && !explaining && <VictoryBanner state={state} />}
+        {!state && !explaining && (
           <div className="absolute inset-0 grid place-items-center">
             <div className="glass rounded-[2rem] px-10 py-8 text-center">
               <p className="font-display text-5xl font-semibold text-ink">{appName}</p>
@@ -86,24 +84,15 @@ export default function BeamerApp() {
             </div>
           </div>
         )}
-        <CaptionBanner caption={caption} />
+        {!explaining && <CaptionBanner caption={caption} />}
+        {state && show.settings.photos && !explaining && <PhotoBubbles state={state} />}
         {status === 'offline' && (
           <div className="absolute top-5 left-1/2 -translate-x-1/2 rounded-full bg-bad px-5 py-2 font-bold text-white shadow-lifted">Verbindung zum Spielserver unterbrochen …</div>
         )}
       </div>
 
-      {!audioOn && (
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.5 }}
-          className="glass absolute right-6 bottom-6 z-30 flex items-center gap-2 rounded-full px-5 py-3 font-bold text-ink"
-        >
-          <Volume2 className="size-5" /> Klicken für Ton
-        </motion.button>
-      )}
-      <SettingsMenu />
+      <Explainer scene={scene} state={state} explainer={show.explainer} />
+      <BeamerStatus audioReady={show.audioReady} fullscreen={show.fullscreen} wantFullscreen={show.settings.fullscreen} manual={show.manual} fps={fps} showFps={show.settings.fps} />
     </div>
   );
 }

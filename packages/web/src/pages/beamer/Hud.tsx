@@ -1,13 +1,10 @@
-/** Dauerhafte Beamer-Anzeigen: Kopfzeile, Rangliste, Einblendungen, Einstellungen. */
-import { useEffect, useState } from 'react';
+/** Dauerhafte Beamer-Anzeigen: Kopfzeile, Rangliste (in Teamfarben), Einblendungen, Status. */
 import { AnimatePresence, motion } from 'motion/react';
-import { Maximize, Music, Settings, Sparkles, Tag, Volume2, VolumeX, Waves, Zap } from 'lucide-react';
-import { currentTurnTeamId, standings, type GameState } from '@insel/shared';
+import { Maximize, Video, Volume2 } from 'lucide-react';
+import { currentTurnTeamId, standings, teamColor, type GameState } from '@insel/shared';
 import type { Caption } from '../../board/director.ts';
 import { FigureAvatar } from '../../figure/FigurePreview.tsx';
 import { BonusDieBadge, VolcanoMeter } from '../../ui/game.tsx';
-import { boardAudio } from './BoardCanvas.tsx';
-import { useBeamerPrefs } from './prefs.ts';
 
 export function TopBar({ state, appName }: { state: GameState | null; appName: string }) {
   return (
@@ -27,36 +24,53 @@ export function Ranking({ state }: { state: GameState }) {
   const turn = currentTurnTeamId(state);
   const v = state.config.rules.volcano;
   return (
-    <div className="glass pointer-events-auto w-[19rem] overflow-hidden rounded-[1.6rem]">
-      <ul className="flex flex-col">
-        {rows.map(({ team, place }) => (
-          <motion.li
-            layout
-            key={team.id}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className={`flex items-center gap-2.5 px-3 py-1.5 ${turn === team.id ? 'bg-white/80' : ''}`}
-          >
-            <span className="w-6 text-center font-display text-lg font-semibold text-ink-2">{place}</span>
-            <FigureAvatar figure={team.figure} color={team.color} size={38} className="ring-2 ring-white" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-display text-base leading-tight font-semibold text-ink">{team.name}</p>
-              <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-black/10">
-                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(team.position / goal) * 100}%`, background: 'var(--accent)' }} />
-              </div>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="font-display text-lg leading-none font-semibold text-ink tabular-nums">{team.position}</span>
-              <span className="flex gap-0.5">
-                {team.blocked && <span title="gesperrt">🚧</span>}
-                {team.crater && <span title="im Krater">🕳️</span>}
-                <BonusDieBadge sides={team.bonusDie} />
+    <div className="glass pointer-events-auto w-[22rem] overflow-hidden rounded-[1.6rem] p-1.5">
+      <ul className="flex flex-col gap-1">
+        {rows.map(({ team, place }) => {
+          const c = teamColor(team.color);
+          const active = turn === team.id;
+          return (
+            <motion.li
+              layout
+              key={team.id}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`flex items-center gap-2.5 rounded-[1.1rem] py-1 pr-3 pl-1 transition ${active ? 'scale-[1.03] shadow-lifted' : ''}`}
+              style={{
+                background: active
+                  ? `linear-gradient(90deg, ${c.hex}, color-mix(in srgb, ${c.hex} 70%, white))`
+                  : `linear-gradient(90deg, color-mix(in srgb, ${c.hex} 32%, white), rgba(255,255,255,0.85) 70%)`,
+                boxShadow: active ? undefined : `inset 0 0 0 2.5px ${c.hex}`,
+              }}
+            >
+              <span
+                className="grid size-9 shrink-0 place-items-center rounded-full font-display text-lg font-semibold text-white"
+                style={{ background: active ? 'rgba(255,255,255,0.25)' : c.hex }}
+              >
+                {place}
               </span>
-            </div>
-          </motion.li>
-        ))}
+              <FigureAvatar figure={team.figure} color={team.color} size={40} className="ring-[3px] ring-white" />
+              <div className="min-w-0 flex-1">
+                <p className={`truncate font-display text-lg leading-tight font-semibold ${active ? 'text-white drop-shadow' : ''}`} style={active ? undefined : { color: c.dark }}>
+                  {team.name}
+                </p>
+                <div className={`mt-0.5 h-2 overflow-hidden rounded-full ${active ? 'bg-white/35' : 'bg-black/10'}`}>
+                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${(team.position / goal) * 100}%`, background: active ? '#fff' : c.hex }} />
+                </div>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className={`font-display text-xl leading-none font-semibold tabular-nums ${active ? 'text-white' : 'text-ink'}`}>{team.position}</span>
+                <span className="flex gap-0.5">
+                  {team.blocked && <span title="gesperrt">🚧</span>}
+                  {team.crater && <span title="im Krater">🕳️</span>}
+                  <BonusDieBadge sides={team.bonusDie} />
+                </span>
+              </div>
+            </motion.li>
+          );
+        })}
       </ul>
       {v.enabled && state.status !== 'lobby' && (
-        <div className="border-t border-white/70 px-4 py-2">
+        <div className="px-3 pt-2 pb-1">
           <VolcanoMeter pressure={state.volcano.pressure} threshold={v.threshold} compact />
         </div>
       )}
@@ -103,68 +117,44 @@ export function CaptionBanner({ caption }: { caption: Caption | null }) {
   );
 }
 
-export function SettingsMenu() {
-  const prefs = useBeamerPrefs();
-  const [open, setOpen] = useState(false);
-  const [visible, setVisible] = useState(true);
-  useEffect(() => {
-    let t = window.setTimeout(() => setVisible(false), 3000);
-    const show = () => {
-      setVisible(true);
-      clearTimeout(t);
-      t = window.setTimeout(() => setVisible(false), 3000);
-    };
-    window.addEventListener('mousemove', show);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('mousemove', show);
-    };
-  }, []);
-  useEffect(() => {
-    boardAudio.setEnabled({ sound: prefs.sound, music: prefs.music, ambience: prefs.ambience });
-  }, [prefs.sound, prefs.music, prefs.ambience]);
-
-  const item = (on: boolean, label: string, icon: React.ReactNode, onClick: () => void) => (
-    <button type="button" onClick={onClick} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left font-bold ${on ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-black/5'}`}>
-      {icon}
-      <span className="flex-1">{label}</span>
-      <span className="text-xs">{on ? 'an' : 'aus'}</span>
-    </button>
-  );
-
+/**
+ * Kleine Statusanzeigen am Beamer (kein Einstellungsmenü – alles steuert die Regie):
+ * Hinweis „einmal klicken“ für Ton/Vollbild, freie Kamera, Bildrate.
+ */
+export function BeamerStatus({ audioReady, fullscreen, wantFullscreen, manual, fps, showFps }: { audioReady: boolean; fullscreen: boolean; wantFullscreen: boolean; manual: boolean; fps: number; showFps: boolean }) {
+  const needClick = !audioReady || (wantFullscreen && !fullscreen);
   return (
-    <div className={`pointer-events-auto absolute bottom-4 left-4 z-30 transition-opacity duration-500 ${visible || open ? 'opacity-100' : 'opacity-0'}`}>
+    <>
       <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="glass mb-3 flex w-72 flex-col gap-1 rounded-3xl p-3">
-            <p className="px-3 pb-1 text-xs font-extrabold tracking-wide text-muted uppercase">Grafik</p>
-            <div className="mb-2 grid grid-cols-2 gap-1 rounded-2xl bg-black/5 p-1">
-              {(['beauty', 'fast'] as const).map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => prefs.set({ quality: q })}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-bold ${prefs.quality === q ? 'bg-white text-ink shadow-soft' : 'text-ink-2'}`}
-                >
-                  {q === 'beauty' ? <Sparkles className="size-4" /> : <Zap className="size-4" />}
-                  {q === 'beauty' ? 'Schön' : 'Schnell'}
-                </button>
-              ))}
-            </div>
-            {item(prefs.sound, 'Ton', prefs.sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />, () => prefs.set({ sound: !prefs.sound }))}
-            {item(prefs.music, 'Musik', <Music className="size-5" />, () => prefs.set({ music: !prefs.music }))}
-            {item(prefs.ambience, 'Meeresrauschen', <Waves className="size-5" />, () => prefs.set({ ambience: !prefs.ambience }))}
-            {item(prefs.tags, 'Namensschilder', <Tag className="size-5" />, () => prefs.set({ tags: !prefs.tags }))}
-            <button type="button" onClick={() => toggleFullscreen()} className="flex items-center gap-3 rounded-2xl px-3 py-2 font-bold text-ink-2 hover:bg-black/5">
-              <Maximize className="size-5" /> Vollbild <span className="ml-auto text-xs">F</span>
-            </button>
+        {needClick && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ delay: 1.2 }}
+            className="glass pointer-events-none absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-2.5 font-bold text-ink"
+          >
+            {!audioReady ? <Volume2 className="size-5" /> : <Maximize className="size-5" />}
+            Einmal auf den Beamer klicken – für {!audioReady && wantFullscreen && !fullscreen ? 'Ton und Vollbild' : !audioReady ? 'Ton' : 'Vollbild'}
           </motion.div>
         )}
       </AnimatePresence>
-      <button type="button" onClick={() => setOpen(!open)} className="glass grid size-14 place-items-center rounded-full" aria-label="Einstellungen">
-        <Settings className="size-6 text-ink-2" />
-      </button>
-    </div>
+      <AnimatePresence>
+        {manual && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="glass pointer-events-none absolute bottom-6 left-6 z-30 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-ink"
+          >
+            <Video className="size-4" /> Freie Kamera · Doppelklick oder Leertaste = Automatik
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {showFps && (
+        <div className="pointer-events-none absolute right-6 bottom-6 z-30 rounded-full bg-black/55 px-3 py-1 font-mono text-sm font-bold text-white tabular-nums">{Math.round(fps)} fps</div>
+      )}
+    </>
   );
 }
 

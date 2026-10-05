@@ -391,6 +391,9 @@ export interface GameState {
 
 export type MoveReason = 'dice' | 'catapult' | 'reward' | 'penalty' | 'eruption' | 'swap' | 'correction' | 'river' | 'vine' | 'cave';
 
+/** Stimmung einer Figur nach ihrem Zug (Beamer: kurze Großaufnahme mit passender Reaktion). */
+export type Mood = 'super' | 'happy' | 'ok' | 'meh' | 'sad' | 'angry' | 'shock';
+
 export type EffectInput =
   | { type: 'dice'; teamId: string; main: number; bonus: number; bonusDie: number; total: number; manual: boolean }
   | { type: 'move'; teamId: string; from: number; to: number; reason: MoveReason }
@@ -416,6 +419,8 @@ export type EffectInput =
   | { type: 'buzz_judged'; teamId: string; correct: boolean }
   | { type: 'results' }
   | { type: 'turn'; teamId: string }
+  /** Ende eines Zuges: Figur reagiert (Salto, Jubel, Ärger …). `gain` = Felder netto. */
+  | { type: 'react'; teamId: string; mood: Mood; gain: number }
   | { type: 'field_game'; teamId: string; stage: 'pending' | 'running' | 'won' | 'lost' | 'cancelled' }
   | { type: 'round_end'; round: number }
   | { type: 'drawn' }

@@ -12,7 +12,25 @@ import {
   type TeamColorKey,
 } from '@insel/shared';
 
-export type FigureMode = 'idle' | 'walk' | 'jump' | 'cheer' | 'sad' | 'fly' | 'stuck' | 'balance' | 'swim' | 'climb';
+export type FigureMode =
+  | 'idle'
+  | 'walk'
+  | 'jump'
+  | 'cheer'
+  | 'sad'
+  | 'fly'
+  | 'stuck'
+  | 'balance'
+  | 'swim'
+  | 'climb'
+  /** Reaktionen nach dem Zug */
+  | 'angry'
+  | 'shock'
+  | 'shrug'
+  | 'wave'
+  | 'dance'
+  | 'clap'
+  | 'tuck';
 
 // ---------------------------------------------------------------------------
 // Geteilte Geometrien (einmal pro Seite)
@@ -65,7 +83,8 @@ function mesh(geo: THREE.BufferGeometry, material: THREE.Material, s: [number, n
   m.scale.set(...s);
   m.position.set(...p);
   if (r) m.rotation.set(...r);
-  m.castShadow = true;
+  // Kleinteile (Augen, Brauen, Mund …) werfen keinen Schatten – spart Zeichenaufrufe
+  m.castShadow = Math.max(...s) >= 0.09;
   return m;
 }
 
@@ -399,7 +418,7 @@ export function createFigure(config: FigureConfig, color: TeamColorKey, opts: { 
       const m = rig.mode;
       // Blinzeln
       const blink = (tt % 4.3) < 0.12 ? 0.1 : 1;
-      for (const e of eyes) e.scale.y = m === 'stuck' ? 0.6 : blink;
+      for (const e of eyes) e.scale.y = m === 'stuck' || m === 'angry' ? 0.6 : m === 'shock' ? 1.35 : blink;
 
       let bob = 0;
       let armSwing = 0;
@@ -459,18 +478,74 @@ export function createFigure(config: FigureConfig, color: TeamColorKey, opts: { 
           armLift = 0.4;
           headTurn = Math.sin(tt * 3) * 0.5;
           break;
+        case 'angry':
+          // stampfen, Fäuste schütteln
+          bob = Math.abs(Math.sin(tt * 12)) * 0.05;
+          legSwing = Math.sin(tt * 12) * 0.35;
+          armLift = 0.55;
+          armSwing = Math.sin(tt * 18) * 0.45;
+          headTilt = 0.18;
+          headTurn = Math.sin(tt * 9) * 0.12;
+          lean = Math.sin(tt * 12) * 0.05;
+          break;
+        case 'shock':
+          bob = Math.sin(tt * 40) * 0.008;
+          armLift = 2.1 + Math.sin(tt * 30) * 0.08;
+          headTilt = -0.28;
+          break;
+        case 'shrug':
+          armLift = 0.75 + Math.max(0, Math.sin(tt * 3.2)) * 0.35;
+          armSwing = -0.25;
+          headTilt = 0.08;
+          bob = Math.max(0, Math.sin(tt * 3.2)) * 0.03;
+          break;
+        case 'wave':
+          bob = Math.sin(tt * 3) * 0.01;
+          headTilt = -0.06;
+          break;
+        case 'dance':
+          bob = Math.abs(Math.sin(tt * 8)) * 0.09;
+          lean = Math.sin(tt * 4) * 0.18;
+          armLift = 1.3 + Math.sin(tt * 8) * 0.9;
+          legSwing = Math.sin(tt * 8) * 0.35;
+          headTurn = Math.sin(tt * 4) * 0.35;
+          break;
+        case 'clap':
+          bob = Math.abs(Math.sin(tt * 7)) * 0.03;
+          headTilt = -0.1;
+          break;
+        case 'tuck':
+          // Hocke im Salto: Knie an, Arme um die Beine
+          armSwing = -1.4;
+          armLift = 0.1;
+          legSwing = -1.1;
+          headTilt = 0.3;
+          break;
       }
       body.position.y = bob;
       body.rotation.z = lean;
       body.scale.y = m === 'idle' ? 1 + Math.sin(tt * 2.2) * 0.01 : 1;
       armL.rotation.x = m === 'climb' ? -2.5 + armReach * 0.6 : armSwing;
-      armR.rotation.x = m === 'climb' ? -2.5 - armReach * 0.6 : m === 'swim' ? armSwing : -armSwing;
+      armR.rotation.x = m === 'climb' ? -2.5 - armReach * 0.6 : m === 'swim' || m === 'tuck' || m === 'shrug' ? armSwing : -armSwing;
       armL.rotation.z = 0.32 + armLift;
       armR.rotation.z = -0.32 - armLift;
-      legL.rotation.x = -legSwing;
+      legL.rotation.x = m === 'tuck' ? legSwing : -legSwing;
       legR.rotation.x = legSwing;
       head.rotation.y = headTurn;
       head.rotation.x = headTilt;
+      head.rotation.z = m === 'shrug' ? Math.sin(tt * 3.2) * 0.18 : 0;
+      if (m === 'wave') {
+        // rechte Hand hoch und winken
+        armR.rotation.x = -0.3;
+        armR.rotation.z = -2.7 + Math.sin(tt * 11) * 0.35;
+      } else if (m === 'clap') {
+        // Hände vor der Brust zusammen
+        const c = Math.abs(Math.sin(tt * 9));
+        armL.rotation.x = -1.25;
+        armR.rotation.x = -1.25;
+        armL.rotation.z = 0.05 - c * 0.42;
+        armR.rotation.z = -0.05 + c * 0.42;
+      }
       if (base.visible) {
         const mBase = base.material as THREE.MeshBasicMaterial;
         mBase.opacity = 0.65 + Math.sin(tt * 3) * 0.2;

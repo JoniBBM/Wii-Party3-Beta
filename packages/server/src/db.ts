@@ -83,12 +83,15 @@ export interface AppSettings {
   activeGameId: string | null;
   /** Bevorzugte Beitritts-Adresse (leer = automatisch). */
   joinUrl: string;
+  /** Beamer-Show (Grafik, Ton, Kommentator …) – wird beim Lesen geprüft. */
+  show: unknown;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   appName: 'Insel der Abenteuer',
   activeGameId: null,
   joinUrl: '',
+  show: null,
 };
 
 export function getSettings(db: DB): AppSettings {

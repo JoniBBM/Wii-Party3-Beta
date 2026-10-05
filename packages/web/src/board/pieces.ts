@@ -1,7 +1,7 @@
 /** Spielfiguren auf dem Brett: Aufstellung, Laufen von Feld zu Feld, Fliegen, Käfig, Namensschilder. */
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { teamColor, type Team } from '@insel/shared';
+import { teamColor, type FigureConfig, type Mood, type Team, type TeamColorKey } from '@insel/shared';
 import { createFigure, type FigureRig } from '../figure/figure3d.ts';
 import type { FieldMeshes } from './fields.ts';
 import type { IslandLayout } from './layout.ts';
@@ -38,6 +38,8 @@ export class Pieces {
   private epoch = 0;
   /** Teams im Krater: Fortschritt beim Herausklettern (0 = Boden, 1 = Rand) */
   private crater = new Map<string, number>();
+  /** Vorführ-Figuren der Spielerklärung (gehören zu keinem Team) */
+  private demos = new Set<string>();
 
   abortAll() {
     this.epoch += 1;
@@ -67,7 +69,7 @@ export class Pieces {
     this.teams = teams;
     const ids = new Set(teams.map((t) => t.id));
     for (const [id, p] of this.pieces) {
-      if (!ids.has(id)) {
+      if (!ids.has(id) && !this.demos.has(id)) {
         this.group.remove(p.holder);
         p.tag.element.remove();
         p.rig.dispose();
@@ -111,6 +113,45 @@ export class Pieces {
       label.style.setProperty('--c', c.hex);
       label.style.setProperty('--d', c.dark);
     }
+  }
+
+  /** Vorführ-Figur aufstellen (Spielerklärung). */
+  addDemo(id: string, figure: FigureConfig, color: TeamColorKey, name: string, field: number) {
+    this.removeDemo(id);
+    const holder = new THREE.Group();
+    const rig = createFigure(figure, color);
+    rig.root.scale.setScalar(SCALE);
+    holder.add(rig.root);
+    const el = document.createElement('div');
+    el.className = 'board-tag-wrap';
+    const label = el.appendChild(document.createElement('span'));
+    label.className = 'board-tag';
+    label.textContent = name;
+    const c = teamColor(color);
+    label.style.setProperty('--c', c.hex);
+    label.style.setProperty('--d', c.dark);
+    const tag = new CSS2DObject(el);
+    tag.position.set(0, rig.height * SCALE + 0.35, 0);
+    holder.add(tag);
+    const cage = buildCage();
+    cage.visible = false;
+    holder.add(cage);
+    this.group.add(holder);
+    const p: Piece = { teamId: id, rig, holder, position: field, busy: false, key: 'demo', tag, cage };
+    this.pieces.set(id, p);
+    this.demos.add(id);
+    holder.position.copy(this.slotFor(id, field));
+    holder.rotation.y = this.facing(field);
+  }
+
+  removeDemo(id: string) {
+    const p = this.pieces.get(id);
+    if (!p || !this.demos.has(id)) return;
+    this.group.remove(p.holder);
+    p.tag.element.remove();
+    p.rig.dispose();
+    this.pieces.delete(id);
+    this.demos.delete(id);
   }
 
   /** Käfige, Krater und Grundhaltung an den Zustand angleichen (nur wenn keine Animation läuft). */
@@ -189,6 +230,12 @@ export class Pieces {
     const perField = new Map<number, string[]>();
     for (const p of this.pieces.values()) {
       if (p.busy) continue;
+      // nach einem abgebrochenen Salto wieder gerade stehen
+      if (p.rig.root.rotation.x !== 0) {
+        p.rig.root.rotation.x = 0;
+        p.rig.root.position.set(0, 0, 0);
+        p.rig.root.scale.setScalar(SCALE);
+      }
       const list = perField.get(p.position) ?? [];
       list.push(p.teamId);
       perField.set(p.position, list);
@@ -223,6 +270,10 @@ export class Pieces {
       p.holder.visible = true;
       p.holder.scale.setScalar(1);
       p.holder.rotation.set(0, p.holder.rotation.y, 0);
+      // Salto/Hocke abgebrochen → Figur wieder gerade hinstellen
+      p.rig.root.rotation.set(0, 0, 0);
+      p.rig.root.position.set(0, 0, 0);
+      p.rig.root.scale.setScalar(SCALE);
       if (!this.teams.find((t) => t.id === p.teamId)?.blocked) p.rig.setMode('idle');
     }
     this.arrangeAll(false);
@@ -471,6 +522,70 @@ export class Pieces {
 
   facingOf(field: number) {
     return this.facing(field);
+  }
+
+  /**
+   * Reaktion nach dem Zug: zur Kamera drehen, je nach Stimmung Salto, Jubel, Winken,
+   * Schulterzucken, Ärger, Schreck oder Traurigkeit – danach wieder zurück.
+   */
+  async react(teamId: string, mood: Mood, lookAt: THREE.Vector3 | null, seconds = 1.5) {
+    const p = this.pieces.get(teamId);
+    if (!p || p.busy) return;
+    const epoch = this.epoch;
+    const alive = () => epoch === this.epoch;
+    const prevMode = p.rig.mode;
+    p.busy = true;
+    const r0 = p.holder.rotation.y;
+    const want = lookAt ? Math.atan2(lookAt.x - p.holder.position.x, lookAt.z - p.holder.position.z) : r0;
+    const turn = shortAngle(r0, want);
+    await this.tweens.run(0.35, (t) => (p.holder.rotation.y = r0 + turn * t), ease.inOut);
+    if (!alive()) return;
+    const root = p.rig.root;
+    const y0 = p.holder.position.y;
+    if (mood === 'super') {
+      // Rückwärtssalto um den Körperschwerpunkt
+      const c = p.rig.height * SCALE * 0.5;
+      p.rig.setMode('jump');
+      await this.tweens.run(0.22, (t) => (root.scale.y = SCALE * (1 - Math.sin(t * Math.PI) * 0.18)), ease.inOut);
+      if (!alive()) return;
+      p.rig.setMode('tuck');
+      await this.tweens.run(0.85, (t) => {
+        const a = -Math.PI * 2 * t;
+        root.rotation.x = a;
+        root.position.set(0, c - c * Math.cos(a), -c * Math.sin(a));
+        p.holder.position.y = y0 + Math.sin(t * Math.PI) * 1.5;
+      }, ease.inOut);
+      root.rotation.x = 0;
+      root.position.set(0, 0, 0);
+      p.holder.position.y = y0;
+      if (!alive()) return;
+      this.cb.onLand?.(teamId, p.position);
+      p.rig.setMode('cheer');
+      await this.tweens.wait(Math.max(300, (seconds - 1.07) * 1000));
+    } else if (mood === 'happy') {
+      p.rig.setMode('cheer');
+      await this.tweens.run(seconds, (t) => (p.holder.position.y = y0 + Math.abs(Math.sin(t * Math.PI * 3)) * 0.35), ease.linear);
+      p.holder.position.y = y0;
+    } else if (mood === 'shock') {
+      p.rig.setMode('shock');
+      await this.tweens.run(0.4, (t) => (p.holder.position.y = y0 + Math.sin(t * Math.PI) * 0.45), ease.out);
+      p.holder.position.y = y0;
+      await this.tweens.wait((seconds - 0.4) * 1000);
+    } else {
+      const mode = mood === 'ok' ? 'wave' : mood === 'meh' ? 'shrug' : mood === 'angry' ? 'angry' : 'sad';
+      p.rig.setMode(mode);
+      await this.tweens.wait(seconds * 1000);
+    }
+    if (!alive()) return;
+    p.rig.setMode(prevMode === 'stuck' ? 'stuck' : 'idle');
+    await this.tweens.run(0.35, (t) => (p.holder.rotation.y = r0 + turn * (1 - t)), ease.inOut);
+    if (!alive()) return;
+    p.busy = false;
+  }
+
+  /** Alle Figuren in eine Haltung versetzen (z. B. Applaus bei der Siegerehrung). */
+  setAllModes(mode: Parameters<FigureRig['setMode']>[0], except?: string) {
+    for (const p of this.pieces.values()) if (p.teamId !== except && !p.busy) p.rig.setMode(mode);
   }
 
   get epochNow() {

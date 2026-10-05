@@ -5,8 +5,13 @@
  * Sauber: weiche Bewegungen (gedämpfte Feder statt Sprüngen), nie unter dem Gelände, und die
  * Sichtlinie zum Motiv wird laufend geprüft – verdecken Berg, Bäume oder Gebäude das Bild,
  * schwenkt die Kamera seitlich bzw. steigt etwas höher.
+ *
+ * „Ruhig“ (Standard) bewegt sich gemächlicher als „lebhaft“. Mit Maus, Touch oder aus der
+ * Regie lässt sich die Kamera jederzeit frei führen; nach einer Weile ohne Eingabe übernimmt
+ * wieder die Automatik.
  */
 import * as THREE from 'three';
+import type { CameraStyle } from '@insel/shared';
 import type { IslandLayout } from './layout.ts';
 
 export type CameraMode =
@@ -38,6 +43,8 @@ export interface CameraStats {
   lowFrames?: number;
   /** auffällige Momente (Drehrate > 2,5 rad/s) */
   spikes: { frame: number; mode: string; turn: number; stiff: number }[];
+  /** verdeckte Bilder je Kameramodus */
+  occludedBy?: Record<string, number>;
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -60,8 +67,29 @@ function smoothDamp(cur: THREE.Vector3, target: THREE.Vector3, vel: THREE.Vector
   cur.copy(out);
 }
 
+/** Frei geführte Kamera: Kugelkoordinaten um einen Drehpunkt. */
+export interface ManualView {
+  pivot: THREE.Vector3;
+  yaw: number;
+  pitch: number;
+  dist: number;
+  /** Sekunden bis zur Rückkehr zur Automatik (Infinity = bleibt frei) */
+  hold: number;
+}
+
+const STYLES: Record<CameraStyle, { turn: number; turnAccel: number; smooth: number; tourLen: number; orbit: number }> = {
+  calm: { turn: 0.95, turnAccel: 2.2, smooth: 1.45, tourLen: 16, orbit: 0.022 },
+  lively: { turn: 1.5, turnAccel: 3.5, smooth: 1, tourLen: 11, orbit: 0.035 },
+};
+
 export class CameraRig {
   mode: CameraMode = { kind: 'overview' };
+  style: CameraStyle = 'calm';
+  /** frei geführt (Maus/Touch/Regie) – die Automatik wartet solange */
+  manual: ManualView | null = null;
+  /** Meldet Wechsel zwischen frei und automatisch */
+  onManualChange: ((manual: boolean) => void) | null = null;
+  private autoStiffness = 1.8;
   private pos = new THREE.Vector3(30, 26, 52);
   private look = new THREE.Vector3(0, 4, 0);
   private vel = new THREE.Vector3();
@@ -76,6 +104,9 @@ export class CameraRig {
   private adj = { a: 0, h: 0 };
   private adjWant = { a: 0, h: 0 };
   private adjTimer = 0;
+  /** Anheben während der Fahrt, wenn die aktuelle Sicht verdeckt ist (Tempel, Palmen …) */
+  private travelLift = 0;
+  private travelLiftWant = 0;
   private lastDir = new THREE.Vector3(0, 0, -1);
   /** tatsächliche Blickrichtung (Drehrate begrenzt) */
   private viewDir = new THREE.Vector3(0, -0.5, -1).normalize();
@@ -103,8 +134,63 @@ export class CameraRig {
   set(mode: CameraMode, stiffness = 1.8) {
     const changed = mode.kind !== this.mode.kind || mode !== this.mode;
     this.mode = mode;
-    this.stiffness = stiffness;
+    this.autoStiffness = stiffness;
+    if (!this.manual) this.stiffness = stiffness;
     if (changed) this.adjTimer = 0;
+  }
+
+  /** Freie Kamera ab der aktuellen Ansicht beginnen. */
+  beginManual(hold = 30): ManualView {
+    if (!this.manual) {
+      const d = this.pos.clone().sub(this.look);
+      const dist = Math.max(4, d.length());
+      this.manual = {
+        pivot: this.look.clone(),
+        yaw: Math.atan2(d.x, d.z),
+        pitch: Math.asin(Math.max(-1, Math.min(1, d.y / dist))),
+        dist,
+        hold,
+      };
+      this.onManualChange?.(true);
+    }
+    this.manual.hold = hold;
+    return this.manual;
+  }
+
+  /** Eingabe der freien Kamera (Drehen, Neigen, Zoomen, Verschieben). */
+  nudge(d: { yaw?: number; pitch?: number; zoom?: number; panX?: number; panZ?: number }, hold = 30) {
+    const m = this.beginManual(hold);
+    m.yaw += d.yaw ?? 0;
+    m.pitch = Math.max(0.08, Math.min(1.45, m.pitch + (d.pitch ?? 0)));
+    m.dist = Math.max(3.5, Math.min(150, m.dist * Math.exp(d.zoom ?? 0)));
+    if (d.panX || d.panZ) {
+      // seitlich und nach vorn relativ zur Blickrichtung, im Verhältnis zum Abstand
+      const right = new THREE.Vector3(Math.cos(m.yaw), 0, -Math.sin(m.yaw));
+      const fwd = new THREE.Vector3(-Math.sin(m.yaw), 0, -Math.cos(m.yaw));
+      const k = Math.max(2, m.dist) * 0.9;
+      m.pivot.addScaledVector(right, (d.panX ?? 0) * k).addScaledVector(fwd, (d.panZ ?? 0) * k);
+      m.pivot.x = Math.max(-80, Math.min(80, m.pivot.x));
+      m.pivot.z = Math.max(-80, Math.min(80, m.pivot.z));
+      m.pivot.y = Math.max(0, this.heightAt?.(m.pivot.x, m.pivot.z) ?? 0) + 1;
+    }
+  }
+
+  /** Feste Einstellung der freien Kamera (z. B. „Vulkan“ aus der Regie). */
+  manualShot(shot: { position: THREE.Vector3; lookAt: THREE.Vector3 }, hold = 40) {
+    const d = shot.position.clone().sub(shot.lookAt);
+    const dist = Math.max(4, d.length());
+    const had = !!this.manual;
+    this.manual = { pivot: shot.lookAt.clone(), yaw: Math.atan2(d.x, d.z), pitch: Math.asin(Math.max(-1, Math.min(1, d.y / dist))), dist, hold };
+    if (!had) this.onManualChange?.(true);
+  }
+
+  /** Zurück zur Automatik. */
+  endManual() {
+    if (!this.manual) return;
+    this.manual = null;
+    this.stiffness = this.autoStiffness;
+    this.adjTimer = 0;
+    this.onManualChange?.(false);
   }
 
   /** Sichthindernisse (Bäume, Gebäude) für die Sichtprüfung. */
@@ -215,7 +301,7 @@ export class CameraRig {
       [V(-24, 15, -14), V(-26, 16, -8), V(-36, 5, -18), V(-35, 5, -14)],
       [V(36, 11, 40), V(24, 10, 40), V(29, 0, 26), V(27, 0, 24)],
     ];
-    const len = 11;
+    const len = STYLES[this.style].tourLen;
     const i = Math.floor(t / len) % shots.length;
     const u = (t % len) / len;
     const [p0, p1, l0, l1] = shots[i]!;
@@ -227,9 +313,23 @@ export class CameraRig {
 
   update(dt: number) {
     const m = this.mode;
-    if (m.kind === 'free') return;
-    if (m.kind === 'overview') {
-      this.orbit += dt * 0.035;
+    const st = STYLES[this.style];
+    const man = this.manual;
+    if (man) {
+      man.hold -= dt;
+      if (man.hold <= 0) this.endManual();
+    }
+    if (m.kind === 'free' && !this.manual) return;
+    if (this.manual) {
+      const mv = this.manual;
+      const cp = Math.cos(mv.pitch);
+      this.wantPos.set(mv.pivot.x + Math.sin(mv.yaw) * cp * mv.dist, mv.pivot.y + Math.sin(mv.pitch) * mv.dist, mv.pivot.z + Math.cos(mv.yaw) * cp * mv.dist);
+      this.wantLook.copy(mv.pivot);
+      this.subject.copy(mv.pivot);
+    } else if (m.kind === 'free') {
+      return;
+    } else if (m.kind === 'overview') {
+      this.orbit += dt * st.orbit;
       this.tourTime += dt;
       const h = m.tour ? this.tour(this.tourTime) : this.hero();
       this.wantPos.copy(h.position);
@@ -256,19 +356,25 @@ export class CameraRig {
       this.subject.copy(m.lookAt);
     }
 
-    // Sichtlinie prüfen (nicht jedes Bild) und weich ausweichen
+    // Sichtlinie prüfen (nicht jedes Bild) und weich ausweichen – nicht bei freier Kamera
     this.adjTimer -= dt;
-    if (this.adjTimer <= 0) {
+    if (this.manual) this.adjWant = { a: 0, h: 0 };
+    else if (this.adjTimer <= 0) {
       this.adjTimer = 0.35;
       this.chooseAdj(this.wantPos, this.wantLook);
+      // Unterwegs verdeckt? Dann über das Hindernis hinweg fahren, bis die Sicht frei ist
+      const moving = this.pos.distanceTo(this.wantPos) > 3;
+      this.travelLiftWant = moving && this.occlusion(this.pos, this.subject) > 0.2 ? Math.min(9, this.travelLiftWant + 3) : 0;
     }
+    this.travelLift += (this.travelLiftWant - this.travelLift) * (1 - Math.exp(-dt * 1.8));
     const k = 1 - Math.exp(-dt * 2.5);
     this.adj.a += (this.adjWant.a - this.adj.a) * k;
     this.adj.h += (this.adjWant.h - this.adj.h) * k;
     const target = this.applyAdj(this.wantPos, this.wantLook, this.adj.a, this.adj.h);
+    target.y += this.travelLift;
     // Weite Fahrten im Bogen: erst steigen, über die Insel, dann absenken (wie ein Kamerakran)
     const travel = Math.hypot(target.x - this.pos.x, target.z - this.pos.z);
-    if (travel > 12 && dt > 0) {
+    if (travel > 12 && dt > 0 && !this.manual) {
       let ridge = 0;
       if (this.heightAt)
         for (let f = 0.1; f < 1; f += 0.15) ridge = Math.max(ridge, this.heightAt(this.pos.x + (target.x - this.pos.x) * f, this.pos.z + (target.z - this.pos.z) * f));
@@ -277,11 +383,11 @@ export class CameraRig {
     }
 
     // große Sprünge (anderes Motiv, andere Seite) langsamer und ohne Peitschenschwenk
-    const base = 1.1 / Math.max(0.05, this.stiffness);
-    const far = Math.min(2.2, Math.max(1, this.pos.distanceTo(target) / 18));
+    const base = this.manual ? 0.22 : (1.1 / Math.max(0.05, this.stiffness)) * st.smooth;
+    const far = this.manual ? 1 : Math.min(2.2, Math.max(1, this.pos.distanceTo(target) / 18));
     const cur = this.look.clone().sub(this.pos).normalize();
     const want = this.wantLook.clone().sub(target).normalize();
-    const turn = Math.min(1.6, Math.max(1, cur.angleTo(want) / 1.2));
+    const turn = this.manual ? 1 : Math.min(1.6, Math.max(1, cur.angleTo(want) / 1.2));
     const smooth = base * Math.max(far, turn);
     if (dt <= 0) {
       this.pos.copy(target);
@@ -315,8 +421,9 @@ export class CameraRig {
       this.turnRate = 0;
     } else {
       const ang = this.viewDir.angleTo(desired);
-      const want = Math.min(1.5, ang * 3.2);
-      this.turnRate = want < this.turnRate ? want : Math.min(want, this.turnRate + 3.5 * dt);
+      const maxTurn = this.manual ? 4 : st.turn;
+      const want = Math.min(maxTurn, ang * 3.2);
+      this.turnRate = want < this.turnRate ? want : Math.min(want, this.turnRate + (this.manual ? 12 : st.turnAccel) * dt);
       const step = Math.min(ang, this.turnRate * dt);
       if (ang > 1e-5) {
         const axis = new THREE.Vector3().crossVectors(this.viewDir, desired);
@@ -345,7 +452,12 @@ export class CameraRig {
         s.minClearanceMode = this.mode.kind;
       }
       if (cl < 2 && s.lowFrames !== undefined) s.lowFrames++;
-      if (s.frames % 6 === 0 && this.occlusion(this.pos, this.subject) > 0.25) s.occludedFrames += 6;
+      if (s.frames % 6 === 0 && this.occlusion(this.pos, this.subject) > 0.25) {
+        s.occludedFrames += 6;
+        const key = this.manual ? 'manual' : this.pos.distanceTo(this.wantPos) > 3 ? `${this.mode.kind}-fahrt` : this.mode.kind;
+        s.occludedBy = s.occludedBy ?? {};
+        s.occludedBy[key] = (s.occludedBy[key] ?? 0) + 6;
+      }
       const dir = this.viewDir.clone();
       const turn = dir.angleTo(this.lastDir) / dt;
       if (s.frames > 5) {
@@ -386,6 +498,21 @@ export class CameraRig {
       position: new THREE.Vector3(f.x + Math.cos(side) * dist, f.y + height, f.z + Math.sin(side) * dist),
       lookAt: new THREE.Vector3(f.x, f.y + 0.6, f.z),
     };
+  }
+
+  /**
+   * Großaufnahme einer Figur von vorn (für die Reaktion nach dem Zug): von der Vulkan-
+   * abgewandten Seite, leicht erhöht. Liefert auch den Punkt, zu dem die Figur schauen soll.
+   */
+  portraitShot(at: THREE.Vector3, dist = 4.6) {
+    const v = this.layout.volcano;
+    const out = new THREE.Vector3(at.x - v.x, 0, at.z - v.z);
+    if (out.lengthSq() < 1) out.set(0, 0, 1);
+    out.normalize().applyAxisAngle(UP, 0.35);
+    const position = new THREE.Vector3(at.x + out.x * dist, at.y + 1.9, at.z + out.z * dist);
+    // nicht im Hang verschwinden
+    if (this.heightAt) position.y = Math.max(position.y, this.heightAt(position.x, position.z) + 1.6);
+    return { position, lookAt: new THREE.Vector3(at.x, at.y + 0.95, at.z) };
   }
 
   /** Blick schräg von oben in den Krater (von der Seite des Kraterfelds). */

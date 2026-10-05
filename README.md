@@ -8,6 +8,8 @@ Ein Partyspiel für Gruppen im Stil von **Wii Party**: Die Teams wandern auf ein
 
 Der Weg führt vom **Hafendorf** an der **Liane** vorbei durch die **Tempelruinen**, an der **Lagune** vorbei durch den **Dschungel**, über **Fässer im Fluss** unter dem Wasserfall, zum **Leuchtturm**, über die **Hängebrücke**, an der Steilküste entlang zu den **Steinköpfen** und in Serpentinen auf den **Vulkan** – vorbei an der **Lavahöhle** bis zum **Kraterloch**. Jedes Sonderfeld hat seinen Auftritt: Sprungfeder, Doppeldecker mit Fallschirm, UFO-Tausch, fallender Käfig, Dampf-Geysir. Unterwegs: Delfine, ein Wal, Fischschwärme, Flamingos, Schildkröten, Krabben, Frösche, Papageien, Affen, Möwen und Schmetterlinge.
 
+Nach jedem Zug reagiert die Figur in der Großaufnahme (Salto, Jubel, Ärger …), ein **Kommentator** begleitet das Spiel mit Sprüchen, eigene **Musik** wechselt je nach Phase, und am Ende steigt ein **Siegerpodest aus dem Krater**. Eine **Spielerklärung** mit Sprecher zeigt in gut zwei Minuten, wie alles funktioniert.
+
 | | | |
 |---|---|---|
 | ![Hafendorf](docs/bilder/insel-hafen.webp) | ![Fässer im Fluss](docs/bilder/insel-furt.webp) | ![Serpentinen zum Krater](docs/bilder/insel-vulkan.webp) |
@@ -17,8 +19,8 @@ Der Weg führt vom **Hafendorf** an der **Liane** vorbei durch die **Tempelruine
 
 | Wer | Was | Adresse |
 |---|---|---|
-| **Beamer** | 3D-Insel mit Figuren, Fragen, Ergebnissen, Würfeln und Effekten | `/beamer` |
-| **Regie** (Technik) | Steuert den Abend: Inhalte wählen, Antworten sehen, Platzierung eintragen, würfeln, Rückgängig | `/regie` |
+| **Beamer** | 3D-Insel mit Figuren, Fragen, Ergebnissen, Würfeln und Effekten – ohne Menü, komplett aus der Regie gesteuert | `/beamer` (Kiosk: `./start.sh beamer`) |
+| **Regie** (Technik) | Steuert den Abend: Inhalte wählen, Antworten sehen, Platzierung eintragen, würfeln, Rückgängig; Beamer fernsteuern (Grafik, Ton, Musik, Kamera, Erklärung) | `/regie` |
 | **Moderator** (Vorleser) | Große Vorleseansicht mit Lösungen – kann alles mitsteuern | `/moderator` |
 | **Handys / Tablets** | Teams treten per QR-Code bei, antworten, buzzern, würfeln, gestalten ihre Figur | `/` → „Mitspielen“ |
 
@@ -40,7 +42,7 @@ cp .env.example .env        # dann ADMIN_PASSWORD in .env setzen
 Danach:
 
 1. **Regie** öffnen (`http://localhost:8080/regie`) und ein Spiel anlegen.
-2. **Beamer** öffnen (`http://localhost:8080/beamer`) – dort erscheint der QR-Code zum Mitspielen.
+2. **Beamer** öffnen: `./start.sh beamer` (Kiosk mit Vollbild und Ton) oder `http://localhost:8080/beamer` und einmal hineinklicken – dort erscheint der QR-Code zum Mitspielen.
 3. Handys scannen den QR-Code (gleiches WLAN), Teams bilden, **Spiel starten**.
 
 Für Zugriff übers Internet (z. B. Handys mit mobilen Daten): `./start.sh online` – siehe [Betrieb](docs/betrieb.md).

@@ -1,7 +1,7 @@
 /** Team-Seite am Handy: Figur gestalten, Teamname, Mitglieder, PIN zum Einladen, eigenes Profil. */
 import { useState } from 'react';
 import { Check, Pencil, UserPlus, UserRound } from 'lucide-react';
-import type { GameState } from '@insel/shared';
+import { teamColor, type GameState, type Team } from '@insel/shared';
 import { api } from '../../lib/api.ts';
 import { useCommand } from '../../lib/hooks.ts';
 import { uploadPhoto } from '../../lib/image.ts';
@@ -14,57 +14,74 @@ import { PhotoPicker } from '../../ui/PhotoPicker.tsx';
 import { toast } from '../../ui/toast.tsx';
 import type { Me } from './TeamApp.tsx';
 
-export function TeamInfo({ state, me }: { state: GameState; me: Me }) {
-  const team = me.team!;
+/**
+ * Team gestalten: Name und Spielfigur. Steht in der Lobby groß auf der Spielseite und
+ * jederzeit unter „Team“ – Änderungen erscheinen sofort auf dem Beamer.
+ */
+export function TeamDesigner({ team, intro = false }: { team: Team; intro?: boolean }) {
   const { run, pending } = useCommand();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(team.name);
-  const members = state.players.filter((p) => p.teamId === team.id);
-  const shared = state.config.devices === 'shared';
-
+  const c = teamColor(team.color);
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader title="Eure Spielfigur" sub="So lauft ihr über die Insel." />
+    <>
+      <Card className="overflow-hidden">
+        <div className="px-4 py-3 text-white" style={{ background: `linear-gradient(135deg, ${c.hex}, ${c.dark})` }}>
+          <p className="font-display text-2xl font-semibold drop-shadow-sm">{intro ? '🎨 Gestaltet euer Team!' : 'Eure Spielfigur'}</p>
+          <p className="text-sm font-bold text-white/90">{intro ? 'Name und Figur aussuchen – der Beamer zeigt es sofort.' : 'So lauft ihr über die Insel.'}</p>
+        </div>
+        <div className="border-b border-line p-4">
+          <p className="label">Teamname</p>
+          {editingName ? (
+            <form
+              className="flex gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const r = await run({ type: 'team.update', name: name.trim() }, { success: 'Name gespeichert' });
+                if (r.ok) setEditingName(false);
+              }}
+            >
+              <input className="field" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoFocus />
+              <Button type="submit" variant="primary" icon={<Check className="size-4" />} disabled={!name.trim()} loading={pending === 'team.update'}>
+                <span className="sr-only">Speichern</span>
+              </Button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-2xl border-2 border-dashed border-line px-3 py-2 text-left font-display text-2xl font-semibold transition hover:border-accent"
+              style={{ color: c.dark }}
+              onClick={() => {
+                setName(team.name);
+                setEditingName(true);
+              }}
+            >
+              <span className="min-w-0 flex-1 truncate">{team.name}</span>
+              <Pencil className="size-5 text-muted" />
+            </button>
+          )}
+        </div>
         <div className="p-4">
           <FigureEditor
             figure={team.figure}
             color={team.color}
             saving={pending === 'team.update'}
-            onSave={(figure) => run({ type: 'team.update', figure }, { success: 'Figur gespeichert' })}
+            onSave={(figure) => run({ type: 'team.update', figure }, { success: 'Figur gespeichert – schaut auf den Beamer!' })}
           />
         </div>
       </Card>
+    </>
+  );
+}
 
-      <Card className="p-4">
-        <p className="label">Teamname</p>
-        {editingName ? (
-          <form
-            className="flex gap-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const r = await run({ type: 'team.update', name: name.trim() });
-              if (r.ok) setEditingName(false);
-            }}
-          >
-            <input className="field" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoFocus />
-            <Button type="submit" variant="primary" icon={<Check className="size-4" />} disabled={!name.trim()}>
-              <span className="sr-only">Speichern</span>
-            </Button>
-          </form>
-        ) : (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 text-left font-display text-xl font-semibold"
-            onClick={() => {
-              setName(team.name);
-              setEditingName(true);
-            }}
-          >
-            {team.name} <Pencil className="size-4 text-muted" />
-          </button>
-        )}
-      </Card>
+export function TeamInfo({ state, me }: { state: GameState; me: Me }) {
+  const team = me.team!;
+  const members = state.players.filter((p) => p.teamId === team.id);
+  const shared = state.config.devices === 'shared';
+
+  return (
+    <div className="flex flex-col gap-4">
+      <TeamDesigner team={team} />
 
       <Card className="p-4">
         <p className="label">{shared ? 'Dieses Gerät gehört eurem Team' : 'Weitere Handys verbinden'}</p>

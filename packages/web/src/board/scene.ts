@@ -19,10 +19,13 @@ import {
   VignetteEffect,
 } from 'postprocessing';
 import { N8AOPostPass } from 'n8ao';
-import type { Effect, GameState } from '@insel/shared';
+import type { Effect, GameState, RenderQuality } from '@insel/shared';
 import { windUniforms } from './assets.ts';
 import { BoardAudio } from './audio.ts';
 import { CameraRig } from './camera.ts';
+import { Ceremony } from './ceremony.ts';
+import { Commentator } from './commentator.ts';
+import { attachManualCamera } from './manual.ts';
 import { DiceOverlay } from './dice3d.ts';
 import { Director, type Caption } from './director.ts';
 import { buildFields, type FieldMeshes } from './fields.ts';
@@ -41,12 +44,30 @@ import { createRiver, createWater, type RiverFx, type Water } from './water.ts';
 import { fx } from './worldfx.ts';
 import { createSky, type Sky } from './sky.ts';
 
-export type Quality = 'beauty' | 'fast';
+export type Quality = RenderQuality;
 
-const PRESETS = {
-  beauty: { pixelRatio: 2, shadow: 4096, terrain: 384, water: 260, density: 1, grass: 20000, post: true },
-  fast: { pixelRatio: 1, shadow: 2048, terrain: 220, water: 110, density: 0.5, grass: 5000, post: false },
-} as const;
+interface Preset {
+  /** höchstens so viele Bildpunkte je CSS-Pixel */
+  pixelRatio: number;
+  shadow: number;
+  /** Schattenkarte nur jedes n-te Bild neu zeichnen */
+  shadowEvery: number;
+  ao: boolean;
+  bloom: boolean;
+  tilt: boolean;
+  /** Anteil der Grasbüschel */
+  grass: number;
+}
+
+/** Laufzeit-Stufen: lassen sich ohne Neuaufbau der Insel umschalten. */
+const PRESETS: Record<Quality, Preset> = {
+  high: { pixelRatio: 2, shadow: 4096, shadowEvery: 1, ao: true, bloom: true, tilt: true, grass: 1 },
+  balanced: { pixelRatio: 1.25, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, tilt: true, grass: 0.6 },
+  eco: { pixelRatio: 1, shadow: 1024, shadowEvery: 3, ao: false, bloom: false, tilt: false, grass: 0.3 },
+};
+
+/** Aufbau (einmalig): Geländeauflösung, Wasser, Dichte der Deko. */
+const BUILD = { terrain: 384, water: 260, density: 1, grass: 20000 };
 
 const HORIZON = new THREE.Color('#bfe3f7');
 
@@ -54,6 +75,7 @@ const HORIZON = new THREE.Color('#bfe3f7');
 const PERF = new Set((new URLSearchParams(location.search).get('perf') ?? '').split(','));
 
 export interface BoardSceneOptions {
+  /** Anfangsstufe; später mit setQuality umschaltbar */
   quality: Quality;
   fieldCount: number;
   onProgress?: (p: number, label: string) => void;
@@ -73,7 +95,10 @@ export class BoardScene {
   volcano!: VolcanoFx;
   dice!: DiceOverlay;
   stunts!: Stunts;
+  ceremony!: Ceremony;
   director!: Director;
+  readonly commentator: Commentator;
+  private detachManual: (() => void) | null = null;
   private water!: Water;
   private river!: RiverFx;
   private sky!: Sky;
@@ -81,7 +106,14 @@ export class BoardScene {
   private ambient: Ambient | null = null;
   private animals: AnimalWorld | null = null;
   private composer: EffectComposer | null = null;
-  private ao: N8AOPostPass | null = null;
+  private grass: THREE.InstancedMesh | null = null;
+  private grassFull = 0;
+  private frame = 0;
+  private shadowEvery = 1;
+  /** Bildrate (gleitend über ~2 s) */
+  fps = 60;
+  private fpsFrames = 0;
+  private fpsSince = performance.now();
   private labels: CSS2DRenderer;
   private sun!: THREE.DirectionalLight;
   private raf = 0;
@@ -90,7 +122,7 @@ export class BoardScene {
   private disposed = false;
   private captionListeners = new Set<(c: Caption | null) => void>();
   private lastState: GameState | null = null;
-  readonly quality: Quality;
+  quality: Quality;
 
   private constructor(
     private container: HTMLElement,
@@ -99,9 +131,11 @@ export class BoardScene {
   ) {
     this.quality = opts.quality;
     this.audio = audio;
+    this.commentator = new Commentator(audio);
     const preset = PRESETS[opts.quality];
+    // Kantenglättung übernimmt SMAA in der Nachbearbeitung (läuft in jeder Stufe)
     this.renderer = new THREE.WebGLRenderer({
-      antialias: !preset.post,
+      antialias: false,
       powerPreference: 'high-performance',
       stencil: false,
       depth: true,
@@ -109,8 +143,10 @@ export class BoardScene {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.pixelRatio));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
+    this.shadowEvery = preset.shadowEvery;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = preset.post ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+    this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.domElement.className = 'block size-full';
     container.appendChild(this.renderer.domElement);
@@ -169,22 +205,22 @@ export class BoardScene {
       /* ohne Umgebungslicht geht es auch */
     }
     this.scene.background = HORIZON;
-    this.sky = createSky({ horizon: HORIZON, sunDir: this.sun.position, clouds: opts.quality === 'beauty' ? 16 : 9 });
+    this.sky = createSky({ horizon: HORIZON, sunDir: this.sun.position, clouds: 16 });
     this.scene.add(this.sky.group);
 
     // Gelände & Wasser
     progress(0.25, 'Insel wird geformt …');
     await nextFrame();
-    const field = buildHeightfield(layout, preset.terrain);
+    const field = buildHeightfield(layout, BUILD.terrain);
     let hTexCache: THREE.DataTexture | null = null;
     const heightTex0 = () => (hTexCache ??= heightTexture(field));
     const terrain = buildTerrainMesh(layout, field);
     this.scene.add(terrain);
-    this.water = createWater(heightTex0(), { segments: preset.water, fog: HORIZON, fogNear: 140, fogFar: 420 });
+    this.water = createWater(heightTex0(), { segments: BUILD.water, fog: HORIZON, fogNear: 140, fogFar: 420 });
     this.water.setSun(this.sun.position, this.sun.color);
     this.scene.add(this.water.mesh);
     const hTex = heightTex0();
-    this.river = createRiver(hTex, { mist: opts.quality === 'beauty' });
+    this.river = createRiver(hTex, { mist: true });
     this.scene.add(this.river.group);
 
     // Felder
@@ -197,7 +233,7 @@ export class BoardScene {
     progress(0.55, 'Palmen werden gepflanzt …');
     try {
       if (!new URLSearchParams(location.search).has('noprops')) {
-        this.props = await buildProps(layout, field, { density: preset.density });
+        this.props = await buildProps(layout, field, { density: BUILD.density });
         this.scene.add(this.props.group);
         this.ambient = createAmbient(this.props.fires, this.props.smokes);
         this.scene.add(this.ambient.group);
@@ -211,7 +247,7 @@ export class BoardScene {
             canopies: this.props?.canopies ?? [],
             flowers: this.props?.flowers ?? [],
             perches: this.props?.perches ?? [],
-            quality: opts.quality,
+            detail: 1,
             splash: (x, y, z, big) => this.effects.splash(x, y, z, big),
           });
           this.scene.add(this.animals.group);
@@ -221,7 +257,12 @@ export class BoardScene {
       }
       progress(0.75, 'Gras wächst …');
       await nextFrame();
-      if (!PERF.has('nograss')) this.scene.add(buildGrass(field, terrainColorSampler(terrain, preset.terrain), { count: preset.grass, pathClear: layout.fieldRadius * 1.3 }));
+      if (!PERF.has('nograss')) {
+        this.grass = buildGrass(field, terrainColorSampler(terrain, BUILD.terrain), { count: BUILD.grass, pathClear: layout.fieldRadius * 1.3 });
+        this.grassFull = this.grass.count;
+        this.grass.count = Math.round(this.grassFull * preset.grass);
+        this.scene.add(this.grass);
+      }
     } catch (e) {
       console.warn('Deko konnte nicht geladen werden', e);
     }
@@ -250,42 +291,70 @@ export class BoardScene {
     this.rig.heightAt = (x, z) => field.height(x, z);
     this.rig.setBlockers([...(this.props?.blockers ?? []), ...this.stunts.blockers]);
     this.pieces.lineOfSight = (from, to) => this.rig.occlusion(from, to, true) < 0.08;
+    this.ceremony = new Ceremony(this.pieces, this.tweens, this.effects, this.audio, this.rig);
+    this.scene.add(this.ceremony.group);
+    this.detachManual = attachManualCamera(this.renderer.domElement, this.rig);
     this.dice = new DiceOverlay(this.tweens);
     this.director = new Director(this, (c) => {
       for (const fn of this.captionListeners) fn(c);
     });
 
-    if (preset.post && !PERF.has('nopost')) this.setupPost();
+    if (!PERF.has('nopost')) this.setupPost(preset);
     this.resize();
     this.rig.jump();
     progress(1, 'Fertig!');
     this.loop();
   }
 
-  private setupPost() {
+  /** Nachbearbeitung je nach Stufe (neu aufgebaut beim Umschalten). */
+  private setupPost(p: Preset) {
+    this.composer?.dispose();
     const composer = new EffectComposer(this.renderer, { frameBufferType: THREE.HalfFloatType, multisampling: PERF.has('msaa') ? 4 : 0 });
     composer.addPass(new RenderPass(this.scene, this.camera));
-    if (!PERF.has('noao')) try {
-      const ao = new N8AOPostPass(this.scene, this.camera, 1, 1);
-      ao.configuration.aoRadius = 2.2;
-      ao.configuration.distanceFalloff = 1.2;
-      ao.configuration.intensity = 2.2;
-      ao.configuration.halfRes = true;
-      ao.setQualityMode('Medium');
-      composer.addPass(ao);
-      this.ao = ao;
-    } catch (e) {
-      console.warn('Ambient Occlusion nicht verfügbar', e);
-    }
-    const bloom = new BloomEffect({ luminanceThreshold: 0.92, luminanceSmoothing: 0.2, intensity: 0.9, mipmapBlur: true, radius: 0.7 });
-    const tilt = new TiltShiftEffect({ offset: 0.05, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: 1 });
-    const vignette = new VignetteEffect({ offset: 0.32, darkness: 0.38 });
-    const tone = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
-    const grade = new HueSaturationEffect({ saturation: 0.08 });
-    const contrast = new BrightnessContrastEffect({ contrast: 0.06 });
-    composer.addPass(new EffectPass(this.camera, bloom, tilt, vignette, tone, grade, contrast));
+    if (p.ao && !PERF.has('noao'))
+      try {
+        const ao = new N8AOPostPass(this.scene, this.camera, 1, 1);
+        ao.configuration.aoRadius = 2.2;
+        ao.configuration.distanceFalloff = 1.2;
+        ao.configuration.intensity = 2.2;
+        ao.configuration.halfRes = true;
+        ao.setQualityMode('Medium');
+        composer.addPass(ao);
+      } catch (e) {
+        console.warn('Ambient Occlusion nicht verfügbar', e);
+      }
+    const effects: ConstructorParameters<typeof EffectPass>[1][] = [];
+    if (p.bloom) effects.push(new BloomEffect({ luminanceThreshold: 0.92, luminanceSmoothing: 0.2, intensity: 0.9, mipmapBlur: true, radius: 0.7 }));
+    if (p.tilt) effects.push(new TiltShiftEffect({ offset: 0.05, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: 1 }));
+    effects.push(
+      new VignetteEffect({ offset: 0.32, darkness: 0.38 }),
+      new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
+      new HueSaturationEffect({ saturation: 0.08 }),
+      new BrightnessContrastEffect({ contrast: 0.06 }),
+    );
+    composer.addPass(new EffectPass(this.camera, ...effects));
     composer.addPass(new EffectPass(this.camera, new SMAAEffect()));
     this.composer = composer;
+  }
+
+  /** Grafikstufe live umschalten (Auflösung, Schatten, Nachbearbeitung, Gras). */
+  setQuality(q: Quality) {
+    if (q === this.quality) return;
+    this.quality = q;
+    const p = PRESETS[q];
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, p.pixelRatio));
+    if (this.sun.shadow.mapSize.x !== p.shadow) {
+      this.sun.shadow.mapSize.set(p.shadow, p.shadow);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.shadowEvery = p.shadowEvery;
+    this.renderer.shadowMap.needsUpdate = true;
+    if (this.grass) this.grass.count = Math.round(this.grassFull * p.grass);
+    if (!PERF.has('nopost')) this.setupPost(p);
+    this.resize();
+    this.fpsFrames = 0;
+    this.fpsSince = performance.now();
   }
 
   onCaption(fn: (c: Caption | null) => void) {
@@ -304,6 +373,7 @@ export class BoardScene {
     this.dice?.resize(w / h);
     this.effects.setScale(h * this.renderer.getPixelRatio());
     this.ambient?.setScale((h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
+    this.renderer.shadowMap.needsUpdate = true;
   }
 
   private loop = () => {
@@ -316,6 +386,7 @@ export class BoardScene {
     this.tweens.update(dt);
     this.pieces.update(t, dt);
     this.stunts.update(t, dt, this.camera);
+    this.ceremony.update(t, dt);
     this.fields.update(t);
     this.volcano.update(t, dt);
     this.effects.update(dt);
@@ -324,9 +395,18 @@ export class BoardScene {
     this.sky.update(t, dt);
     this.props?.update(t, dt);
     this.ambient?.update(t);
-    this.animals?.update(t, dt);
+    this.animals?.update(t, dt, this.camera);
     this.rig.update(dt);
     this.pieces.updateTags(this.camera);
+    // Schatten nicht in jedem Bild neu zeichnen (Sonne steht still; bewegte Dinge sind langsam)
+    if (++this.frame % this.shadowEvery === 0) this.renderer.shadowMap.needsUpdate = true;
+    const now = performance.now();
+    this.fpsFrames++;
+    if (now - this.fpsSince >= 2000) {
+      this.fps = (this.fpsFrames * 1000) / (now - this.fpsSince);
+      this.fpsFrames = 0;
+      this.fpsSince = now;
+    }
     if (this.composer) this.composer.render(dt);
     else this.renderer.render(this.scene, this.camera);
     if (this.dice.visible) {
@@ -384,6 +464,8 @@ export class BoardScene {
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.director.dispose();
+    this.detachManual?.();
+    this.ceremony.stop();
     this.stunts.dispose();
     this.composer?.dispose();
     this.water.dispose();

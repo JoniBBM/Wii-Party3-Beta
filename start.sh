@@ -4,8 +4,33 @@
 #   ./start.sh online   – zusätzlich öffentlich erreichbar (Cloudflare-Tunnel, HTTPS)
 #   ./start.sh stop     – alles beenden
 #   ./start.sh logs     – Server-Protokoll ansehen
+#   ./start.sh beamer   – Beamer-Fenster als Kiosk öffnen (Vollbild + Ton ohne Klick; Chrome/Edge)
 set -euo pipefail
 cd "$(dirname "$0")"
+
+if [ "${1:-}" = "beamer" ]; then
+  PORT=$(grep -E '^HOST_PORT=' .env 2>/dev/null | cut -d= -f2 || true)
+  URL="${2:-http://localhost:${PORT:-8080}/beamer}"
+  # Eigenes Profil, damit der Kiosk nicht das normale Browserfenster übernimmt
+  PROFILE_DIR="${TMPDIR:-/tmp}/insel-beamer-profil"
+  FLAGS="--kiosk --start-fullscreen --autoplay-policy=no-user-gesture-required --no-first-run --disable-session-crashed-bubble --user-data-dir=${PROFILE_DIR}"
+  for APP in "Google Chrome" "Microsoft Edge" "Chromium" "Brave Browser"; do
+    if [ -d "/Applications/${APP}.app" ]; then
+      echo "🖥️  Öffne den Beamer in ${APP} (Kiosk). Beenden: ⌘Q"
+      open -na "${APP}" --args $FLAGS "--app=${URL}"
+      exit 0
+    fi
+  done
+  for BIN in google-chrome chromium chromium-browser microsoft-edge; do
+    if command -v "$BIN" >/dev/null 2>&1; then
+      echo "🖥️  Öffne den Beamer in ${BIN} (Kiosk). Beenden: Alt+F4"
+      nohup "$BIN" $FLAGS "--app=${URL}" >/dev/null 2>&1 &
+      exit 0
+    fi
+  done
+  echo "❌ Kein Chrome/Edge gefunden. Öffne ${URL} von Hand und klicke einmal hinein (für Ton und Vollbild)."
+  exit 1
+fi
 
 if [ "${1:-}" = "stop" ]; then
   docker compose --profile online down
@@ -55,7 +80,7 @@ echo
 echo ""
 echo "✅ Läuft!"
 echo "   Regie:      http://localhost:${HOST_PORT}/regie"
-echo "   Beamer:     http://localhost:${HOST_PORT}/beamer"
+echo "   Beamer:     http://localhost:${HOST_PORT}/beamer   (Kiosk mit Ton/Vollbild: ./start.sh beamer)"
 [ -n "$HOST_IP" ] && echo "   Handys:     http://${HOST_IP}:${HOST_PORT}  (gleiches WLAN)"
 if [ "${1:-}" = "online" ]; then
   printf "🌍 Warte auf die Tunnel-Adresse"

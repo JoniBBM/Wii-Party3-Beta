@@ -1,5 +1,5 @@
 /** Hauptansicht am Handy – je nach Phase: warten, antworten, buzzern, würfeln, Ergebnis. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, Send, XCircle } from 'lucide-react';
 import {
@@ -15,6 +15,7 @@ import { Button, Card } from '../../ui/basics.tsx';
 import { BonusDieBadge, Countdown, KindBadge, TeamChip } from '../../ui/game.tsx';
 import { DrawnPlayers, placeLabel } from '../../game/bits.tsx';
 import type { Me } from './TeamApp.tsx';
+import { TeamDesigner } from './TeamInfo.tsx';
 import { TeamDice } from './TeamDice.tsx';
 
 const OPTION_COLORS = ['#2f7de1', '#e8423f', '#f5a623', '#3fae4f', '#8e4fd6', '#1fbcc9', '#ec5fa8', '#9a6a46'];
@@ -45,12 +46,15 @@ function Hero({ icon, title, children }: { icon: string; title: string; children
 
 function Lobby({ state, me }: { state: GameState; me: Me }) {
   return (
-    <Hero icon="🏝️" title={`Willkommen bei ${me.team!.name}!`}>
-      <p>Gleich geht es los. Unter „Team“ könnt ihr eure Spielfigur gestalten.</p>
-      <p className="mt-2 text-sm text-muted">
-        {state.players.filter((p) => p.teamId === me.team!.id).length} Spieler im Team · {state.teams.length} Teams
-      </p>
-    </Hero>
+    <>
+      <Hero icon="🏝️" title={`Willkommen bei ${me.team!.name}!`}>
+        <p>Gleich geht es los – bis dahin: Team gestalten!</p>
+        <p className="mt-2 text-sm text-muted">
+          {state.players.filter((p) => p.teamId === me.team!.id).length} Spieler im Team · {state.teams.length} Teams
+        </p>
+      </Hero>
+      <TeamDesigner team={me.team!} intro />
+    </>
   );
 }
 
@@ -148,25 +152,43 @@ function ContentStage({ state, me, content }: { state: GameState; me: Me; conten
 function ChoiceAnswer({ options }: { options: string[] }) {
   const { run, pending } = useCommand();
   const [sel, setSel] = useState<number | null>(null);
+  const lastTap = useRef<{ i: number; t: number } | null>(null);
+  const submit = (i: number) => {
+    if (pending === 'answer.submit') return;
+    void run({ type: 'answer.submit', value: i });
+  };
+  // Doppelt tippen (oder Doppelklick) auf eine Antwort schickt sie sofort ab
+  const tap = (i: number) => {
+    const now = performance.now();
+    if (lastTap.current?.i === i && now - lastTap.current.t < 450) {
+      lastTap.current = null;
+      setSel(i);
+      submit(i);
+      return;
+    }
+    lastTap.current = { i, t: now };
+    setSel(i);
+  };
   return (
     <div className="flex flex-col gap-2.5">
       {options.map((o, i) => (
         <button
           key={i}
           type="button"
-          onClick={() => setSel(i)}
+          onClick={() => tap(i)}
           aria-label={`Antwort ${String.fromCharCode(65 + i)}: ${o}`}
           aria-pressed={sel === i}
-          className={`flex min-h-16 items-center gap-3 rounded-3xl px-4 py-3 text-left text-lg font-extrabold text-white shadow-soft transition active:scale-[0.98] ${sel === i ? 'ring-4 ring-ink/70 ring-offset-2 ring-offset-bg' : sel !== null ? 'opacity-55' : ''}`}
+          className={`flex min-h-16 touch-manipulation items-center gap-3 rounded-3xl px-4 py-3 text-left text-lg font-extrabold text-white shadow-soft transition select-none active:scale-[0.98] ${sel === i ? 'ring-4 ring-ink/70 ring-offset-2 ring-offset-bg' : sel !== null ? 'opacity-55' : ''}`}
           style={{ background: OPTION_COLORS[i % OPTION_COLORS.length] }}
         >
           <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/25 font-display text-xl">{String.fromCharCode(65 + i)}</span>
           <span>{o}</span>
         </button>
       ))}
-      <Button variant="good" size="lg" block icon={<Send className="size-5" />} disabled={sel === null} loading={pending === 'answer.submit'} onClick={() => sel !== null && run({ type: 'answer.submit', value: sel })}>
+      <Button variant="good" size="lg" block icon={<Send className="size-5" />} disabled={sel === null} loading={pending === 'answer.submit'} onClick={() => sel !== null && submit(sel)}>
         Antwort abschicken
       </Button>
+      <p className="text-center text-xs font-semibold text-muted">Tipp: Doppelt auf eine Antwort tippen schickt sie sofort ab.</p>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   Clapperboard,
   ExternalLink,
   LayoutGrid,
+  Monitor,
   Moon,
   Settings,
   SlidersHorizontal,
@@ -26,9 +27,11 @@ import { SetupPage } from './SetupPage.tsx';
 import { LibraryPage } from './LibraryPage.tsx';
 import { GamesPage } from './GamesPage.tsx';
 import { SettingsPage } from './SettingsPage.tsx';
+import { BeamerControl } from '../../game/BeamerControl.tsx';
 
 const NAV = [
   { to: '/regie', end: true, label: 'Live', icon: Clapperboard },
+  { to: '/regie/beamer', label: 'Beamer', icon: Monitor },
   { to: '/regie/teams', label: 'Teams', icon: Users },
   { to: '/regie/einrichten', label: 'Spiel einrichten', icon: SlidersHorizontal },
   { to: '/regie/bibliothek', label: 'Bibliothek', icon: BookOpen },
@@ -112,6 +115,7 @@ function RegieShell({ theme, setTheme }: { theme: string; setTheme: (t: 'light' 
       <main className="mx-auto max-w-[1500px] p-4 lg:p-6">
         <Routes>
           <Route index element={<LivePage />} />
+          <Route path="beamer" element={<BeamerControl />} />
           <Route path="teams" element={<TeamsPage />} />
           <Route path="einrichten" element={<SetupPage />} />
           <Route path="bibliothek" element={<LibraryPage />} />
@@ -121,7 +125,7 @@ function RegieShell({ theme, setTheme }: { theme: string; setTheme: (t: 'light' 
       </main>
 
       {/* Untere Leiste (Handy/Tablet) */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {NAV.map((n) => (
           <NavLink
             key={n.to}

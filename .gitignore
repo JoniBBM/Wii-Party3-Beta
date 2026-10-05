@@ -29,3 +29,5 @@ data/
 # Screenshot-Werkzeug
 docs/screens-tmp/
 test-results/
+Stimmproben/
+.claude/worktrees/

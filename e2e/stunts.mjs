@@ -110,7 +110,7 @@ try {
     await place(b.id, 30);
     await round();
     await rollFor(a.id, 3);
-    await burst('ufo', 4300, 6, 650);
+    await burst('ufo', 4300, 12, 1000);
   });
   await scene('kaefig', async () => {
     await place(a.id, 15);

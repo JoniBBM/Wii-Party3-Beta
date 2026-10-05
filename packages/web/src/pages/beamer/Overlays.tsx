@@ -376,28 +376,27 @@ function FieldGamePanel({ state }: { state: GameState }) {
 }
 
 function Finished({ state }: { state: GameState }) {
-  const winner = teamById(state, state.winnerTeamId);
   const table = standings(state);
   const stats = gameStats(state);
+  // Sieger steht groß im Banner oben – hier die Schlusstabelle
   return (
-    <div className="flex flex-col gap-4 p-7">
-      <div className="flex items-center gap-5">
-        {winner && <FigureAvatar figure={winner.figure} color={winner.color} size={120} className="ring-4 ring-gold" />}
-        <div>
-          <p className="font-display text-3xl font-semibold text-ink-2">🏆 Sieger</p>
-          <p className="font-display text-6xl leading-none font-semibold" style={{ color: teamColor(winner?.color ?? 'red').dark }}>
-            {winner?.name}
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-3 p-7">
+      <p className="font-display text-4xl font-semibold text-ink">🏁 Endstand</p>
       <div className="flex flex-col gap-1.5">
         {table.map(({ team, place }) => {
           const st = stats.find((s) => s.teamId === team.id);
+          const c = teamColor(team.color);
           return (
-            <div key={team.id} className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-1.5 text-2xl font-bold">
+            <div
+              key={team.id}
+              className="flex items-center gap-3 rounded-2xl px-3 py-1.5 text-2xl font-bold"
+              style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${c.hex} 30%, white), rgba(255,255,255,0.85) 70%)`, boxShadow: `inset 0 0 0 2.5px ${c.hex}` }}
+            >
               <span className="w-12 text-center">{placeLabel(place)}</span>
-              <span className="size-5 rounded-full" style={{ background: teamColor(team.color).hex }} />
-              <span className="flex-1 font-display text-ink">{team.name}</span>
+              <FigureAvatar figure={team.figure} color={team.color} size={40} />
+              <span className="flex-1 font-display" style={{ color: c.dark }}>
+                {team.name}
+              </span>
               <span className="text-lg text-ink-2">{st?.wins ?? 0}× Rundensieg · bester Wurf {st?.bestRoll ?? 0}</span>
             </div>
           );
@@ -468,6 +467,41 @@ export function DiceBanner({ state }: { state: GameState }) {
                 </span>
               );
             })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** Großer Siegerbanner oben in der Mitte (zum Podest im Krater). */
+export function VictoryBanner({ state }: { state: GameState }) {
+  const winner = state.phase.name === 'finished' ? teamById(state, state.winnerTeamId) : undefined;
+  const c = teamColor(winner?.color ?? 'red');
+  return (
+    <div className="pointer-events-none absolute top-6 left-1/2 z-20 -translate-x-1/2">
+      <AnimatePresence>
+        {winner && (
+          <motion.div
+            key={winner.id}
+            initial={{ y: -160, scale: 0.6, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            exit={{ y: -120, opacity: 0 }}
+            transition={{ delay: 2.6, type: 'spring', stiffness: 220, damping: 14 }}
+            className="flex items-center gap-5 rounded-[2.5rem] border-[6px] border-white px-10 py-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+            style={{ background: `linear-gradient(180deg, color-mix(in srgb, ${c.hex} 70%, white), ${c.hex} 55%, ${c.dark})` }}
+          >
+            <motion.span className="text-7xl drop-shadow-lg" animate={{ rotate: [-8, 8, -8], y: [0, -8, 0] }} transition={{ duration: 1.6, repeat: Infinity }}>
+              🏆
+            </motion.span>
+            <FigureAvatar figure={winner.figure} color={winner.color} size={96} className="ring-[5px] ring-gold" />
+            <div>
+              <p className="font-display text-2xl font-semibold text-white/90">Sieger der Insel</p>
+              <p className="font-display text-7xl leading-none font-semibold drop-shadow-md">{winner.name}</p>
+            </div>
+            <motion.span className="text-7xl drop-shadow-lg" animate={{ rotate: [8, -8, 8], y: [0, -8, 0] }} transition={{ duration: 1.6, repeat: Infinity, delay: 0.3 }}>
+              🎉
+            </motion.span>
           </motion.div>
         )}
       </AnimatePresence>

@@ -15,6 +15,8 @@ export interface EngineContext {
   lookup: (id: string) => ContentItem | undefined;
   newId: () => string;
   newToken: () => string;
+  /** Reaktionen der Figuren nach jedem Zug zeigen (Beamer-Show); fehlt = ja. */
+  reactions?: boolean;
 }
 
 export interface Tx {

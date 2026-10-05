@@ -8,6 +8,7 @@ import { seededRng } from '../rng.ts';
 import { commandSchema, type ContentItemInput } from '../schemas.ts';
 import type { Actor, ContentItem, GameConfig, GameState } from '../types.ts';
 import { applyCommand, createGame, EngineError, projectState, type EngineContext } from './index.ts';
+import { moodAfterTurn } from './dice.ts';
 
 const ADMIN: Actor = { role: 'admin' };
 const MOD: Actor = { role: 'moderator' };
@@ -45,7 +46,9 @@ function harness(opts: { config?: Partial<GameConfig>; seed?: number } = {}) {
   const rng = seededRng(opts.seed ?? 42);
   const config: GameConfig = { ...defaultConfig('Test'), board: boardWith({}), ...opts.config };
   let state: GameState = createGame({ id: 'g', config, now });
+  let reactions = true;
   const ctx = (): EngineContext => ({
+    reactions,
     now,
     rng,
     pool: ITEMS,
@@ -64,6 +67,9 @@ function harness(opts: { config?: Partial<GameConfig>; seed?: number } = {}) {
     },
     tick(ms = 60_000) {
       now += ms;
+    },
+    setReactions(on: boolean) {
+      reactions = on;
     },
     mutate(fn: (s: GameState) => void) {
       fn(state);
@@ -315,7 +321,8 @@ describe('Würfeln & Sonderfelder', () => {
     const r = h.run({ type: 'dice.roll', main: 3, bonus: 2 }, MOD);
     expect(h.team(0).position).toBe(5);
     expect(h.team(0).bonusDie).toBe(0);
-    expect(r.effects.map((e) => e.type)).toEqual(['dice', 'move', 'turn']);
+    expect(r.effects.map((e) => e.type)).toEqual(['dice', 'move', 'react', 'turn']);
+    expect(r.effects.find((e) => e.type === 'react')).toMatchObject({ teamId: a.id, mood: 'happy', gain: 5 });
     expect(() => h.run({ type: 'dice.roll' }, { role: 'team', teamId: b.id })).toThrow(/Animation/);
     expect(() => h.run({ type: 'dice.roll' }, { role: 'team', teamId: a.id })).toThrow(/dran/);
     h.tick(20_000);
@@ -698,3 +705,30 @@ describe('Korrekturen aus dem Review', () => {
   });
 });
 
+
+describe('Reaktionen nach dem Zug', () => {
+  it('leitet die Stimmung aus dem Zug ab', () => {
+    expect(moodAfterTurn([], 'a', 1)).toBe('meh');
+    expect(moodAfterTurn([], 'a', 3)).toBe('ok');
+    expect(moodAfterTurn([], 'a', 5)).toBe('happy');
+    expect(moodAfterTurn([], 'a', 9)).toBe('super');
+    expect(moodAfterTurn([{ type: 'summit', teamId: 'a' }], 'a', 2)).toBe('super');
+    expect(moodAfterTurn([{ type: 'river', teamId: 'a', position: 9, result: 'fall' }], 'a', -2)).toBe('sad');
+    expect(moodAfterTurn([{ type: 'cave', teamId: 'a', position: 30 }], 'a', -6)).toBe('angry');
+    expect(moodAfterTurn([{ type: 'crater', teamId: 'a', position: 36, result: 'fall', roll: 0, climbed: 0, need: 8 }], 'a', 3)).toBe('shock');
+    expect(moodAfterTurn([{ type: 'barrier', teamId: 'a', roll: 2, result: 'stuck' }], 'a', 0)).toBe('angry');
+    expect(moodAfterTurn([{ type: 'field', teamId: 'a', field: 'catapult_forward', position: 4, text: '+3' }], 'a', 7)).toBe('super');
+    expect(moodAfterTurn([{ type: 'eruption', affected: [{ teamId: 'a', from: 38, to: 30 }] }], 'a', -4)).toBe('shock');
+    // Fremde Effekte zählen nicht
+    expect(moodAfterTurn([{ type: 'cave', teamId: 'b', position: 30 }], 'a', 4)).toBe('happy');
+  });
+
+  it('kann abgeschaltet werden', () => {
+    const h = harness().setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.toDice([a.id, b.id]);
+    h.setReactions(false);
+    const r = h.run({ type: 'dice.roll', main: 3 }, MOD);
+    expect(r.effects.map((e) => e.type)).toEqual(['dice', 'move', 'turn']);
+  });
+});

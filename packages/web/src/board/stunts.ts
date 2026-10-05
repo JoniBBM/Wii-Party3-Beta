@@ -756,12 +756,16 @@ export class Stunts {
         beam.scale.y = Math.max(0.01, ufo.position.y - to.y - 0.3);
       };
       this.audio.ufo();
+      // Gemächlich: Flugzeit nach Entfernung, damit die Kamera ruhig mitfahren kann
+      const legTime = Math.min(4.2, Math.max(2, 0.6 + pa.distanceTo(pb) / 9));
       // 1) herabschweben über A, A hochbeamen
       const sky = pa.clone().add(new THREE.Vector3(0, 22, 0));
       const overA = pa.clone().setY(pa.y + hover);
-      await this.tweens.run(0.7, (t) => ufo.position.lerpVectors(sky, overA, t), ease.out);
+      await this.tweens.run(1.2, (t) => ufo.position.lerpVectors(sky, overA, t), ease.out);
       this.guard(epoch);
-      await this.tweens.run(0.55, (t) => {
+      await this.tweens.wait(250);
+      this.guard(epoch);
+      await this.tweens.run(1, (t) => {
         setBeam(Math.min(1, t * 3), pa);
         ga.holder.position.lerpVectors(pa, overA.clone().setY(overA.y - 0.4), t);
         ga.holder.scale.setScalar(Math.max(0.05, 1 - t));
@@ -774,14 +778,14 @@ export class Stunts {
       const overB = pb.clone().setY(pb.y + hover);
       const arc = (from: THREE.Vector3, to: THREE.Vector3) => (t: number) => {
         ufo.position.lerpVectors(from, to, t);
-        ufo.position.y += Math.sin(t * Math.PI) * 3;
-        ufo.rotation.z = Math.sin(t * Math.PI) * 0.25;
+        ufo.position.y += Math.sin(t * Math.PI) * (3 + from.distanceTo(to) * 0.08);
+        ufo.rotation.z = Math.sin(t * Math.PI) * 0.18;
       };
-      await this.tweens.run(0.8, arc(overA, overB), ease.inOut);
+      await this.tweens.run(legTime, arc(overA, overB), ease.inOut);
       this.guard(epoch);
       ga.holder.visible = true;
       const slotA = this.pieces.slotOn(aId, posB);
-      await this.tweens.run(0.6, (t) => {
+      await this.tweens.run(1.2, (t) => {
         setBeam(Math.min(1, t * 3), pb);
         ga.holder.position.lerpVectors(overB.clone().setY(overB.y - 0.4), slotA, t);
         ga.holder.scale.setScalar(Math.max(0.05, t));
@@ -792,11 +796,14 @@ export class Stunts {
       gb.holder.visible = false;
       this.pieces.release(aId, posB, 'idle');
       // 3) zurück zu A, B absetzen
-      await this.tweens.run(0.8, arc(overB, overA), ease.inOut);
+      this.audio.ufo();
+      await this.tweens.wait(200);
+      this.guard(epoch);
+      await this.tweens.run(legTime, arc(overB, overA), ease.inOut);
       this.guard(epoch);
       gb.holder.visible = true;
       const slotB = this.pieces.slotOn(bId, posA);
-      await this.tweens.run(0.55, (t) => {
+      await this.tweens.run(1, (t) => {
         setBeam(Math.min(1, t * 3), pa);
         gb.holder.position.lerpVectors(overA.clone().setY(overA.y - 0.4), slotB, t);
         gb.holder.scale.setScalar(Math.max(0.05, t));
@@ -806,7 +813,7 @@ export class Stunts {
       this.pieces.release(bId, posA, 'idle');
       // 4) davon
       this.ufoTarget = null;
-      void this.tweens.run(0.6, (t) => ufo.position.lerpVectors(overA, sky.clone().add(new THREE.Vector3(20, 10, 0)), t), ease.in).then(() => {
+      void this.tweens.run(1, (t) => ufo.position.lerpVectors(overA, sky.clone().add(new THREE.Vector3(20, 10, 0)), t), ease.in).then(() => {
         this.updaters.delete(spin);
         this.drop(ufo);
       });

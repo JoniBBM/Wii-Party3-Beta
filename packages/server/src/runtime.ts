@@ -43,6 +43,8 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
   private undoStack: { state: GameState; label: string }[] = [];
   private effectSeq = 0;
   private timer: NodeJS.Timeout | null = null;
+  /** Aus der Beamer-Show: Reaktionen nach jedem Zug (verlängert die Animationszeit). */
+  reactions = true;
 
   constructor(private readonly database: db.DB) {
     super();
@@ -87,6 +89,7 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
       lookup: (id) => db.getItem(database, id),
       newId: () => newId(),
       newToken: () => newSecretToken(),
+      reactions: this.reactions,
     };
   }
 

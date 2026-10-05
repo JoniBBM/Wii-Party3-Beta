@@ -151,9 +151,11 @@ try {
   await shot(regie, 'regie-regeln', 800);
   await regie.goto(`${base}/regie/bibliothek`);
   await shot(regie, 'regie-bibliothek', 1200);
+  await regie.goto(`${base}/regie/beamer`);
+  await shot(regie, 'regie-beamer', 2500);
   const tablet = await open('/regie', { viewport: { width: 1024, height: 768 } }, staff('admin'));
   await shot(tablet, 'regie-tablet', 2000);
-  await phone.getByRole('button', { name: 'Team' }).click();
+  await phone.getByRole('button', { name: 'Team', exact: true }).click();
   await shot(phone, 'handy-figur', 1500);
   await phone.getByRole('button', { name: 'Rangliste' }).click();
   await shot(phone, 'handy-rangliste', 800);

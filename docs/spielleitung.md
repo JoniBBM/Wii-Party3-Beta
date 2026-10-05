@@ -21,7 +21,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
    Danach **Speichern** – oder mit **Als Vorlage** für spätere Abende sichern.
 
    ![Spielfeld-Editor](bilder/regie-spielfeld.webp)
-6. **Beamer**: Zweites Fenster mit `/beamer` öffnen (Knopf *Beamer öffnen* in der Regie), auf den Beamer ziehen, **F** für Vollbild. Einmal klicken, damit der Ton freigegeben wird.
+6. **Beamer**: Am besten mit `./start.sh beamer` öffnen – das startet Chrome/Edge als Kiosk im Vollbild, Ton läuft sofort. Alternativ `/beamer` im Browser öffnen (Knopf *Beamer öffnen* in der Regie), auf den Beamer ziehen und **einmal hineinklicken** (Browser geben Ton und Vollbild erst nach einem Klick frei). Am Beamer gibt es kein Menü mehr – **alles steuert die Regie unter *Beamer*** (siehe unten), auch bevor das Spiel startet.
 7. **Moderator verbinden**: *Einstellungen → Moderator-QR-Code erzeugen* – mit dem Handy der vorlesenden Person scannen. Kein Passwort nötig.
 8. **Material** für die Spiele bereitlegen (steht bei jedem Spiel unter „Material“).
 
@@ -34,9 +34,10 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 2. Alle scannen den Code mit dem Handy, geben ihren **Vornamen** ein, wählen ein **Emoji** und machen optional ein **Selfie**. (Die Fotos erscheinen später, wenn jemand für ein Spiel ausgelost wird.)
 3. In der Regie unter *Live* die **Anzahl Teams** wählen (2–10) und **Teams bilden** klicken. Die Spieler werden zufällig und gleichmäßig verteilt. *Neu mischen* geht jederzeit vor Spielbeginn.
 4. Feinarbeit unter *Teams*: Namen und Farben ändern, Spieler per Auswahlfeld verschieben, Fotos tauschen, Spieler von der Auslosung ausnehmen (z. B. bei Verletzung).
-5. Die Handys wechseln automatisch zur Team-Ansicht. Unter *Team* kann jedes Team seine **Spielfigur gestalten** (Haare, Gesicht, Zubehör – das Shirt hat immer die Teamfarbe).
+5. Die Handys wechseln automatisch zur Team-Ansicht. Solange das Spiel noch nicht läuft, steht dort groß **„Gestaltet euer Team!“**: Teamname ändern und Spielfigur gestalten (Haare, Gesicht, Zubehör – das Shirt hat immer die Teamfarbe). Der Beamer zeigt Änderungen sofort. Später geht das jederzeit unter *Team* oder per Tipp auf die Figur oben links.
 6. Wer kein eigenes Handy hat: Ein Team-Handy reicht. Weitere Geräte treten mit der **Team-PIN** bei (steht in der Regie und auf den Team-Handys). Unter *Teams → QR-Codes drucken* gibt es eine Druckseite mit QR-Code und PIN pro Team.
-7. **Spiel starten**. Die Anmeldung schließt sich automatisch; Nachzügler kommen mit der Team-PIN rein.
+7. **Spielerklärung** (empfohlen): Regie → *Beamer* → **Spielerklärung starten**. Der Kommentator erklärt in gut zwei Minuten das ganze Spiel – mit Kamerafahrt über die Insel, Vorführung der Sonderfelder und Untertiteln.
+8. **Spiel starten**. Die Anmeldung schließt sich automatisch; Nachzügler kommen mit der Team-PIN rein.
 
 ![Regie in der Lobby](bilder/regie-lobby.webp)
 
@@ -89,7 +90,7 @@ Nach dem letzten Wurf zeigt der Beamer die Rundenbilanz, der Vulkandruck steigt 
 
 ## Ende
 
-Gewinnt ein Team (Standard: auf dem Gipfel stehen und dann mindestens eine 6 würfeln), feiert der Beamer mit Feuerwerk und zeigt die Endwertung. In der Regie: *Gleiche Teams, neue Partie* für eine Revanche.
+Gewinnt ein Team (Standard: auf dem Gipfel stehen und dann mindestens eine 6 würfeln), steigt ein **Siegerpodest aus dem Krater**: Die drei Besten fliegen aufs Treppchen, der Sieger tanzt und schlägt Saltos, Scheinwerfer, Feuerwerk, Finale-Musik und Applaus – die Kamera umkreist das Podest. Daneben steht die Endwertung. In der Regie: *Gleiche Teams, neue Partie* für eine Revanche.
 
 **Nach dem Abend**: *Einstellungen → Alle Fotos dieses Spiels löschen* (Datenschutz). Das Spiel selbst bleibt gespeichert und kann unter *Spiele* gelöscht oder exportiert werden.
 
@@ -104,14 +105,34 @@ Gewinnt ein Team (Standard: auf dem Gipfel stehen und dann mindestens eine 6 wü
 | Team kommt nicht aus dem Krater | Rangliste → Team → *Aus dem Krater holen* (oder in den Regeln weniger Augen zum Herausklettern einstellen). |
 | Ein Handy ist ausgeloggt | Mit der Team-PIN wieder beitreten – der Spielstand bleibt. |
 | Handys kommen nicht auf die Seite | Gleiches WLAN? Adresse unter *Einstellungen → Beitritts-Adresse* prüfen; ggf. `./start.sh online`. |
-| Beamer ruckelt | Zahnrad unten links → Grafik **Schnell** (oder Taste **Q**). |
-| Kein Ton | Einmal auf den Beamer klicken (Browser-Regel), Zahnrad → Ton. |
+| Beamer ruckelt | Regie → *Beamer* → Grafik **Ausgewogen** oder **Sparsam** (oder **Automatisch**: schaltet selbst herunter). Die Bildrate jedes Beamers steht dort. |
+| Kein Ton | Regie → *Beamer* zeigt „einmal am Beamer klicken“ → einmal auf den Beamer klicken (Browser-Regel). Mit `./start.sh beamer` (Kiosk) entfällt das. |
+| Beamer hängt / zeigt Alt-Stand | Regie → *Beamer* → **Neu laden**. |
 
-## Tastenkürzel am Beamer
+## Beamer & Ton steuern (Regie → *Beamer*)
 
-| Taste | Wirkung |
+Alles wirkt sofort auf allen Beamern – auch ohne Spiel und in der Lobby. Eine Kurzfassung (Musik, Effekte, Kommentator, Lautstärke, Kamera, Erklärung) steht zusätzlich auf der *Live*-Seite und beim Moderator.
+
+| Bereich | Was geht |
 |---|---|
+| Status | Jeder verbundene Beamer mit Bildrate, Grafikstufe, Auflösung, Ton frei?, Vollbild, freie Kamera · **Neu laden** · **Spielerklärung starten/stoppen** |
+| Bild | Grafik **Automatisch / Schön / Ausgewogen / Sparsam** (ohne Neuladen), Vollbild, Rangliste & Kopfzeile, Namensschilder, Foto-Blasen beim Ziehen, Bildrate anzeigen |
+| Ton & Musik | Gesamtlautstärke; Musik, Effekte, Kommentator, Meeresrauschen je an/aus mit eigener Lautstärke und **Test**-Knopf; wie oft der Kommentator spricht (nie / ab und zu / viel) |
+| Kamera | Ruhig oder lebhaft · Reaktion nach jedem Zug an/aus · Knöpfe *Automatik, Insel, Start, Vulkan, Gipfel* und je Team · Steuerkreuz (schieben, drehen, neigen, zoomen – gedrückt halten). Nach 60 s ohne Eingabe übernimmt wieder die Automatik. |
+
+Die **Musik** wechselt von selbst: Lobby-Musik vor dem Start, Insel-Musik beim Würfeln, Spannungsmusik bei Fragen und Minispielen, Finale bei der Siegerehrung. Der **Kommentator** (Stimme „DiMario“) kommentiert Würfe, Sonderfelder, Fragen und Reaktionen – die Musik wird dabei leiser.
+
+![Regie: Beamer fernsteuern](bilder/regie-beamer.webp)
+
+## Am Beamer selbst
+
+Kein Menü – nur Maus, Touch und Tastatur für die **freie Kamera**:
+
+| Eingabe | Wirkung |
+|---|---|
+| Ziehen | drehen und neigen |
+| Rechte Maustaste oder Umschalt + ziehen / zwei Finger | verschieben |
+| Mausrad / zwei Finger auseinander | zoomen |
+| Pfeiltasten · W A S D · + / − | drehen/neigen · verschieben · zoomen |
+| Leertaste, Esc oder Doppelklick | zurück zur Automatik |
 | F | Vollbild an/aus |
-| Q | Grafik Schön/Schnell |
-| M | Ton an/aus |
-| T | Namensschilder an/aus |

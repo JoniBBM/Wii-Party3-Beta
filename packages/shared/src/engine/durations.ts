@@ -10,7 +10,8 @@ export const DURATION = {
   step: 380,
   flight: 2400,
   field: 1600,
-  swap: 4200,
+  /** UFO-Tausch ohne die beiden Flugstrecken */
+  swap: 5000,
   barrier: 1500,
   finalRoll: 1800,
   summit: 1600,
@@ -28,6 +29,7 @@ export const DURATION = {
   vineSwing: 2700,
   caveFall: 1900,
   caveSlide: 2900,
+  react: 2300,
 } as const;
 
 export function effectDuration(e: EffectInput): number {
@@ -45,8 +47,11 @@ export function effectDuration(e: EffectInput): number {
       return DURATION.stepBase + Math.abs(e.to - e.from) * DURATION.step;
     case 'field':
       return DURATION.field;
-    case 'swap':
-      return DURATION.swap;
+    case 'swap': {
+      // UFO fliegt hin und zurück – je weiter, desto länger (wie auf dem Beamer)
+      const leg = Math.min(4200, Math.max(2000, 600 + Math.abs(e.posA - e.posB) * 110));
+      return DURATION.swap + 2 * leg;
+    }
     case 'barrier':
       return DURATION.barrier;
     case 'final_roll':
@@ -67,6 +72,8 @@ export function effectDuration(e: EffectInput): number {
       return e.stage === 'grab' ? DURATION.vineGrab : DURATION.dice;
     case 'cave':
       return DURATION.caveFall;
+    case 'react':
+      return DURATION.react;
     default:
       return 0;
   }

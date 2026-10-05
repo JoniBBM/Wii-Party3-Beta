@@ -6,7 +6,7 @@
 import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
-import type { CommandInput, Effect, GameState, Session } from '@insel/shared';
+import { DEFAULT_SHOW, type BeamerStats, type CameraCommand, type CommandInput, type Effect, type GameState, type Session, type ShowCommand, type ShowState } from '@insel/shared';
 import { getToken, type TokenSlot } from './storage.ts';
 
 export interface Ack {
@@ -27,6 +27,10 @@ interface LiveStore {
   received: boolean;
   /** Verbundene Geräte je Team-ID (nur Regie/Moderator). */
   presence: Record<string, number>;
+  /** Beamer-Show (Grafik, Ton, Kommentator, Erklärung) – von der Regie gesteuert. */
+  show: ShowState;
+  /** Rückmeldungen der verbundenen Beamer (nur Regie/Moderator). */
+  beamers: BeamerStats[];
 }
 
 export const useLive = create<LiveStore>(() => ({
@@ -38,7 +42,23 @@ export const useLive = create<LiveStore>(() => ({
   offset: 0,
   received: false,
   presence: {},
+  show: { settings: DEFAULT_SHOW, explainer: { running: false, id: 0, startedAt: 0 } },
+  beamers: [],
 }));
+
+const cmdListeners = new Set<(cmd: CameraCommand | { type: 'reload' }) => void>();
+/** Einmalige Fernbefehle der Regie an den Beamer (Kamera, Neu laden). */
+export function onShowCommand(fn: (cmd: CameraCommand | { type: 'reload' }) => void): () => void {
+  cmdListeners.add(fn);
+  return () => cmdListeners.delete(fn);
+}
+
+const testListeners = new Set<(what: 'sound' | 'voice' | 'music') => void>();
+/** Testton aus der Regie (nur Beamer). */
+export function onShowTest(fn: (what: 'sound' | 'voice' | 'music') => void): () => void {
+  testListeners.add(fn);
+  return () => testListeners.delete(fn);
+}
 
 type EffectListener = (effects: Effect[]) => void;
 const effectListeners = new Set<EffectListener>();
@@ -85,6 +105,14 @@ export function connectLive(slot: TokenSlot | null, view: string) {
     for (const fn of effectListeners) fn(effects);
   });
   s.on('presence', (presence: Record<string, number>) => useLive.setState({ presence }));
+  s.on('show', (show: ShowState) => useLive.setState({ show }));
+  s.on('show:test', (what: 'sound' | 'voice' | 'music') => {
+    for (const fn of testListeners) fn(what);
+  });
+  s.on('show:cmd', (cmd: CameraCommand | { type: 'reload' }) => {
+    for (const fn of cmdListeners) fn(cmd);
+  });
+  s.on('beamers', (beamers: BeamerStats[]) => useLive.setState({ beamers }));
   s.on('changed', (what: string) => {
     for (const fn of changeListeners) fn(what);
   });
@@ -110,6 +138,23 @@ export function sendCommand(cmd: CommandInput): Promise<Ack> {
       resolve(ack);
     });
   });
+}
+
+/** Beamer-Show steuern (nur Regie/Moderator). */
+export function sendShow(cmd: ShowCommand): Promise<Ack> {
+  return new Promise((resolve) => {
+    if (!socket || !socket.connected) return resolve({ ok: false, error: 'Keine Verbindung zum Spielserver' });
+    const timer = setTimeout(() => resolve({ ok: false, error: 'Der Server antwortet nicht' }), 8000);
+    socket.emit('show', cmd, (ack: Ack) => {
+      clearTimeout(timer);
+      resolve(ack);
+    });
+  });
+}
+
+/** Rückmeldung des Beamers an den Server (Bildrate, Erklärung fertig). */
+export function beamerReport(event: 'beamer:stats' | 'beamer:explained', payload: unknown) {
+  if (socket?.connected) socket.emit(event, payload);
 }
 
 export function sendUndo(): Promise<Ack> {

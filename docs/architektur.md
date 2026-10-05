@@ -59,7 +59,7 @@ Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte,
 |---|---|
 | `main.ts` | Start: DB, Seed, Runtime, Fastify, Socket.IO, statische Auslieferung der Weboberfläche |
 | `runtime.ts` | Aktives Spiel im Speicher, Befehle ausführen, speichern, **Rückgängig** (40 Schritte), Countdown-Timer |
-| `live.ts` | Socket.IO: Sitzung prüfen, Befehle annehmen, Zustand je Rolle senden, Geräte-Anwesenheit |
+| `live.ts` | Socket.IO: Sitzung prüfen, Befehle annehmen, Zustand je Rolle senden, Geräte-Anwesenheit, **Beamer-Show** (Einstellungen der Regie speichern und an alle Beamer senden, Rückmeldungen der Beamer an die Regie) |
 | `db.ts` | SQLite-Schema (Migrationen über `user_version`) und Zugriffe |
 | `auth.ts` | Signierte Tokens (HMAC), Passwortprüfung, einfache Bremse gegen Raten |
 | `http/*` | REST: Login, Bibliothek, Spiele & Vorlagen, Fotos, System |
@@ -81,6 +81,13 @@ Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte,
 | Server → Client | `effects` | Liste von Effekten mit fortlaufender ID |
 | Server → Client | `presence` | verbundene Geräte je Team (nur Regie/Moderator) |
 | Server → Client | `changed` | Bibliothek/Spiele/Einstellungen geändert (nur Regie/Moderator) |
+| Client → Server | `show` | Beamer-Show steuern (nur Regie/Moderator): `set` (Teil-Einstellungen), `reset`, `explain` (Erklärung starten/stoppen), `test` (Testton), `reload`, `camera` (feste Einstellung, Schubsen, Automatik) |
+| Server → Client | `show` | `{ settings, explainer }` – an alle; Einstellungen liegen in `settings.show` (geprüft mit `parseShow`) |
+| Server → Client | `show:test`, `show:cmd` | einmalige Befehle an die Beamer (Testton, Kamera, Neu laden) |
+| Beamer → Server | `beamer:stats`, `beamer:explained` | Bildrate, Grafikstufe, Auflösung, Ton frei?, Vollbild, freie Kamera; Erklärung fertig |
+| Server → Client | `beamers` | Rückmeldungen aller Beamer (nur Regie/Moderator) |
+
+**Reaktionen:** Am Ende jedes Zuges hängt die Engine einen Effekt `react` mit Stimmung (`super`, `happy`, `ok`, `meh`, `sad`, `angry`, `shock`, siehe `moodAfterTurn`) an; die Dauer ist in `effectDuration` eingerechnet. Schaltet die Regie Reaktionen ab, setzt die Laufzeit `ctx.reactions = false` und der Effekt entfällt.
 
 ## Weboberfläche (`packages/web`)
 
@@ -88,9 +95,10 @@ Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte,
 |---|---|
 | Startseite, Beitritt | `pages/Home.tsx`, `pages/join/` |
 | Team-Handy | `pages/team/` |
-| Regie | `pages/regie/` (Live, Teams, Spiel einrichten, Bibliothek, Spiele, Einstellungen) |
+| Regie | `pages/regie/` (Live, Beamer, Teams, Spiel einrichten, Bibliothek, Spiele, Einstellungen) |
+| Beamer-Fernsteuerung | `game/BeamerControl.tsx` (ganze Seite und Kurzfassung für Live/Moderator) |
 | Moderator | `pages/moderator/` – nutzt dieselben Steuer-Panels wie die Regie (`game/`) |
-| Beamer | `pages/beamer/` (HUD, Einblendungen) + `board/` (3D) |
+| Beamer | `pages/beamer/` (HUD, Einblendungen, `useShowControl.ts` setzt die Regie-Einstellungen um, `Explainer.tsx` Spielerklärung, `PhotoBubbles.tsx` Foto-Blasen) + `board/` (3D) |
 | Gemeinsame Bausteine | `ui/` (Knöpfe, Dialoge, Toasts, Teamfarben, Würfel, QR, Countdown), `lib/` (Live-Store, API, Theme, `shake.ts` – Würfeln durch Schütteln über den Bewegungssensor) |
 | Figuren | `figure/` – Mii-artige Figuren aus Grundkörpern, Editor, Vorschau, Schnappschüsse |
 
@@ -111,18 +119,20 @@ Design: Tailwind 4 mit semantischen Farb-Variablen (`styles.css`), hell im Wii-S
 | `props.ts`, `assets.ts`, `grass.ts` | Bepflanzung (Palmen, Dschungel, Farne, Monstera, Bambus, Blumenbeete, Felsen, Seerosen, Schilf), Grasteppich auf der GPU, Wind |
 | `landmarks.ts`, `merge.ts` | Hafendorf, Stufenpyramide, Säulenallee, Tempelruine, Steinköpfe, Leuchtturm, Hängebrücke, Fässer in der Furt, Seil-Geländer, Strickleiter im Krater, Felsbogen, Wrack, Schiffe, Regenbogen; statische Teile werden zu wenigen Draw-Calls zusammengefasst |
 | `stunts.ts` | Auftritte der Felder: Liane am Riesenbaum, Lavahöhle (Eingang, Fledermäuse, Felsentor), Sprungfeder, Doppeldecker mit Strickleiter und Fallschirm, UFO mit Traktorstrahl, Minispiel-Schild, Dampf-Geysir. Vorübergehende Objekte werden nach dem Auftritt bzw. bei Rückgängig entfernt und freigegeben. |
-| `animals.ts` | Tiere: Delfine, Wal, Fischschwärme, Mantas, Schildkröten, Krabben, Frösche, Flamingos, Möwen, Papageien, Tukane, Affen, Schmetterlinge (`?zoo` zeigt alle zur Kontrolle) |
+| `animals.ts`, `rig.ts`, `monkey.ts`, `birds.ts`, `swarms.ts` | Tiere: Delfine, Wal, Mantas, Schildkröten, Krabben, Frösche (Modelle mit Animationen) · Affen, Papageien, Tukane, Möwen, Flamingos prozedural als eine SkinnedMesh mit starrer Gewichtung je Tier (ein Draw-Call, Verhalten mit weichen Übergängen) · Fischschwärme und Schmetterlinge instanziert, Bewegung im Vertex-Shader. Tiere außerhalb des Blickfelds werden nur jedes 4. Bild bewegt, unter Wasser wirft nichts Schatten (`?zoo` zeigt alle Arten und Verhalten zur Kontrolle) |
 | `ambient.ts` | Fackeln, Lagerfeuer, Rauch und Dampf als Shader-Partikel |
 | `fields.ts` | Spielfelder (instanziert), gezeichnete Symbole, Markierung des aktiven Feldes |
-| `pieces.ts` | Figuren: Aufstellung, Laufen, Fliegen, Käfig, Balancieren, ins Wasser fallen und treiben, in den Krater fallen und klettern |
-| `camera.ts` | Kameraführung: Rundflug im Leerlauf, Verfolgen (Vulkan im Hintergrund), Nahaufnahmen, Wackeln. Weiche Federbewegung, begrenzte Drehrate (kein Peitschenschwenk), nie unter dem Gelände, Sichtprüfung gegen Gelände, Bäume und Gebäude mit seitlichem Ausweichen; Messwerte in `rig.stats` |
+| `pieces.ts` | Figuren: Aufstellung, Laufen, Fliegen, Käfig, Balancieren, ins Wasser fallen und treiben, in den Krater fallen und klettern, Reaktionen (Salto, Jubel, Winken, Schulterzucken, Ärger, Schreck, Trauer), Vorführ-Figuren der Erklärung |
+| `camera.ts`, `manual.ts` | Kameraführung: Rundflug im Leerlauf, Verfolgen (Vulkan im Hintergrund), Nahaufnahmen, Großaufnahme für Reaktionen, Wackeln. Stil *ruhig*/*lebhaft*, weiche Federbewegung, begrenzte Drehrate, nie unter dem Gelände, Sichtprüfung mit Ausweichen und Anheben während der Fahrt; freie Kamera per Maus/Touch/Tastatur (`manual.ts`) oder aus der Regie, danach zurück zur Automatik; Messwerte in `rig.stats` |
+| `ceremony.ts` | Siegerehrung: Podest steigt aus dem Krater, die Besten fliegen aufs Treppchen, Scheinwerfer, Feuerwerk, Saltos, Kamerafahrt |
+| `commentator.ts`, `voice-lines.ts` | Kommentator: wählt zu Ereignissen passende Sprüche (ohne Wiederholung, Häufigkeit aus der Regie); Texte und Spielerklärung in `voice-lines.ts`, Sprachdateien unter `public/assets/voice/` |
 | `dice3d.ts` | 3D-Würfel als Overlay |
 | `volcano.ts`, `particles.ts` | Lavasee, Lavastrom, Glut, Rauch, Ausbruch, Spritzwasser, Konfetti, Feuerwerk, Staub |
 | `director.ts` | Spielt Effekte der Reihe nach ab, gleicht nach Rückgängig/Neuverbindung ab, liefert Einblendungen |
-| `audio.ts` | Effekte (Kenney), Platschen und Knarzen (Synthese), Meeresrauschen und Vögel, generative Marimba-Musik |
-| `scene.ts` | Renderer, Licht, Nachbearbeitung (N8AO, Bloom, Tilt-Shift, Vignette, Farbanpassung, SMAA), Qualitätsstufen |
+| `audio.ts` | Vier Spuren mit eigener Lautstärke: Effekte (Kenney + ElevenLabs, lautheitsangeglichen, Stille am Anfang abgeschnitten), Musik (gestreamt, weiche Überblendung beim Wechsel und beim Wiederholen), Sprache (Musik wird leiser), Umgebung (Meeresrauschen, Vögel als Synthese) |
+| `scene.ts` | Renderer, Licht, Nachbearbeitung (N8AO, Bloom, Tilt-Shift, Vignette, Farbanpassung, SMAA), Grafikstufen *Schön/Ausgewogen/Sparsam* live umschaltbar (Auflösung, Schattenkarte und wie oft sie neu gezeichnet wird, Nachbearbeitung, Grasdichte); Bildrate in `scene.fps` |
 
-Messen: `?perf=noao,nograss,nopost,msaa` schaltet einzelne Teile zum Vergleichen ab bzw. zu; `?noprops`, `?noanimals` lassen Deko bzw. Tiere weg.
+Messen: `?perf=noao,nograss,nopost,msaa` schaltet einzelne Teile zum Vergleichen ab bzw. zu; `?noprops`, `?noanimals` lassen Deko bzw. Tiere weg; `?quality=high|balanced|eco` erzwingt auf diesem Gerät eine Grafikstufe. Kleine Deko (unter 1 m) und Kleinteile der Figuren werfen keinen Schatten.
 
 ## Erweitern
 

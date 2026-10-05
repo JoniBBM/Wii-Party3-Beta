@@ -78,6 +78,15 @@ Jedes Sonderfeld hat seinen eigenen Auftritt:
 | 🦇 Lavahöhle | Die Figur stolpert in den glühenden Höhleneingang, Fledermäuse flattern heraus, unten rutscht sie aus dem Felsentor. |
 | 🛢️ Fässer / 🕳️ Krater | Balancieren und Platsch ins Wasser bzw. Sturz in den Krater und Klettern an der Strickleiter. |
 
+Nach **jedem Zug** fährt die Kamera kurz zur Figur, und sie **reagiert**: Salto nach einem großen Satz, Jubel, Winken, Schulterzucken bei einer Eins, Stampfen vor Ärger, Erschrecken oder Trauer nach einem Rückschlag. Werden Personen für ein Spiel gezogen, fliegen ihre **Fotos als große Blasen** über den Beamer. Ein **Kommentator** begleitet das Spiel mit Sprüchen (in der Regie einstellbar).
+
+Am Handy: Bei Fragen mit Antwortmöglichkeiten genügt **doppelt Tippen** auf eine Antwort – sie ist sofort abgeschickt.
+
+| | |
+|---|---|
+| ![Reaktion nach dem Zug](bilder/beamer-reaktion.webp) | ![Foto-Blasen beim Ziehen](bilder/beamer-fotoblasen.webp) |
+| ![Spielerklärung mit Vorführung](bilder/beamer-erklaerung.webp) | ![Siegerpodest im Krater](bilder/beamer-siegerpodest.webp) |
+
 | | |
 |---|---|
 | ![Sprungfeder](bilder/beamer-feder.webp) | ![Doppeldecker mit Strickleiter](bilder/beamer-flugzeug.webp) |

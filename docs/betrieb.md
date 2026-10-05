@@ -3,7 +3,7 @@
 ## Voraussetzungen
 
 - **Docker Desktop** (macOS/Windows) oder Docker Engine mit Compose (Linux)
-- Für den Beamer: ein aktueller Browser (Chrome, Edge, Safari, Firefox) mit WebGL 2. Ein MacBook mit Apple-Chip schafft den Modus **Schön** mühelos (gemessen in 1080p auf M1 Max: ca. 100 Bilder/s im Modus Schön, ca. 170 im Modus Schnell). Ältere Laptops oder 4K-Beamer: Modus **Schnell** wählen.
+- Für den Beamer: ein aktueller Browser (Chrome, Edge, Safari, Firefox) mit WebGL 2. Ein MacBook mit Apple-Chip schafft den Modus **Schön** mühelos (gemessen in 1080p auf M1 Max: ca. 125 Bilder/s *Schön*, 175 *Ausgewogen*, 200 *Sparsam*). Standard ist **Automatisch**: startet schön und schaltet bei unter 40 Bildern/s selbst herunter. Umschalten jederzeit in der Regie unter *Beamer*.
 - Handys/Tablets: beliebiger aktueller Browser, keine App nötig.
 
 ## Starten
@@ -13,6 +13,7 @@ cp .env.example .env    # einmalig; ADMIN_PASSWORD setzen!
 ./start.sh              # im WLAN
 ./start.sh online       # zusätzlich übers Internet erreichbar
 ./start.sh logs         # Protokoll ansehen
+./start.sh beamer       # Beamer-Fenster als Kiosk (Vollbild, Ton ohne Klick; Chrome/Edge)
 ./start.sh stop         # beenden
 ```
 
@@ -94,7 +95,7 @@ Alles liegt im Ordner **`data/`** neben dem Projekt:
 | Handys erreichen die Adresse nicht | Gleiches WLAN? Client-Isolation? Firewall des Macs (Systemeinstellungen → Netzwerk → Firewall: Docker erlauben)? Sonst `./start.sh online`. |
 | Regie-Login „Es ist kein ADMIN_PASSWORD gesetzt“ | `.env` anlegen/ergänzen und neu starten. |
 | Beamer zeigt „Die 3D-Insel konnte nicht geladen werden“ | Browser ohne WebGL 2 oder Hardwarebeschleunigung aus. Anderen Browser verwenden. |
-| Beamer ruckelt | Grafik auf **Schnell** stellen (Taste Q). |
+| Beamer ruckelt | Regie → *Beamer* → Grafik **Ausgewogen** oder **Sparsam** (bzw. **Automatisch**). |
 | Handy-Schütteln reagiert nicht | Browser geben Bewegungssensoren nur über HTTPS frei – im reinen WLAN-Betrieb (http) bleibt der Würfel-Knopf. Mit `./start.sh online` (https-Adresse) funktioniert auch das Schütteln. |
 | Kamera für Selfies startet nicht | Das Handy öffnet seine Kamera-App über den Dateiauswahl-Dialog; funktioniert auch ohne HTTPS. Alternativ ein vorhandenes Bild wählen. |
 

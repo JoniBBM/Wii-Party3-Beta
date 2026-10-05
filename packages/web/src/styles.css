@@ -283,11 +283,11 @@
   display: inline-block;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(11px, 0.85vw, 15px);
+  font-size: clamp(13px, 1.05vw, 19px);
   color: #fff;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 85%, white), var(--c));
-  border: 2px solid #fff;
-  padding: 1px 10px 2px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 80%, white), var(--c) 60%, var(--d));
+  border: 3px solid #fff;
+  padding: 2px 14px 3px;
   border-radius: 999px;
   white-space: nowrap;
   box-shadow: 0 3px 10px rgb(0 0 0 / 0.25);
@@ -295,7 +295,8 @@
   transition: transform 0.25s, font-size 0.25s;
 }
 .board-tag.active {
-  font-size: clamp(14px, 1.2vw, 20px);
+  font-size: clamp(17px, 1.45vw, 26px);
+  box-shadow: 0 0 0 4px var(--c), 0 6px 18px rgb(0 0 0 / 0.3);
   transform: translateY(-6px);
   animation: float-y 1.6s ease-in-out infinite;
 }

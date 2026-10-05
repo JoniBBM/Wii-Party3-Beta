@@ -5,18 +5,16 @@ import type { GameState } from '@insel/shared';
 import { BoardAudio } from '../../board/audio.ts';
 import type { Caption } from '../../board/director.ts';
 import { BoardScene } from '../../board/scene.ts';
-import { onEffects } from '../../lib/live.ts';
-import { useBeamerPrefs } from './prefs.ts';
+import { onEffects, useLive } from '../../lib/live.ts';
+import { qualityOverride } from './prefs.ts';
 
 export const boardAudio = new BoardAudio();
 
-export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | null; onCaption: (c: Caption | null) => void; onReady?: (s: BoardScene) => void }) {
+export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | null; onCaption: (c: Caption | null) => void; onReady?: (s: BoardScene | null) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BoardScene | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
-  const quality = useBeamerPrefs((s) => s.quality);
-  const tags = useBeamerPrefs((s) => s.tags);
   const fieldCount = state?.config.board.fields.length ?? 73;
   const [progress, setProgress] = useState<{ p: number; label: string } | null>({ p: 0, label: 'Lade Insel …' });
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +25,9 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
     let offCaption: (() => void) | undefined;
     setProgress({ p: 0, label: 'Lade Insel …' });
     setError(null);
+    // Anfangsstufe; danach schaltet useShowControl live um (ohne Neuaufbau)
+    const q = useLive.getState().show.settings.quality;
+    const quality = qualityOverride() ?? (q === 'auto' ? 'high' : q);
     BoardScene.create(host.current!, { quality, fieldCount, onProgress: (p, label) => alive && setProgress({ p, label }) }, boardAudio)
       .then((s) => {
         if (!alive) {
@@ -37,7 +38,6 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
         sceneRef.current = s;
         offCaption = s.onCaption(onCaption);
         if (stateRef.current) s.setState(stateRef.current);
-        s.setTagsVisible(useBeamerPrefs.getState().tags);
         onReady?.(s);
         if (new URLSearchParams(window.location.search).has('debug')) (window as unknown as { __board: BoardScene }).__board = s;
         window.setTimeout(() => alive && setProgress(null), 300);
@@ -51,17 +51,17 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
       offCaption?.();
       scene?.dispose();
       sceneRef.current = null;
+      onReady?.(null);
     };
-    // onCaption/onReady sind stabil genug; Neuaufbau nur bei Qualität/Brettlänge
+    // onCaption/onReady sind stabil genug; Neuaufbau nur bei anderer Brettlänge
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quality, fieldCount]);
+  }, [fieldCount]);
 
   useEffect(() => {
     if (state) sceneRef.current?.setState(state);
   }, [state]);
 
   useEffect(() => onEffects((effects) => sceneRef.current?.pushEffects(effects)), []);
-  useEffect(() => sceneRef.current?.setTagsVisible(tags), [tags]);
 
   return (
     <div className="absolute inset-0">

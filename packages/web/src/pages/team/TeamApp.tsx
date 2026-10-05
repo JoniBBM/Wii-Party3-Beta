@@ -67,7 +67,12 @@ export default function TeamApp() {
         style={{ background: `linear-gradient(135deg, ${c.hex} 0%, ${c.dark} 100%)` }}
       >
         <div className="mx-auto flex max-w-lg items-center gap-3">
-          <FigureAvatar figure={team.figure} color={team.color} size={48} className="ring-2 ring-white/70" />
+          <button type="button" onClick={() => setTab('team')} className="relative shrink-0" aria-label="Team gestalten">
+            <FigureAvatar figure={team.figure} color={team.color} size={48} className="ring-2 ring-white/70" />
+            <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-white text-[11px] shadow" style={{ color: c.dark }}>
+              ✏️
+            </span>
+          </button>
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-xl font-semibold leading-tight drop-shadow-sm">{team.name}</p>
             <p className="text-sm font-bold text-white/85">

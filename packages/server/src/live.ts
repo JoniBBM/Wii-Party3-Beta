@@ -7,15 +7,21 @@ import { Server, type Socket } from 'socket.io';
 import { z } from 'zod';
 import {
   commandSchema,
+  DEFAULT_SHOW,
   EngineError,
   isPrivileged,
+  parseShow,
   projectState,
+  QUALITY_LEVELS,
+  showCommandSchema,
   type Actor,
+  type BeamerStats,
   type GameState,
   type Session,
+  type ShowState,
 } from '@insel/shared';
 import { teamKey, verifyToken } from './auth.ts';
-import { getSettings, type DB } from './db.ts';
+import { getSettings, setSettings, type DB } from './db.ts';
 import type { GameRuntime } from './runtime.ts';
 
 export interface Ack {
@@ -128,6 +134,39 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
     }, 150);
   }
 
+  // ---------------------------------------------------------------------------
+  // Beamer-Show: Einstellungen der Regie live an alle Beamer, Rückmeldung der Beamer an die Regie
+  // ---------------------------------------------------------------------------
+  const show: ShowState = {
+    settings: parseShow(getSettings(database).show),
+    explainer: { running: false, id: 0, startedAt: 0 },
+  };
+  runtime.reactions = show.settings.reactions;
+  const beamers = new Map<string, BeamerStats>();
+  let beamerTimer: NodeJS.Timeout | null = null;
+
+  function pushBeamers() {
+    if (beamerTimer) return;
+    beamerTimer = setTimeout(() => {
+      beamerTimer = null;
+      const list = [...beamers.values()];
+      for (const socket of io.sockets.sockets.values() as Iterable<LiveSocket>) {
+        if (isPrivileged(sessionOf(socket).role)) socket.emit('beamers', list);
+      }
+    }, 300);
+  }
+
+  const statsSchema = z.object({
+    fps: z.number().min(0).max(1000),
+    quality: z.enum(QUALITY_LEVELS).exclude(['auto']),
+    width: z.number().int().min(0).max(20000),
+    height: z.number().int().min(0).max(20000),
+    audio: z.boolean(),
+    fullscreen: z.boolean(),
+    manual: z.boolean(),
+    explaining: z.boolean(),
+  });
+
   runtime.on('state', (state) => {
     pushState(state);
     pushPresence();
@@ -141,9 +180,60 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
     socket.data.session = verifyToken(auth.token) ?? { role: 'guest' };
 
     socket.emit('hello', { appName: getSettings(database).appName, serverNow: Date.now() });
+    socket.emit('show', show);
     pushState(runtime.state, socket);
     pushPresence();
-    socket.on('disconnect', () => pushPresence());
+    if (isPrivileged(sessionOf(socket).role)) socket.emit('beamers', [...beamers.values()]);
+    socket.on('disconnect', () => {
+      pushPresence();
+      if (beamers.delete(socket.id)) pushBeamers();
+    });
+
+    socket.on('show', (raw: unknown, ack?: (a: Ack) => void) => {
+      const reply = ack ?? (() => {});
+      try {
+        if (!isPrivileged(sessionOf(socket).role)) throw new EngineError('Nur die Spielleitung kann den Beamer steuern', 'forbidden');
+        const cmd = showCommandSchema.parse(raw);
+        // Einmalige Befehle an die Beamer (nicht gespeichert)
+        if (cmd.type === 'test') {
+          io.emit('show:test', cmd.what);
+          return reply({ ok: true });
+        }
+        if (cmd.type === 'reload' || cmd.type === 'camera') {
+          io.emit('show:cmd', cmd);
+          return reply({ ok: true });
+        }
+        if (cmd.type === 'set') show.settings = { ...show.settings, ...cmd.patch };
+        if (cmd.type === 'reset') show.settings = { ...DEFAULT_SHOW };
+        if (cmd.type === 'explain') {
+          show.explainer =
+            cmd.action === 'start'
+              ? { running: true, id: show.explainer.id + 1, startedAt: Date.now() }
+              : { ...show.explainer, running: false };
+        } else {
+          setSettings(database, { show: show.settings });
+          runtime.reactions = show.settings.reactions;
+        }
+        io.emit('show', show);
+        reply({ ok: true });
+      } catch (err) {
+        reply(errorMessage(err));
+      }
+    });
+
+    // Beamer melden Bildrate, Grafikstufe und ob die Erklärung fertig ist
+    socket.on('beamer:stats', (raw: unknown) => {
+      if (socket.data.view !== 'beamer') return;
+      const r = statsSchema.safeParse(raw);
+      if (!r.success) return;
+      beamers.set(socket.id, { id: socket.id, ...r.data });
+      pushBeamers();
+    });
+    socket.on('beamer:explained', (id: unknown) => {
+      if (socket.data.view !== 'beamer' || id !== show.explainer.id || !show.explainer.running) return;
+      show.explainer = { ...show.explainer, running: false };
+      io.emit('show', show);
+    });
 
     socket.on('auth', (token: string, ack?: (a: Ack) => void) => {
       socket.data.session = verifyToken(token) ?? { role: 'guest' };
@@ -191,6 +281,7 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
       if (event === 'settings') io.emit('hello', { appName: getSettings(database).appName, serverNow: Date.now() });
     },
     close() {
+      if (beamerTimer) clearTimeout(beamerTimer);
       return io.close();
     },
   };

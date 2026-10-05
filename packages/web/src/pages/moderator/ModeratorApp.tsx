@@ -10,6 +10,7 @@ import { ConnectionDot } from '../../ui/game.tsx';
 import { StaffGate } from '../../game/StaffLogin.tsx';
 import { PhasePanel } from '../../game/PhasePanel.tsx';
 import { Feed, Standings } from '../../game/Standings.tsx';
+import { BeamerQuick } from '../../game/BeamerControl.tsx';
 
 export default function ModeratorApp() {
   const [theme, setTheme] = useTheme(true);
@@ -53,12 +54,13 @@ function ModeratorShell({ dark, toggle }: { dark: boolean; toggle: (dark: boolea
               onClick={() => setShowRanking(!showRanking)}
               className="flex items-center justify-center gap-1.5 rounded-2xl py-2 text-sm font-bold text-muted hover:bg-bg-2"
             >
-              Rangliste & Verlauf <ChevronDown className={`size-4 transition ${showRanking ? 'rotate-180' : ''}`} />
+              Rangliste, Verlauf & Beamer <ChevronDown className={`size-4 transition ${showRanking ? 'rotate-180' : ''}`} />
             </button>
             {showRanking && (
               <div className="grid gap-4 md:grid-cols-2">
                 <Standings state={state} />
                 <Feed state={state} />
+                <BeamerQuick />
               </div>
             )}
           </>

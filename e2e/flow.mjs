@@ -100,9 +100,10 @@ try {
   // Spieler aus anderem Team finden
   let other = null;
   for (const p of phones.slice(1)) {
-    const header = await p.locator('header').innerText();
-    const annaHeader = await phones[0].locator('header').innerText();
-    if (header.split('\n')[0] !== annaHeader.split('\n')[0]) {
+    // Teamname steht im ersten Absatz der Kopfzeile
+    const header = await p.locator('header p').first().innerText();
+    const annaHeader = await phones[0].locator('header p').first().innerText();
+    if (header !== annaHeader) {
       other = p;
       break;
     }
@@ -121,9 +122,9 @@ try {
   await regie.getByRole('button', { name: 'Würfelrunde starten' }).click();
 
   // Annas Team ist zuerst dran (richtig geantwortet)
-  await phones[0].getByRole('button', { name: /Würfeln/ }).waitFor();
+  await phones[0].getByRole('button', { name: /^🎲 Würfeln/ }).waitFor();
   await shot(phones[0], 'handy-wuerfeln');
-  await phones[0].getByRole('button', { name: /Würfeln/ }).click();
+  await phones[0].getByRole('button', { name: /^🎲 Würfeln/ }).click();
   await phones[0].waitForTimeout(1800);
   await shot(phones[0], 'handy-wurf-ergebnis');
   await shot(regie, 'regie-wuerfelrunde');
@@ -146,7 +147,7 @@ try {
   await shot(mod, 'moderator');
 
   // Team-Seite mit Figuren-Editor
-  await phones[0].getByRole('button', { name: 'Team' }).click();
+  await phones[0].getByRole('button', { name: 'Team', exact: true }).click();
   await phones[0].waitForTimeout(800);
   await shot(phones[0], 'handy-team-seite');
   await phones[0].getByRole('button', { name: 'Rangliste' }).click();
