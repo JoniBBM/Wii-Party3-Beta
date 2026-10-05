@@ -1,12 +1,18 @@
 /**
- * Stilisiertes Meer: Wellen im Vertex-Shader, Farbe nach Wassertiefe (Türkis → Tiefblau),
- * Schaumlinien an der Küste, Glanz der Sonne und Fresnel-Spiegelung des Himmels.
+ * Wasser: Meer mit Wellen, durchsichtigem Flachwasser (man sieht Sand, Seegras und Lichtnetze),
+ * Brandung und Schaumlinien, Sonnenglitzern; der Fluss als fließendes Band mit Stromschnellen;
+ * der Wasserfall als stürzender Vorhang mit Gischt.
  */
 import * as THREE from 'three';
+import { RIVER, RIVER_LIP, RIVER_POOL } from '@insel/shared';
+import { riverLevelAt } from './layout.ts';
 import { TERRAIN_SIZE } from './terrain.ts';
+import { fx, GLSL_FX, GLSL_NOISE } from './worldfx.ts';
 
-const vertex = /* glsl */ `
+const OCEAN_VERTEX = /* glsl */ `
   uniform float uTime;
+  uniform sampler2D uHeight;
+  uniform float uTerrainSize;
   varying vec3 vWorld;
   varying vec3 vNormalW;
   varying float vWave;
@@ -22,18 +28,26 @@ const vertex = /* glsl */ `
     return vec3(d.x * a * cos(f), a * sin(f), d.y * a * cos(f));
   }
 
+  float groundAt(vec2 xz) {
+    vec2 uv = xz / uTerrainSize + 0.5;
+    vec2 e = min(uv, 1.0 - uv);
+    float inside = smoothstep(0.0, 0.1, min(e.x, e.y));
+    return mix(-9.0, texture2D(uHeight, clamp(uv, 0.0, 1.0)).r, inside);
+  }
+
   void main() {
     vec3 p = (modelMatrix * vec4(position, 1.0)).xyz;
+    float depth = max(0.0, -groundAt(p.xz));
+    // Im flachen Wasser (Lagune, Strand) kaum Wellen
+    float calm = smoothstep(0.4, 5.0, depth);
+    float steepK = mix(0.25, 1.0, calm);
     vec3 tangent = vec3(1.0, 0.0, 0.0);
     vec3 binormal = vec3(0.0, 0.0, 1.0);
     vec3 offset = vec3(0.0);
-    offset += gerstner(vec2(1.0, 0.6), 0.09, 14.0, 0.55, p, tangent, binormal);
-    offset += gerstner(vec2(-0.4, 1.0), 0.07, 9.0, 0.6, p, tangent, binormal);
-    offset += gerstner(vec2(0.7, -0.9), 0.05, 5.5, 0.7, p, tangent, binormal);
-    offset += gerstner(vec2(-1.0, -0.2), 0.04, 3.2, 0.8, p, tangent, binormal);
-    // Nahe der Insel flacher (Brandung über Schaum, nicht über Wellenhöhe)
-    float fade = smoothstep(18.0, 40.0, length(p.xz));
-    offset *= mix(0.35, 1.0, fade);
+    offset += gerstner(vec2(1.0, 0.6), 0.1 * steepK, 17.0, 0.5, p, tangent, binormal);
+    offset += gerstner(vec2(-0.4, 1.0), 0.08 * steepK, 11.0, 0.55, p, tangent, binormal);
+    offset += gerstner(vec2(0.7, -0.9), 0.06 * steepK, 7.0, 0.65, p, tangent, binormal);
+    offset *= mix(0.15, 1.0, calm);
     p += offset;
     vWave = offset.y;
     vNormalW = normalize(cross(binormal, tangent));
@@ -42,11 +56,12 @@ const vertex = /* glsl */ `
   }
 `;
 
-const fragment = /* glsl */ `
+const OCEAN_FRAGMENT = /* glsl */ `
   uniform float uTime;
   uniform sampler2D uHeight;
   uniform float uTerrainSize;
   uniform vec3 uShallow;
+  uniform vec3 uMid;
   uniform vec3 uDeep;
   uniform vec3 uFar;
   uniform vec3 uSky;
@@ -58,54 +73,73 @@ const fragment = /* glsl */ `
   varying vec3 vWorld;
   varying vec3 vNormalW;
   varying float vWave;
+  ${GLSL_NOISE}
+  ${GLSL_FX}
 
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float vnoise(vec2 p) {
-    vec2 i = floor(p); vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
+  float groundAt(vec2 xz) {
+    vec2 uv = xz / uTerrainSize + 0.5;
+    vec2 e = min(uv, 1.0 - uv);
+    float inside = smoothstep(0.0, 0.1, min(e.x, e.y));
+    return mix(-9.0, texture2D(uHeight, clamp(uv, 0.0, 1.0)).r, inside);
   }
 
   void main() {
-    vec2 uv = vWorld.xz / uTerrainSize + 0.5;
-    // weicher Übergang am Rand der Geländefläche (kein sichtbares Quadrat)
-    vec2 edge = min(uv, 1.0 - uv);
-    float inside = smoothstep(0.0, 0.12, min(edge.x, edge.y));
-    float ground = mix(-9.0, texture2D(uHeight, clamp(uv, 0.0, 1.0)).r, inside);
-    float depth = clamp(vWorld.y - ground, 0.0, 12.0);
+    float depth = max(0.0, vWorld.y - groundAt(vWorld.xz));
 
-    // Farbe nach Tiefe
-    vec3 col = mix(uShallow, uDeep, smoothstep(0.2, 4.5, depth));
-    col = mix(col, uFar, smoothstep(5.0, 11.0, depth));
+    // Farbe nach Tiefe: Lagunentürkis → Blau → Tiefblau
+    vec3 col = mix(uShallow, uMid, smoothstep(0.3, 2.2, depth));
+    col = mix(col, uDeep, smoothstep(2.2, 7.0, depth));
+    col = mix(col, uFar, smoothstep(8.0, 14.0, depth));
 
     // feine Kräuselung
-    vec2 q = vWorld.xz * 0.45;
-    float ripple = vnoise(q + uTime * 0.35) * 0.5 + vnoise(q * 2.3 - uTime * 0.5) * 0.5;
-    vec3 n = normalize(vNormalW + vec3(ripple - 0.5, 0.0, vnoise(q * 1.7 + 3.0 + uTime * 0.3) - 0.5) * 0.18);
+    vec2 q = vWorld.xz * 0.5;
+    float r1 = fxNoise(q + uTime * vec2(0.32, 0.18));
+    float r2 = fxNoise(q * 2.3 - uTime * vec2(0.22, 0.41));
+    float ripple = r1 * 0.55 + r2 * 0.45;
+    vec3 n = normalize(vNormalW + vec3(ripple - 0.5, 0.0, fxNoise(q * 1.7 + 3.0 + uTime * 0.3) - 0.5) * 0.22);
 
     vec3 view = normalize(cameraPosition - vWorld);
     float fresnel = pow(1.0 - max(dot(n, view), 0.0), 4.0);
-    col = mix(col, uSky, fresnel * 0.55);
+    col = mix(col, uSky, fresnel * 0.6);
 
-    // Sonnenglanz
+    // Wolkenschatten auf dem Wasser
+    float shade = fxCloudShade(vWorld.xz);
+    col *= mix(0.82, 1.0, shade);
+
+    // Sonnenglanz + Glitzern
     vec3 h = normalize(uSunDir + view);
-    float spec = pow(max(dot(n, h), 0.0), 220.0);
-    col += uSunColor * spec * 1.6;
+    float spec = pow(max(dot(n, h), 0.0), 260.0);
+    float glint = step(0.985, fxNoise(vWorld.xz * 6.0 + uTime * 1.7)) * pow(max(dot(n, h), 0.0), 18.0);
+    col += uSunColor * (spec * 1.8 + glint * 2.4) * shade;
 
-    // Schaum an der Küste: pulsierende Linien
-    float shore = 1.0 - smoothstep(0.0, 0.9, depth);
-    float bands = sin(depth * 9.0 - uTime * 2.2 + ripple * 3.0) * 0.5 + 0.5;
-    float foam = shore * smoothstep(0.55, 0.95, bands + ripple * 0.35);
-    foam = max(foam, (1.0 - smoothstep(0.0, 0.18, depth)) * 0.95);
-    // Schaumkronen auf hohen Wellen
-    foam = max(foam, smoothstep(0.16, 0.28, vWave) * ripple * 0.6);
-    col = mix(col, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.9);
+    // Schaum: Wasserlinie, rollende Brandungslinien (nur wo der Grund ansteigt), seltene Schaumkronen
+    float rise = 0.0;
+    if (depth < 1.4) {
+      float gx = groundAt(vWorld.xz + vec2(0.6, 0.0)) - groundAt(vWorld.xz - vec2(0.6, 0.0));
+      float gz = groundAt(vWorld.xz + vec2(0.0, 0.6)) - groundAt(vWorld.xz - vec2(0.0, 0.6));
+      rise = smoothstep(0.04, 0.22, length(vec2(gx, gz)));
+    }
+    float edge = 1.0 - smoothstep(0.0, 0.16, depth);
+    float shore = (1.0 - smoothstep(0.05, 1.3, depth)) * rise;
+    float bands = sin(depth * 7.5 - uTime * 1.9 + ripple * 2.5) * 0.5 + 0.5;
+    float foamNoise = fxNoise(vWorld.xz * 1.8 + uTime * 0.2);
+    float foam = shore * smoothstep(0.62, 0.95, bands) * smoothstep(0.25, 0.7, foamNoise);
+    foam = max(foam, edge * (0.65 + 0.35 * foamNoise));
 
-    // Nebel zur Horizontlinie
+    col = mix(col, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.88);
+
+    // Durchsicht im flachen Wasser
+    float alpha = mix(0.5, 0.97, smoothstep(0.05, 3.2, depth));
+    alpha = max(alpha, fresnel * 0.9);
+    alpha = max(alpha, foam * 0.95);
+
+    // Dunst zum Horizont
     float dist = length(cameraPosition - vWorld);
-    col = mix(col, uFogColor, smoothstep(uFogNear, uFogFar, dist));
+    float fog = smoothstep(uFogNear, uFogFar, dist);
+    col = mix(col, uFogColor, fog);
+    alpha = mix(alpha, 1.0, fog);
 
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(col, alpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -119,29 +153,39 @@ export interface Water {
 }
 
 export function createWater(heightTex: THREE.Texture, opts: { segments: number; fog: THREE.Color; fogNear: number; fogFar: number }): Water {
-  const geo = new THREE.PlaneGeometry(420, 420, opts.segments, opts.segments);
+  // Fein unterteilt nur im Inselbereich wäre schöner; ein Raster genügt bei dieser Auflösung
+  // Raster zur Mitte hin verdichtet: feine Wellen an der Insel, grob am Horizont
+  const geo = new THREE.PlaneGeometry(2, 2, opts.segments, opts.segments);
+  const gp = geo.attributes.position as THREE.BufferAttribute;
+  const warp = (u: number) => Math.sign(u) * (0.12 * Math.abs(u) + 0.88 * u * u) * 560;
+  for (let i = 0; i < gp.count; i++) gp.setXY(i, warp(gp.getX(i)), warp(gp.getY(i)));
   geo.rotateX(-Math.PI / 2);
+  geo.computeBoundingSphere();
   const material = new THREE.ShaderMaterial({
-    vertexShader: vertex,
-    fragmentShader: fragment,
+    vertexShader: OCEAN_VERTEX,
+    fragmentShader: OCEAN_FRAGMENT,
+    transparent: true,
     uniforms: {
       uTime: { value: 0 },
       uHeight: { value: heightTex },
       uTerrainSize: { value: TERRAIN_SIZE },
-      uShallow: { value: new THREE.Color('#5fe0d8') },
-      uDeep: { value: new THREE.Color('#1f9ccf') },
-      uFar: { value: new THREE.Color('#1b6fb5') },
-      uSky: { value: new THREE.Color('#bfe6ff') },
+      uShallow: { value: new THREE.Color('#3fe3d2') },
+      uMid: { value: new THREE.Color('#25c3d6') },
+      uDeep: { value: new THREE.Color('#1688cc') },
+      uFar: { value: new THREE.Color('#145fae') },
+      uSky: { value: new THREE.Color('#c6e9ff') },
       uSunDir: { value: new THREE.Vector3(0.5, 0.7, 0.3).normalize() },
       uSunColor: { value: new THREE.Color('#fff2d6') },
       uFogColor: { value: opts.fog.clone() },
       uFogNear: { value: opts.fogNear },
       uFogFar: { value: opts.fogFar },
+      uFxTime: fx.uTime,
+      uFxCloud: fx.uCloud,
+      uFxDrift: fx.uCloudDrift,
     },
   });
   const mesh = new THREE.Mesh(geo, material);
-  mesh.position.y = 0;
-  mesh.receiveShadow = false;
+  mesh.renderOrder = 1;
   mesh.name = 'water';
   return {
     mesh,
@@ -159,35 +203,221 @@ export function createWater(heightTex: THREE.Texture, opts: { segments: number; 
   };
 }
 
-/** Fluss als Band mit fließendem Wasser. */
-export function createRiver(points: { x: number; z: number }[], levelAt: (t: number) => number, widthAt: (t: number) => number): THREE.Mesh {
-  const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(p.x, 0, p.z)));
-  const segs = 80;
+// ---------------------------------------------------------------------------
+// Fluss
+// ---------------------------------------------------------------------------
+const RIVER_FRAGMENT = /* glsl */ `
+  uniform float uTime;
+  uniform sampler2D uHeight;
+  uniform float uTerrainSize;
+  uniform vec3 uSunDir;
+  varying vec2 vUv;
+  varying vec3 vWorld;
+  varying float vSlope;
+  ${GLSL_NOISE}
+  ${GLSL_FX}
+
+  void main() {
+    vec2 tuv = vWorld.xz / uTerrainSize + 0.5;
+    float ground = texture2D(uHeight, tuv).r;
+    float depth = vWorld.y - ground;
+    if (depth < -0.02) discard;
+    float speed = 0.9 + vSlope * 9.0;
+    // Strömung: Rauschen, das flussabwärts gezogen wird
+    vec2 fuv = vec2(vUv.x * 3.0, vUv.y * 0.9 - uTime * speed);
+    float flow = fxNoise(fuv) * 0.6 + fxNoise(fuv * 2.7 + 3.1) * 0.4;
+    float streak = smoothstep(0.62, 0.86, fxNoise(vec2(vUv.x * 9.0, vUv.y * 2.2 - uTime * speed * 1.4)));
+    vec3 shallow = vec3(0.42, 0.86, 0.80);
+    vec3 deep = vec3(0.07, 0.48, 0.62);
+    vec3 col = mix(shallow, deep, smoothstep(0.05, 0.9, depth));
+    col = mix(col, col * 1.18, flow);
+    // Stromschnellen + Ufer schäumen
+    float rapids = smoothstep(0.02, 0.09, vSlope);
+    float bank = 1.0 - smoothstep(0.0, 0.08, depth);
+    float foam = max(streak * (0.2 + rapids * 0.7), bank * (0.3 + 0.4 * flow));
+    foam = max(foam, rapids * smoothstep(0.4, 0.8, flow));
+    col = mix(col, vec3(0.97, 1.0, 1.0), clamp(foam, 0.0, 1.0) * 0.85);
+    // Wolkenschatten + etwas Himmelsglanz
+    col *= mix(0.84, 1.0, fxCloudShade(vWorld.xz));
+    vec3 view = normalize(cameraPosition - vWorld);
+    float fres = pow(1.0 - max(view.y, 0.0), 3.0);
+    col = mix(col, vec3(0.8, 0.92, 1.0), fres * 0.35);
+    float alpha = mix(0.45, 0.94, smoothstep(0.02, 0.7, depth));
+    alpha = max(alpha, foam * 0.9);
+    gl_FragColor = vec4(col, alpha);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
+
+const RIVER_VERTEX = /* glsl */ `
+  attribute float slope;
+  varying vec2 vUv;
+  varying vec3 vWorld;
+  varying float vSlope;
+  void main() {
+    vUv = uv;
+    vSlope = slope;
+    vec4 w = modelMatrix * vec4(position, 1.0);
+    vWorld = w.xyz;
+    gl_Position = projectionMatrix * viewMatrix * w;
+  }
+`;
+
+interface RiverSample {
+  x: number;
+  z: number;
+  y: number;
+  w: number;
+  slope: number;
+}
+
+/** Fluss-Mittellinie dicht abgetastet (mit Wasserspiegel und Gefälle), ohne den Fall selbst. */
+function sampleRiver(from: number, to: number): RiverSample[] {
+  const out: RiverSample[] = [];
+  for (let i = from; i < to; i++) {
+    const a = RIVER[i]!;
+    const b = RIVER[i + 1]!;
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    const steps = Math.max(2, Math.ceil(len / 0.35));
+    for (let k = 0; k < steps; k++) {
+      const f = k / steps;
+      const p0 = RIVER[Math.max(0, i - 1)]!;
+      const p3 = RIVER[Math.min(RIVER.length - 1, i + 2)]!;
+      const cr = (q0: number, q1: number, q2: number, q3: number) => {
+        const t2 = f * f;
+        const t3 = t2 * f;
+        return 0.5 * (2 * q1 + (-q0 + q2) * f + (2 * q0 - 5 * q1 + 4 * q2 - q3) * t2 + (-q0 + 3 * q1 - 3 * q2 + q3) * t3);
+      };
+      out.push({ x: cr(p0.x, a.x, b.x, p3.x), z: cr(p0.z, a.z, b.z, p3.z), y: riverLevelAt(i, f), w: a.w + (b.w - a.w) * f, slope: Math.max(0, (a.y - b.y) / len) });
+    }
+  }
+  const last = RIVER[to]!;
+  out.push({ x: last.x, z: last.z, y: last.y, w: last.w, slope: 0 });
+  return out;
+}
+
+function riverRibbon(samples: RiverSample[], material: THREE.ShaderMaterial): THREE.Mesh {
   const positions: number[] = [];
   const uvs: number[] = [];
+  const slopes: number[] = [];
   const indices: number[] = [];
-  for (let i = 0; i <= segs; i++) {
-    const t = i / segs;
-    const p = curve.getPointAt(t);
-    const tan = curve.getTangentAt(t);
-    const side = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
-    const w = widthAt(t) + 0.35;
-    const y = levelAt(t);
-    positions.push(p.x + side.x * w, y, p.z + side.z * w, p.x - side.x * w, y, p.z - side.z * w);
-    uvs.push(0, t * 12, 1, t * 12);
-    if (i < segs) {
-      const a = i * 2;
-      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  let v = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const p = samples[i]!;
+    const a = samples[Math.max(0, i - 1)]!;
+    const b = samples[Math.min(samples.length - 1, i + 1)]!;
+    const tx = b.x - a.x;
+    const tz = b.z - a.z;
+    const l = Math.hypot(tx, tz) || 1;
+    const sx = -tz / l;
+    const sz = tx / l;
+    const w = p.w + 0.7;
+    if (i > 0) v += Math.hypot(p.x - samples[i - 1]!.x, p.z - samples[i - 1]!.z);
+    positions.push(p.x + sx * w, p.y + 0.02, p.z + sz * w, p.x - sx * w, p.y + 0.02, p.z - sz * w);
+    uvs.push(0, v, 1, v);
+    slopes.push(p.slope, p.slope);
+    if (i < samples.length - 1) {
+      const k = i * 2;
+      indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
     }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('slope', new THREE.Float32BufferAttribute(slopes, 1));
   geo.setIndex(indices);
-  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.renderOrder = 2;
+  return mesh;
+}
+
+export interface RiverFx {
+  group: THREE.Group;
+  update: (t: number, dt: number) => void;
+  dispose: () => void;
+  /** Fußpunkt des Wasserfalls (für Gischt/Geräusch) */
+  fallBase: THREE.Vector3;
+}
+
+export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean }): RiverFx {
+  const group = new THREE.Group();
+  group.name = 'river';
   const material = new THREE.ShaderMaterial({
+    vertexShader: RIVER_VERTEX,
+    fragmentShader: RIVER_FRAGMENT,
     transparent: true,
+    depthWrite: false,
     side: THREE.DoubleSide,
+    uniforms: {
+      uTime: { value: 0 },
+      uHeight: { value: heightTex },
+      uTerrainSize: { value: TERRAIN_SIZE },
+      uSunDir: { value: new THREE.Vector3(0.5, 0.7, 0.3).normalize() },
+      uFxTime: fx.uTime,
+      uFxCloud: fx.uCloud,
+      uFxDrift: fx.uCloudDrift,
+    },
+  });
+  // Oberlauf (Quelle → Kante) und Unterlauf (Becken → Mündung)
+  const upper = sampleRiver(0, RIVER_LIP).filter((p) => p.y > 0);
+  group.add(riverRibbon(upper, material));
+  group.add(riverRibbon(sampleRiver(RIVER_POOL, RIVER.length - 1).filter((p) => p.y > 0.14), material));
+
+  // Wasserfall: Vorhang von der Kante ins Becken
+  const lip = RIVER[RIVER_LIP]!;
+  const poolP = RIVER[RIVER_POOL]!;
+  const len = Math.hypot(poolP.x - lip.x, poolP.z - lip.z);
+  const fall = 1 - (poolP.w * 0.92) / len;
+  const dir = new THREE.Vector3(poolP.x - lip.x, 0, poolP.z - lip.z).normalize();
+  const side = new THREE.Vector3(-dir.z, 0, dir.x);
+  const top = new THREE.Vector3(lip.x + (poolP.x - lip.x) * fall, lip.y + 0.03, lip.z + (poolP.z - lip.z) * fall);
+  const drop = lip.y - poolP.y;
+  const width = 1.9;
+  const fallGeo = new THREE.PlaneGeometry(1, 1, 10, 28);
+  const fp = fallGeo.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < fp.count; i++) {
+    const u = fp.getX(i); // −0.5 … 0.5
+    const vv = 0.5 - fp.getY(i); // 0 oben … 1 unten
+    const out = 0.25 + Math.sqrt(vv) * 0.75 + Math.sin(u * 9 + vv * 4) * 0.04;
+    const w = width * (1 + vv * 0.25);
+    fp.setXYZ(i, top.x + side.x * u * w + dir.x * out, top.y - vv * drop, top.z + side.z * u * w + dir.z * out);
+  }
+  fallGeo.computeVertexNormals();
+  const fallMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      varying vec2 vUv;
+      ${GLSL_NOISE}
+      void main() {
+        float y = 1.0 - vUv.y;
+        float streak = fxNoise(vec2(vUv.x * 14.0, y * 3.0 - uTime * 3.2)) * 0.6 + fxNoise(vec2(vUv.x * 31.0, y * 6.0 - uTime * 4.4)) * 0.4;
+        vec3 col = mix(vec3(0.55, 0.85, 0.92), vec3(1.0), smoothstep(0.35, 0.8, streak) * 0.85 + y * 0.25);
+        float edge = smoothstep(0.0, 0.14, vUv.x) * smoothstep(1.0, 0.86, vUv.x);
+        float a = (0.62 + streak * 0.38) * edge * smoothstep(0.0, 0.04, vUv.y);
+        gl_FragColor = vec4(col * 1.1, a);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const fallMesh = new THREE.Mesh(fallGeo, fallMat);
+  fallMesh.renderOrder = 3;
+  group.add(fallMesh);
+  const fallBase = new THREE.Vector3(top.x + dir.x * 1.0, poolP.y, top.z + dir.z * 1.0);
+
+  // Schaumteppich am Fuß des Wasserfalls
+  const foamGeo = new THREE.CircleGeometry(1.7, 40);
+  foamGeo.rotateX(-Math.PI / 2);
+  const foamMat = new THREE.ShaderMaterial({
+    transparent: true,
     depthWrite: false,
     uniforms: { uTime: { value: 0 } },
     vertexShader: /* glsl */ `
@@ -197,27 +427,86 @@ export function createRiver(points: { x: number; z: number }[], levelAt: (t: num
     fragmentShader: /* glsl */ `
       uniform float uTime;
       varying vec2 vUv;
-      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-      float vnoise(vec2 p) {
-        vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
-      }
+      ${GLSL_NOISE}
       void main() {
-        float edge = smoothstep(0.0, 0.1, vUv.x) * smoothstep(1.0, 0.9, vUv.x);
-        float flow = vnoise(vec2(vUv.x * 6.0, vUv.y * 3.0 - uTime * 1.6));
-        float streak = smoothstep(0.62, 0.8, vnoise(vec2(vUv.x * 14.0, vUv.y * 8.0 - uTime * 2.4)));
-        vec3 col = mix(vec3(0.09, 0.5, 0.72), vec3(0.24, 0.72, 0.86), flow);
-        col = mix(col, vec3(0.85, 0.96, 1.0), streak * 0.45);
-        col = mix(vec3(0.9, 0.97, 1.0), col, edge);
-        gl_FragColor = vec4(col, mix(0.7, 0.92, edge));
+        vec2 c = vUv - 0.5;
+        float r = length(c) * 2.0;
+        float n = fxNoise(c * 9.0 + vec2(0.0, -uTime * 1.5)) * 0.5 + fxNoise(c * 17.0 - uTime * 0.8) * 0.5;
+        float a = smoothstep(1.0, 0.2, r) * smoothstep(0.3, 0.7, n + (1.0 - r) * 0.4);
+        gl_FragColor = vec4(vec3(1.0), a * 0.9);
         #include <colorspace_fragment>
       }
     `,
   });
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.name = 'river';
-  mesh.onBeforeRender = () => {
-    material.uniforms.uTime!.value = performance.now() / 1000;
+  const foam = new THREE.Mesh(foamGeo, foamMat);
+  foam.position.set(fallBase.x, poolP.y + 0.05, fallBase.z);
+  foam.renderOrder = 4;
+  group.add(foam);
+
+  // Gischt: aufsteigende, verwehende Tröpfchen
+  const MIST = opts.mist ? 160 : 60;
+  const mistGeo = new THREE.BufferGeometry();
+  const seeds = new Float32Array(MIST * 4);
+  for (let i = 0; i < MIST; i++) {
+    seeds[i * 4] = Math.random();
+    seeds[i * 4 + 1] = Math.random();
+    seeds[i * 4 + 2] = Math.random();
+    seeds[i * 4 + 3] = Math.random();
+  }
+  mistGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MIST * 3), 3));
+  mistGeo.setAttribute('seed', new THREE.BufferAttribute(seeds, 4));
+  mistGeo.boundingSphere = new THREE.Sphere(fallBase.clone(), 8);
+  const mistMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uTime: { value: 0 }, uBase: { value: fallBase }, uScale: { value: 600 } },
+    vertexShader: /* glsl */ `
+      attribute vec4 seed;
+      uniform float uTime;
+      uniform vec3 uBase;
+      uniform float uScale;
+      varying float vA;
+      void main() {
+        float life = fract(seed.x + uTime * (0.18 + seed.y * 0.12));
+        float a = seed.z * 6.2831;
+        float r = 0.3 + life * (1.2 + seed.w * 1.6);
+        vec3 p = uBase + vec3(cos(a) * r, life * (1.0 + seed.y * 2.6) - 0.1, sin(a) * r);
+        vA = sin(life * 3.1416) * (0.35 + seed.w * 0.4);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = (0.6 + seed.y * 1.2) * (0.6 + life) * uScale / -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying float vA;
+      void main() {
+        float d = length(gl_PointCoord - 0.5);
+        float a = smoothstep(0.5, 0.0, d) * vA;
+        gl_FragColor = vec4(vec3(1.0), a * 0.55);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const mist = new THREE.Points(mistGeo, mistMat);
+  mist.frustumCulled = false;
+  mist.renderOrder = 5;
+  group.add(mist);
+
+  return {
+    group,
+    fallBase,
+    update(t) {
+      material.uniforms.uTime!.value = t;
+      fallMat.uniforms.uTime!.value = t;
+      foamMat.uniforms.uTime!.value = t;
+      mistMat.uniforms.uTime!.value = t;
+    },
+    dispose() {
+      group.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        (m.material as THREE.Material | undefined)?.dispose();
+      });
+    },
   };
-  return mesh;
 }

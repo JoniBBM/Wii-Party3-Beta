@@ -64,6 +64,28 @@ try {
   await beamer.waitForFunction(() => !document.body.innerText.includes('Lade Insel'), null, { timeout: 60000 }).catch(() => {});
   const regie = await open('/regie', { viewport: { width: 1440, height: 900 } }, staff('admin'));
   await shot(beamer, 'beamer-lobby-anmeldung', 2500);
+  // Inselansichten ohne Einblendungen
+  const view = await open('/beamer?debug', { viewport: { width: 1920, height: 1080 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })) });
+  await view.waitForFunction(() => window.__board, null, { timeout: 60000 });
+  for (const [name, cam] of [
+    ['insel-gesamt', [62, 58, 86, 0, 3, -3]],
+    ['insel-hafen', [-13, 11, 34, -26, 1, 18]],
+    ['insel-ruinen', [12, 12, 33, -1, 3, 15]],
+    ['insel-furt', [30, 11, 7, 17, 3, -6]],
+    ['insel-lagune', [20, 10, 38, 28, 0, 24]],
+    ['insel-leuchtturm', [28, 13, -2, 41, 6, -14]],
+    ['insel-vulkan', [-22, 30, 18, -1, 12, -8]],
+    ['insel-norden', [8, 24, -52, 0, 7, -18]],
+  ]) {
+    await view.evaluate(([x, y, z, lx, ly, lz]) => {
+      const b = window.__board;
+      const V = b.camera.position.constructor;
+      b.rig.set({ kind: 'focus', position: new V(x, y, z), lookAt: new V(lx, ly, lz) }, 60);
+      document.querySelectorAll('.glass').forEach((e) => (e.style.display = 'none'));
+    }, cam);
+    await shot(view, name, 1800);
+  }
+  await view.context().close();
   await cmd({ type: 'teams.auto', count: 4 });
   await shot(regie, 'regie-lobby', 1500);
   await shot(beamer, 'beamer-lobby-teams', 1500);

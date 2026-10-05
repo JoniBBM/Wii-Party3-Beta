@@ -96,6 +96,54 @@ export class BoardAudio {
     src.start(this.ctx.currentTime + (opts.delay ?? 0));
   }
 
+  /** Platschen: Rauschstoß mit fallendem Bandpass. */
+  splash(volume = 1) {
+    if (!this.ctx || !this.enabled.sound) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const len = Math.floor(ctx.sampleRate * 0.9);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(2200, t);
+    bp.frequency.exponentialRampToValueAtTime(380, t + 0.55);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.9 * volume, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+    src.connect(bp).connect(g).connect(this.sfx);
+    src.start(t);
+  }
+
+  /** Knarzen (Holzfass wackelt). */
+  creak() {
+    if (!this.ctx || !this.enabled.sound) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    for (let k = 0; k < 3; k++) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      const st = t + k * 0.32;
+      o.frequency.setValueAtTime(110 + Math.random() * 40, st);
+      o.frequency.linearRampToValueAtTime(160 + Math.random() * 60, st + 0.22);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 900;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.exponentialRampToValueAtTime(0.14, st + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, st + 0.26);
+      o.connect(lp).connect(g).connect(this.sfx);
+      o.start(st);
+      o.stop(st + 0.3);
+    }
+  }
+
   step(onWood = false) {
     const n = onWood ? `step-wood-00${Math.floor(Math.random() * 3)}` : `step-grass-00${Math.floor(Math.random() * 5)}`;
     this.play(n as SampleName, { volume: 0.55, rate: 0.95 + Math.random() * 0.15 });

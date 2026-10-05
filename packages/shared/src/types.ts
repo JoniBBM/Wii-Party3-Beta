@@ -120,6 +120,20 @@ export interface Rules {
     zoneSize: number;
     knockback: Range;
   };
+  /** Fässer in der Flussfurt */
+  river: {
+    enabled: boolean;
+    /** Wahrscheinlichkeit in Prozent, ins Wasser zu fallen */
+    fallChance: number;
+    /** So viele Felder spült die Strömung zurück */
+    driftBack: Range;
+  };
+  /** Loch am Kraterrand */
+  crater: {
+    enabled: boolean;
+    /** So viele Augen (über mehrere Würfe) braucht es, um herauszuklettern */
+    climb: number;
+  };
   /** Antworten automatisch schließen, sobald alle Teams geantwortet haben. */
   autoCloseWhenAllAnswered: boolean;
 }
@@ -173,6 +187,8 @@ export interface Team {
   bonusDie: number;
   /** Gefangen in einer Sperre. */
   blocked: null | { attempts: number; since: number };
+  /** In den Krater gefallen: gesammelte Augen beim Herausklettern. */
+  crater: null | { climbed: number; need: number };
   figure: FigureConfig;
   /** 4-stellige PIN zum Beitreten. */
   pin: string;
@@ -352,7 +368,7 @@ export interface GameState {
 // Effekte: Ereignisse für Animationen, Sounds und Hinweise (nicht Teil des Zustands)
 // ---------------------------------------------------------------------------
 
-export type MoveReason = 'dice' | 'catapult' | 'reward' | 'penalty' | 'eruption' | 'swap' | 'correction';
+export type MoveReason = 'dice' | 'catapult' | 'reward' | 'penalty' | 'eruption' | 'swap' | 'correction' | 'river';
 
 export type EffectInput =
   | { type: 'dice'; teamId: string; main: number; bonus: number; bonusDie: number; total: number; manual: boolean }
@@ -360,6 +376,10 @@ export type EffectInput =
   | { type: 'field'; teamId: string; field: FieldType; position: number; text: string }
   | { type: 'swap'; a: string; b: string; posA: number; posB: number }
   | { type: 'barrier'; teamId: string; roll: number; result: 'blocked' | 'stuck' | 'released' | 'opened' }
+  /** Fässer im Fluss: gehalten oder ins Wasser gefallen (dann folgt ein move mit reason 'river'). */
+  | { type: 'river'; teamId: string; position: number; result: 'safe' | 'fall' }
+  /** Krater: hineingefallen, ein Stück geklettert oder wieder draußen. */
+  | { type: 'crater'; teamId: string; position: number; result: 'fall' | 'climb' | 'out'; roll: number; climbed: number; need: number }
   | { type: 'final_roll'; teamId: string; roll: number; needed: number; success: boolean }
   | { type: 'summit'; teamId: string }
   | { type: 'volcano'; pressure: number; threshold: number }

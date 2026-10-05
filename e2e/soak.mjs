@@ -113,6 +113,8 @@ try {
   await page.screenshot({ path: join(tmpdir(), 'insel-soak-ende.png') });
   console.log('\nErgebnis:', state.status, 'Sieger:', state.teams.find((t) => t.id === state.winnerTeamId)?.name ?? '–');
   console.log('Statistik:', JSON.stringify(stats));
+  const feedText = state.feed.map((f) => f.text).join('\n');
+  console.log('Fluss gestürzt:', (feedText.match(/Platsch/g) ?? []).length, '| balanciert:', (feedText.match(/balanciert sicher/g) ?? []).length, '| Krater:', (feedText.match(/rutscht in den Krater/g) ?? []).length, '| herausgeklettert:', (feedText.match(/klettert aus dem Krater/g) ?? []).length);
   console.log('Speicher Start:', JSON.stringify(memStart), 'Ende:', JSON.stringify(memEnd));
   console.log('Fehlgeschlagene Befehle:', failures.length ? failures.join('\n') : 'keine');
   console.log('Browserfehler:', pageErrors.length ? [...new Set(pageErrors)].join('\n') : 'keine');

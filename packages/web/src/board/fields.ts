@@ -82,6 +82,34 @@ const ICONS: Partial<Record<FieldType, IconDrawer>> = {
     c.bezierCurveTo(s * 0.48, s * 0.42, s * 0.5, s * 0.3, s * 0.5, s * 0.2);
     c.fill();
   },
+  river: (c, s) => {
+    stroke(c, s * 0.07);
+    for (const off of [-0.16, 0, 0.16]) {
+      c.beginPath();
+      for (let k = 0; k <= 24; k++) {
+        const x = s * (0.24 + (k / 24) * 0.52);
+        const y = s * (0.5 + off) + Math.sin((k / 24) * Math.PI * 3) * s * 0.045;
+        if (k === 0) c.moveTo(x, y);
+        else c.lineTo(x, y);
+      }
+      c.stroke();
+    }
+  },
+  crater: (c, s) => {
+    stroke(c, s * 0.07);
+    c.beginPath();
+    c.ellipse(s * 0.5, s * 0.62, s * 0.25, s * 0.1, 0, 0, Math.PI * 2);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(s * 0.5, s * 0.2);
+    c.lineTo(s * 0.5, s * 0.5);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(s * 0.4, s * 0.42);
+    c.lineTo(s * 0.5, s * 0.53);
+    c.lineTo(s * 0.6, s * 0.42);
+    c.stroke();
+  },
   goal: (c, s) => {
     c.fillStyle = '#ffffff';
     c.beginPath();
@@ -172,10 +200,12 @@ export function buildFields(layout: IslandLayout): FieldMeshes {
   const radii: number[] = [];
   layout.fields.forEach((f, i) => {
     const special = i === 0 || i === n - 1;
-    const scale = i === 0 ? 2.1 : i === n - 1 ? 1.55 : 1;
+    // Auf den Fässern in der Furt: kleinere, flache Scheibe auf dem Fassdeckel
+    const scale = i === 0 ? 2.1 : i === n - 1 ? 1.55 : f.ford ? 0.78 : 1;
     radii.push(r * scale);
-    const y = f.y + 0.02;
-    m.makeScale(scale, 1, scale).setPosition(f.x, y - 0.05, f.z);
+    const y = f.y + (f.ford ? -0.1 : 0.02);
+    if (f.ford || f.bridge) m.makeScale(0.0001, 0.0001, 0.0001).setPosition(f.x, y, f.z);
+    else m.makeScale(scale, 1, scale).setPosition(f.x, y - 0.05, f.z);
     bases.setMatrixAt(i, m);
     m.makeScale(scale, 1, scale).setPosition(f.x, y + H / 2, f.z);
     bodies.setMatrixAt(i, m);

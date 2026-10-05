@@ -36,12 +36,14 @@ Dann `http://localhost:5173` öffnen. Vite leitet `/api`, `/media` und `/socket.
   - `node e2e/flow.mjs [ordner]` – Regie + 4 Handys + Moderator + Beamer spielen eine Runde, mit Screenshots und Prüfung der Browser-Konsolen.
   - `node e2e/beamer.mjs [ordner]` – steuert ein Spiel per WebSocket und fotografiert den Beamer in allen Phasen (Lobby, Frage, Würfel, Ausbruch, Sieg).
   - `node e2e/screens.mjs [ordner]` – Galerie aller Oberflächen in typischen Größen (auch für die Doku).
+  - `node e2e/hazards.mjs [ordner]` – spielt die Inselgefahren durch (Sturz von den Fässern, Treiben, Kraterloch, Klettern, Herauskommen) und fotografiert den Beamer.
+  - `node e2e/soak.mjs [runden]` – Dauertest: komplette Partie bis zum Sieg, prüft Fehler und Speicherwachstum.
   - `node e2e/fps.mjs` – Bildrate des Beamers in beiden Qualitätsstufen.
-  - `node e2e/look.mjs bild.png x y z blickX blickY blickZ` – Beamer-Kamera frei setzen (Debug, `?debug` stellt `window.__board` bereit).
+  - `node e2e/look.mjs bild.png x y z blickX blickY blickZ` – Beamer-Kamera frei setzen (Debug, `?debug` stellt `window.__board` bereit; `?zoo` stellt alle Tiere zur Kontrolle auf).
 
 ## Konventionen
 
 - Oberfläche, Kommentare und Dokumentation auf **Deutsch**, Bezeichner im Code auf **Englisch**.
 - Spiellogik gehört in die Engine (`packages/shared`), nicht in Routen oder Komponenten.
 - Neue Befehle: Schema in `schemas.ts`, Rechte in `engine/permissions.ts`, Umsetzung in der Engine, Test dazu.
-- Assets nur mit freier Lizenz (CC0 bevorzugt) und Eintrag in `packages/web/public/assets/LICENSES.md`.
+- Assets nur mit freier Lizenz (CC0 bevorzugt, CC-BY nur mit Namensnennung) und Eintrag in `packages/web/public/assets/LICENSES.md`.

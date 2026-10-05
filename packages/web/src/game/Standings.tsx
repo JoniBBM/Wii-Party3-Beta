@@ -38,6 +38,7 @@ export function Standings({ state, editable }: { state: GameState; editable?: bo
                   <span className="flex items-center gap-1.5">
                     <TeamChip team={team} size="sm" />
                     {team.blocked && <Lock className="size-3.5 text-warn" aria-label="gesperrt" />}
+                    {team.crater && <span title={`im Krater (${team.crater.climbed}/${team.crater.need})`}>🕳️</span>}
                     <BonusDieBadge sides={team.bonusDie} />
                   </span>
                   <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-bg-2">
@@ -106,9 +107,9 @@ function TeamQuickEdit({ state, team, onClose }: { state: GameState; team: Team;
             </Button>
           </div>
         </div>
-        {team.blocked && (
+        {(team.blocked || team.crater) && (
           <Button variant="primary" onClick={() => run({ type: 'team.unblock', teamId: team.id }).then((r) => r.ok && onClose())}>
-            Aus der Sperre befreien
+            {team.crater ? 'Aus dem Krater holen' : 'Aus der Sperre befreien'}
           </Button>
         )}
       </div>

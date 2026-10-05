@@ -36,11 +36,21 @@ export const FIELD_TYPES = [
   'barrier',
   'minigame',
   'volcano',
+  'river',
+  'crater',
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
-/** Feldtypen, die im Editor frei gesetzt werden dürfen (Start/Ziel sind fix). */
-export const PLACEABLE_FIELD_TYPES = FIELD_TYPES.filter((t) => t !== 'start' && t !== 'goal');
+/**
+ * Felder, die fest zur Insel gehören: die Fässer in der Flussfurt und das Loch am Kraterrand.
+ * Ihre Lage ergibt sich aus der Inselgeometrie, im Editor sind sie nicht verschiebbar.
+ */
+export const LANDMARK_FIELD_TYPES = ['river', 'crater'] as const satisfies readonly FieldType[];
+
+/** Feldtypen, die im Editor frei gesetzt werden dürfen (Start/Ziel und Inselfelder sind fix). */
+export const PLACEABLE_FIELD_TYPES = FIELD_TYPES.filter(
+  (t) => t !== 'start' && t !== 'goal' && !(LANDMARK_FIELD_TYPES as readonly string[]).includes(t),
+);
 
 export const FIELD_INFO: Record<
   FieldType,
@@ -108,6 +118,20 @@ export const FIELD_INFO: Record<
     description: 'Erhöht den Druck im Vulkan. Bei vollem Druck bricht er aus.',
     color: '#8d3b2a',
     icon: '🌋',
+  },
+  river: {
+    label: 'Fässer im Fluss',
+    short: 'Fluss',
+    description: 'Wackelige Fässer in der Furt. Mit etwas Pech fällt das Team ins Wasser und wird flussabwärts zurückgespült.',
+    color: '#2bb3c9',
+    icon: '🛢️',
+  },
+  crater: {
+    label: 'Kraterloch',
+    short: 'Krater',
+    description: 'Am Kraterrand rutscht das Team in den Krater und muss erst wieder herausklettern.',
+    color: '#d9481c',
+    icon: '🕳️',
   },
 };
 

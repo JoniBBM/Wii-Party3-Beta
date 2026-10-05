@@ -179,6 +179,13 @@ describe('Server', () => {
     await beamer.waitFor((s) => s.teams.find((t) => t.id === annaTeam)!.position > 0);
     expect(beamer.effects.some((e) => e.type === 'dice' && e.teamId === annaTeam)).toBe(true);
 
+    // Zufallswurf kann auf einem Minispiel-Feld landen – das überspringt die Regie hier
+    const afterRoll = await regie.waitFor((s) => s.phase.name === 'dice');
+    if (afterRoll.phase.name === 'dice' && afterRoll.phase.dice.fieldGame) {
+      expect((await regie.cmd({ type: 'fieldgame.cancel' })).ok).toBe(true);
+      await regie.waitFor((s) => s.phase.name === 'dice' && !s.phase.dice.fieldGame);
+    }
+
     // Animation läuft → zweites Team muss warten, Regie kann erzwingen
     expect((await teamB.cmd({ type: 'dice.roll' })).error).toMatch(/Animation/);
     expect((await regie.cmd({ type: 'dice.roll', force: true, main: 2 })).ok).toBe(true);

@@ -68,6 +68,11 @@ function RollControl({ state, dice }: { state: GameState; dice: DiceRound }) {
               </span>
               <BonusDieBadge sides={team.bonusDie} />
               {team.blocked && <span className="font-bold text-warn">🚧 Gesperrt – braucht {barrierText(rules.barrier)}</span>}
+              {team.crater && (
+                <span className="font-bold text-warn">
+                  🕳️ Im Krater – klettert {team.crater.climbed}/{team.crater.need} Augen
+                </span>
+              )}
               {rules.winRule === 'final_roll' && team.position === goal && <span className="font-bold text-good">🏆 Siegeswurf: mind. {rules.finalRollMin}</span>}
               <span className="inline-flex items-center gap-1 text-muted">
                 <Smartphone className="size-4" /> {presence[team.id] ?? 0} Gerät{(presence[team.id] ?? 0) === 1 ? '' : 'e'}
@@ -283,7 +288,7 @@ function FieldGameControl({ state, dice }: { state: GameState; dice: DiceRound }
 export function UnblockButton({ state, teamId }: { state: GameState; teamId: string }) {
   const { run } = useCommand();
   const team = teamById(state, teamId);
-  if (!team?.blocked) return null;
+  if (!team?.blocked && !team?.crater) return null;
   return (
     <Button size="sm" icon={<Unlock className="size-4" />} onClick={() => run({ type: 'team.unblock', teamId })}>
       Befreien

@@ -110,6 +110,7 @@ export function erupt(tx: Tx) {
     affected.push({ teamId: t.id, from: t.position, to });
     t.position = to;
     t.blocked = null;
+    t.crater = null;
   }
   s.volcano.pressure = 0;
   s.volcano.eruptions += 1;
@@ -162,6 +163,7 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'field_game'
       target.position = pos;
       team.position = tp;
       target.blocked = null; // hat das Sperrfeld verlassen
+      target.crater = null;
       feed(tx, FIELD_INFO[field].icon, `Platztausch! ${teamLabel(team)} ⇄ ${teamLabel(target)}`, team.id);
       if (team.position === goal) return checkArrival(tx, team) ? 'finished' : 'done';
       if (target.position === goal) return checkArrival(tx, target) ? 'finished' : 'done';
@@ -188,6 +190,30 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'field_game'
       tx.effects.push({ type: 'field_game', teamId: team.id, stage: 'pending' });
       feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} landet auf einem Minispiel-Feld!`, team.id);
       return 'field_game';
+    }
+    case 'river': {
+      const r = rules.river;
+      if (!r.enabled) return 'done';
+      const fall = randInt(tx.ctx.rng, 1, 100) <= r.fallChance;
+      tx.effects.push({ type: 'river', teamId: team.id, position: pos, result: fall ? 'fall' : 'safe' });
+      if (!fall) {
+        feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} balanciert sicher über die Fässer`, team.id);
+        return 'done';
+      }
+      // Die Strömung treibt flussabwärts – mindestens bis vor die Furt
+      let to = Math.max(0, pos - randInt(tx.ctx.rng, r.driftBack.min, r.driftBack.max));
+      while (to > 0 && s.config.board.fields[to] === 'river') to -= 1;
+      move(tx, team, to, 'river');
+      feed(tx, '💦', `Platsch! ${teamLabel(team)} fällt ins Wasser und treibt ${pos - to} Felder zurück`, team.id);
+      return 'done';
+    }
+    case 'crater': {
+      const c = rules.crater;
+      if (!c.enabled) return 'done';
+      team.crater = { climbed: 0, need: c.climb };
+      tx.effects.push({ type: 'crater', teamId: team.id, position: pos, result: 'fall', roll: 0, climbed: 0, need: c.climb });
+      feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} rutscht in den Krater! Zum Herausklettern braucht es ${c.climb} Augen`, team.id);
+      return 'done';
     }
     case 'volcano': {
       if (!rules.volcano.enabled) return 'done';
@@ -301,6 +327,25 @@ export function handleDiceCommand(
         } else {
           outcome = `Siegeswurf verfehlt (${total} < ${rules.finalRollMin})`;
           feed(tx, '😬', `${teamLabel(team)} würfelt ${rollText} – knapp vorbei, nächste Runde nochmal!`, team.id);
+        }
+      } else if (team.crater) {
+        // Herausklettern: Augen sammeln, der Rest geht auf dem Weg weiter
+        const c = team.crater;
+        c.climbed += total;
+        if (c.climbed >= c.need) {
+          const rest = c.climbed - c.need;
+          tx.effects.push({ type: 'crater', teamId: team.id, position: team.position, result: 'out', roll: total, climbed: c.need, need: c.need });
+          team.crater = null;
+          feed(tx, '🧗', rest ? `${teamLabel(team)} klettert aus dem Krater und läuft ${rest} Felder weiter` : `${teamLabel(team)} klettert aus dem Krater`, team.id);
+          outcome = rest ? `Aus dem Krater, ${rest} Felder` : 'Aus dem Krater geklettert';
+          if (rest > 0) {
+            advance(tx, team, rest, 'dice');
+            result = checkArrival(tx, team) ? 'finished' : applyField(tx, phase, team);
+          }
+        } else {
+          tx.effects.push({ type: 'crater', teamId: team.id, position: team.position, result: 'climb', roll: total, climbed: c.climbed, need: c.need });
+          feed(tx, '🧗', `${teamLabel(team)} würfelt ${rollText} und klettert – noch ${c.need - c.climbed} Augen bis zum Rand`, team.id);
+          outcome = `Klettert (${c.climbed}/${c.need})`;
         }
       } else if (team.blocked) {
         if (barrierMet(rules.barrier, main)) {

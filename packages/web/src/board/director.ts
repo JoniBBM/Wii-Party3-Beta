@@ -3,7 +3,7 @@
  * (Würfel → Laufen → Sonderfeld → …), führt die Kamera und liefert Einblendungen fürs HUD.
  */
 import * as THREE from 'three';
-import { FIELD_INFO, teamById, teamColor, TEAM_COLORS, type Effect, type GameState } from '@insel/shared';
+import { FIELD_INFO, RIVER, RIVER_FORD, teamById, teamColor, TEAM_COLORS, type Effect, type GameState } from '@insel/shared';
 import type { BoardScene } from './scene.ts';
 
 export interface Caption {
@@ -104,7 +104,7 @@ export class Director {
     }
     this.s.pieces.setActive(null);
     this.s.fields.highlight(null);
-    this.s.rig.set({ kind: 'overview' }, 0.8);
+    this.s.rig.set({ kind: 'overview', tour: true }, 0.7);
   }
 
   enqueue(effects: Effect[]) {
@@ -153,10 +153,79 @@ export class Director {
     this.s.rig.set({ kind: 'follow', target: () => this.s.pieces.worldPos(id), ...opts }, 2.2);
   }
 
+  /** Weg der Strömung ab der Furt flussabwärts (Wasserhöhe, Figur steckt bis zur Brust drin). */
+  private driftPath(): THREE.Vector3[] {
+    const ford = this.s.layout.ford;
+    const pts: THREE.Vector3[] = [];
+    let prev = new THREE.Vector3(ford.x, ford.y, ford.z);
+    let acc = 0;
+    for (let i = RIVER_FORD; i < RIVER.length - 1 && acc < 6.5; i++) {
+      const a = RIVER[i]!;
+      const b = RIVER[i + 1]!;
+      for (let k = 1; k <= 4 && acc < 6.5; k++) {
+        const f = k / 4;
+        const q = new THREE.Vector3(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f - 0.5, a.z + (b.z - a.z) * f);
+        acc += q.distanceTo(prev);
+        prev = q;
+        pts.push(q);
+      }
+    }
+    return pts;
+  }
+
   private async play(e: Effect) {
     const s = this.s;
     const A = s.audio;
     switch (e.type) {
+      case 'river': {
+        const { name, color } = this.teamCaption(e.teamId);
+        s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 6.5, 4.2) }, 2.2);
+        this.say({ icon: '🛢️', title: 'Wackelige Fässer!', sub: `${name} muss balancieren …`, tone: 'team', color }, 1900);
+        A.creak();
+        await s.pieces.wobble(e.teamId, 1.4);
+        if (e.result === 'safe') {
+          s.pieces.setMode(e.teamId, 'cheer');
+          A.play('jingle-good');
+          this.say({ icon: '😅', title: 'Gerade noch mal gut gegangen!', sub: `${name} hält das Gleichgewicht`, tone: 'good', color }, 2200);
+          await s.tweens.wait(800);
+          s.pieces.setMode(e.teamId, 'idle');
+        } else {
+          this.say({ icon: '💦', title: 'Platsch!', sub: `${name} fällt in den Fluss und treibt ab`, tone: 'bad', color }, 3200);
+          await s.pieces.tumbleIntoWater(e.teamId, s.layout.ford.y);
+          const p = s.pieces.worldPos(e.teamId);
+          A.splash();
+          if (p) s.effects.splash(p.x, s.layout.ford.y, p.z, false);
+          await s.tweens.wait(300);
+        }
+        return;
+      }
+      case 'crater': {
+        const { name, color } = this.teamCaption(e.teamId);
+        s.rig.set({ kind: 'focus', ...s.rig.craterShot() }, 2);
+        if (e.result === 'fall') {
+          this.say({ icon: '🕳️', title: 'Ab in den Krater!', sub: `${name} muss ${e.need} Augen sammeln, um herauszuklettern`, tone: 'bad', color }, 3400);
+          A.play('whoosh-down');
+          await s.pieces.fallIntoCrater(e.teamId);
+          A.play('thud');
+          s.rig.shake(0.12, 0.4);
+          const p = s.pieces.worldPos(e.teamId);
+          if (p) s.effects.dust(p.x, p.y, p.z, new THREE.Color('#7a6a60'), 14);
+          await s.tweens.wait(500);
+        } else if (e.result === 'climb') {
+          this.say({ icon: '🧗', title: `${name} klettert …`, sub: `${e.climbed} von ${e.need} Augen – noch ${e.need - e.climbed}`, tone: 'team', color }, 2400);
+          A.play('tick', { volume: 0.6 });
+          await s.pieces.climb(e.teamId, e.climbed / Math.max(1, e.need));
+        } else {
+          this.say({ icon: '🧗', title: `${name} ist wieder draußen!`, tone: 'good', color }, 2200);
+          A.play('confirm');
+          await s.pieces.climbOut(e.teamId);
+          const p = s.pieces.worldPos(e.teamId);
+          if (p) s.effects.sparkle(p.x, p.y, p.z, new THREE.Color('#ffd27a'));
+          await s.tweens.wait(300);
+          s.pieces.setMode(e.teamId, 'idle');
+        }
+        return;
+      }
       case 'turn': {
         const { name, color } = this.teamCaption(e.teamId);
         s.pieces.setActive(e.teamId);
@@ -180,6 +249,11 @@ export class Director {
         return;
       }
       case 'move': {
+        if (e.reason === 'river') {
+          this.follow(e.teamId, { distance: 13, height: 8 });
+          await s.pieces.drift(e.teamId, this.driftPath(), e.to);
+          return;
+        }
         if (e.reason === 'catapult' || e.reason === 'eruption' || e.reason === 'swap') {
           this.follow(e.teamId, { distance: 14, height: 9 });
           A.play(e.to > e.from ? 'whoosh-up' : 'whoosh-down');

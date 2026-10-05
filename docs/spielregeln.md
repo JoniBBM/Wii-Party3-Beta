@@ -2,7 +2,9 @@
 
 ## Ziel
 
-Alle Teams starten am **Hafen** (Feld 0). Der Weg führt über den Strand, durch den Dschungel, über die Hängebrücke, an den Klippen entlang über die Hochebene und spiralförmig den **Vulkan** hinauf. Wer den **Gipfel** (Standard: Feld 72) erreicht und dann noch den **Siegeswurf** schafft, gewinnt.
+Alle Teams starten im **Hafendorf** (Feld 0). Der Weg führt über den Strand, durch die Tempelruinen, an der Lagune vorbei in den Dschungel und am Fluss entlang, über die **Fässer in der Furt**, hinauf zum Leuchtturm, über die **Hängebrücke** an der Schlucht, an der Steilküste entlang über die Hochebene mit den Steinköpfen und in **Serpentinen den Vulkan** hinauf. Oben geht es am **Kraterrand** entlang zum **Gipfel** (Standard: Feld 72). Wer ihn erreicht und dann noch den **Siegeswurf** schafft, gewinnt.
+
+![Die Insel](bilder/insel-gesamt.webp)
 
 ## Ablauf einer Runde
 
@@ -41,10 +43,25 @@ Bei Fragen gibt es Bonuswürfel standardmäßig **nur für richtige Antworten** 
 
 Alle Werte lassen sich unter *Spiel einrichten → Regeln* ändern.
 
+## Gefahren der Insel
+
+Zwei Stellen gehören fest zur Insel. Sie liegen immer an derselben Stelle der Karte, egal wie viele Felder das Brett hat, und lassen sich im Editor nicht verschieben. In den Regeln kann man sie abschalten oder entschärfen.
+
+| Feld | Wirkung (Standardwerte) |
+|---|---|
+| 🛢️ **Fässer im Fluss** (türkis) | Der Weg führt über große Fässer durch die Furt. Wer auf einem Fass **stehen bleibt**, muss balancieren: Mit **50 %** Wahrscheinlichkeit fällt das Team ins Wasser und **treibt 2–4 Felder** flussabwärts zurück, mindestens bis vor die Furt. Wer nur darüber hinwegzieht, bleibt trocken. |
+| 🕳️ **Kraterloch** (orange-rot, kurz vor dem Gipfel) | Wer hier **stehen bleibt**, rutscht in den Krater. Ab dem nächsten Zug klettert das Team heraus: Es braucht **insgesamt 8 Augen** (Würfel + Bonuswürfel, über mehrere Würfe gesammelt). Was beim letzten Wurf übrig bleibt, läuft das Team direkt weiter. Ein Vulkanausbruch schleudert Teams aus dem Krater mit heraus. |
+
+![Fässer im Fluss](bilder/beamer-furt.webp)
+
+![Klettern im Krater](bilder/beamer-krater.webp)
+
+Die Regie kann ein Team jederzeit aus dem Krater holen (*Teams → Team antippen → Aus dem Krater holen*), genau wie aus einer Sperre.
+
 ## Der Vulkan
 
 - Der Vulkandruck steigt **jede Runde um 1** und **auf Vulkanfeldern um 2**.
-- Erreicht er das Maximum (Standard **6**), **bricht der Vulkan aus**: Alle Teams auf den **letzten 12 Feldern** vor und auf dem Gipfel werden **3–6 Felder zurückgeschleudert**. Danach beginnt der Druck wieder bei 0.
+- Erreicht er das Maximum (Standard **6**), **bricht der Vulkan aus**: Alle Teams auf den **letzten 12 Feldern** vor und auf dem Gipfel werden **3–6 Felder zurückgeschleudert** – auch Teams, die gerade im Krater festsitzen. Danach beginnt der Druck wieder bei 0.
 - Den aktuellen Druck zeigen Beamer, Regie und Handys an.
 
 ## Sieg

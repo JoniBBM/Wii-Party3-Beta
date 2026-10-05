@@ -86,6 +86,11 @@ function RollPanel({ state, me }: { state: GameState; me: Me }) {
     <Card className="flex flex-col items-center gap-4 overflow-hidden p-6 text-center">
       <p className="font-display text-3xl font-semibold">Ihr seid dran!</p>
       {team.blocked && <p className="rounded-2xl bg-warn-soft px-3 py-2 font-bold">🚧 Ihr steckt fest. Zum Befreien braucht ihr {barrierText(rules.barrier)}.</p>}
+      {team.crater && (
+        <p className="rounded-2xl bg-warn-soft px-3 py-2 font-bold">
+          🕳️ Ihr hängt im Krater! Noch {team.crater.need - team.crater.climbed} Augen bis zum Rand – was übrig bleibt, lauft ihr weiter.
+        </p>
+      )}
       {rules.winRule === 'final_roll' && team.position === goal && (
         <p className="rounded-2xl bg-gold/25 px-3 py-2 font-bold">🏆 Siegeswurf! Ihr braucht mindestens eine {rules.finalRollMin}.</p>
       )}

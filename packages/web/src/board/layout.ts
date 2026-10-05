@@ -1,9 +1,24 @@
 /**
- * Inselplan (reine Mathematik, ohne Three.js): Weg vom Hafen über Strand, Dschungel,
- * Flussbrücke, Klippen und Hochebene bis spiralförmig auf den Vulkangipfel.
- * Felder werden gleichmäßig entlang des Weges verteilt – für jede Brettlänge.
- * Koordinaten: x = Osten, z = Süden (zur Kamera), y = oben. Meeresspiegel y = 0.
+ * 3D-Inselplan: der gemeinsame 2D-Plan (Weg, Fluss, Schlucht, Vulkan) plus Höhen.
+ * Der Weg folgt dem natürlichen Gelände (geglättet, am Vulkan stetig steigend), liegt in der
+ * Furt auf den Fässern, auf der Hängebrücke über der Schlucht und oben auf dem Kraterrand.
  */
+import {
+  buildIslandPlan,
+  fieldRadiusFor,
+  HARBOR,
+  RIVER,
+  RIVER_FORD,
+  RIVER_LIP,
+  RIVER_POOL,
+  VOLCANO,
+  type IslandPlan,
+  type RiverPoint,
+  type Zone,
+} from '@insel/shared';
+import { crestHeight, natural } from './ground.ts';
+
+export type { Zone } from '@insel/shared';
 
 export interface P3 {
   x: number;
@@ -11,210 +26,184 @@ export interface P3 {
   z: number;
 }
 
-export type Zone = 'harbor' | 'beach' | 'jungle' | 'river' | 'cliffs' | 'plateau' | 'volcano' | 'summit';
-
 export interface FieldSpot extends P3 {
   /** Laufrichtung (Radiant, um die y-Achse; 0 = +x). */
   heading: number;
   zone: Zone;
   /** 0..1 entlang des Weges */
   t: number;
+  s: number;
+  /** liegt auf einem Fass-Floß im Fluss */
+  ford: boolean;
+  /** liegt auf der Hängebrücke */
+  bridge: boolean;
+}
+
+export interface PathPoint extends P3 {
+  t: number;
+  s: number;
+  zone: Zone;
 }
 
 export interface IslandLayout {
+  plan: IslandPlan;
   fields: FieldSpot[];
-  /** Dichter Polygonzug des Weges (für Pfad, Gelände, Editor). */
-  path: (P3 & { t: number })[];
-  volcano: { x: number; z: number; height: number; craterRadius: number; baseRadius: number };
-  river: { x: number; z: number }[];
-  bridge: { x: number; z: number; y: number; heading: number; length: number };
+  path: PathPoint[];
+  volcano: typeof VOLCANO;
+  river: RiverPoint[];
+  /** Furt: Wasserspiegel und Oberkante der Fass-Flöße */
+  ford: IslandPlan['ford'] & { raftY: number };
+  /** Hängebrücke über die Schlucht (Endpunkte mit Höhe) */
+  bridge: IslandPlan['bridge'] & { a: P3; b: P3; length: number };
   harbor: { x: number; z: number; heading: number };
   fieldRadius: number;
-  islandRadius: number;
+  fordFields: number[];
+  craterField: number;
+  /** Weghöhe an Bogenlänge s */
+  pathY: (s: number) => number;
 }
 
-/** Maßstab der Insel (Entwurf in „Planeinheiten“, Spielwelt etwas kompakter). */
-const S = 0.62;
-
-export const VOLCANO = { x: 1.2, z: -3.8, height: 15, craterRadius: 2.9, baseRadius: 15.5 };
-
-/** Kontrollpunkte des Weges um die Insel (ohne Vulkanspirale). */
-const RING: [number, number, number, Zone][] = [
-  [-27, 1.25, 33, 'harbor'],
-  [-19, 1.35, 36.5, 'beach'],
-  [-8, 1.4, 38.5, 'beach'],
-  [4, 1.45, 38, 'beach'],
-  [16, 1.6, 34.5, 'beach'],
-  [27, 2.4, 27, 'jungle'],
-  [34.5, 3.2, 16, 'jungle'],
-  [37, 3.6, 3, 'jungle'],
-  [33.5, 3.9, -9, 'river'],
-  [26, 4.2, -19.5, 'river'],
-  [15, 5.0, -28, 'cliffs'],
-  [2, 5.8, -32.5, 'cliffs'],
-  [-12, 6.3, -30.5, 'cliffs'],
-  [-24, 6.6, -23, 'plateau'],
-  [-32, 6.8, -11, 'plateau'],
-  [-33, 7.0, 2, 'plateau'],
-  [-27, 7.4, 13, 'plateau'],
-];
-
-function catmullRom(p0: P3, p1: P3, p2: P3, p3: P3, t: number): P3 {
-  const t2 = t * t;
-  const t3 = t2 * t;
-  const f = (a: number, b: number, c: number, d: number) =>
-    0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
-  return { x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y), z: f(p0.z, p1.z, p2.z, p3.z) };
-}
-
-function controlPoints(): { p: P3; zone: Zone }[] {
-  const pts = RING.map(([x, y, z, zone]) => ({ p: { x: x * S, y: y * 0.72, z: z * S }, zone }));
-  // Spirale um den Vulkan: vom Westen kommend, gegen den Uhrzeigersinn (Winkel nimmt ab) nach oben.
-  const last = pts[pts.length - 1]!.p;
-  const a0 = Math.atan2(last.z - VOLCANO.z, last.x - VOLCANO.x);
-  const r0 = Math.hypot(last.x - VOLCANO.x, last.z - VOLCANO.z);
-  const turns = 1.08;
-  const steps = 12;
-  const startY = last.y;
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    const ease = t;
-    const a = a0 - ease * turns * Math.PI * 2;
-    const r = r0 + (VOLCANO.craterRadius + 1.1 - r0) * Math.pow(ease, 0.8);
-    const y = startY + (VOLCANO.height - startY + 0.12) * Math.pow(ease, 1.1);
-    pts.push({ p: { x: VOLCANO.x + Math.cos(a) * r, y, z: VOLCANO.z + Math.sin(a) * r }, zone: i === steps ? 'summit' : 'volcano' });
-  }
-  return pts;
-}
-
-function zoneAt(cps: { zone: Zone }[], segment: number): Zone {
-  return cps[Math.min(cps.length - 1, Math.max(0, segment))]!.zone;
-}
+/** Wasserspiegel der Furt + Höhe der Fässer */
+export const RAFT_TOP = 0.46;
 
 const cache = new Map<number, IslandLayout>();
+
+function pathHeights(plan: IslandPlan): number[] {
+  const { path, ford, bridge, rim } = plan;
+  const n = path.length;
+  const raw = path.map((p) => natural(p.x, p.z));
+  // Wasserstellen erst einmal überbrücken (linear zwischen den Ufern)
+  const bridgeOver = (y: number[], s0: number, s1: number) => {
+    const i0 = path.findIndex((p) => p.s >= s0);
+    let i1 = path.findIndex((p) => p.s > s1);
+    if (i1 < 0) i1 = n - 1;
+    const a = y[Math.max(0, i0 - 1)]!;
+    const b = y[i1]!;
+    for (let i = i0; i < i1; i++) y[i] = a + (b - a) * ((path[i]!.s - s0) / Math.max(1e-6, s1 - s0));
+  };
+  bridgeOver(raw, ford.s0 - 1.5, ford.s1 + 1.5);
+  bridgeOver(raw, bridge.s0, bridge.s1);
+
+  // Glätten (gaußförmig, ±5 m)
+  const ds = path[1]!.s - path[0]!.s || 0.25;
+  const R = Math.round(5 / ds);
+  const weights = Array.from({ length: R * 2 + 1 }, (_, k) => Math.exp(-((((k - R) * ds) / 2.6) ** 2)));
+  let y = raw.map((_, i) => {
+    let sum = 0;
+    let wsum = 0;
+    for (let k = -R; k <= R; k++) {
+      const j = i + k;
+      if (j < 0 || j >= n) continue;
+      const w = weights[k + R]!;
+      sum += raw[j]! * w;
+      wsum += w;
+    }
+    return sum / wsum;
+  });
+  // Nie unter Wasser, am Strand knapp über dem Sand
+  y = y.map((v) => Math.max(v, 0.95));
+
+  // Vulkan: ab dem Fuß des Bergs nur noch bergauf; oben auf dem Kraterkamm
+  const climb0 = path.findIndex((p) => p.zone === 'volcano');
+  const rimStart = path.findIndex((p) => p.s >= rim.s0);
+  for (let i = Math.max(1, climb0); i < n; i++) y[i] = Math.max(y[i]!, y[i - 1]!);
+  // Serpentinen: gleichmäßige Steigung vom Fuß des Kegels bis zum Kraterrand
+  // (das Gelände wird dafür terrassiert – keine steilen Stufen in den Kehren)
+  const climbA = path.findIndex((p, i) => i >= climb0 && Math.hypot(p.x - VOLCANO.x, p.z - VOLCANO.z) < 17.4);
+  const crest0 = crestHeight(Math.atan2(path[rimStart]!.z - VOLCANO.z, path[rimStart]!.x - VOLCANO.x)) + 0.06;
+  const yA = y[climbA]!;
+  const sA = path[climbA]!.s;
+  const sR = path[rimStart]!.s;
+  for (let i = climbA; i < rimStart; i++) {
+    const u = (path[i]!.s - sA) / (sR - sA);
+    const e = 0.75 * u + 0.25 * u * u * (3 - 2 * u);
+    y[i] = yA + (crest0 - yA) * e;
+  }
+  const crestAt = (i: number) => {
+    const p = path[i]!;
+    return crestHeight(Math.atan2(p.z - VOLCANO.z, p.x - VOLCANO.x)) + 0.06;
+  };
+  for (let i = rimStart; i < n; i++) y[i] = crestAt(i);
+
+  // Furt: auf den Fässern (Wasserspiegel + Fass), an den Ufern weich anschließen
+  const raftY = ford.y + RAFT_TOP;
+  for (let i = 0; i < n; i++) {
+    const s = path[i]!.s;
+    const inside = Math.min(s - ford.s0, ford.s1 - s);
+    if (inside > -1.6) {
+      const k = Math.min(1, Math.max(0, (inside + 1.6) / 1.6));
+      y[i] = y[i]! + (raftY - y[i]!) * k;
+    }
+  }
+  // Hängebrücke: gerade zwischen den Klippen mit leichtem Durchhang
+  const i0 = path.findIndex((p) => p.s >= bridge.s0);
+  const i1 = path.findIndex((p) => p.s >= bridge.s1);
+  const ya = y[i0]!;
+  const yb = y[i1]!;
+  for (let i = i0; i <= i1; i++) {
+    const u = (path[i]!.s - bridge.s0) / (bridge.s1 - bridge.s0);
+    y[i] = ya + (yb - ya) * u - Math.sin(u * Math.PI) * 0.35;
+  }
+  return y;
+}
 
 export function buildLayout(fieldCount: number): IslandLayout {
   const hit = cache.get(fieldCount);
   if (hit) return hit;
-  const cps = controlPoints();
-  const P = cps.map((c) => c.p);
-  // Dicht abtasten
-  const dense: (P3 & { seg: number })[] = [];
-  const perSeg = 40;
-  for (let i = 0; i < P.length - 1; i++) {
-    const p0 = P[Math.max(0, i - 1)]!;
-    const p1 = P[i]!;
-    const p2 = P[i + 1]!;
-    const p3 = P[Math.min(P.length - 1, i + 2)]!;
-    for (let s = 0; s < perSeg; s++) dense.push({ ...catmullRom(p0, p1, p2, p3, s / perSeg), seg: i + (s >= perSeg / 2 ? 1 : 0) });
-  }
-  dense.push({ ...P[P.length - 1]!, seg: P.length - 1 });
-
-  // Bogenlänge; Höhenunterschiede zählen weniger (Felder am Berg nicht zu weit auseinander).
-  const len: number[] = [0];
-  for (let i = 1; i < dense.length; i++) {
-    const a = dense[i - 1]!;
-    const b = dense[i]!;
-    len.push(len[i - 1]! + Math.hypot(b.x - a.x, (b.y - a.y) * 0.45, b.z - a.z));
-  }
-  const total = len[len.length - 1]!;
-  const path = dense.map((d, i) => ({ x: d.x, y: d.y, z: d.z, t: len[i]! / total }));
-
-  const sampleAt = (target: number) => {
+  const plan = buildIslandPlan(fieldCount);
+  const ys = pathHeights(plan);
+  const path: PathPoint[] = plan.path.map((p, i) => ({ x: p.x, y: ys[i]!, z: p.z, s: p.s, t: p.t, zone: p.zone }));
+  const pathY = (s: number) => {
     let lo = 0;
-    let hi = len.length - 1;
+    let hi = path.length - 1;
+    s = Math.max(0, Math.min(path[hi]!.s, s));
     while (hi - lo > 1) {
       const mid = (lo + hi) >> 1;
-      if (len[mid]! < target) lo = mid;
+      if (path[mid]!.s < s) lo = mid;
       else hi = mid;
     }
-    const a = dense[lo]!;
-    const b = dense[hi]!;
-    const f = (target - len[lo]!) / Math.max(1e-6, len[hi]! - len[lo]!);
-    return {
-      x: a.x + (b.x - a.x) * f,
-      y: a.y + (b.y - a.y) * f,
-      z: a.z + (b.z - a.z) * f,
-      heading: Math.atan2(b.z - a.z, b.x - a.x),
-      seg: f < 0.5 ? a.seg : b.seg,
-    };
+    const a = path[lo]!;
+    const b = path[hi]!;
+    return a.y + (b.y - a.y) * ((s - a.s) / Math.max(1e-6, b.s - a.s));
   };
-
-  const fields: FieldSpot[] = [];
-  for (let i = 0; i < fieldCount; i++) {
-    const t = fieldCount === 1 ? 0 : i / (fieldCount - 1);
-    const s = sampleAt(t * total);
-    let zone = zoneAt(cps, s.seg);
-    if (i === 0) zone = 'harbor';
-    if (i === fieldCount - 1) zone = 'summit';
-    fields.push({ x: s.x, y: s.y, z: s.z, heading: s.heading, zone, t });
-  }
-  // Ziel exakt auf dem Gipfelplateau
-  const goal = fields[fieldCount - 1]!;
-  goal.y = VOLCANO.height + 0.12;
-
-  const spacing = total / Math.max(1, fieldCount - 1);
-  // Fluss: von der Bergflanke nach Nordosten ins Meer, kreuzt den Weg zwischen Dschungel und Klippen.
-  const river = [
-    { x: 14, z: -12 },
-    { x: 20, z: -11 },
-    { x: 26.5, z: -13.5 },
-    { x: 31, z: -15 },
-    { x: 37, z: -19 },
-    { x: 44, z: -24 },
-    { x: 52, z: -28 },
-  ].map((p) => ({ x: p.x * S, z: p.z * S }));
-  // Brücke dort, wo der Weg dem Fluss am nächsten kommt (= Kreuzung)
-  const distToRiver = (x: number, z: number) => {
-    let d = Infinity;
-    for (let i = 0; i < river.length - 1; i++) {
-      const a = river[i]!;
-      const b = river[i + 1]!;
-      const abx = b.x - a.x;
-      const abz = b.z - a.z;
-      const f = Math.max(0, Math.min(1, ((x - a.x) * abx + (z - a.z) * abz) / (abx * abx + abz * abz)));
-      d = Math.min(d, Math.hypot(x - (a.x + abx * f), z - (a.z + abz * f)));
-    }
-    return d;
-  };
-  let best = { d: Infinity, i: 0 };
-  path.forEach((p, i) => {
-    const d = distToRiver(p.x, p.z);
-    if (d < best.d) best = { d, i };
-  });
-  const bp = path[best.i]!;
-  const bn = path[Math.min(path.length - 1, best.i + 3)]!;
-
+  const fields: FieldSpot[] = plan.fields.map((f) => ({ ...f, y: pathY(f.s) }));
+  const bp0 = path.find((p) => p.s >= plan.bridge.s0)!;
+  const bp1 = path.find((p) => p.s >= plan.bridge.s1) ?? path[path.length - 1]!;
+  const start = fields[0]!;
   const layout: IslandLayout = {
+    plan,
     fields,
     path,
     volcano: { ...VOLCANO },
-    river,
-    bridge: { x: bp.x, z: bp.z, y: bp.y, heading: Math.atan2(bn.z - bp.z, bn.x - bp.x), length: 4.6 },
-    harbor: { x: -31 * S, z: 36.5 * S, heading: Math.atan2(36.5 - 33, -31 + 27) },
-    fieldRadius: Math.max(0.55, Math.min(1.05, spacing * 0.34)),
-    islandRadius: 30,
+    river: RIVER,
+    ford: { ...plan.ford, raftY: plan.ford.y + RAFT_TOP },
+    bridge: {
+      ...plan.bridge,
+      a: { x: bp0.x, y: bp0.y, z: bp0.z },
+      b: { x: bp1.x, y: bp1.y, z: bp1.z },
+      length: plan.bridge.s1 - plan.bridge.s0,
+    },
+    harbor: { x: HARBOR.dockX, z: HARBOR.dockZ, heading: Math.atan2(HARBOR.dockZ - start.z, HARBOR.dockX - start.x) },
+    fieldRadius: fieldRadiusFor(plan),
+    fordFields: plan.fordFields,
+    craterField: plan.craterField,
+    pathY,
   };
   cache.set(fieldCount, layout);
   return layout;
 }
 
-/** Kürzester Abstand eines Punktes (x, z) zum Weg, plus Weghöhe dort. */
-export function nearestOnPath(layout: IslandLayout, x: number, z: number): { d: number; y: number; t: number } {
-  let best = { d: Infinity, y: 0, t: 0 };
-  const path = layout.path;
-  for (let i = 0; i < path.length - 1; i += 1) {
-    const a = path[i]!;
-    const b = path[i + 1]!;
-    const abx = b.x - a.x;
-    const abz = b.z - a.z;
-    const l2 = abx * abx + abz * abz || 1e-6;
-    let f = ((x - a.x) * abx + (z - a.z) * abz) / l2;
-    f = Math.max(0, Math.min(1, f));
-    const px = a.x + abx * f;
-    const pz = a.z + abz * f;
-    const d = Math.hypot(x - px, z - pz);
-    if (d < best.d) best = { d, y: a.y + (b.y - a.y) * f, t: a.t + (b.t - a.t) * f };
+/** Wasserspiegel des Flusses an einem Punkt der Mittellinie (Index i, Anteil f) – mit Wasserfall. */
+export function riverLevelAt(i: number, f: number): number {
+  const a = RIVER[i]!;
+  const b = RIVER[i + 1] ?? a;
+  if (i === RIVER_LIP) {
+    // Kante → Becken: bis kurz vor den Beckenrand oben, dann senkrecht hinunter
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    const fall = 1 - (b.w * 0.92) / len;
+    return f < fall ? a.y : b.y;
   }
-  return best;
+  return a.y + (b.y - a.y) * f;
 }
+
+export { RIVER_FORD, RIVER_LIP, RIVER_POOL };

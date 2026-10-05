@@ -152,6 +152,29 @@ export function RulesEditor({ rules, onChange }: { rules: Rules; onChange: (r: R
           </Row>
         </>
       )}
+      <Row title="🛢️ Fässer im Fluss" hint="Wer in der Furt auf einem Fass landet, kann ins Wasser fallen.">
+        <Switch checked={rules.river.enabled} onChange={(v) => set('river', { ...rules.river, enabled: v })} />
+      </Row>
+      {rules.river.enabled && (
+        <Row title="Sturzgefahr & Abtreiben" hint="Wahrscheinlichkeit in % · so viele Felder treibt die Strömung zurück">
+          <select className="field w-auto" value={rules.river.fallChance} onChange={(e) => set('river', { ...rules.river, fallChance: Number(e.target.value) })}>
+            {[25, 33, 50, 67, 75, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} %
+              </option>
+            ))}
+          </select>
+          <RangeInput value={rules.river.driftBack} onChange={(v) => set('river', { ...rules.river, driftBack: v })} min={1} max={12} />
+        </Row>
+      )}
+      <Row title="🕳️ Kraterloch" hint="Am Kraterrand fällt man in den Krater und muss Augen sammeln, um herauszuklettern.">
+        <Switch checked={rules.crater.enabled} onChange={(v) => set('crater', { ...rules.crater, enabled: v })} />
+      </Row>
+      {rules.crater.enabled && (
+        <Row title="Augen zum Herausklettern" hint="Über mehrere Würfe gesammelt; was übrig bleibt, geht es weiter.">
+          <NumberStepper value={rules.crater.climb} min={2} max={30} onChange={(v) => set('crater', { ...rules.crater, climb: v })} />
+        </Row>
+      )}
       <Row title="Antworten automatisch schließen" hint="Sobald alle Teams geantwortet haben">
         <Switch checked={rules.autoCloseWhenAllAnswered} onChange={(v) => set('autoCloseWhenAllAnswered', v)} />
       </Row>

@@ -130,7 +130,12 @@ export function SettingsPage() {
         </div>
       </Card>
 
-      <p className="text-center text-xs text-muted">Version {info?.version}</p>
+      <p className="text-center text-xs text-muted">
+        Version {info?.version} · 3D-Modelle und Klänge: Kenney, Quaternius, Poly Haven (CC0) sowie einige Tiere von Poly by Google u. a. (CC BY 3.0) –{' '}
+        <a className="underline" href="/assets/LICENSES.md" target="_blank" rel="noreferrer">
+          Lizenzen & Namensnennung
+        </a>
+      </p>
 
       <Modal open={!!modLink} onClose={() => setModLink(null)} title="Moderator verbinden" size="sm">
         {modLink && (

@@ -95,6 +95,7 @@ function handleGameCommand(
           t.position = 0;
           t.bonusDie = 0;
           t.blocked = null;
+          t.crater = null;
         }
         for (const p of s.players) p.playCount = 0;
       }
@@ -111,7 +112,11 @@ function handleGameCommand(
     case 'config.update': {
       s.config = clone(cmd.config);
       const goal = goalOf(s);
-      for (const t of s.teams) t.position = Math.min(t.position, goal);
+      for (const t of s.teams) {
+        t.position = Math.min(t.position, goal);
+        // Krater verschoben oder abgeschaltet → Team ist nicht mehr gefangen
+        if (t.crater && (s.config.board.fields[t.position] !== 'crater' || !s.config.rules.crater.enabled)) t.crater = null;
+      }
       s.volcano.pressure = Math.min(s.volcano.pressure, s.config.rules.volcano.threshold);
       s.planIndex = Math.min(s.planIndex, s.config.plan.length);
       tx.label = 'Einstellungen geändert';

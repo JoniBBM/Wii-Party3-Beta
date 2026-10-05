@@ -228,6 +228,16 @@ export class Effects {
     });
   }
 
+  /** Wasser spritzt (Delfinsprung, Walfontäne, Sturz in den Fluss) */
+  splash(x: number, y: number, z: number, big = false) {
+    const n = big ? 46 : 20;
+    this.smoke.emit(n, (p) => {
+      const a = Math.random() * Math.PI * 2;
+      const s = big ? rnd(0.3, 1.1) : rnd(0.6, 2.2);
+      Object.assign(p, { x, y: y + 0.1, z, vx: Math.cos(a) * s, vy: big ? rnd(5, 9) : rnd(2.5, 5), vz: Math.sin(a) * s, maxLife: big ? rnd(1.4, 2.4) : rnd(0.7, 1.2), size: rnd(0.3, 0.6) * (big ? 1.7 : 1), sizeEnd: rnd(0.9, 1.5) * (big ? 2.2 : 1), r: 0.97, g: 0.99, b: 1, alpha: 0.8, gravity: big ? 3.5 : 9, drag: 0.6 });
+    });
+  }
+
   /** Rauch aus dem Krater (je nach Druck dichter und dunkler) */
   volcanoSmoke(x: number, y: number, z: number, intensity: number) {
     const dark = 0.35 + (1 - intensity) * 0.45;

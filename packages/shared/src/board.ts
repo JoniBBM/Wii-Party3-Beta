@@ -4,6 +4,7 @@
  * (Editor oder „Neu verteilen“) geändert – nie zufällig während des Spiels.
  */
 import type { FieldType } from './constants.ts';
+import { islandLandmarks } from './island.ts';
 import { seededRng, randInt } from './rng.ts';
 import type { BoardConfig } from './types.ts';
 
@@ -36,6 +37,10 @@ export function generateBoard(goal: number = DEFAULT_GOAL, seed = 1, counts = de
   const fields: FieldType[] = Array.from({ length: goal + 1 }, () => 'normal');
   fields[0] = 'start';
   fields[goal] = 'goal';
+  // Fässer in der Furt und das Kraterloch liegen fest, wo die Insel sie vorgibt.
+  const marks = islandLandmarks(goal);
+  for (const i of marks.river) fields[i] = 'river';
+  for (const i of marks.crater) fields[i] = 'crater';
 
   const wants: Want[] = [];
   const add = (type: FieldType, count: number, from: number, to: number) => {

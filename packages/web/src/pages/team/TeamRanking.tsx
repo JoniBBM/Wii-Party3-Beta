@@ -19,6 +19,7 @@ export function TeamRanking({ state, teamId }: { state: GameState; teamId: strin
                 <div className="flex items-center gap-1.5">
                   <TeamChip team={team} size="sm" />
                   {team.blocked && <span title="gesperrt">🚧</span>}
+                  {team.crater && <span title="im Krater">🕳️</span>}
                   <BonusDieBadge sides={team.bonusDie} />
                 </div>
                 <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-bg-2">

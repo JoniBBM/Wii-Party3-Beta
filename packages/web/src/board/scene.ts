@@ -7,6 +7,8 @@ import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import {
   BloomEffect,
+  BrightnessContrastEffect,
+  HueSaturationEffect,
   EffectComposer,
   EffectPass,
   RenderPass,
@@ -27,20 +29,28 @@ import { buildFields, type FieldMeshes } from './fields.ts';
 import { buildLayout, type IslandLayout } from './layout.ts';
 import { Effects } from './particles.ts';
 import { Pieces } from './pieces.ts';
-import { buildProps } from './props.ts';
-import { buildHeightfield, buildTerrainMesh, heightTexture, riverLevel } from './terrain.ts';
+import { buildProps, type Props } from './props.ts';
+import { buildGrass } from './grass.ts';
+import { createAmbient, type Ambient } from './ambient.ts';
+import { buildAnimals, type AnimalWorld } from './animals.ts';
+import { buildHeightfield, buildTerrainMesh, heightTexture, terrainColorSampler } from './terrain.ts';
 import { Tweens } from './tweens.ts';
 import { buildVolcano, type VolcanoFx } from './volcano.ts';
-import { createRiver, createWater, type Water } from './water.ts';
+import { createRiver, createWater, type RiverFx, type Water } from './water.ts';
+import { fx } from './worldfx.ts';
+import { createSky, type Sky } from './sky.ts';
 
 export type Quality = 'beauty' | 'fast';
 
 const PRESETS = {
-  beauty: { pixelRatio: 2, shadow: 4096, terrain: 256, water: 180, density: 1, post: true },
-  fast: { pixelRatio: 1, shadow: 1536, terrain: 150, water: 72, density: 0.5, post: false },
+  beauty: { pixelRatio: 2, shadow: 4096, terrain: 384, water: 260, density: 1, grass: 20000, post: true },
+  fast: { pixelRatio: 1, shadow: 2048, terrain: 220, water: 110, density: 0.5, grass: 5000, post: false },
 } as const;
 
 const HORIZON = new THREE.Color('#bfe3f7');
+
+/** Nur zum Messen: ?perf=nomsaa,noao,nograss,nopost,shadow2048 */
+const PERF = new Set((new URLSearchParams(location.search).get('perf') ?? '').split(','));
 
 export interface BoardSceneOptions {
   quality: Quality;
@@ -63,6 +73,11 @@ export class BoardScene {
   dice!: DiceOverlay;
   director!: Director;
   private water!: Water;
+  private river!: RiverFx;
+  private sky!: Sky;
+  private props: Props | null = null;
+  private ambient: Ambient | null = null;
+  private animals: AnimalWorld | null = null;
   private composer: EffectComposer | null = null;
   private ao: N8AOPostPass | null = null;
   private labels: CSS2DRenderer;
@@ -120,16 +135,16 @@ export class BoardScene {
     const layout = this.layout;
 
     // Licht
-    this.scene.fog = new THREE.Fog(HORIZON, 110, 330);
+    this.scene.fog = new THREE.Fog(HORIZON, 140, 420);
     const hemi = new THREE.HemisphereLight('#dff2ff', '#86b06a', 0.9);
     this.scene.add(hemi);
     this.sun = new THREE.DirectionalLight('#fff1d6', 3.1);
-    this.sun.position.set(38, 55, 26);
+    this.sun.position.set(-44, 46, 36);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(preset.shadow, preset.shadow);
     const sc = this.sun.shadow.camera;
-    sc.left = sc.bottom = -40;
-    sc.right = sc.top = 40;
+    sc.left = sc.bottom = -58;
+    sc.right = sc.top = 58;
     sc.near = 10;
     sc.far = 160;
     this.sun.shadow.bias = -0.0004;
@@ -146,23 +161,29 @@ export class BoardScene {
       const env = pmrem.fromEquirectangular(hdr).texture;
       this.scene.environment = env;
       this.scene.environmentIntensity = 0.55;
-      this.scene.background = hdr;
-      this.scene.backgroundIntensity = 0.95;
-      this.scene.backgroundRotation.y = 1.2;
+      hdr.dispose();
       pmrem.dispose();
     } catch {
-      this.scene.background = HORIZON;
+      /* ohne Umgebungslicht geht es auch */
     }
+    this.scene.background = HORIZON;
+    this.sky = createSky({ horizon: HORIZON, sunDir: this.sun.position, clouds: opts.quality === 'beauty' ? 16 : 9 });
+    this.scene.add(this.sky.group);
 
     // Gelände & Wasser
     progress(0.25, 'Insel wird geformt …');
     await nextFrame();
     const field = buildHeightfield(layout, preset.terrain);
-    this.scene.add(buildTerrainMesh(layout, field));
-    this.water = createWater(heightTexture(field), { segments: preset.water, fog: HORIZON, fogNear: 110, fogFar: 330 });
+    let hTexCache: THREE.DataTexture | null = null;
+    const heightTex0 = () => (hTexCache ??= heightTexture(field));
+    const terrain = buildTerrainMesh(layout, field);
+    this.scene.add(terrain);
+    this.water = createWater(heightTex0(), { segments: preset.water, fog: HORIZON, fogNear: 140, fogFar: 420 });
     this.water.setSun(this.sun.position, this.sun.color);
     this.scene.add(this.water.mesh);
-    this.scene.add(createRiver(layout.river, riverLevel, (t) => 1.2 + t * 1.6));
+    const hTex = heightTex0();
+    this.river = createRiver(hTex, { mist: opts.quality === 'beauty' });
+    this.scene.add(this.river.group);
 
     // Felder
     progress(0.45, 'Spielfelder werden gelegt …');
@@ -173,22 +194,48 @@ export class BoardScene {
     // Deko
     progress(0.55, 'Palmen werden gepflanzt …');
     try {
-      this.scene.add(await buildProps(layout, field, { density: preset.density }));
+      if (!new URLSearchParams(location.search).has('noprops')) {
+        this.props = await buildProps(layout, field, { density: preset.density });
+        this.scene.add(this.props.group);
+        this.ambient = createAmbient(this.props.fires, this.props.smokes);
+        this.scene.add(this.ambient.group);
+      }
+      if (!new URLSearchParams(location.search).has('noanimals')) {
+        progress(0.7, 'Tiere ziehen ein …');
+        try {
+          this.animals = await buildAnimals({
+            layout,
+            field,
+            canopies: this.props?.canopies ?? [],
+            flowers: this.props?.flowers ?? [],
+            perches: this.props?.perches ?? [],
+            quality: opts.quality,
+            splash: (x, y, z, big) => this.effects.splash(x, y, z, big),
+          });
+          this.scene.add(this.animals.group);
+        } catch (e) {
+          console.warn('Tiere konnten nicht geladen werden', e);
+        }
+      }
+      progress(0.75, 'Gras wächst …');
+      await nextFrame();
+      if (!PERF.has('nograss')) this.scene.add(buildGrass(field, terrainColorSampler(terrain, preset.terrain), { count: preset.grass, pathClear: layout.fieldRadius * 1.3 }));
     } catch (e) {
       console.warn('Deko konnte nicht geladen werden', e);
     }
 
     progress(0.85, 'Vulkan wird angeheizt …');
     this.scene.add(this.effects.group);
-    this.volcano = buildVolcano(layout, this.effects, { light: true });
+    this.volcano = buildVolcano(layout, this.effects, { light: true, field });
     this.scene.add(this.volcano.group);
 
     // Figuren, Kamera, Würfel, Regie
     this.pieces = new Pieces(layout, this.fields, this.tweens, {
       onStep: (_id, f) => {
-        const onBridge = Math.hypot(layout.fields[f]!.x - layout.bridge.x, layout.fields[f]!.z - layout.bridge.z) < layout.bridge.length * 0.6;
-        this.audio.step(onBridge);
+        const spot = layout.fields[f]!;
+        this.audio.step(spot.bridge || spot.ford || f === 0);
       },
+      heightAt: (x, z) => field.height(x, z),
       onLand: (_id, f) => {
         const spot = layout.fields[f]!;
         this.effects.dust(spot.x, this.fields.topY[f]!, spot.z);
@@ -196,12 +243,13 @@ export class BoardScene {
     });
     this.scene.add(this.pieces.group);
     this.rig = new CameraRig(this.camera, layout);
+    this.rig.heightAt = (x, z) => field.height(x, z);
     this.dice = new DiceOverlay(this.tweens);
     this.director = new Director(this, (c) => {
       for (const fn of this.captionListeners) fn(c);
     });
 
-    if (preset.post) this.setupPost();
+    if (preset.post && !PERF.has('nopost')) this.setupPost();
     this.resize();
     this.rig.jump();
     progress(1, 'Fertig!');
@@ -209,9 +257,9 @@ export class BoardScene {
   }
 
   private setupPost() {
-    const composer = new EffectComposer(this.renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 4 });
+    const composer = new EffectComposer(this.renderer, { frameBufferType: THREE.HalfFloatType, multisampling: PERF.has('msaa') ? 4 : 0 });
     composer.addPass(new RenderPass(this.scene, this.camera));
-    try {
+    if (!PERF.has('noao')) try {
       const ao = new N8AOPostPass(this.scene, this.camera, 1, 1);
       ao.configuration.aoRadius = 2.2;
       ao.configuration.distanceFalloff = 1.2;
@@ -227,7 +275,9 @@ export class BoardScene {
     const tilt = new TiltShiftEffect({ offset: 0.05, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: 1 });
     const vignette = new VignetteEffect({ offset: 0.32, darkness: 0.38 });
     const tone = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
-    composer.addPass(new EffectPass(this.camera, bloom, tilt, vignette, tone));
+    const grade = new HueSaturationEffect({ saturation: 0.08 });
+    const contrast = new BrightnessContrastEffect({ contrast: 0.06 });
+    composer.addPass(new EffectPass(this.camera, bloom, tilt, vignette, tone, grade, contrast));
     composer.addPass(new EffectPass(this.camera, new SMAAEffect()));
     this.composer = composer;
   }
@@ -247,6 +297,7 @@ export class BoardScene {
     this.composer?.setSize(w, h);
     this.dice?.resize(w / h);
     this.effects.setScale(h * this.renderer.getPixelRatio());
+    this.ambient?.setScale((h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
   }
 
   private loop = () => {
@@ -255,12 +306,18 @@ export class BoardScene {
     const dt = Math.min(0.05, this.clock.getDelta());
     const t = this.clock.elapsedTime;
     windUniforms.uWindTime.value = t;
+    fx.uTime.value = t;
     this.tweens.update(dt);
     this.pieces.update(t, dt);
     this.fields.update(t);
     this.volcano.update(t, dt);
     this.effects.update(dt);
     this.water.update(t);
+    this.river.update(t, dt);
+    this.sky.update(t, dt);
+    this.props?.update(t, dt);
+    this.ambient?.update(t);
+    this.animals?.update(t, dt);
     this.rig.update(dt);
     this.pieces.updateTags(this.camera);
     if (this.composer) this.composer.render(dt);
@@ -282,7 +339,11 @@ export class BoardScene {
   setState(state: GameState) {
     const prev = this.lastState;
     this.lastState = state;
-    this.fields.setFields(state.config.board.fields);
+    const rules = state.config.rules;
+    // Ausgeschaltete Inselgefahren wie normale Felder zeigen
+    this.fields.setFields(
+      state.config.board.fields.map((f) => ((f === 'river' && rules.river?.enabled === false) || (f === 'crater' && rules.crater?.enabled === false) ? 'normal' : f)),
+    );
     this.pieces.sync(state.teams);
     const v = state.config.rules.volcano;
     this.volcano.setPressure(v.enabled ? state.volcano.pressure / Math.max(1, v.threshold) : 0);

@@ -3,7 +3,7 @@
 ## Voraussetzungen
 
 - **Docker Desktop** (macOS/Windows) oder Docker Engine mit Compose (Linux)
-- Für den Beamer: ein aktueller Browser (Chrome, Edge, Safari, Firefox) mit WebGL 2. Ein MacBook mit Apple-Chip schafft den Modus **Schön** mühelos (gemessen: ca. 170 Bilder/s in 1080p auf M1 Max).
+- Für den Beamer: ein aktueller Browser (Chrome, Edge, Safari, Firefox) mit WebGL 2. Ein MacBook mit Apple-Chip schafft den Modus **Schön** mühelos (gemessen in 1080p auf M1 Max: ca. 100 Bilder/s im Modus Schön, ca. 170 im Modus Schnell). Ältere Laptops oder 4K-Beamer: Modus **Schnell** wählen.
 - Handys/Tablets: beliebiger aktueller Browser, keine App nötig.
 
 ## Starten

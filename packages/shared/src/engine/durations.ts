@@ -17,6 +17,11 @@ export const DURATION = {
   volcano: 1300,
   eruption: 5200,
   fieldGame: 1200,
+  riverSafe: 1700,
+  riverFall: 2600,
+  craterFall: 2600,
+  craterClimb: 1700,
+  craterOut: 1900,
 } as const;
 
 export function effectDuration(e: EffectInput): number {
@@ -25,6 +30,8 @@ export function effectDuration(e: EffectInput): number {
       return DURATION.dice;
     case 'move':
       if (e.reason === 'catapult' || e.reason === 'eruption' || e.reason === 'swap') return DURATION.flight;
+      // Treiben im Fluss: gemächlich flussabwärts, dann ans Ufer
+      if (e.reason === 'river') return DURATION.flight;
       return DURATION.stepBase + Math.abs(e.to - e.from) * DURATION.step;
     case 'field':
       return DURATION.field;
@@ -42,6 +49,10 @@ export function effectDuration(e: EffectInput): number {
       return DURATION.eruption;
     case 'field_game':
       return DURATION.fieldGame;
+    case 'river':
+      return e.result === 'fall' ? DURATION.riverFall : DURATION.riverSafe;
+    case 'crater':
+      return e.result === 'fall' ? DURATION.craterFall : e.result === 'out' ? DURATION.craterOut : DURATION.craterClimb;
     default:
       return 0;
   }

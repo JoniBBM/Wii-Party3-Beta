@@ -12,7 +12,7 @@ import {
   type TeamColorKey,
 } from '@insel/shared';
 
-export type FigureMode = 'idle' | 'walk' | 'jump' | 'cheer' | 'sad' | 'fly' | 'stuck';
+export type FigureMode = 'idle' | 'walk' | 'jump' | 'cheer' | 'sad' | 'fly' | 'stuck' | 'balance' | 'swim' | 'climb';
 
 // ---------------------------------------------------------------------------
 // Geteilte Geometrien (einmal pro Seite)
@@ -407,7 +407,26 @@ export function createFigure(config: FigureConfig, color: TeamColorKey, opts: { 
       let armLift = 0;
       let headTilt = 0;
       let headTurn = Math.sin(tt * 0.6) * 0.18 * (m === 'idle' ? 1 : 0.2);
+      let lean = 0;
+      let armReach = 0;
       switch (m) {
+        case 'balance':
+          armLift = 1.35 + Math.sin(tt * 7) * 0.35;
+          lean = Math.sin(tt * 5.5) * 0.22;
+          headTurn = Math.sin(tt * 4) * 0.25;
+          break;
+        case 'swim':
+          armSwing = Math.sin(tt * 6) * 1.7;
+          legSwing = Math.sin(tt * 12) * 0.4;
+          headTilt = -0.2;
+          armLift = 0.5;
+          bob = Math.sin(tt * 3) * 0.03;
+          break;
+        case 'climb':
+          armReach = Math.sin(tt * 5);
+          legSwing = Math.sin(tt * 5) * 0.45;
+          headTilt = -0.3;
+          break;
         case 'idle':
           bob = Math.sin(tt * 2.2) * 0.01;
           armSwing = Math.sin(tt * 2.2) * 0.05;
@@ -442,9 +461,10 @@ export function createFigure(config: FigureConfig, color: TeamColorKey, opts: { 
           break;
       }
       body.position.y = bob;
+      body.rotation.z = lean;
       body.scale.y = m === 'idle' ? 1 + Math.sin(tt * 2.2) * 0.01 : 1;
-      armL.rotation.x = armSwing;
-      armR.rotation.x = -armSwing;
+      armL.rotation.x = m === 'climb' ? -2.5 + armReach * 0.6 : armSwing;
+      armR.rotation.x = m === 'climb' ? -2.5 - armReach * 0.6 : m === 'swim' ? armSwing : -armSwing;
       armL.rotation.z = 0.32 + armLift;
       armR.rotation.z = -0.32 - armLift;
       legL.rotation.x = -legSwing;

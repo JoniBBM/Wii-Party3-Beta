@@ -110,6 +110,20 @@ export const rulesSchema = z.object({
     zoneSize: z.number().int().min(1).max(60),
     knockback: range,
   }),
+  // Ältere Vorlagen kennen Fluss und Krater noch nicht → Standardwerte
+  river: z
+    .object({
+      enabled: z.boolean(),
+      fallChance: z.number().int().min(0).max(100),
+      driftBack: range,
+    })
+    .default({ enabled: true, fallChance: 50, driftBack: { min: 2, max: 4 } }),
+  crater: z
+    .object({
+      enabled: z.boolean(),
+      climb: z.number().int().min(1).max(40),
+    })
+    .default({ enabled: true, climb: 8 }),
   autoCloseWhenAllAnswered: z.boolean(),
 });
 

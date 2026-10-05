@@ -48,6 +48,7 @@ export function Ranking({ state }: { state: GameState }) {
               <span className="font-display text-lg leading-none font-semibold text-ink tabular-nums">{team.position}</span>
               <span className="flex gap-0.5">
                 {team.blocked && <span title="gesperrt">🚧</span>}
+                {team.crater && <span title="im Krater">🕳️</span>}
                 <BonusDieBadge sides={team.bonusDie} />
               </span>
             </div>

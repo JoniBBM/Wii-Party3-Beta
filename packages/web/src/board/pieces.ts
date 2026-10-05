@@ -7,6 +7,7 @@ import type { FieldMeshes } from './fields.ts';
 import type { IslandLayout } from './layout.ts';
 import { ease, type Tweens } from './tweens.ts';
 import { DURATION } from '@insel/shared';
+import { CRATER } from './ground.ts';
 
 const SCALE = 0.85;
 
@@ -25,6 +26,8 @@ interface Piece {
 export interface PieceCallbacks {
   onStep?: (teamId: string, field: number) => void;
   onLand?: (teamId: string, field: number) => void;
+  /** Geländehöhe (für die Kraterwand) */
+  heightAt?: (x: number, z: number) => number;
 }
 
 export class Pieces {
@@ -33,6 +36,8 @@ export class Pieces {
   private teams: Team[] = [];
   /** Erhöht bei Abbruch (Rückgängig): laufende Lauf-/Flug-Schleifen beenden sich. */
   private epoch = 0;
+  /** Teams im Krater: Fortschritt beim Herausklettern (0 = Boden, 1 = Rand) */
+  private crater = new Map<string, number>();
 
   abortAll() {
     this.epoch += 1;
@@ -108,22 +113,49 @@ export class Pieces {
     }
   }
 
-  /** Käfige und Grundhaltung an den Zustand angleichen (nur wenn keine Animation läuft). */
+  /** Käfige, Krater und Grundhaltung an den Zustand angleichen (nur wenn keine Animation läuft). */
   applyBlocked(teams: Team[]) {
     for (const t of teams) {
       const p = this.pieces.get(t.id);
       if (!p || p.busy) continue;
       p.cage.visible = !!t.blocked;
       p.cage.scale.set(1, 1, 1);
+      if (t.crater) this.crater.set(t.id, Math.min(1, t.crater.climbed / Math.max(1, t.crater.need)));
+      else this.crater.delete(t.id);
       if (t.blocked) p.rig.setMode('stuck');
-      else if (p.rig.mode === 'stuck') p.rig.setMode('idle');
+      else if (t.crater) p.rig.setMode(t.crater.climbed > 0 ? 'climb' : 'sad');
+      else if (p.rig.mode === 'stuck' || p.rig.mode === 'climb' || p.rig.mode === 'swim' || p.rig.mode === 'balance') p.rig.setMode('idle');
     }
+    this.arrangeAll();
+  }
+
+  /** Platz im Krater: am Boden (0) bis kurz unter dem Rand (1), zur Seite des Kraterfelds. */
+  private craterSpot(teamId: string, progress: number): THREE.Vector3 {
+    const v = this.layout.volcano;
+    const f = this.layout.fields[this.layout.craterField]!;
+    const inside = [...this.crater.keys()];
+    const k = Math.max(0, inside.indexOf(teamId));
+    // neben dem Kraterfeld (sonst verdeckt die Feldscheibe die kletternde Figur)
+    const base = Math.atan2(f.z - v.z, f.x - v.x) + 0.62 + k * 0.4;
+    const r = CRATER.ledge - 0.45 + (CRATER.crest - 0.35 - (CRATER.ledge - 0.45)) * Math.min(1, progress) * 0.92;
+    const x = v.x + Math.cos(base) * r;
+    const z = v.z + Math.sin(base) * r;
+    const y = this.cb.heightAt ? this.cb.heightAt(x, z) : CRATER.floorY;
+    return new THREE.Vector3(x, Math.max(y, CRATER.floorY) + 0.02, z);
+  }
+
+  private faceOutOfCrater(): number {
+    const v = this.layout.volcano;
+    const f = this.layout.fields[this.layout.craterField]!;
+    return Math.atan2(f.x - v.x, f.z - v.z);
   }
 
   /** Slot-Positionen für alle Figuren auf demselben Feld. */
   private slotFor(teamId: string, field: number): THREE.Vector3 {
+    const inCrater = this.crater.get(teamId);
+    if (inCrater !== undefined) return this.craterSpot(teamId, inCrater);
     const f = this.layout.fields[field]!;
-    const here = [...this.pieces.values()].filter((p) => p.position === field && !p.busy).map((p) => p.teamId);
+    const here = [...this.pieces.values()].filter((p) => p.position === field && !p.busy && !this.crater.has(p.teamId)).map((p) => p.teamId);
     if (!here.includes(teamId)) here.push(teamId);
     here.sort((a, b) => this.teams.findIndex((t) => t.id === a) - this.teams.findIndex((t) => t.id === b));
     const k = here.length;
@@ -166,7 +198,7 @@ export class Pieces {
       const idx = mates.indexOf(p.teamId);
       p.tag.position.y = p.rig.height * SCALE + 0.35 + (mates.length > 1 ? (idx % 3) * 0.42 : 0);
       const target = this.slotFor(p.teamId, p.position);
-      const rot = this.facing(p.position);
+      const rot = this.crater.has(p.teamId) ? this.faceOutOfCrater() : this.facing(p.position);
       if (!animated || p.holder.position.distanceTo(target) > 6) {
         p.holder.position.copy(target);
         p.holder.rotation.y = rot;
@@ -183,6 +215,7 @@ export class Pieces {
 
   /** Sofort auf Positionen setzen (Neuverbindung, Rückgängig). */
   snap(positions: Record<string, number>) {
+    this.crater.clear();
     for (const p of this.pieces.values()) {
       if (positions[p.teamId] !== undefined) p.position = positions[p.teamId]!;
       p.busy = false;
@@ -199,6 +232,7 @@ export class Pieces {
   async walk(teamId: string, from: number, to: number) {
     const p = this.pieces.get(teamId);
     if (!p) return;
+    this.crater.delete(teamId);
     p.busy = true;
     p.position = from;
     this.arrangeAll();
@@ -240,6 +274,7 @@ export class Pieces {
   async fly(teamId: string, to: number, opts: { height?: number; duration?: number; spin?: number } = {}) {
     const p = this.pieces.get(teamId);
     if (!p) return;
+    this.crater.delete(teamId);
     p.busy = true;
     p.rig.setMode('fly');
     const a = p.holder.position.clone();
@@ -261,6 +296,124 @@ export class Pieces {
     p.rig.setMode('idle');
     this.cb.onLand?.(teamId, to);
     this.arrangeAll();
+  }
+
+  /** Wackeln auf dem Fass (Balance halten). */
+  async wobble(teamId: string, seconds = 1.2) {
+    const p = this.pieces.get(teamId);
+    if (!p) return;
+    p.rig.setMode('balance');
+    const r0 = p.holder.rotation.z;
+    await this.tweens.run(seconds, (t) => {
+      p.holder.rotation.z = r0 + Math.sin(t * Math.PI * 7) * 0.22 * (1 - t * 0.3);
+    }, ease.linear);
+    p.holder.rotation.z = r0;
+  }
+
+  /** Vom Fass kippen und ins Wasser plumpsen. */
+  async tumbleIntoWater(teamId: string, waterY: number) {
+    const p = this.pieces.get(teamId);
+    if (!p) return;
+    p.busy = true;
+    p.rig.setMode('fly');
+    const a = p.holder.position.clone();
+    const side = new THREE.Vector3(Math.cos(p.holder.rotation.y), 0, -Math.sin(p.holder.rotation.y)).multiplyScalar(0.9);
+    const b = a.clone().add(side).setY(waterY - 0.55);
+    await this.tweens.run(0.75, (t) => {
+      p.holder.position.lerpVectors(a, b, t);
+      p.holder.position.y += Math.sin(t * Math.PI) * 0.8;
+      p.holder.rotation.z = t * 1.2;
+    }, ease.in);
+    p.holder.rotation.z = 0;
+    p.rig.setMode('swim');
+  }
+
+  /** Mit der Strömung treiben (entlang von Punkten) und dann ans Ufer auf ein Feld springen. */
+  async drift(teamId: string, path: THREE.Vector3[], to: number) {
+    const p = this.pieces.get(teamId);
+    if (!p || path.length < 2) return this.fly(teamId, to);
+    p.busy = true;
+    p.rig.setMode('swim');
+    const epoch = this.epoch;
+    const curve = new THREE.CatmullRomCurve3([p.holder.position.clone(), ...path]);
+    await this.tweens.run(1.6, (t) => {
+      const q = curve.getPointAt(t);
+      p.holder.position.set(q.x, q.y + Math.sin(t * 18) * 0.05, q.z);
+      const d = curve.getTangentAt(t);
+      p.holder.rotation.y = Math.atan2(d.x, d.z) + Math.sin(t * 9) * 0.3;
+    }, ease.inOut);
+    if (epoch !== this.epoch) return;
+    p.position = to;
+    const a = p.holder.position.clone();
+    const b = this.slotFor(teamId, to);
+    p.rig.setMode('jump');
+    await this.tweens.run(0.8, (t) => {
+      p.holder.position.lerpVectors(a, b, t);
+      p.holder.position.y += Math.sin(t * Math.PI) * 1.6;
+    }, ease.inOut);
+    if (epoch !== this.epoch) return;
+    p.holder.rotation.y = this.facing(to);
+    p.busy = false;
+    p.rig.setMode('sad');
+    this.cb.onLand?.(teamId, to);
+    this.arrangeAll();
+  }
+
+  /** Vom Kraterrand in den Krater rutschen. */
+  async fallIntoCrater(teamId: string) {
+    const p = this.pieces.get(teamId);
+    if (!p) return;
+    p.busy = true;
+    this.crater.set(teamId, 0);
+    const a = p.holder.position.clone();
+    const b = this.craterSpot(teamId, 0);
+    p.rig.setMode('fly');
+    const r0 = p.holder.rotation.y;
+    await this.tweens.run(1.2, (t) => {
+      p.holder.position.lerpVectors(a, b, t);
+      p.holder.position.y += Math.sin(t * Math.PI) * 0.9 - t * t * 0.2;
+      p.holder.rotation.y = r0 + t * Math.PI * 2;
+    }, ease.in);
+    p.holder.rotation.y = this.faceOutOfCrater();
+    p.busy = false;
+    p.rig.setMode('sad');
+  }
+
+  /** Ein Stück die Kraterwand hinaufklettern. */
+  async climb(teamId: string, progress: number) {
+    const p = this.pieces.get(teamId);
+    if (!p) return;
+    p.busy = true;
+    this.crater.set(teamId, progress);
+    const a = p.holder.position.clone();
+    const b = this.craterSpot(teamId, progress);
+    p.rig.setMode('climb');
+    p.holder.rotation.y = this.faceOutOfCrater();
+    await this.tweens.run(1.1, (t) => p.holder.position.lerpVectors(a, b, t), ease.inOut);
+    p.busy = false;
+  }
+
+  /** Über den Rand zurück aufs Kraterfeld. */
+  async climbOut(teamId: string) {
+    const p = this.pieces.get(teamId);
+    if (!p) return;
+    p.busy = true;
+    const a = p.holder.position.clone();
+    this.crater.delete(teamId);
+    const b = this.slotFor(teamId, p.position);
+    p.rig.setMode('jump');
+    await this.tweens.run(0.9, (t) => {
+      p.holder.position.lerpVectors(a, b, t);
+      p.holder.position.y += Math.sin(t * Math.PI) * 1.2;
+    }, ease.inOut);
+    p.holder.rotation.y = this.facing(p.position);
+    p.busy = false;
+    p.rig.setMode('cheer');
+    this.arrangeAll();
+  }
+
+  inCrater(teamId: string) {
+    return this.crater.has(teamId);
   }
 
   setMode(teamId: string, mode: Parameters<FigureRig['setMode']>[0]) {

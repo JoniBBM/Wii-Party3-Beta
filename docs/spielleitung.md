@@ -16,8 +16,8 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 5. **Spiel einrichten** (optional):
    - *Inhalte*: welche Sammlungen in diesem Spiel vorkommen.
    - *Ablaufplan*: feste Reihenfolge von Spielen/Fragen per Drag & Drop.
-   - *Spielfeld*: Länge des Weges, Sonderfelder neu verteilen oder einzeln antippen und ändern.
-   - *Regeln*: Bonuswürfel, Siegbedingung, Katapulte, Sperre, Vulkan …
+   - *Spielfeld*: Länge des Weges, Sonderfelder neu verteilen oder einzeln antippen und ändern. Die **Fässer im Fluss** und das **Kraterloch** gehören fest zur Insel (markiert mit „fest“).
+   - *Regeln*: Bonuswürfel, Siegbedingung, Katapulte, Sperre, Vulkan, Sturzgefahr auf den Fässern, Augen zum Herausklettern aus dem Krater …
    Danach **Speichern** – oder mit **Als Vorlage** für spätere Abende sichern.
 
    ![Spielfeld-Editor](bilder/regie-spielfeld.webp)
@@ -99,6 +99,7 @@ Gewinnt ein Team (Standard: auf dem Gipfel stehen und dann mindestens eine 6 wü
 | Falsch geklickt | **Rückgängig** oben rechts in der Regie (bis zu 40 Schritte). |
 | Figur steht falsch | In der Rangliste auf das Team tippen → *Position korrigieren*. |
 | Team hängt in der Sperre fest | Rangliste → Team → *Aus der Sperre befreien*. |
+| Team kommt nicht aus dem Krater | Rangliste → Team → *Aus dem Krater holen* (oder in den Regeln weniger Augen zum Herausklettern einstellen). |
 | Ein Handy ist ausgeloggt | Mit der Team-PIN wieder beitreten – der Spielstand bleibt. |
 | Handys kommen nicht auf die Seite | Gleiches WLAN? Adresse unter *Einstellungen → Beitritts-Adresse* prüfen; ggf. `./start.sh online`. |
 | Beamer ruckelt | Zahnrad unten links → Grafik **Schnell** (oder Taste **Q**). |

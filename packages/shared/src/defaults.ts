@@ -11,7 +11,7 @@ import {
 } from './constants.ts';
 import { pick, randInt, type Rng } from './rng.ts';
 import type { ContentItemInput } from './schemas.ts';
-import type { ContentItem, FigureConfig, GameConfig, Rules } from './types.ts';
+import type { ContentItem, FigureConfig, GameConfig, GameState, Rules } from './types.ts';
 
 export const DEFAULT_RULES: Rules = {
   bonusDice: [6, 4, 2],
@@ -32,8 +32,25 @@ export const DEFAULT_RULES: Rules = {
     zoneSize: 12,
     knockback: { min: 3, max: 6 },
   },
+  river: { enabled: true, fallChance: 50, driftBack: { min: 2, max: 4 } },
+  crater: { enabled: true, climb: 8 },
   autoCloseWhenAllAnswered: true,
 };
+
+/** Gespeicherte Konfiguration aus einer älteren Version um neue Regeln ergänzen. */
+export function upgradeConfig<T extends GameConfig>(config: T): T {
+  const rules = config.rules as Partial<Rules>;
+  rules.river ??= clone(DEFAULT_RULES.river);
+  rules.crater ??= clone(DEFAULT_RULES.crater);
+  return config;
+}
+
+/** Gespeicherten Spielstand aus einer älteren Version ergänzen. */
+export function upgradeState(state: GameState): GameState {
+  upgradeConfig(state.config);
+  for (const t of state.teams) t.crater ??= null;
+  return state;
+}
 
 export function defaultConfig(name = 'Neues Spiel', goal = DEFAULT_GOAL): GameConfig {
   return {

@@ -4,6 +4,7 @@
  */
 import Database from 'better-sqlite3';
 import type { Collection, ContentItem, GameConfig, GameState, Template } from '@insel/shared';
+import { upgradeConfig, upgradeState } from '@insel/shared';
 import { config } from './config.ts';
 
 export type DB = Database.Database;
@@ -230,7 +231,7 @@ const toTemplate = (r: TemplateRow): Template => ({
   id: r.id,
   name: r.name,
   description: r.description,
-  config: JSON.parse(r.config) as GameConfig,
+  config: upgradeConfig(JSON.parse(r.config) as GameConfig),
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -296,7 +297,7 @@ export function listGames(db: DB): GameSummary[] {
 
 export function getGame(db: DB, id: string): GameState | undefined {
   const r = db.prepare('SELECT state FROM games WHERE id = ?').get(id) as { state: string } | undefined;
-  return r ? (JSON.parse(r.state) as GameState) : undefined;
+  return r ? upgradeState(JSON.parse(r.state) as GameState) : undefined;
 }
 
 export function saveGame(db: DB, s: GameState) {

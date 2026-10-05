@@ -3,6 +3,7 @@ export * from './types.ts';
 export * from './schemas.ts';
 export * from './rng.ts';
 export * from './board.ts';
+export * from './island.ts';
 export * from './defaults.ts';
 export * from './answers.ts';
 export * from './selectors.ts';

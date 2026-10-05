@@ -47,8 +47,10 @@ legacy/     alte Flask-Version (nur Referenz)
 - **Effekte** (`EffectInput`): beschreiben *was passiert ist*, damit der Beamer es inszenieren kann. `durations.ts` schätzt die Animationsdauer – so weiß der Server, wann das nächste Team würfeln darf.
 - **Projektion** (`projectState`): Regie & Moderator sehen alles; Beamer und Handys bekommen keine Lösungen vor der Auflösung, keine fremden Antworten, keine fremden PINs.
 - **Brett** (`board.ts`): deterministische Verteilung der Sonderfelder per Seed. Die Verteilung wird in der Spielkonfiguration gespeichert und ändert sich nur bewusst.
+- **Inselplan** (`island.ts`): die Insel in 2D – Küstenlinie, Lagune, Fluss mit Wasserfall und Furt, Schlucht, Vulkan mit Kraterrand und der Weg (Wegpunkte + Serpentinen als Catmull-Rom-Kurve). `buildIslandPlan(felder)` verteilt die Felder nach Bogenlänge und bestimmt aus der Geometrie, welche Felder auf den **Fässern in der Furt** und welches am **Kraterrand** liegen. Engine (Inselfelder `river`/`crater`), Brett-Editor (Karte) und 3D-Insel nutzen denselben Plan.
+- **Ältere Spielstände**: `upgradeConfig`/`upgradeState` (`defaults.ts`) ergänzen neue Regeln und Team-Felder beim Laden aus der Datenbank.
 
-Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte, Antworten, Buzzer, Platzierung), `engine/dice.ts` (Würfeln, Sonderfelder, Vulkan, Sieg), `engine/draw.ts` (faire Auslosung), `answers.ts` (tolerante Textauswertung), `selectors.ts` (Rangliste, Statistik).
+Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte, Antworten, Buzzer, Platzierung), `engine/dice.ts` (Würfeln, Sonderfelder, Fässer im Fluss, Kraterloch, Vulkan, Sieg), `engine/draw.ts` (faire Auslosung), `answers.ts` (tolerante Textauswertung), `selectors.ts` (Rangliste, Statistik).
 
 ## Server (`packages/server`)
 
@@ -99,18 +101,26 @@ Design: Tailwind 4 mit semantischen Farb-Variablen (`styles.css`), hell im Wii-S
 
 | Modul | Inhalt |
 |---|---|
-| `layout.ts` | Inselplan: Weg (Catmull-Rom) vom Hafen bis zum Gipfel, Felder gleichmäßig nach Bogenlänge, Fluss, Brücke, Hafen |
-| `terrain.ts` | Höhenfeld (Küste, Hügel, Vulkan, Krater, Weg-Terrasse, Flussbett), Vertex-Farben |
-| `water.ts` | Meer (Gerstner-Wellen, Tiefenfarbe über Höhen-Textur, Küstenschaum) und Fluss |
-| `props.ts`, `assets.ts` | CC0-Modelle laden, umfärben, instanziert verteilen, Wind; Wahrzeichen; Hängebrücke |
+| `ground.ts` | Natürliche Geländeform: Abstand zur Küste (vorberechnet), Strände, Riff, Hochebenen und Klippen, Tempelhügel, Felsstufe am Wasserfall, Lagune, Inselchen, Vulkan (Sockel, Kegel mit Graten, Krater mit Lavagrube), Lavastrom |
+| `layout.ts` | 3D-Plan: gemeinsamer Inselplan + Höhen. Der Weg folgt dem Gelände (geglättet), steigt in den Serpentinen gleichmäßig, liegt auf den Fässern, der Hängebrücke und dem Kraterrand |
+| `terrain.ts` | Höhenfeld (natürliche Form + Wegterrassen + Flussbett mit Ufern, Wasserfallbecken, Schlucht), Vertex-Farben, Glut-Attribut |
+| `worldfx.ts` | Gemeinsame Shader-Bausteine: ziehende Wolkenschatten, Lichtnetze am Meeresgrund, Gesteinsschichten an Felswänden, Glühen |
+| `water.ts` | Meer (Gerstner-Wellen, durchsichtiges Flachwasser, Brandung, Glitzern), Fluss mit Stromschnellen, Wasserfall mit Gischt |
+| `sky.ts` | Himmelskuppel mit Sonnenglanz, Haufenwolken, Nachbarinseln am Horizont |
+| `props.ts`, `assets.ts`, `grass.ts` | Bepflanzung (Palmen, Dschungel, Farne, Monstera, Bambus, Blumenbeete, Felsen, Seerosen, Schilf), Grasteppich auf der GPU, Wind |
+| `landmarks.ts`, `merge.ts` | Hafendorf, Stufenpyramide, Säulenallee, Tempelruine, Steinköpfe, Leuchtturm, Hängebrücke, Fässer in der Furt, Seil-Geländer, Strickleiter im Krater, Felsbogen, Wrack, Schiffe, Regenbogen; statische Teile werden zu wenigen Draw-Calls zusammengefasst |
+| `animals.ts` | Tiere: Delfine, Wal, Fischschwärme, Mantas, Schildkröten, Krabben, Frösche, Flamingos, Möwen, Papageien, Tukane, Affen, Schmetterlinge (`?zoo` zeigt alle zur Kontrolle) |
+| `ambient.ts` | Fackeln, Lagerfeuer, Rauch und Dampf als Shader-Partikel |
 | `fields.ts` | Spielfelder (instanziert), gezeichnete Symbole, Markierung des aktiven Feldes |
-| `pieces.ts` | Figuren: Aufstellung auf Feldern, Laufen, Fliegen, Käfig, Namensschilder |
-| `camera.ts` | Kameraführung: Rundfahrt, Verfolgen, Nahaufnahmen, Wackeln |
+| `pieces.ts` | Figuren: Aufstellung, Laufen, Fliegen, Käfig, Balancieren, ins Wasser fallen und treiben, in den Krater fallen und klettern |
+| `camera.ts` | Kameraführung: Rundflug im Leerlauf, Verfolgen (Vulkan im Hintergrund), Nahaufnahmen, Wackeln; nie durch Berge |
 | `dice3d.ts` | 3D-Würfel als Overlay |
-| `volcano.ts`, `particles.ts` | Lavasee, Rauch, Ausbruch, Konfetti, Feuerwerk, Staub |
+| `volcano.ts`, `particles.ts` | Lavasee, Lavastrom, Glut, Rauch, Ausbruch, Spritzwasser, Konfetti, Feuerwerk, Staub |
 | `director.ts` | Spielt Effekte der Reihe nach ab, gleicht nach Rückgängig/Neuverbindung ab, liefert Einblendungen |
-| `audio.ts` | Effekte (Kenney), Meeresrauschen und Vögel (Synthese), generative Marimba-Musik |
-| `scene.ts` | Renderer, Licht, HDRI-Himmel, Nachbearbeitung (N8AO, Bloom, Tilt-Shift, Vignette, SMAA), Qualitätsstufen |
+| `audio.ts` | Effekte (Kenney), Platschen und Knarzen (Synthese), Meeresrauschen und Vögel, generative Marimba-Musik |
+| `scene.ts` | Renderer, Licht, Nachbearbeitung (N8AO, Bloom, Tilt-Shift, Vignette, Farbanpassung, SMAA), Qualitätsstufen |
+
+Messen: `?perf=noao,nograss,nopost,msaa` schaltet einzelne Teile zum Vergleichen ab bzw. zu; `?noprops`, `?noanimals` lassen Deko bzw. Tiere weg.
 
 ## Erweitern
 
@@ -122,7 +132,7 @@ Design: Tailwind 4 mit semantischen Farb-Variablen (`styles.css`), hell im Wii-S
 5. Tests in `engine/engine.test.ts`.
 
 **Neues Sonderfeld:**
-1. `FIELD_TYPES` und `FIELD_INFO` in `constants.ts`.
+1. `FIELD_TYPES` und `FIELD_INFO` in `constants.ts` (feste Inselfelder zusätzlich in `LANDMARK_FIELD_TYPES` und `island.ts`).
 2. Wirkung in `engine/dice.ts` (`applyField`), ggf. neue Effektart in `types.ts` und Dauer in `durations.ts`.
 3. Symbol in `board/fields.ts` (`ICONS`), Inszenierung in `board/director.ts`.
 4. Häufigkeit in `board.ts` (`defaultFieldCounts`).

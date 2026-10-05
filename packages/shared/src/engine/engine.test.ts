@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isTextAnswerCorrect } from '../answers.ts';
 import { generateBoard, countFields } from '../board.ts';
 import type { FieldType } from '../constants.ts';
-import { buildItem, defaultConfig } from '../defaults.ts';
+import { buildItem, defaultConfig, upgradeState } from '../defaults.ts';
 import { seededRng } from '../rng.ts';
 import { commandSchema, type ContentItemInput } from '../schemas.ts';
 import type { Actor, ContentItem, GameConfig, GameState } from '../types.ts';
@@ -101,6 +101,20 @@ describe('Spielfeld', () => {
     expect(counts.minigame).toBe(7);
     expect(counts.volcano).toBe(3);
     expect(generateBoard(72, 6)).not.toEqual(a);
+  });
+
+  it('legt Fässer in die Flussfurt und das Kraterloch an den Rand – für jede Länge', () => {
+    for (const goal of [20, 40, 72, 100, 120]) {
+      const b = generateBoard(goal, 3);
+      const river = b.fields.flatMap((f, i) => (f === 'river' ? [i] : []));
+      const crater = b.fields.flatMap((f, i) => (f === 'crater' ? [i] : []));
+      expect(river.length).toBeGreaterThanOrEqual(1);
+      expect(crater).toHaveLength(1);
+      expect(crater[0]!).toBeGreaterThan(goal * 0.85);
+      expect(crater[0]!).toBeLessThan(goal);
+      // Inselfelder kommen aus dem Plan und nicht vom Zufall
+      expect(generateBoard(goal, 99).fields.flatMap((f, i) => (f === 'river' ? [i] : []))).toEqual(river);
+    }
   });
 
   it('setzt Vulkanfelder nur in den oberen Bereich', () => {
@@ -357,6 +371,90 @@ describe('Würfeln & Sonderfelder', () => {
     roundWith(5);
     expect(h.team(0).blocked).toBeNull();
     expect(h.team(0).position).toBe(7);
+  });
+
+  it('Fässer im Fluss: sicher drüber oder ins Wasser und zurücktreiben', () => {
+    const h = harness({ config: { board: boardWith({ 9: 'river', 10: 'river' }) } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.mutate((s) => (s.config.rules.river = { enabled: true, fallChance: 100, driftBack: { min: 3, max: 3 } }));
+    h.toDice([a.id, b.id]);
+    const r = h.run({ type: 'dice.roll', main: 5, force: true }, ADMIN);
+    h.mutate((s) => (s.teams[0]!.position = 9));
+    expect(r.effects.some((e) => e.type === 'river')).toBe(false);
+    h.toDice([a.id, b.id]);
+    const r2 = h.run({ type: 'dice.roll', main: 1, force: true }, ADMIN);
+    // Landet auf 10 → fällt → 3 zurück wäre 7 (vor der Furt)
+    expect(r2.effects.find((e) => e.type === 'river')).toMatchObject({ result: 'fall', position: 10 });
+    expect(r2.effects.find((e) => e.type === 'move' && e.reason === 'river')).toMatchObject({ from: 10, to: 7 });
+    expect(h.team(0).position).toBe(7);
+    // Treiben endet nie auf einem Fass
+    h.mutate((s) => {
+      s.config.rules.river.driftBack = { min: 1, max: 1 };
+      s.teams[0]!.position = 9;
+    });
+    h.toDice([a.id, b.id]);
+    h.run({ type: 'dice.roll', main: 1, force: true }, ADMIN);
+    expect(h.team(0).position).toBe(8);
+    // Ohne Sturzgefahr bleibt man stehen
+    h.mutate((s) => {
+      s.config.rules.river.fallChance = 0;
+      s.teams[0]!.position = 8;
+    });
+    h.toDice([a.id, b.id]);
+    const r3 = h.run({ type: 'dice.roll', main: 1, force: true }, ADMIN);
+    expect(r3.effects.find((e) => e.type === 'river')).toMatchObject({ result: 'safe' });
+    expect(h.team(0).position).toBe(9);
+  });
+
+  it('Krater: hineinfallen, Augen sammeln, Rest weiterlaufen', () => {
+    const h = harness({ config: { board: boardWith({ 36: 'crater' }) } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.mutate((s) => {
+      s.config.rules.crater = { enabled: true, climb: 8 };
+      s.config.rules.volcano.enabled = false;
+      s.teams[0]!.position = 33;
+    });
+    const roundWith = (main: number) => {
+      h.toDice([a.id, b.id]);
+      return h.run({ type: 'dice.roll', main, force: true }, ADMIN);
+    };
+    const r = roundWith(3);
+    expect(h.team(0).crater).toEqual({ climbed: 0, need: 8 });
+    expect(r.effects.find((e) => e.type === 'crater')).toMatchObject({ result: 'fall', position: 36 });
+    const r2 = roundWith(5);
+    expect(h.team(0).position).toBe(36);
+    expect(h.team(0).crater).toEqual({ climbed: 5, need: 8 });
+    expect(r2.effects.find((e) => e.type === 'crater')).toMatchObject({ result: 'climb', climbed: 5 });
+    const r3 = roundWith(6); // 11 ≥ 8 → raus, 3 Felder weiter
+    expect(r3.effects.find((e) => e.type === 'crater')).toMatchObject({ result: 'out' });
+    expect(h.team(0).crater).toBeNull();
+    expect(h.team(0).position).toBe(39);
+    // Regie kann befreien, Ausbruch schleudert heraus
+    h.mutate((s) => {
+      s.teams[0]!.position = 36;
+      s.teams[0]!.crater = { climbed: 2, need: 8 };
+    });
+    h.run({ type: 'team.unblock', teamId: a.id }, ADMIN);
+    expect(h.team(0).crater).toBeNull();
+    h.mutate((s) => {
+      s.config.rules.volcano.enabled = true;
+      s.teams[0]!.crater = { climbed: 2, need: 8 };
+    });
+    h.run({ type: 'volcano.erupt' }, ADMIN);
+    expect(h.team(0).crater).toBeNull();
+    expect(h.team(0).position).toBeLessThan(36);
+  });
+
+  it('alte Spielstände ohne Fluss/Krater werden ergänzt', () => {
+    const h = harness().setup();
+    const old = JSON.parse(JSON.stringify(h.s)) as GameState;
+    delete (old.config.rules as Partial<GameConfig['rules']>).river;
+    delete (old.config.rules as Partial<GameConfig['rules']>).crater;
+    for (const t of old.teams) delete (t as Partial<typeof t>).crater;
+    const up = upgradeState(old);
+    expect(up.config.rules.river.enabled).toBe(true);
+    expect(up.config.rules.crater.climb).toBe(8);
+    expect(up.teams.every((t) => t.crater === null)).toBe(true);
   });
 
   it('Minispiel-Feld pausiert die Runde bis zum Ergebnis', () => {

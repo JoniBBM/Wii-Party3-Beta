@@ -2,7 +2,16 @@
 
 Ein Partyspiel für Gruppen im Stil von **Wii Party**: Die Teams wandern auf einer 3D-Insel vom Hafen bis zum Vulkangipfel. Wer welche Strecke würfeln darf, entscheiden Minispiele und Quizfragen, die live vor Ort gespielt werden. Gedacht für Jugendgruppen, Freizeiten, Klassenfahrten und Familienfeste mit **2–10 Teams**.
 
-![Beamer: 3D-Insel in der Würfelrunde](docs/bilder/beamer-wuerfelrunde.webp)
+![Die Insel der Abenteuer](docs/bilder/insel-gesamt.webp)
+
+## Die Insel
+
+Der Weg führt vom **Hafendorf** über Strand und **Tempelruinen**, an der **Lagune** vorbei durch den **Dschungel**, über **Fässer im Fluss** unter dem Wasserfall, zum **Leuchtturm**, über die **Hängebrücke**, an der Steilküste entlang zu den **Steinköpfen** und in Serpentinen auf den **Vulkan** – mit **Kraterloch**, in das man hineinfallen kann. Unterwegs: Delfine, ein Wal, Fischschwärme, Flamingos, Schildkröten, Krabben, Frösche, Papageien, Affen, Möwen und Schmetterlinge.
+
+| | | |
+|---|---|---|
+| ![Hafendorf](docs/bilder/insel-hafen.webp) | ![Fässer im Fluss](docs/bilder/insel-furt.webp) | ![Serpentinen zum Krater](docs/bilder/insel-vulkan.webp) |
+| ![Pyramide und Säulenallee](docs/bilder/insel-ruinen.webp) | ![Lagune mit Flamingos](docs/bilder/insel-lagune.webp) | ![Lavastrom an der Nordflanke](docs/bilder/insel-norden.webp) |
 
 ## Die vier Bildschirme
 
@@ -41,7 +50,7 @@ Für Zugriff übers Internet (z. B. Handys mit mobilen Daten): `./start.sh onlin
 | Kapitel | Für wen |
 |---|---|
 | [Spieleabend durchführen](docs/spielleitung.md) | Regie & Moderator: Ablauf, Checkliste, Tipps |
-| [Spielregeln](docs/spielregeln.md) | Alle: Runden, Bonuswürfel, Sonderfelder, Vulkan, Sieg |
+| [Spielregeln](docs/spielregeln.md) | Alle: Runden, Bonuswürfel, Sonderfelder, Fässer im Fluss, Kraterloch, Vulkan, Sieg |
 | [Inhalte erstellen](docs/inhalte.md) | Vorbereitung: Spiele, Fragen, Feld-Minispiele, Import/Export |
 | [Betrieb & Installation](docs/betrieb.md) | Technik: Docker, WLAN, Internet, Server, Backups, Fehlerbehebung |
 | [Architektur](docs/architektur.md) | Entwickler: Aufbau, Datenfluss, Erweiterungen |
@@ -50,4 +59,4 @@ Für Zugriff übers Internet (z. B. Handys mit mobilen Daten): `./start.sh onlin
 
 ## Technik in Kürze
 
-TypeScript-Monorepo: **Spiel-Engine** (reine Logik, getestet) · **Server** (Fastify, Socket.IO, SQLite) · **Weboberfläche** (React, Tailwind, Three.js). Alle Bibliotheken und Assets liegen lokal – das Spiel funktioniert auch ohne Internet. 3D-Modelle, Himmel und Sounds sind CC0 (Kenney, Poly Haven), siehe [Lizenzen](packages/web/public/assets/LICENSES.md).
+TypeScript-Monorepo: **Spiel-Engine** (reine Logik, getestet) · **Server** (Fastify, Socket.IO, SQLite) · **Weboberfläche** (React, Tailwind, Three.js). Alle Bibliotheken und Assets liegen lokal – das Spiel funktioniert auch ohne Internet. 3D-Modelle, Himmel und Sounds sind frei lizenziert (überwiegend CC0 von Kenney, Quaternius und Poly Haven, einige Tiere CC-BY mit Namensnennung), siehe [Lizenzen](packages/web/public/assets/LICENSES.md).
