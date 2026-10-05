@@ -14,6 +14,7 @@ import { Modal } from '../../ui/overlay.tsx';
 import { toast } from '../../ui/toast.tsx';
 import { BoardEditor } from './BoardEditor.tsx';
 import { RulesEditor } from './RulesEditor.tsx';
+import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
 
 type Tab = 'content' | 'plan' | 'board' | 'rules';
 
@@ -87,7 +88,15 @@ export function SetupPage() {
         {tab === 'content' && <CollectionsPicker config={draft} onChange={setDraft} />}
         {tab === 'plan' && <PlanEditor config={draft} onChange={setDraft} planIndex={state.planIndex} />}
         {tab === 'board' && <BoardEditor board={draft.board} onChange={(board) => setDraft({ ...draft, board })} />}
-        {tab === 'rules' && <RulesEditor rules={draft.rules} onChange={(rules) => setDraft({ ...draft, rules })} />}
+        {tab === 'rules' && (
+          <div className="flex flex-col gap-5">
+            <div>
+              <p className="mb-2 font-bold">Handys</p>
+              <DeviceModePicker value={draft.devices ?? 'personal'} onChange={(devices) => setDraft({ ...draft, devices })} />
+            </div>
+            <RulesEditor rules={draft.rules} onChange={(rules) => setDraft({ ...draft, rules })} />
+          </div>
+        )}
       </Card>
 
       <SaveTemplateModal

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PlusCircle, Sparkles } from 'lucide-react';
+import type { DeviceMode } from '@insel/shared';
 import { api } from '../../lib/api.ts';
+import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
 import { useAsync } from '../../lib/hooks.ts';
 import { useLibrary } from '../../lib/library.ts';
 import { useLive } from '../../lib/live.ts';
@@ -37,10 +39,11 @@ function NoGame() {
   const navigate = useNavigate();
   const [name, setName] = useState(() => `Spieleabend ${new Date().toLocaleDateString('de-DE')}`);
   const [templateId, setTemplateId] = useState('');
+  const [devices, setDevices] = useState<DeviceMode>('personal');
   const { busy, run } = useAsync();
   const fallback = templates.find((t) => t.name.startsWith('Standard')) ?? templates[0];
   const chosen = templateId || fallback?.id || '';
-  const create = () => run(() => api('/api/games', { slot: 'admin', body: { name, ...(chosen ? { templateId: chosen } : {}) } }), 'Spiel angelegt – viel Spaß!');
+  const create = () => run(() => api('/api/games', { slot: 'admin', body: { name, devices, ...(chosen ? { templateId: chosen } : {}) } }), 'Spiel angelegt – viel Spaß!');
   return (
     <div className="mx-auto max-w-xl">
       <Card className="p-6">
@@ -62,6 +65,10 @@ function NoGame() {
               ))}
             </select>
           </label>
+          <div>
+            <span className="label">Handys</span>
+            <DeviceModePicker value={devices} onChange={setDevices} />
+          </div>
           <Button variant="primary" size="lg" icon={<Sparkles className="size-5" />} loading={busy} disabled={!name.trim()} onClick={create}>
             Spiel anlegen
           </Button>

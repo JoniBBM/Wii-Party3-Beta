@@ -155,8 +155,17 @@ export interface BoardConfig {
   seed: number;
 }
 
+/**
+ * Wie die Handys genutzt werden:
+ * - personal: Jede Person meldet sich am eigenen Handy an (das Handy gehört dann zu ihr).
+ * - shared: Anmeldestation – an einem Gerät melden sich alle nacheinander an; danach
+ *   verbindet sich pro Team ein gemeinsames Gerät mit der Team-PIN.
+ */
+export type DeviceMode = 'personal' | 'shared';
+
 export interface GameConfig {
   name: string;
+  devices: DeviceMode;
   collectionIds: string[];
   board: BoardConfig;
   rules: Rules;

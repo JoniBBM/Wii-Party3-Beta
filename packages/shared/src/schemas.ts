@@ -146,8 +146,11 @@ export const boardSchema = z
     message: 'Start und Ziel dürfen nur am Anfang bzw. Ende stehen',
   });
 
+export const deviceModeSchema = z.enum(['personal', 'shared']);
+
 export const gameConfigSchema = z.object({
   name: shortText(80).min(1, 'Name fehlt'),
+  devices: deviceModeSchema.default('personal'),
   collectionIds: z.array(id).max(50),
   board: boardSchema,
   rules: rulesSchema,

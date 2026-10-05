@@ -22,6 +22,11 @@ export function LobbyPanel({ state, mode }: { state: GameState; mode: 'regie' | 
         <div className="flex flex-col items-center gap-2 rounded-3xl bg-bg-2 p-4">
           <QrCode value={`${joinUrl}/join`} size={170} />
           <p className="max-w-[210px] text-center text-[11px] font-bold break-all text-ink-2">{joinUrl.replace(/^https?:\/\//, '')}/join</p>
+          {state.config.devices === 'shared' && (
+            <p className="max-w-[210px] text-center text-xs font-bold text-accent">
+              👥 Gruppenmodus: Diese Adresse auf der Anmeldestation öffnen – dort melden sich alle nacheinander an. Danach pro Team ein Gerät mit der Team-PIN verbinden.
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">

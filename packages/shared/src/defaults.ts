@@ -45,6 +45,7 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
   const rules = config.rules as Partial<Rules>;
   rules.river ??= clone(DEFAULT_RULES.river);
   rules.crater ??= clone(DEFAULT_RULES.crater);
+  (config as Partial<GameConfig>).devices ??= 'personal';
   rules.vine ??= clone(DEFAULT_RULES.vine);
   rules.cave ??= clone(DEFAULT_RULES.cave);
   // Bretter aus älteren Versionen kennen Fässer, Liane, Lavahöhle und Kraterloch noch nicht
@@ -62,6 +63,7 @@ export function upgradeState(state: GameState): GameState {
 export function defaultConfig(name = 'Neues Spiel', goal = DEFAULT_GOAL): GameConfig {
   return {
     name,
+    devices: 'personal',
     collectionIds: [],
     board: generateBoard(goal, 7),
     rules: clone(DEFAULT_RULES),

@@ -2,7 +2,7 @@
 import { rmSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { defaultConfig, gameConfigSchema, templateInputSchema, type GameConfig } from '@insel/shared';
+import { defaultConfig, deviceModeSchema, gameConfigSchema, templateInputSchema, type GameConfig } from '@insel/shared';
 import { newId } from '../auth.ts';
 import * as db from '../db.ts';
 import { gameMediaDir } from '../media.ts';
@@ -27,7 +27,7 @@ export function gameRoutes(app: FastifyInstance, runtime: GameRuntime, database:
   app.post('/api/games', async (req) => {
     requireRole(req, runtime, ADMIN);
     const body = z
-      .object({ name: z.string().trim().min(1).max(80), templateId: z.string().optional(), config: gameConfigSchema.optional() })
+      .object({ name: z.string().trim().min(1).max(80), templateId: z.string().optional(), config: gameConfigSchema.optional(), devices: deviceModeSchema.optional() })
       .parse(req.body);
     let cfg: GameConfig;
     if (body.config) cfg = body.config;
@@ -40,6 +40,7 @@ export function gameRoutes(app: FastifyInstance, runtime: GameRuntime, database:
       cfg.collectionIds = db.listCollections(database).map((c) => c.id);
     }
     cfg.name = body.name;
+    if (body.devices) cfg.devices = body.devices;
     const state = runtime.createGame(gameConfigSchema.parse(cfg));
     changed();
     return { id: state.id };

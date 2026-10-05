@@ -32,6 +32,9 @@ export function JoinPage() {
   const { state, session, received } = useLive();
   const [step, setStep] = useState<'start' | 'photo'>('start');
   const [mode, setMode] = useState<'register' | 'pin'>('register');
+  /** Anmeldestation: zuletzt angemeldete Person (Token nur für das Selfie, das Gerät bleibt Station) */
+  const [guest, setGuest] = useState<{ token: string; playerId: string } | null>(null);
+  const [lastName, setLastName] = useState<string | null>(null);
 
   // Schon Teil eines Teams? Dann direkt weiter.
   useEffect(() => {
@@ -60,7 +63,20 @@ export function JoinPage() {
     );
   }
 
-  if (step === 'photo') return <PhotoStep onDone={() => navigate('/team')} />;
+  const station = state.config.devices === 'shared';
+  if (step === 'photo')
+    return (
+      <PhotoStep
+        station={station ? guest : null}
+        onDone={() => {
+          if (!station) return navigate('/team');
+          const me = state.players.find((p) => p.id === guest?.playerId);
+          setLastName(me?.name ?? null);
+          setGuest(null);
+          setStep('start');
+        }}
+      />
+    );
 
   const canRegister = state.registrationOpen;
   const effective = canRegister ? mode : 'pin';
@@ -80,7 +96,21 @@ export function JoinPage() {
         )}
         <div className="p-5">
           {effective === 'register' ? (
-            <RegisterForm onDone={() => setStep('photo')} />
+            <>
+              {station && <StationHeader lastName={lastName} count={state.players.length} />}
+              <RegisterForm
+                key={lastName ?? 'first'}
+                station={station}
+                onDone={(r) => {
+                  if (station) setGuest(r);
+                  else {
+                    setToken('member', r.token);
+                    reauth();
+                  }
+                  setStep('photo');
+                }}
+              />
+            </>
           ) : (
             <PinForm onDone={() => navigate('/team')} hint={!canRegister} />
           )}
@@ -103,7 +133,33 @@ function TabButton({ active, onClick, icon, children }: { active: boolean; onCli
   );
 }
 
-function RegisterForm({ onDone }: { onDone: () => void }) {
+/** Anmeldestation: Hinweis, Bestätigung der letzten Anmeldung, wer schon da ist. */
+function StationHeader({ lastName, count }: { lastName: string | null; count: number }) {
+  const players = useLive((s) => s.state?.players ?? []);
+  return (
+    <div className="mb-4 flex flex-col gap-3">
+      {lastName ? (
+        <p className="rounded-2xl bg-good-soft px-3 py-2 text-center font-bold">✅ {lastName} ist angemeldet – jetzt die nächste Person!</p>
+      ) : (
+        <p className="rounded-2xl bg-accent-soft px-3 py-2 text-center text-sm font-bold">👥 Anmeldestation: Hier melden sich alle nacheinander an.</p>
+      )}
+      {count > 0 && (
+        <div>
+          <span className="label">Schon angemeldet ({count})</span>
+          <div className="flex flex-wrap gap-1.5">
+            {players.map((p) => (
+              <span key={p.id} className="rounded-full bg-white/70 px-2 py-0.5 text-sm font-semibold">
+                {p.emoji} {p.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RegisterForm({ onDone, station }: { onDone: (r: { token: string; playerId: string }) => void; station: boolean }) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState<string>(() => PLAYER_EMOJIS[Math.floor(Math.random() * PLAYER_EMOJIS.length)]!);
   const [busy, setBusy] = useState(false);
@@ -113,10 +169,8 @@ function RegisterForm({ onDone }: { onDone: () => void }) {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      const r = await api<{ token: string }>('/api/auth/register', { body: { name: name.trim(), emoji } });
-      setToken('member', r.token);
-      reauth();
-      onDone();
+      const r = await api<{ token: string; playerId: string }>('/api/auth/register', { body: { name: name.trim(), emoji } });
+      onDone(r);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen');
     } finally {
@@ -134,7 +188,7 @@ function RegisterForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
           autoComplete="given-name"
-          placeholder="Vorname"
+          placeholder={station ? 'Vorname der nächsten Person' : 'Vorname'}
           autoFocus
         />
       </label>
@@ -211,9 +265,9 @@ function PinForm({ onDone, hint }: { onDone: () => void; hint: boolean }) {
   );
 }
 
-function PhotoStep({ onDone }: { onDone: () => void }) {
+function PhotoStep({ onDone, station }: { onDone: () => void; station: { token: string; playerId: string } | null }) {
   const { state, session } = useLive();
-  const me = state?.players.find((p) => p.id === session?.playerId);
+  const me = state?.players.find((p) => p.id === (station ? station.playerId : session?.playerId));
   const [busy, setBusy] = useState(false);
   return (
     <Shell>
@@ -229,7 +283,7 @@ function PhotoStep({ onDone }: { onDone: () => void }) {
           onPick={async (blob) => {
             setBusy(true);
             try {
-              await uploadPhoto(blob, getToken('member'));
+              await uploadPhoto(blob, station ? station.token : getToken('member'));
               toast.success('Foto gespeichert');
             } catch (e) {
               toast.error(e instanceof Error ? e.message : 'Upload fehlgeschlagen');
@@ -239,7 +293,7 @@ function PhotoStep({ onDone }: { onDone: () => void }) {
           }}
         />
         <Button variant="primary" size="lg" block onClick={onDone} disabled={busy} icon={<ArrowRight />}>
-          {me?.photo ? 'Weiter' : 'Ohne Foto weiter'}
+          {station ? (me?.photo ? 'Fertig – nächste Person' : 'Ohne Foto – nächste Person') : me?.photo ? 'Weiter' : 'Ohne Foto weiter'}
         </Button>
         <p className="text-xs text-ink-2">Fotos bleiben auf dem Spiel-Laptop und können jederzeit gelöscht werden.</p>
       </div>

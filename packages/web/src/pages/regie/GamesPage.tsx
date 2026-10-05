@@ -1,6 +1,8 @@
 /** Spiele (gespeicherte Spielstände) und Vorlagen. */
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Play, Plus, Power, Trash2 } from 'lucide-react';
+import type { DeviceMode } from '@insel/shared';
+import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
 import { api, downloadFile } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
 import { reloadLibrary, useLibrary } from '../../lib/library.ts';
@@ -147,6 +149,7 @@ function NewGameModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const templates = useLibrary((s) => s.templates);
   const [name, setName] = useState(() => `Spieleabend ${new Date().toLocaleDateString('de-DE')}`);
   const [templateId, setTemplateId] = useState((templates.find((t) => t.name.startsWith('Standard')) ?? templates[0])?.id ?? '');
+  const [devices, setDevices] = useState<DeviceMode>('personal');
   const { busy, run } = useAsync();
   return (
     <Modal
@@ -160,7 +163,7 @@ function NewGameModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           loading={busy}
           disabled={!name.trim()}
           onClick={async () => {
-            const r = await run(() => api('/api/games', { slot: 'admin', body: { name, ...(templateId ? { templateId } : {}) } }), 'Spiel angelegt und aktiviert');
+            const r = await run(() => api('/api/games', { slot: 'admin', body: { name, devices, ...(templateId ? { templateId } : {}) } }), 'Spiel angelegt und aktiviert');
             if (r) {
               onCreated();
               onClose();
@@ -181,6 +184,8 @@ function NewGameModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           ))}
           <option value="">Ohne Vorlage (alle Sammlungen, 72 Felder)</option>
         </select>
+        <span className="label mt-1">Handys</span>
+        <DeviceModePicker value={devices} onChange={setDevices} />
         <p className="text-xs text-muted">Das bisher aktive Spiel bleibt gespeichert und kann jederzeit wieder aktiviert werden.</p>
       </div>
     </Modal>

@@ -1,11 +1,11 @@
 /** Team-Seite am Handy: Figur gestalten, Teamname, Mitglieder, PIN zum Einladen, eigenes Profil. */
 import { useState } from 'react';
-import { Check, Pencil, UserRound } from 'lucide-react';
+import { Check, Pencil, UserPlus, UserRound } from 'lucide-react';
 import type { GameState } from '@insel/shared';
 import { api } from '../../lib/api.ts';
 import { useCommand } from '../../lib/hooks.ts';
 import { uploadPhoto } from '../../lib/image.ts';
-import { reauth } from '../../lib/live.ts';
+import { reauth, useLive } from '../../lib/live.ts';
 import { getToken, setToken } from '../../lib/storage.ts';
 import { FigureEditor } from '../../figure/FigureEditor.tsx';
 import { Button, Card, CardHeader } from '../../ui/basics.tsx';
@@ -20,6 +20,7 @@ export function TeamInfo({ state, me }: { state: GameState; me: Me }) {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(team.name);
   const members = state.players.filter((p) => p.teamId === team.id);
+  const shared = state.config.devices === 'shared';
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,7 +67,7 @@ export function TeamInfo({ state, me }: { state: GameState; me: Me }) {
       </Card>
 
       <Card className="p-4">
-        <p className="label">Weitere Handys verbinden</p>
+        <p className="label">{shared ? 'Dieses Gerät gehört eurem Team' : 'Weitere Handys verbinden'}</p>
         <p className="text-sm text-ink-2">
           Auf der Startseite „Mitspielen“ → „Team-PIN“ und diese PIN eingeben:
         </p>
@@ -85,11 +86,84 @@ export function TeamInfo({ state, me }: { state: GameState; me: Me }) {
             </li>
           ))}
         </ul>
-        {me.session.role === 'team' && members.length > 0 && <BecomePlayer members={members.map((m) => ({ id: m.id, name: m.name }))} />}
+        {shared && me.session.role === 'team' && <AddMember />}
+        {!shared && me.session.role === 'team' && members.length > 0 && <BecomePlayer members={members.map((m) => ({ id: m.id, name: m.name }))} />}
       </Card>
 
       {me.player && <MyProfile me={me} />}
     </div>
+  );
+}
+
+/** Gruppenmodus: Nachzügler direkt am Team-Gerät anmelden (Name + optional Selfie). */
+function AddMember() {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [added, setAdded] = useState<{ token: string; playerId: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const state = useLive((s) => s.state);
+  if (!open)
+    return (
+      <Button variant="ghost" size="sm" className="mt-3" icon={<UserPlus className="size-4" />} onClick={() => setOpen(true)}>
+        Person hinzufügen
+      </Button>
+    );
+  if (added) {
+    const p = state?.players.find((x) => x.id === added.playerId);
+    return (
+      <div className="mt-3 flex flex-col items-center gap-3 rounded-2xl bg-bg-2 p-3">
+        <p className="font-bold">Selfie für {added.name}?</p>
+        <PhotoPicker
+          current={p?.photo ?? null}
+          emoji={p?.emoji ?? '😀'}
+          busy={busy}
+          onPick={async (blob) => {
+            setBusy(true);
+            try {
+              await uploadPhoto(blob, added.token);
+              toast.success('Foto gespeichert');
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : 'Upload fehlgeschlagen');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+        <Button
+          variant="primary"
+          onClick={() => {
+            setAdded(null);
+            setName('');
+            setOpen(false);
+          }}
+        >
+          Fertig
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="mt-3 flex gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setBusy(true);
+        try {
+          const r = await api<{ token: string; playerId: string }>('/api/auth/register', { slot: 'member', body: { name: name.trim() } });
+          setAdded({ ...r, name: name.trim() });
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen');
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Vorname" maxLength={40} autoFocus />
+      <Button type="submit" variant="primary" loading={busy} disabled={!name.trim()}>
+        Hinzufügen
+      </Button>
+    </form>
   );
 }
 

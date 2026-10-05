@@ -76,7 +76,9 @@ function Lobby({ state }: { state: GameState }) {
           <p className="font-display text-6xl leading-none font-semibold text-ink">Mitspielen!</p>
           <p className="mt-3 text-2xl font-bold text-ink-2">QR-Code scannen oder im Browser öffnen:</p>
           <p className="mt-1 font-mono text-3xl font-bold break-all text-accent">{short}/join</p>
-          <p className="mt-3 text-xl font-bold text-ink-2">{state.registrationOpen ? '📲 Die Anmeldung ist offen' : '🔒 Beitritt mit Team-PIN'}</p>
+          <p className="mt-3 text-xl font-bold text-ink-2">
+            {!state.registrationOpen ? '🔒 Beitritt mit Team-PIN' : state.config.devices === 'shared' ? '👥 Anmeldung an der Anmeldestation' : '📲 Die Anmeldung ist offen'}
+          </p>
         </div>
       </div>
       {teams.length === 0 ? (
