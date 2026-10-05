@@ -116,6 +116,11 @@ function handleGameCommand(
         t.position = Math.min(t.position, goal);
         // Krater verschoben oder abgeschaltet → Team ist nicht mehr gefangen
         if (t.crater && (s.config.board.fields[t.position] !== 'crater' || !s.config.rules.crater.enabled)) t.crater = null;
+        // geänderte Augenzahl gilt auch für Teams, die schon im Krater sitzen
+        if (t.crater) {
+          t.crater.need = s.config.rules.crater.climb;
+          if (t.crater.climbed >= t.crater.need) t.crater = null;
+        }
       }
       s.volcano.pressure = Math.min(s.volcano.pressure, s.config.rules.volcano.threshold);
       s.planIndex = Math.min(s.planIndex, s.config.plan.length);
@@ -165,6 +170,7 @@ export function applyCommand(state: GameState, cmd: Command, actor: Actor, ctx: 
       break;
     case 'dice.roll':
     case 'dice.skip':
+    case 'vine.roll':
     case 'fieldgame.setup':
     case 'fieldgame.result':
     case 'fieldgame.cancel':

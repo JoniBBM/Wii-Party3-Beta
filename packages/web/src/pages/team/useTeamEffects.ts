@@ -61,6 +61,32 @@ export function useTeamEffects(teamId: string | null) {
           case 'swap':
             if (e.b === teamId) toast.info('🔄 Ein anderes Team hat mit euch den Platz getauscht!');
             break;
+          case 'river':
+            if (e.teamId === teamId && e.result === 'fall') {
+              vibrate([150, 80, 150]);
+              setTimeout(() => toast.error('💦 Platsch! Ihr seid von den Fässern gefallen und treibt zurück.'), 1800);
+            } else if (e.teamId === teamId) setTimeout(() => toast.success('🛢️ Geschafft – ihr balanciert sicher über die Fässer!'), 1800);
+            break;
+          case 'crater':
+            if (e.teamId !== teamId) break;
+            if (e.result === 'fall') {
+              vibrate([200, 100, 200]);
+              setTimeout(() => toast.error(`🕳️ Ihr seid in den Krater gefallen! Zum Herausklettern braucht ihr ${e.need} Augen.`), 1500);
+            } else if (e.result === 'climb') toast.info(`🧗 ${e.climbed} von ${e.need} Augen – noch ${e.need - e.climbed}!`);
+            else toast.success('🧗 Ihr seid wieder aus dem Krater heraus!');
+            break;
+          case 'vine':
+            if (e.teamId === teamId && e.stage === 'grab') {
+              vibrate([80, 60, 80]);
+              ping();
+            }
+            break;
+          case 'cave':
+            if (e.teamId === teamId) {
+              vibrate([200, 100, 200]);
+              setTimeout(() => toast.error('🦇 Ihr seid in die Lavahöhle gefallen und rutscht zum Vulkanfuß hinunter!'), 1500);
+            }
+            break;
           case 'eruption':
             if (e.affected.some((a) => a.teamId === teamId)) {
               vibrate([200, 100, 200, 100, 400]);

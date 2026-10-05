@@ -29,6 +29,7 @@ import { buildFields, type FieldMeshes } from './fields.ts';
 import { buildLayout, type IslandLayout } from './layout.ts';
 import { Effects } from './particles.ts';
 import { Pieces } from './pieces.ts';
+import { Stunts } from './stunts.ts';
 import { buildProps, type Props } from './props.ts';
 import { buildGrass } from './grass.ts';
 import { createAmbient, type Ambient } from './ambient.ts';
@@ -71,6 +72,7 @@ export class BoardScene {
   pieces!: Pieces;
   volcano!: VolcanoFx;
   dice!: DiceOverlay;
+  stunts!: Stunts;
   director!: Director;
   private water!: Water;
   private river!: RiverFx;
@@ -242,8 +244,12 @@ export class BoardScene {
       },
     });
     this.scene.add(this.pieces.group);
+    this.stunts = new Stunts(layout, field, this.pieces, this.tweens, this.effects, this.audio);
+    this.scene.add(this.stunts.group);
     this.rig = new CameraRig(this.camera, layout);
     this.rig.heightAt = (x, z) => field.height(x, z);
+    this.rig.setBlockers([...(this.props?.blockers ?? []), ...this.stunts.blockers]);
+    this.pieces.lineOfSight = (from, to) => this.rig.occlusion(from, to, true) < 0.08;
     this.dice = new DiceOverlay(this.tweens);
     this.director = new Director(this, (c) => {
       for (const fn of this.captionListeners) fn(c);
@@ -309,6 +315,7 @@ export class BoardScene {
     fx.uTime.value = t;
     this.tweens.update(dt);
     this.pieces.update(t, dt);
+    this.stunts.update(t, dt, this.camera);
     this.fields.update(t);
     this.volcano.update(t, dt);
     this.effects.update(dt);
@@ -342,7 +349,14 @@ export class BoardScene {
     const rules = state.config.rules;
     // Ausgeschaltete Inselgefahren wie normale Felder zeigen
     this.fields.setFields(
-      state.config.board.fields.map((f) => ((f === 'river' && rules.river?.enabled === false) || (f === 'crater' && rules.crater?.enabled === false) ? 'normal' : f)),
+      state.config.board.fields.map((f) =>
+        (f === 'river' && rules.river?.enabled === false) ||
+        (f === 'crater' && rules.crater?.enabled === false) ||
+        (f === 'vine' && rules.vine?.enabled === false) ||
+        (f === 'cave' && rules.cave?.enabled === false)
+          ? 'normal'
+          : f,
+      ),
     );
     this.pieces.sync(state.teams);
     const v = state.config.rules.volcano;
@@ -370,6 +384,7 @@ export class BoardScene {
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.director.dispose();
+    this.stunts.dispose();
     this.composer?.dispose();
     this.water.dispose();
     this.effects.dispose();

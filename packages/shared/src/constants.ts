@@ -38,6 +38,8 @@ export const FIELD_TYPES = [
   'volcano',
   'river',
   'crater',
+  'vine',
+  'cave',
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
@@ -45,7 +47,7 @@ export type FieldType = (typeof FIELD_TYPES)[number];
  * Felder, die fest zur Insel gehören: die Fässer in der Flussfurt und das Loch am Kraterrand.
  * Ihre Lage ergibt sich aus der Inselgeometrie, im Editor sind sie nicht verschiebbar.
  */
-export const LANDMARK_FIELD_TYPES = ['river', 'crater'] as const satisfies readonly FieldType[];
+export const LANDMARK_FIELD_TYPES = ['vine', 'river', 'cave', 'crater'] as const satisfies readonly FieldType[];
 
 /** Feldtypen, die im Editor frei gesetzt werden dürfen (Start/Ziel und Inselfelder sind fix). */
 export const PLACEABLE_FIELD_TYPES = FIELD_TYPES.filter(
@@ -125,6 +127,20 @@ export const FIELD_INFO: Record<
     description: 'Wackelige Fässer in der Furt. Mit etwas Pech fällt das Team ins Wasser und wird flussabwärts zurückgespült.',
     color: '#2bb3c9',
     icon: '🛢️',
+  },
+  vine: {
+    label: 'Liane',
+    short: 'Liane',
+    description: 'Das Team schwingt sich an der Liane nach vorne: Es würfelt noch einmal und fliegt so viele Felder weiter.',
+    color: '#6fa83a',
+    icon: '🌿',
+  },
+  cave: {
+    label: 'Lavahöhle',
+    short: 'Höhle',
+    description: 'Ein Loch am Vulkanhang: Das Team fällt hinein, rutscht durch den Berg und kommt am Vulkanfuß wieder heraus.',
+    color: '#6b4a3a',
+    icon: '🦇',
   },
   crater: {
     label: 'Kraterloch',

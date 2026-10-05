@@ -124,7 +124,8 @@ try {
       await sleep(1500);
       await shot('feldminispiel');
       await cmd({ type: 'fieldgame.result', won: true });
-    } else await cmd({ type: 'dice.roll', force: true });
+    } else if (state.phase.dice.vine) await cmd({ type: 'vine.roll', force: true });
+    else await cmd({ type: 'dice.roll', force: true });
     await sleep(600);
   }
   await sleep(4000);

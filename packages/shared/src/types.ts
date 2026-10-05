@@ -128,6 +128,16 @@ export interface Rules {
     /** So viele Felder spült die Strömung zurück */
     driftBack: Range;
   };
+  /** Liane am Anfang: noch einmal würfeln und so weit nach vorne schwingen */
+  vine: {
+    enabled: boolean;
+    /** Seitenzahl des Lianen-Würfels */
+    sides: number;
+  };
+  /** Lavahöhle an den Serpentinen: hineinfallen, zum Vulkanfuß hinunterrutschen */
+  cave: {
+    enabled: boolean;
+  };
   /** Loch am Kraterrand */
   crater: {
     enabled: boolean;
@@ -300,6 +310,8 @@ export interface DiceRound {
   index: number;
   rolls: RollRecord[];
   fieldGame: FieldGame | null;
+  /** Team hängt an der Liane und muss noch den Lianen-Würfel werfen. */
+  vine?: { teamId: string; position: number } | null;
   /** Bis zu diesem Zeitpunkt laufen auf dem Beamer noch Animationen. */
   busyUntil: number;
 }
@@ -368,7 +380,7 @@ export interface GameState {
 // Effekte: Ereignisse für Animationen, Sounds und Hinweise (nicht Teil des Zustands)
 // ---------------------------------------------------------------------------
 
-export type MoveReason = 'dice' | 'catapult' | 'reward' | 'penalty' | 'eruption' | 'swap' | 'correction' | 'river';
+export type MoveReason = 'dice' | 'catapult' | 'reward' | 'penalty' | 'eruption' | 'swap' | 'correction' | 'river' | 'vine' | 'cave';
 
 export type EffectInput =
   | { type: 'dice'; teamId: string; main: number; bonus: number; bonusDie: number; total: number; manual: boolean }
@@ -378,6 +390,10 @@ export type EffectInput =
   | { type: 'barrier'; teamId: string; roll: number; result: 'blocked' | 'stuck' | 'released' | 'opened' }
   /** Fässer im Fluss: gehalten oder ins Wasser gefallen (dann folgt ein move mit reason 'river'). */
   | { type: 'river'; teamId: string; position: number; result: 'safe' | 'fall' }
+  /** Liane: gepackt (wartet auf den Lianen-Wurf) bzw. geschwungen (danach folgt ein move mit reason 'vine'). */
+  | { type: 'vine'; teamId: string; position: number; stage: 'grab' | 'swing'; roll: number; sides: number }
+  /** Lavahöhle: hineingefallen (danach folgt ein move mit reason 'cave' zum Ausgang). */
+  | { type: 'cave'; teamId: string; position: number }
   /** Krater: hineingefallen, ein Stück geklettert oder wieder draußen. */
   | { type: 'crater'; teamId: string; position: number; result: 'fall' | 'climb' | 'out'; roll: number; climbed: number; need: number }
   | { type: 'final_roll'; teamId: string; roll: number; needed: number; success: boolean }

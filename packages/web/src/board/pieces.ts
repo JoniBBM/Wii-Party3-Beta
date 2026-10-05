@@ -120,6 +120,7 @@ export class Pieces {
       if (!p || p.busy) continue;
       p.cage.visible = !!t.blocked;
       p.cage.scale.set(1, 1, 1);
+      p.cage.position.set(0, 0, 0);
       if (t.crater) this.crater.set(t.id, Math.min(1, t.crater.climbed / Math.max(1, t.crater.need)));
       else this.crater.delete(t.id);
       if (t.blocked) p.rig.setMode('stuck');
@@ -176,7 +177,7 @@ export class Pieces {
     const sz = Math.sin(h + Math.PI / 2);
     const fx = Math.cos(h);
     const fz = Math.sin(h);
-    return new THREE.Vector3(f.x + sx * ox + fx * oz, this.fields.topY[field]!, f.z + sz * ox + fz * oz);
+    return new THREE.Vector3(f.x + sx * ox + fx * oz, this.fields.topY[field]! + 0.045, f.z + sz * ox + fz * oz);
   }
 
   private facing(field: number) {
@@ -219,6 +220,9 @@ export class Pieces {
     for (const p of this.pieces.values()) {
       if (positions[p.teamId] !== undefined) p.position = positions[p.teamId]!;
       p.busy = false;
+      p.holder.visible = true;
+      p.holder.scale.setScalar(1);
+      p.holder.rotation.set(0, p.holder.rotation.y, 0);
       if (!this.teams.find((t) => t.id === p.teamId)?.blocked) p.rig.setMode('idle');
     }
     this.arrangeAll(false);
@@ -307,13 +311,14 @@ export class Pieces {
     await this.tweens.run(seconds, (t) => {
       p.holder.rotation.z = r0 + Math.sin(t * Math.PI * 7) * 0.22 * (1 - t * 0.3);
     }, ease.linear);
-    p.holder.rotation.z = r0;
+    p.holder.rotation.z = 0;
   }
 
   /** Vom Fass kippen und ins Wasser plumpsen. */
   async tumbleIntoWater(teamId: string, waterY: number) {
     const p = this.pieces.get(teamId);
     if (!p) return;
+    const epoch = this.epoch;
     p.busy = true;
     p.rig.setMode('fly');
     const a = p.holder.position.clone();
@@ -325,6 +330,7 @@ export class Pieces {
       p.holder.rotation.z = t * 1.2;
     }, ease.in);
     p.holder.rotation.z = 0;
+    if (epoch !== this.epoch) return;
     p.rig.setMode('swim');
   }
 
@@ -363,6 +369,7 @@ export class Pieces {
   async fallIntoCrater(teamId: string) {
     const p = this.pieces.get(teamId);
     if (!p) return;
+    const epoch = this.epoch;
     p.busy = true;
     this.crater.set(teamId, 0);
     const a = p.holder.position.clone();
@@ -374,6 +381,7 @@ export class Pieces {
       p.holder.position.y += Math.sin(t * Math.PI) * 0.9 - t * t * 0.2;
       p.holder.rotation.y = r0 + t * Math.PI * 2;
     }, ease.in);
+    if (epoch !== this.epoch) return;
     p.holder.rotation.y = this.faceOutOfCrater();
     p.busy = false;
     p.rig.setMode('sad');
@@ -383,6 +391,7 @@ export class Pieces {
   async climb(teamId: string, progress: number) {
     const p = this.pieces.get(teamId);
     if (!p) return;
+    const epoch = this.epoch;
     p.busy = true;
     this.crater.set(teamId, progress);
     const a = p.holder.position.clone();
@@ -390,6 +399,7 @@ export class Pieces {
     p.rig.setMode('climb');
     p.holder.rotation.y = this.faceOutOfCrater();
     await this.tweens.run(1.1, (t) => p.holder.position.lerpVectors(a, b, t), ease.inOut);
+    if (epoch !== this.epoch) return;
     p.busy = false;
   }
 
@@ -397,6 +407,7 @@ export class Pieces {
   async climbOut(teamId: string) {
     const p = this.pieces.get(teamId);
     if (!p) return;
+    const epoch = this.epoch;
     p.busy = true;
     const a = p.holder.position.clone();
     this.crater.delete(teamId);
@@ -406,6 +417,7 @@ export class Pieces {
       p.holder.position.lerpVectors(a, b, t);
       p.holder.position.y += Math.sin(t * Math.PI) * 1.2;
     }, ease.inOut);
+    if (epoch !== this.epoch) return;
     p.holder.rotation.y = this.facing(p.position);
     p.busy = false;
     p.rig.setMode('cheer');
@@ -416,23 +428,87 @@ export class Pieces {
     return this.crater.has(teamId);
   }
 
+  // --- Für Auftritte (stunts.ts): Figur vorübergehend frei bewegen -------------------
+
+  /** Figur übernehmen: keine Aufstellung mehr, bis `release`. */
+  grab(teamId: string): { holder: THREE.Group; rig: FigureRig } | null {
+    const p = this.pieces.get(teamId);
+    if (!p) return null;
+    p.busy = true;
+    this.crater.delete(teamId);
+    return { holder: p.holder, rig: p.rig };
+  }
+
+  /** Figur auf ein Feld zurückgeben (logische Position setzen, aufstellen). */
+  release(teamId: string, field: number, mode: Parameters<FigureRig['setMode']>[0] = 'idle', land = true) {
+    const p = this.pieces.get(teamId);
+    if (!p) return;
+    p.position = field;
+    p.busy = false;
+    p.holder.rotation.set(0, this.facing(field), 0);
+    p.holder.scale.setScalar(1);
+    p.rig.setMode(mode);
+    if (land) this.cb.onLand?.(teamId, field);
+    this.arrangeAll();
+  }
+
+  /** Stellplatz einer Figur auf einem Feld (für Zielpunkte von Auftritten). */
+  slotOn(teamId: string, field: number): THREE.Vector3 {
+    const p = this.pieces.get(teamId);
+    const old = p?.position;
+    const busy = p?.busy;
+    if (p) {
+      p.position = field;
+      p.busy = false;
+    }
+    const v = this.slotFor(teamId, field);
+    if (p) {
+      p.position = old!;
+      p.busy = busy!;
+    }
+    return v;
+  }
+
+  facingOf(field: number) {
+    return this.facing(field);
+  }
+
+  get epochNow() {
+    return this.epoch;
+  }
+
   setMode(teamId: string, mode: Parameters<FigureRig['setMode']>[0]) {
     this.pieces.get(teamId)?.rig.setMode(mode);
   }
 
-  setCage(teamId: string, on: boolean) {
+  /** Käfig fällt von oben herab (mit Aufprall) bzw. fliegt davon. */
+  setCage(teamId: string, on: boolean, onImpact?: () => void): Promise<void> {
     const p = this.pieces.get(teamId);
-    if (!p) return;
+    if (!p) return Promise.resolve();
     if (on) {
       p.cage.visible = true;
-      p.cage.scale.set(1, 0.01, 1);
-      void this.tweens.run(0.5, (t) => p.cage.scale.set(1, Math.max(0.01, t), 1), ease.outBack);
-    } else {
-      void this.tweens.run(0.4, (t) => p.cage.scale.set(1 + t * 0.4, Math.max(0.01, 1 - t), 1 + t * 0.4), ease.in).then(() => {
-        p.cage.visible = false;
-        p.cage.scale.set(1, 1, 1);
-      });
+      p.cage.scale.set(1, 1, 1);
+      p.cage.position.set(0, 7, 0);
+      let hit = false;
+      return this.tweens.run(0.75, (t) => {
+        p.cage.position.y = 7 * (1 - t);
+        p.cage.rotation.y = (1 - t) * 2;
+        if (!hit && t >= 0.36) {
+          hit = true;
+          onImpact?.();
+        }
+      }, ease.outBounce);
     }
+    return this.tweens.run(0.7, (t) => {
+      p.cage.position.y = t * t * 9;
+      p.cage.rotation.y = t * 4;
+      p.cage.scale.setScalar(1 - t * 0.5);
+    }, ease.in).then(() => {
+      p.cage.visible = false;
+      p.cage.position.set(0, 0, 0);
+      p.cage.rotation.set(0, 0, 0);
+      p.cage.scale.set(1, 1, 1);
+    });
   }
 
   setActive(teamId: string | null) {
@@ -441,6 +517,9 @@ export class Pieces {
 
   private tagsOn = true;
   private ndc = new THREE.Vector3();
+  /** Sichtprüfung (Gelände) – Schilder verdeckter Figuren ausblenden */
+  lineOfSight: ((from: THREE.Vector3, to: THREE.Vector3) => boolean) | null = null;
+  private tagTick = 0;
 
   setTagsVisible(on: boolean) {
     this.tagsOn = on;
@@ -450,9 +529,20 @@ export class Pieces {
   /** Schilder von Figuren außerhalb des Bildes ausblenden (sonst kleben sie am Rand). */
   updateTags(camera: THREE.Camera) {
     if (!this.tagsOn) return;
+    const check = this.tagTick++ % 4 === 0;
     for (const p of this.pieces.values()) {
       this.ndc.copy(p.holder.position).project(camera);
-      p.tag.visible = this.ndc.z < 1 && Math.abs(this.ndc.x) < 0.98 && this.ndc.y < 0.95 && this.ndc.y > -1.05;
+      const onScreen = this.ndc.z < 1 && Math.abs(this.ndc.x) < 0.98 && this.ndc.y < 0.95 && this.ndc.y > -1.05;
+      if (!onScreen) {
+        p.tag.visible = false;
+        continue;
+      }
+      // hinter einem Berg? (nur jedes 4. Bild prüfen)
+      if (check && this.lineOfSight) {
+        const head = p.holder.position.clone().setY(p.holder.position.y + p.rig.height * SCALE + 0.3);
+        p.tag.userData.hidden = !this.lineOfSight(camera.position, head);
+      }
+      p.tag.visible = !p.tag.userData.hidden && p.holder.visible;
     }
   }
 

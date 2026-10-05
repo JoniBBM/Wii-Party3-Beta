@@ -90,6 +90,20 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
   const heights = new Float32Array(n * n);
   const pw = layout.fieldRadius * 1.3;
   const br = layout.bridge;
+  // Jedes Feld bekommt eine ebene Fläche (sonst schneiden Felder in Kehren in den Hang)
+  const padCell = 4;
+  const pads = new Map<number, number[]>();
+  layout.fields.forEach((f, i) => {
+    if (f.ford || f.bridge) return;
+    for (let cx = Math.floor((f.x - 3) / padCell); cx <= Math.floor((f.x + 3) / padCell); cx++)
+      for (let cz = Math.floor((f.z - 3) / padCell); cz <= Math.floor((f.z + 3) / padCell); cz++) {
+        const k = cx * 7919 + cz;
+        const arr = pads.get(k);
+        if (arr) arr.push(i);
+        else pads.set(k, [i]);
+      }
+  });
+  const padR = (i: number) => layout.fieldRadius * (i === 0 ? 2.1 : i === layout.fields.length - 1 ? 1.55 : 1) + 0.35;
 
   const riverInfo = (x: number, z: number) => {
     const r = riverGrid.nearest(x, z);
@@ -125,6 +139,22 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
           const dv = Math.hypot(x - VOLCANO.x, z - VOLCANO.z);
           k *= smoothstep(CRATER.crest - 0.9, CRATER.crest - 0.15, dv);
           if (k > 0) h = lerp(h, py - 0.07, k);
+        }
+      }
+
+      // Feldflächen
+      const near = pads.get(Math.floor(x / padCell) * 7919 + Math.floor(z / padCell));
+      if (near) {
+        for (const i of near) {
+          const f = layout.fields[i]!;
+          const d = Math.hypot(x - f.x, z - f.z);
+          const r = padR(i);
+          if (d < r + 1.4) {
+            const k = 1 - smoothstep(r, r + 1.4, d);
+            const dv = Math.hypot(x - VOLCANO.x, z - VOLCANO.z);
+            if (dv < CRATER.crest - 0.2) continue;
+            h = lerp(h, f.y - 0.07, k);
+          }
         }
       }
 

@@ -238,6 +238,20 @@ export class Effects {
     });
   }
 
+  /** Dampf-Geysir mit Funken (Vulkanfeld) */
+  geyser(x: number, y: number, z: number) {
+    this.smoke.emit(70, (p) => {
+      const a = Math.random() * Math.PI * 2;
+      const s = rnd(0.1, 0.6);
+      Object.assign(p, { x: x + rnd(-0.3, 0.3), y: y + rnd(0, 0.6), z: z + rnd(-0.3, 0.3), vx: Math.cos(a) * s, vy: rnd(6, 12), vz: Math.sin(a) * s, maxLife: rnd(1.6, 2.8), size: rnd(0.7, 1.2), sizeEnd: rnd(3, 5.5), r: 0.97, g: 0.97, b: 0.99, alpha: 0.85, drag: 0.8, gravity: -0.4 });
+    });
+    this.glow.emit(30, (p) => {
+      const a = Math.random() * Math.PI * 2;
+      const s = rnd(0.5, 2);
+      Object.assign(p, { x, y, z, vx: Math.cos(a) * s, vy: rnd(4, 8), vz: Math.sin(a) * s, maxLife: rnd(0.8, 1.4), size: rnd(0.25, 0.45), sizeEnd: 0.05, r: 1, g: rnd(0.35, 0.6), b: 0.1, alpha: 1, gravity: 9 });
+    });
+  }
+
   /** Rauch aus dem Krater (je nach Druck dichter und dunkler) */
   volcanoSmoke(x: number, y: number, z: number, intensity: number) {
     const dark = 0.35 + (1 - intensity) * 0.45;

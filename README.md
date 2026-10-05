@@ -6,7 +6,7 @@ Ein Partyspiel für Gruppen im Stil von **Wii Party**: Die Teams wandern auf ein
 
 ## Die Insel
 
-Der Weg führt vom **Hafendorf** über Strand und **Tempelruinen**, an der **Lagune** vorbei durch den **Dschungel**, über **Fässer im Fluss** unter dem Wasserfall, zum **Leuchtturm**, über die **Hängebrücke**, an der Steilküste entlang zu den **Steinköpfen** und in Serpentinen auf den **Vulkan** – mit **Kraterloch**, in das man hineinfallen kann. Unterwegs: Delfine, ein Wal, Fischschwärme, Flamingos, Schildkröten, Krabben, Frösche, Papageien, Affen, Möwen und Schmetterlinge.
+Der Weg führt vom **Hafendorf** an der **Liane** vorbei durch die **Tempelruinen**, an der **Lagune** vorbei durch den **Dschungel**, über **Fässer im Fluss** unter dem Wasserfall, zum **Leuchtturm**, über die **Hängebrücke**, an der Steilküste entlang zu den **Steinköpfen** und in Serpentinen auf den **Vulkan** – vorbei an der **Lavahöhle** bis zum **Kraterloch**. Jedes Sonderfeld hat seinen Auftritt: Sprungfeder, Doppeldecker mit Fallschirm, UFO-Tausch, fallender Käfig, Dampf-Geysir. Unterwegs: Delfine, ein Wal, Fischschwärme, Flamingos, Schildkröten, Krabben, Frösche, Papageien, Affen, Möwen und Schmetterlinge.
 
 | | | |
 |---|---|---|

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isTextAnswerCorrect } from '../answers.ts';
 import { generateBoard, countFields } from '../board.ts';
+import { islandLandmarks } from '../island.ts';
 import type { FieldType } from '../constants.ts';
 import { buildItem, defaultConfig, upgradeState } from '../defaults.ts';
 import { seededRng } from '../rng.ts';
@@ -110,6 +111,8 @@ describe('Spielfeld', () => {
       const crater = b.fields.flatMap((f, i) => (f === 'crater' ? [i] : []));
       expect(river.length).toBeGreaterThanOrEqual(1);
       expect(crater).toHaveLength(1);
+      expect(b.fields.filter((f) => f === 'vine')).toHaveLength(1);
+      expect(b.fields.filter((f) => f === 'cave')).toHaveLength(1);
       expect(crater[0]!).toBeGreaterThan(goal * 0.85);
       expect(crater[0]!).toBeLessThan(goal);
       // Inselfelder kommen aus dem Plan und nicht vom Zufall
@@ -445,15 +448,82 @@ describe('Würfeln & Sonderfelder', () => {
     expect(h.team(0).position).toBeLessThan(36);
   });
 
+  it('Liane: Team hängt an der Liane, würfelt erneut und schwingt nach vorne', () => {
+    const h = harness({ config: { board: boardWith({ 4: 'vine' }) } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.toDice([a.id, b.id]);
+    const r = h.run({ type: 'dice.roll', main: 4, force: true }, ADMIN);
+    expect(r.effects.find((e) => e.type === 'vine')).toMatchObject({ stage: 'grab', position: 4, sides: 6 });
+    const dice = phase(h.s, 'dice').dice;
+    expect(dice.vine).toEqual({ teamId: a.id, position: 4 });
+    expect(dice.index).toBe(0); // Runde wartet auf den Lianen-Wurf
+    // Normales Würfeln ist gesperrt, das andere Team darf nicht für A werfen
+    h.tick(10_000);
+    expect(() => h.run({ type: 'dice.roll', force: true }, ADMIN)).toThrow(/Liane/);
+    const teamB = { role: 'team' as const, teamId: b.id };
+    expect(() => h.run({ type: 'vine.roll' }, teamB)).toThrow(EngineError);
+    // Team A wirft selbst
+    const teamA = { role: 'team' as const, teamId: a.id };
+    const r2 = h.run({ type: 'vine.roll' }, teamA);
+    const swing = r2.effects.find((e) => e.type === 'vine');
+    expect(swing).toMatchObject({ stage: 'swing' });
+    const roll = (swing as { roll: number }).roll;
+    expect(roll).toBeGreaterThanOrEqual(1);
+    expect(roll).toBeLessThanOrEqual(6);
+    expect(h.team(0).position).toBe(4 + roll);
+    expect(r2.effects.find((e) => e.type === 'move' && e.reason === 'vine')).toBeTruthy();
+    expect(phase(h.s, 'dice').dice.vine).toBeNull();
+    expect(phase(h.s, 'dice').dice.index).toBe(1);
+    // Regie kann einen festen Wert setzen; Überspringen löst die Liane
+    h.mutate((s) => (s.teams[1]!.position = 0));
+    h.tick(10_000);
+    h.run({ type: 'dice.roll', main: 4, force: true }, ADMIN);
+    expect(phase(h.s, 'dice').dice.vine?.teamId).toBe(b.id);
+    h.tick(10_000);
+    h.run({ type: 'vine.roll', value: 3, force: true }, ADMIN);
+    expect(h.team(1).position).toBe(7);
+  });
+
+  it('Lavahöhle: hineinfallen und zum Vulkanfuß rutschen', () => {
+    const goal = 72;
+    const marks = islandLandmarks(goal);
+    const board = generateBoard(goal, 3);
+    const cave = marks.cave[0]!;
+    expect(board.fields[cave]).toBe('cave');
+    const h = harness({ config: { board } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.mutate((s) => {
+      s.config.rules.volcano.enabled = false;
+      s.teams[0]!.position = cave - 2;
+    });
+    h.toDice([a.id, b.id]);
+    const r = h.run({ type: 'dice.roll', main: 2, force: true }, ADMIN);
+    expect(r.effects.find((e) => e.type === 'cave')).toMatchObject({ position: cave });
+    expect(r.effects.find((e) => e.type === 'move' && e.reason === 'cave')).toMatchObject({ from: cave, to: marks.caveExit });
+    expect(h.team(0).position).toBe(marks.caveExit);
+    // abgeschaltet → normales Feld
+    h.mutate((s) => {
+      s.config.rules.cave.enabled = false;
+      s.teams[1]!.position = cave - 2;
+    });
+    h.tick(10_000);
+    h.run({ type: 'dice.roll', main: 2, force: true }, ADMIN);
+    expect(h.team(1).position).toBe(cave);
+  });
+
   it('alte Spielstände ohne Fluss/Krater werden ergänzt', () => {
     const h = harness().setup();
     const old = JSON.parse(JSON.stringify(h.s)) as GameState;
     delete (old.config.rules as Partial<GameConfig['rules']>).river;
     delete (old.config.rules as Partial<GameConfig['rules']>).crater;
+    delete (old.config.rules as Partial<GameConfig['rules']>).vine;
+    delete (old.config.rules as Partial<GameConfig['rules']>).cave;
     for (const t of old.teams) delete (t as Partial<typeof t>).crater;
     const up = upgradeState(old);
     expect(up.config.rules.river.enabled).toBe(true);
     expect(up.config.rules.crater.climb).toBe(8);
+    expect(up.config.rules.vine.sides).toBe(6);
+    expect(up.config.rules.cave.enabled).toBe(true);
     expect(up.teams.every((t) => t.crater === null)).toBe(true);
   });
 

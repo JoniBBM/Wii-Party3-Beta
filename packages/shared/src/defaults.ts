@@ -9,6 +9,7 @@ import {
   FIGURE_PANTS,
   FIGURE_SKINS,
 } from './constants.ts';
+import { hasLandmarks, withLandmarks } from './island.ts';
 import { pick, randInt, type Rng } from './rng.ts';
 import type { ContentItemInput } from './schemas.ts';
 import type { ContentItem, FigureConfig, GameConfig, GameState, Rules } from './types.ts';
@@ -33,6 +34,8 @@ export const DEFAULT_RULES: Rules = {
     knockback: { min: 3, max: 6 },
   },
   river: { enabled: true, fallChance: 50, driftBack: { min: 2, max: 4 } },
+  vine: { enabled: true, sides: 6 },
+  cave: { enabled: true },
   crater: { enabled: true, climb: 8 },
   autoCloseWhenAllAnswered: true,
 };
@@ -42,6 +45,10 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
   const rules = config.rules as Partial<Rules>;
   rules.river ??= clone(DEFAULT_RULES.river);
   rules.crater ??= clone(DEFAULT_RULES.crater);
+  rules.vine ??= clone(DEFAULT_RULES.vine);
+  rules.cave ??= clone(DEFAULT_RULES.cave);
+  // Bretter aus älteren Versionen kennen Fässer, Liane, Lavahöhle und Kraterloch noch nicht
+  if (config.board?.fields?.length && !hasLandmarks(config.board)) config.board = withLandmarks(config.board);
   return config;
 }
 

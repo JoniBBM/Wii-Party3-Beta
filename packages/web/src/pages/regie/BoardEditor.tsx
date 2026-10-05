@@ -153,9 +153,9 @@ export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange:
         {!landmarksOk && (
           <div className="rounded-2xl bg-warn-soft p-3 text-sm">
             <p className="font-bold">Dieses Brett stammt aus einer älteren Version.</p>
-            <p className="mb-2 text-ink-2">Fässer im Fluss und das Kraterloch fehlen noch.</p>
+            <p className="mb-2 text-ink-2">Liane, Fässer im Fluss, Lavahöhle und Kraterloch fehlen noch.</p>
             <Button size="sm" icon={<Anchor className="size-4" />} onClick={() => onChange(withLandmarks(board))}>
-              Fässer & Krater einbauen
+              Inselfelder einbauen
             </Button>
           </div>
         )}

@@ -47,7 +47,8 @@ legacy/     alte Flask-Version (nur Referenz)
 - **Effekte** (`EffectInput`): beschreiben *was passiert ist*, damit der Beamer es inszenieren kann. `durations.ts` schätzt die Animationsdauer – so weiß der Server, wann das nächste Team würfeln darf.
 - **Projektion** (`projectState`): Regie & Moderator sehen alles; Beamer und Handys bekommen keine Lösungen vor der Auflösung, keine fremden Antworten, keine fremden PINs.
 - **Brett** (`board.ts`): deterministische Verteilung der Sonderfelder per Seed. Die Verteilung wird in der Spielkonfiguration gespeichert und ändert sich nur bewusst.
-- **Inselplan** (`island.ts`): die Insel in 2D – Küstenlinie, Lagune, Fluss mit Wasserfall und Furt, Schlucht, Vulkan mit Kraterrand und der Weg (Wegpunkte + Serpentinen als Catmull-Rom-Kurve). `buildIslandPlan(felder)` verteilt die Felder nach Bogenlänge und bestimmt aus der Geometrie, welche Felder auf den **Fässern in der Furt** und welches am **Kraterrand** liegen. Engine (Inselfelder `river`/`crater`), Brett-Editor (Karte) und 3D-Insel nutzen denselben Plan.
+- **Inselplan** (`island.ts`): die Insel in 2D – Küstenlinie, Lagune, Fluss mit Wasserfall und Furt, Schlucht, Vulkan mit Kraterrand und der Weg (Wegpunkte + Serpentinen als Catmull-Rom-Kurve). `buildIslandPlan(felder)` verteilt die Felder nach Bogenlänge und bestimmt aus der Geometrie die festen Inselfelder: **Liane** (`vine`), **Fässer in der Furt** (`river`), **Lavahöhle** (`cave`, mit Ausgangsfeld `caveExit`) und **Kraterloch** (`crater`). Engine, Brett-Editor (Karte) und 3D-Insel nutzen denselben Plan.
+- **Liane**: Landet ein Team auf `vine`, setzt die Engine `dice.vine` und wartet auf den Befehl `vine.roll` (Team am Handy oder Regie); erst danach geht die Runde weiter.
 - **Ältere Spielstände**: `upgradeConfig`/`upgradeState` (`defaults.ts`) ergänzen neue Regeln und Team-Felder beim Laden aus der Datenbank.
 
 Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte, Antworten, Buzzer, Platzierung), `engine/dice.ts` (Würfeln, Sonderfelder, Fässer im Fluss, Kraterloch, Vulkan, Sieg), `engine/draw.ts` (faire Auslosung), `answers.ts` (tolerante Textauswertung), `selectors.ts` (Rangliste, Statistik).
@@ -90,7 +91,7 @@ Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte,
 | Regie | `pages/regie/` (Live, Teams, Spiel einrichten, Bibliothek, Spiele, Einstellungen) |
 | Moderator | `pages/moderator/` – nutzt dieselben Steuer-Panels wie die Regie (`game/`) |
 | Beamer | `pages/beamer/` (HUD, Einblendungen) + `board/` (3D) |
-| Gemeinsame Bausteine | `ui/` (Knöpfe, Dialoge, Toasts, Teamfarben, Würfel, QR, Countdown), `lib/` (Live-Store, API, Theme) |
+| Gemeinsame Bausteine | `ui/` (Knöpfe, Dialoge, Toasts, Teamfarben, Würfel, QR, Countdown), `lib/` (Live-Store, API, Theme, `shake.ts` – Würfeln durch Schütteln über den Bewegungssensor) |
 | Figuren | `figure/` – Mii-artige Figuren aus Grundkörpern, Editor, Vorschau, Schnappschüsse |
 
 Zustand: `zustand`-Store (`lib/live.ts`) mit Socket-Verbindung; Effekte als Ereignis-Bus (`onEffects`).
@@ -109,11 +110,12 @@ Design: Tailwind 4 mit semantischen Farb-Variablen (`styles.css`), hell im Wii-S
 | `sky.ts` | Himmelskuppel mit Sonnenglanz, Haufenwolken, Nachbarinseln am Horizont |
 | `props.ts`, `assets.ts`, `grass.ts` | Bepflanzung (Palmen, Dschungel, Farne, Monstera, Bambus, Blumenbeete, Felsen, Seerosen, Schilf), Grasteppich auf der GPU, Wind |
 | `landmarks.ts`, `merge.ts` | Hafendorf, Stufenpyramide, Säulenallee, Tempelruine, Steinköpfe, Leuchtturm, Hängebrücke, Fässer in der Furt, Seil-Geländer, Strickleiter im Krater, Felsbogen, Wrack, Schiffe, Regenbogen; statische Teile werden zu wenigen Draw-Calls zusammengefasst |
+| `stunts.ts` | Auftritte der Felder: Liane am Riesenbaum, Lavahöhle (Eingang, Fledermäuse, Felsentor), Sprungfeder, Doppeldecker mit Strickleiter und Fallschirm, UFO mit Traktorstrahl, Minispiel-Schild, Dampf-Geysir. Vorübergehende Objekte werden nach dem Auftritt bzw. bei Rückgängig entfernt und freigegeben. |
 | `animals.ts` | Tiere: Delfine, Wal, Fischschwärme, Mantas, Schildkröten, Krabben, Frösche, Flamingos, Möwen, Papageien, Tukane, Affen, Schmetterlinge (`?zoo` zeigt alle zur Kontrolle) |
 | `ambient.ts` | Fackeln, Lagerfeuer, Rauch und Dampf als Shader-Partikel |
 | `fields.ts` | Spielfelder (instanziert), gezeichnete Symbole, Markierung des aktiven Feldes |
 | `pieces.ts` | Figuren: Aufstellung, Laufen, Fliegen, Käfig, Balancieren, ins Wasser fallen und treiben, in den Krater fallen und klettern |
-| `camera.ts` | Kameraführung: Rundflug im Leerlauf, Verfolgen (Vulkan im Hintergrund), Nahaufnahmen, Wackeln; nie durch Berge |
+| `camera.ts` | Kameraführung: Rundflug im Leerlauf, Verfolgen (Vulkan im Hintergrund), Nahaufnahmen, Wackeln. Weiche Federbewegung, begrenzte Drehrate (kein Peitschenschwenk), nie unter dem Gelände, Sichtprüfung gegen Gelände, Bäume und Gebäude mit seitlichem Ausweichen; Messwerte in `rig.stats` |
 | `dice3d.ts` | 3D-Würfel als Overlay |
 | `volcano.ts`, `particles.ts` | Lavasee, Lavastrom, Glut, Rauch, Ausbruch, Spritzwasser, Konfetti, Feuerwerk, Staub |
 | `director.ts` | Spielt Effekte der Reihe nach ab, gleicht nach Rückgängig/Neuverbindung ab, liefert Einblendungen |

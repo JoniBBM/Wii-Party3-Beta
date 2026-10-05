@@ -37,6 +37,8 @@ Dann `http://localhost:5173` öffnen. Vite leitet `/api`, `/media` und `/socket.
   - `node e2e/beamer.mjs [ordner]` – steuert ein Spiel per WebSocket und fotografiert den Beamer in allen Phasen (Lobby, Frage, Würfel, Ausbruch, Sieg).
   - `node e2e/screens.mjs [ordner]` – Galerie aller Oberflächen in typischen Größen (auch für die Doku).
   - `node e2e/hazards.mjs [ordner]` – spielt die Inselgefahren durch (Sturz von den Fässern, Treiben, Kraterloch, Klettern, Herauskommen) und fotografiert den Beamer.
+  - `node e2e/stunts.mjs [ordner] [szenen]` – alle Feld-Auftritte als Bildfolgen (Feder, Flugzeug, UFO, Käfig, Bühne, Geysir, Liane, Lavahöhle) und Rückgängig mitten im Auftritt.
+  - `node e2e/camera.mjs [runden] [ordner]` – Kameraprüfung über eine Partie: Abstand zum Gelände, verdeckte Bilder, Drehrate, Beschleunigung; Fotos bei verdeckter Sicht.
   - `node e2e/soak.mjs [runden]` – Dauertest: komplette Partie bis zum Sieg, prüft Fehler und Speicherwachstum.
   - `node e2e/fps.mjs` – Bildrate des Beamers in beiden Qualitätsstufen.
   - `node e2e/look.mjs bild.png x y z blickX blickY blickZ` – Beamer-Kamera frei setzen (Debug, `?debug` stellt `window.__board` bereit; `?zoo` stellt alle Tiere zur Kontrolle auf).

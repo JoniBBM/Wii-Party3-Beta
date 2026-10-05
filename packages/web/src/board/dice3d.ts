@@ -120,7 +120,12 @@ export class DiceOverlay {
       this.scene.add(this.bonus.mesh);
     }
     this.visible = true;
-    const dice = [{ die: this.main, value: main, x: bonus ? -1.05 : 0 }, ...(this.bonus ? [{ die: this.bonus, value: bonus, x: 1.05 }] : [])];
+    // main = 0 → nur der Sonderwürfel (z. B. Lianen-Würfel mit anderer Seitenzahl)
+    this.main.mesh.visible = main > 0;
+    const dice = [
+      ...(main > 0 ? [{ die: this.main, value: main, x: this.bonus ? -1.05 : 0 }] : []),
+      ...(this.bonus ? [{ die: this.bonus, value: bonus, x: main > 0 ? 1.05 : 0 }] : []),
+    ];
     const top = this.camera.aspect > 1 ? 1.15 : 0.6;
     const anims = dice.map(({ die, value, x }, i) => {
       const m = die.mesh;

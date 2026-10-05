@@ -158,7 +158,7 @@ export function RulesEditor({ rules, onChange }: { rules: Rules; onChange: (r: R
       {rules.river.enabled && (
         <Row title="Sturzgefahr & Abtreiben" hint="Wahrscheinlichkeit in % · so viele Felder treibt die Strömung zurück">
           <select className="field w-auto" value={rules.river.fallChance} onChange={(e) => set('river', { ...rules.river, fallChance: Number(e.target.value) })}>
-            {[25, 33, 50, 67, 75, 100].map((n) => (
+            {[...new Set([10, 25, 33, 50, 67, 75, 100, rules.river.fallChance])].sort((x, y) => x - y).map((n) => (
               <option key={n} value={n}>
                 {n} %
               </option>
@@ -167,12 +167,27 @@ export function RulesEditor({ rules, onChange }: { rules: Rules; onChange: (r: R
           <RangeInput value={rules.river.driftBack} onChange={(v) => set('river', { ...rules.river, driftBack: v })} min={1} max={12} />
         </Row>
       )}
+      <Row title="🌿 Liane" hint="Wer auf der Liane landet, würfelt noch einmal und schwingt so viele Felder nach vorne.">
+        <Switch checked={rules.vine.enabled} onChange={(v) => set('vine', { ...rules.vine, enabled: v })} />
+        {rules.vine.enabled && (
+          <select className="field w-auto" value={rules.vine.sides} onChange={(e) => set('vine', { ...rules.vine, sides: Number(e.target.value) })}>
+            {[4, 6, 8, 10, 12].map((n) => (
+              <option key={n} value={n}>
+                W{n} (1–{n} Felder)
+              </option>
+            ))}
+          </select>
+        )}
+      </Row>
+      <Row title="🦇 Lavahöhle" hint="Loch an den Serpentinen: hineinfallen und durch den Berg bis zum Vulkanfuß hinunterrutschen.">
+        <Switch checked={rules.cave.enabled} onChange={(v) => set('cave', { ...rules.cave, enabled: v })} />
+      </Row>
       <Row title="🕳️ Kraterloch" hint="Am Kraterrand fällt man in den Krater und muss Augen sammeln, um herauszuklettern.">
         <Switch checked={rules.crater.enabled} onChange={(v) => set('crater', { ...rules.crater, enabled: v })} />
       </Row>
       {rules.crater.enabled && (
         <Row title="Augen zum Herausklettern" hint="Über mehrere Würfe gesammelt; was übrig bleibt, geht es weiter.">
-          <NumberStepper value={rules.crater.climb} min={2} max={30} onChange={(v) => set('crater', { ...rules.crater, climb: v })} />
+          <NumberStepper value={rules.crater.climb} min={1} max={40} onChange={(v) => set('crater', { ...rules.crater, climb: v })} />
         </Row>
       )}
       <Row title="Antworten automatisch schließen" hint="Sobald alle Teams geantwortet haben">

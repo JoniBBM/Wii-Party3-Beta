@@ -33,6 +33,8 @@ export interface KeepOut {
 export interface LandmarkResult {
   group: THREE.Group;
   keepOut: KeepOut[];
+  /** Sichthindernisse für die Kamera (x, z, Radius, Oberkante) */
+  blockers: { x: number; z: number; r: number; top: number }[];
   fires: Emitter[];
   smokes: Emitter[];
   /** Plätze für Tiere: Dächer, Säulen, Mast … */
@@ -551,11 +553,15 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
     root.add(g);
   }
 
+  // Kamera-Hindernisse: alle Wahrzeichen (Gelände-Höhe + typische Höhe), Leuchtturm und Pyramide genauer
+  const blockers = keepOut.map((k) => ({ x: k.x, z: k.z, r: k.r * 0.8, top: H(k.x, k.z) + 4 }));
+  blockers.push({ x: 41.6, z: -13.4, r: 3.2, top: H(41.6, -13.4) + 11.5 }, { x: -3.4, z: 15.6, r: 4.2, top: H(-3.4, 15.6) + 6.5 });
   mergeStatic(root);
 
   return {
     group: root,
     keepOut,
+    blockers,
     fires,
     smokes,
     perches,

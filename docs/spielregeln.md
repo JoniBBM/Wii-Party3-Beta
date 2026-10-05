@@ -43,20 +43,45 @@ Bei Fragen gibt es Bonuswürfel standardmäßig **nur für richtige Antworten** 
 
 Alle Werte lassen sich unter *Spiel einrichten → Regeln* ändern.
 
-## Gefahren der Insel
+## Besondere Orte der Insel
 
-Zwei Stellen gehören fest zur Insel. Sie liegen immer an derselben Stelle der Karte, egal wie viele Felder das Brett hat, und lassen sich im Editor nicht verschieben. In den Regeln kann man sie abschalten oder entschärfen.
+Vier Stellen gehören fest zur Insel. Sie liegen immer an derselben Stelle der Karte, egal wie viele Felder das Brett hat, und lassen sich im Editor nicht verschieben. In den Regeln kann man sie abschalten oder anpassen.
 
 | Feld | Wirkung (Standardwerte) |
 |---|---|
+| 🌿 **Liane** (grün, am Eingang der Tempelruinen) | Wer hier **stehen bleibt**, schnappt sich die Liane am Riesenbaum und **würfelt sofort noch einmal** (W6) – am Handy durch **Schütteln** oder Tippen. So viele Felder schwingt das Team nach vorne. Landet es dabei wieder auf einem Sonderfeld, wirkt es. |
 | 🛢️ **Fässer im Fluss** (türkis) | Der Weg führt über große Fässer durch die Furt. Wer auf einem Fass **stehen bleibt**, muss balancieren: Mit **50 %** Wahrscheinlichkeit fällt das Team ins Wasser und **treibt 2–4 Felder** flussabwärts zurück, mindestens bis vor die Furt. Wer nur darüber hinwegzieht, bleibt trocken. |
+| 🦇 **Lavahöhle** (braun, an den Serpentinen) | Wer hier **stehen bleibt**, stolpert in den Höhleneingang, rutscht durch den Berg und kommt **unten am Vulkanfuß** wieder heraus (bei 72 Feldern von Feld 64 auf Feld 58). |
 | 🕳️ **Kraterloch** (orange-rot, kurz vor dem Gipfel) | Wer hier **stehen bleibt**, rutscht in den Krater. Ab dem nächsten Zug klettert das Team heraus: Es braucht **insgesamt 8 Augen** (Würfel + Bonuswürfel, über mehrere Würfe gesammelt). Was beim letzten Wurf übrig bleibt, läuft das Team direkt weiter. Ein Vulkanausbruch schleudert Teams aus dem Krater mit heraus. |
+
+![Die Lavahöhle an den Serpentinen](bilder/insel-hoehle.webp)
 
 ![Fässer im Fluss](bilder/beamer-furt.webp)
 
 ![Klettern im Krater](bilder/beamer-krater.webp)
 
 Die Regie kann ein Team jederzeit aus dem Krater holen (*Teams → Team antippen → Aus dem Krater holen*), genau wie aus einer Sperre.
+
+## Was auf dem Beamer passiert
+
+Jedes Sonderfeld hat seinen eigenen Auftritt:
+
+| Feld | Auftritt |
+|---|---|
+| 🚀 Katapult vorwärts | Eine **Sprungfeder** wächst aus dem Feld, drückt sich zusammen – *boing!* – und schleudert die Figur nach vorne. |
+| 💥 Katapult rückwärts | Ein **Doppeldecker** fliegt heran, die Figur hält sich an der Strickleiter fest, wird zurückgetragen und schwebt am **Fallschirm** herab. |
+| 🔄 Platztausch | Ein **UFO** beamt die erste Figur mit dem Traktorstrahl hoch, fliegt zum anderen Team, tauscht und setzt beide wieder ab. |
+| 🚧 Sperre | Ein **Käfig fällt vom Himmel**; beim Befreien fliegt er davon. |
+| 🎮 Minispiel-Feld | Ein schwebendes **Minispiel-Schild** mit Scheinwerfern und Konfetti erscheint über dem Feld. |
+| 🌋 Vulkanfeld | Ein **Dampf-Geysir** mit Funken schießt aus dem Boden, die Erde bebt. |
+| 🌿 Liane | Die Figur packt die Liane, schwingt aus und fliegt in hohem Bogen nach vorne. |
+| 🦇 Lavahöhle | Die Figur stolpert in den glühenden Höhleneingang, Fledermäuse flattern heraus, unten rutscht sie aus dem Felsentor. |
+| 🛢️ Fässer / 🕳️ Krater | Balancieren und Platsch ins Wasser bzw. Sturz in den Krater und Klettern an der Strickleiter. |
+
+| | |
+|---|---|
+| ![Sprungfeder](bilder/beamer-feder.webp) | ![Doppeldecker mit Strickleiter](bilder/beamer-flugzeug.webp) |
+| ![UFO-Platztausch](bilder/beamer-ufo.webp) | ![An der Liane](bilder/beamer-liane.webp) |
 
 ## Der Vulkan
 

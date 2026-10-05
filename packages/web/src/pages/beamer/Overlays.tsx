@@ -455,6 +455,7 @@ export function DiceBanner({ state }: { state: GameState }) {
                 >
                   {!active && <span className="size-3 rounded-full" style={{ background: teamColor(t?.color ?? 'red').hex }} />}
                   {t?.name}
+                  {active && dice?.vine?.teamId === id && ' 🌿'}
                   {done && ' ✓'}
                 </span>
               );

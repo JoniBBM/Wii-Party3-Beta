@@ -120,6 +120,57 @@ export class BoardAudio {
     src.start(t);
   }
 
+  /** „Boing“ der Sprungfeder. */
+  boing() {
+    if (!this.ctx || !this.enabled.sound) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(520, t + 0.18);
+    o.frequency.exponentialRampToValueAtTime(260, t + 0.5);
+    const vib = ctx.createOscillator();
+    vib.frequency.value = 22;
+    const vibGain = ctx.createGain();
+    vibGain.gain.value = 40;
+    vib.connect(vibGain).connect(o.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    o.connect(g).connect(this.sfx);
+    o.start(t);
+    vib.start(t);
+    o.stop(t + 0.65);
+    vib.stop(t + 0.65);
+  }
+
+  /** UFO-Wabern. */
+  ufo() {
+    if (!this.ctx || !this.enabled.sound) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(420, t);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 6;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 120;
+    lfo.connect(lfoGain).connect(o.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.3);
+    g.gain.setValueAtTime(0.18, t + 3.2);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 3.8);
+    o.connect(g).connect(this.sfx);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + 3.9);
+    lfo.stop(t + 3.9);
+  }
+
   /** Knarzen (Holzfass wackelt). */
   creak() {
     if (!this.ctx || !this.enabled.sound) return;

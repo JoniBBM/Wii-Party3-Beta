@@ -41,6 +41,8 @@ export function generateBoard(goal: number = DEFAULT_GOAL, seed = 1, counts = de
   const marks = islandLandmarks(goal);
   for (const i of marks.river) fields[i] = 'river';
   for (const i of marks.crater) fields[i] = 'crater';
+  for (const i of marks.vine) fields[i] = 'vine';
+  for (const i of marks.cave) fields[i] = 'cave';
 
   const wants: Want[] = [];
   const add = (type: FieldType, count: number, from: number, to: number) => {

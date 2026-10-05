@@ -95,6 +95,45 @@ const ICONS: Partial<Record<FieldType, IconDrawer>> = {
       c.stroke();
     }
   },
+  vine: (c, s) => {
+    stroke(c, s * 0.065);
+    c.beginPath();
+    c.moveTo(s * 0.5, s * 0.18);
+    c.bezierCurveTo(s * 0.32, s * 0.38, s * 0.68, s * 0.55, s * 0.48, s * 0.82);
+    c.stroke();
+    for (const [x, y, a] of [
+      [0.42, 0.34, -0.6],
+      [0.6, 0.5, 0.6],
+      [0.45, 0.66, -0.5],
+    ] as const) {
+      c.save();
+      c.translate(s * x, s * y);
+      c.rotate(a);
+      c.beginPath();
+      c.ellipse(0, 0, s * 0.1, s * 0.045, 0, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+  },
+  cave: (c, s) => {
+    stroke(c, s * 0.06);
+    c.beginPath();
+    c.arc(s * 0.5, s * 0.68, s * 0.28, Math.PI, 0);
+    c.lineTo(s * 0.78, s * 0.7);
+    c.lineTo(s * 0.22, s * 0.7);
+    c.closePath();
+    c.stroke();
+    // Fledermaus
+    c.beginPath();
+    c.moveTo(s * 0.5, s * 0.5);
+    c.quadraticCurveTo(s * 0.38, s * 0.36, s * 0.26, s * 0.44);
+    c.quadraticCurveTo(s * 0.34, s * 0.46, s * 0.36, s * 0.52);
+    c.quadraticCurveTo(s * 0.44, s * 0.5, s * 0.5, s * 0.56);
+    c.quadraticCurveTo(s * 0.56, s * 0.5, s * 0.64, s * 0.52);
+    c.quadraticCurveTo(s * 0.66, s * 0.46, s * 0.74, s * 0.44);
+    c.quadraticCurveTo(s * 0.62, s * 0.36, s * 0.5, s * 0.5);
+    c.fill();
+  },
   crater: (c, s) => {
     stroke(c, s * 0.07);
     c.beginPath();

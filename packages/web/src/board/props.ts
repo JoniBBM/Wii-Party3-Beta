@@ -74,6 +74,8 @@ export interface Props {
   /** Blumen (für Schmetterlinge) */
   flowers: THREE.Vector3[];
   perches: THREE.Vector3[];
+  /** Sichthindernisse für die Kamera */
+  blockers: { x: number; z: number; r: number; top: number }[];
 }
 
 interface Pt {
@@ -165,7 +167,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
     for (const [name, placements] of buckets) {
       const model = models.get(name);
       if (!model) continue;
-      root.add(instanceModel(model, placements, { targetHeight: 1, castShadow: o.castShadow ?? true, wind: o.wind, tint: o.tint, colors: o.colors }));
+      root.add(instanceModel(model, placements, { targetHeight: 1, castShadow: o.castShadow ?? true, wind: o.wind, tint: o.tint, colors: o.colors, vary: o.vary }));
     }
   };
 
@@ -317,6 +319,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
     canopies,
     flowers: flowerSpots,
     perches: lm.perches,
+    blockers: [...lm.blockers, ...canopies.map((c) => ({ x: c.x, z: c.z, r: 2.1, top: c.y + 1.6 }))],
   };
 }
 

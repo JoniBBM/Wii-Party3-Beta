@@ -148,6 +148,16 @@ const polar = (thetaDeg: number, r: number): P2 => ({
   z: VOLCANO.z + Math.sin(thetaDeg * DEG) * r,
 });
 
+/** Liane am Eingang der Tempelruinen (früh auf dem Weg). */
+export const VINE_ANCHOR: P2 = { x: 1.2, z: 21.8 };
+/** Lavahöhle am mittleren Serpentinenschenkel und ihr Ausgang am Vulkanfuß. */
+export const CAVE_ANCHOR: P2 = polarPoint(130, 13.2);
+export const CAVE_EXIT_ANCHOR: P2 = polarPoint(140, 19.4);
+
+function polarPoint(thetaDeg: number, r: number): P2 {
+  return { x: VOLCANO.x + Math.cos((thetaDeg * Math.PI) / 180) * r, z: VOLCANO.z + Math.sin((thetaDeg * Math.PI) / 180) * r };
+}
+
 /** Serpentinen am Südwesthang: Schenkel (Winkel von/bis, Radius von/bis) mit Kehren dazwischen. */
 const LEGS: [number, number, number, number][] = [
   [170, 100, 20.2, 17.6],
@@ -239,6 +249,12 @@ export interface IslandPlan {
   fordFields: number[];
   /** Feld am Kraterrand, an dem man hineinfällt (Spiellogik: „crater“) */
   craterField: number;
+  /** Feld mit der Liane (Spiellogik: „vine“) */
+  vineField: number;
+  /** Feld mit dem Loch zur Lavahöhle (Spiellogik: „cave“) */
+  caveField: number;
+  /** Hier kommt man aus der Lavahöhle wieder heraus */
+  caveExit: number;
 }
 
 function denseRoute(): PlanPoint[] {
@@ -361,6 +377,26 @@ export function buildIslandPlan(fieldCount: number): IslandPlan {
   if (fordFields.includes(craterField)) craterField = Math.min(n - 2, craterField + 1);
   if (sOf[craterField]! < rim.s0 + 0.3 || sOf[craterField]! > length - 1.8) sOf[craterField] = craterTarget;
 
+  // Liane und Lavahöhle: nächstes freies Feld zum jeweiligen Ort
+  const sNear = (q: P2) => {
+    let best = { d: Infinity, s: 0 };
+    for (const p of path) {
+      const d = Math.hypot(p.x - q.x, p.z - q.z);
+      if (d < best.d) best = { d, s: p.s };
+    }
+    return best.s;
+  };
+  const taken = new Set<number>([0, n - 1, ...fordFields, craterField]);
+  const pickFree = (s: number) => {
+    const i0 = Math.min(n - 2, Math.max(1, Math.round(s / spacing)));
+    for (let k = 0; k < n; k++)
+      for (const i of [i0 - k, i0 + k]) if (i >= 1 && i <= n - 2 && !taken.has(i)) return (taken.add(i), i);
+    return i0;
+  };
+  const vineField = pickFree(sNear(VINE_ANCHOR));
+  const caveField = pickFree(sNear(CAVE_ANCHOR));
+  const caveExit = Math.max(1, Math.min(caveField - 1, Math.round(sNear(CAVE_EXIT_ANCHOR) / spacing)));
+
   const fields: PlanField[] = sOf.map((s, i) => {
     const p = pointAt(path, s);
     let zone = p.zone;
@@ -390,6 +426,9 @@ export function buildIslandPlan(fieldCount: number): IslandPlan {
     rim,
     fordFields,
     craterField,
+    vineField,
+    caveField,
+    caveExit,
   };
   planCache.set(fieldCount, plan);
   return plan;
@@ -412,9 +451,9 @@ export function coastOutline(perSegment = 6): P2[] {
 }
 
 /** Feste Sonderfelder, die sich aus der Insel ergeben (für ein Brett mit Ziel auf Feld `goal`). */
-export function islandLandmarks(goal: number): { river: number[]; crater: number[] } {
+export function islandLandmarks(goal: number): { river: number[]; crater: number[]; vine: number[]; cave: number[]; caveExit: number } {
   const plan = buildIslandPlan(goal + 1);
-  return { river: [...plan.fordFields], crater: [plan.craterField] };
+  return { river: [...plan.fordFields], crater: [plan.craterField], vine: [plan.vineField], cave: [plan.caveField], caveExit: plan.caveExit };
 }
 
 /** Fässer und Kraterloch an ihre festen Plätze setzen (z. B. für Bretter aus älteren Versionen). */
@@ -424,7 +463,9 @@ export function withLandmarks<T extends { fields: FieldType[] }>(board: T): T {
   const fields = board.fields.map((f, i): FieldType => {
     if (marks.river.includes(i)) return 'river';
     if (marks.crater.includes(i)) return 'crater';
-    return f === 'river' || f === 'crater' ? 'normal' : f;
+    if (marks.vine.includes(i)) return 'vine';
+    if (marks.cave.includes(i)) return 'cave';
+    return f === 'river' || f === 'crater' || f === 'vine' || f === 'cave' ? 'normal' : f;
   });
   return { ...board, fields };
 }

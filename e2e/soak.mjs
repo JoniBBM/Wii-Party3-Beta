@@ -100,7 +100,10 @@ try {
       } else {
         const wait = d.busyUntil - Date.now();
         if (wait > 0) await sleep(Math.min(wait, 1800));
-        await cmd({ type: 'dice.roll', force: true });
+        if (d.vine) {
+          stats.vines = (stats.vines ?? 0) + 1;
+          await cmd({ type: 'vine.roll', force: true });
+        } else await cmd({ type: 'dice.roll', force: true });
       }
       await sleep(150);
     }
@@ -114,6 +117,7 @@ try {
   console.log('\nErgebnis:', state.status, 'Sieger:', state.teams.find((t) => t.id === state.winnerTeamId)?.name ?? '–');
   console.log('Statistik:', JSON.stringify(stats));
   const feedText = state.feed.map((f) => f.text).join('\n');
+  console.log('Liane:', (feedText.match(/schwingt an der Liane/g) ?? []).length, '| Lavahöhle:', (feedText.match(/Lavahöhle/g) ?? []).length);
   console.log('Fluss gestürzt:', (feedText.match(/Platsch/g) ?? []).length, '| balanciert:', (feedText.match(/balanciert sicher/g) ?? []).length, '| Krater:', (feedText.match(/rutscht in den Krater/g) ?? []).length, '| herausgeklettert:', (feedText.match(/klettert aus dem Krater/g) ?? []).length);
   console.log('Speicher Start:', JSON.stringify(memStart), 'Ende:', JSON.stringify(memEnd));
   console.log('Fehlgeschlagene Befehle:', failures.length ? failures.join('\n') : 'keine');

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { FIELD_GAME_MODE_LABEL, FIELD_INFO, barrierText, teamById, type GameState } from '@insel/shared';
 import { useCommand, useServerNow } from '../../lib/hooks.ts';
+import { useShake } from '../../lib/shake.ts';
 import { Button, Card } from '../../ui/basics.tsx';
 import { BonusDieBadge, DiceFace, TeamChip } from '../../ui/game.tsx';
 import { DrawnPlayers } from '../../game/bits.tsx';
@@ -50,9 +51,18 @@ export function TeamDice({ state, me }: { state: GameState; me: Me }) {
     );
   }
 
+  const vine = dice.vine;
   return (
     <>
-      {mine ? <RollPanel state={state} me={me} /> : myRoll ? <MyRoll state={state} me={me} /> : <Waiting state={state} currentId={currentId ?? null} />}
+      {vine && vine.teamId === team.id ? (
+        <VinePanel state={state} />
+      ) : mine ? (
+        <RollPanel state={state} me={me} />
+      ) : myRoll ? (
+        <MyRoll state={state} me={me} />
+      ) : (
+        <Waiting state={state} currentId={currentId ?? null} />
+      )}
       <Card className="p-4">
         <p className="label">Reihenfolge</p>
         <ol className="flex flex-col gap-1">
@@ -74,12 +84,74 @@ export function TeamDice({ state, me }: { state: GameState; me: Me }) {
   );
 }
 
+/** Hinweis bzw. Freischalten des Schüttelns. */
+function ShakeHint({ shake }: { shake: ReturnType<typeof useShake> }) {
+  if (shake.state === 'ask')
+    return (
+      <Button size="sm" variant="ghost" onClick={() => void shake.enable()}>
+        📳 Würfeln durch Schütteln erlauben
+      </Button>
+    );
+  if (shake.state === 'on')
+    return (
+      <p className="text-sm font-bold text-ink-2">
+        📳 Handy schütteln – oder tippen
+        <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-bg-2">
+          <span className="block h-full rounded-full bg-accent transition-all" style={{ width: `${Math.round(shake.level * 100)}%` }} />
+        </span>
+      </p>
+    );
+  return null;
+}
+
+/** Würfel wackelt umso stärker, je kräftiger geschüttelt wird. */
+function ShakingDie({ busy, level, value = 5 }: { busy: boolean; level: number; value?: number }) {
+  return (
+    <motion.div
+      animate={busy ? {} : level > 0 ? { rotate: [0, -20 * level, 20 * level, 0], x: [0, -8 * level, 8 * level, 0] } : { rotate: [0, -8, 8, -4, 0] }}
+      transition={level > 0 ? { repeat: Infinity, duration: 0.25 } : { repeat: Infinity, duration: 1.6, repeatDelay: 0.8 }}
+    >
+      <DiceFace value={value} size={120} />
+    </motion.div>
+  );
+}
+
+function VinePanel({ state }: { state: GameState }) {
+  const { run, pending } = useCommand();
+  const now = useServerNow(200);
+  const busy = state.phase.name === 'dice' ? Math.max(0, state.phase.dice.busyUntil - now) : 0;
+  const sides = state.config.rules.vine?.sides ?? 6;
+  const roll = () => {
+    if (busy > 0 || pending) return;
+    void run({ type: 'vine.roll' });
+  };
+  const shake = useShake(busy === 0, roll);
+  return (
+    <Card className="flex flex-col items-center gap-4 overflow-hidden p-6 text-center">
+      <span className="text-6xl animate-float">🌿</span>
+      <p className="font-display text-3xl font-semibold">Ihr hängt an der Liane!</p>
+      <p className="text-ink-2">Würfelt noch einmal (W{sides}) – so viele Felder schwingt ihr nach vorne.</p>
+      <ShakingDie busy={busy > 0} level={shake.level} value={sides >= 6 ? 6 : sides} />
+      <Button variant="primary" size="xl" block loading={pending === 'vine.roll'} disabled={busy > 0} onClick={roll} className="animate-pulse-ring">
+        {busy > 0 ? `Moment … ${Math.ceil(busy / 1000)}` : '🌿 Lianen-Wurf!'}
+      </Button>
+      <ShakeHint shake={shake} />
+    </Card>
+  );
+}
+
 function RollPanel({ state, me }: { state: GameState; me: Me }) {
   const { run, pending } = useCommand();
   const now = useServerNow(200);
   const team = me.team!;
+  const busyMs = state.phase.name === 'dice' ? Math.max(0, state.phase.dice.busyUntil - now) : 0;
+  const roll = () => {
+    if (busyMs > 0 || pending) return;
+    void run({ type: 'dice.roll' });
+  };
+  const shake = useShake(busyMs === 0, roll);
   if (state.phase.name !== 'dice') return null;
-  const busy = Math.max(0, state.phase.dice.busyUntil - now);
+  const busy = busyMs;
   const rules = state.config.rules;
   const goal = state.config.board.fields.length - 1;
   return (
@@ -94,17 +166,16 @@ function RollPanel({ state, me }: { state: GameState; me: Me }) {
       {rules.winRule === 'final_roll' && team.position === goal && (
         <p className="rounded-2xl bg-gold/25 px-3 py-2 font-bold">🏆 Siegeswurf! Ihr braucht mindestens eine {rules.finalRollMin}.</p>
       )}
-      <motion.div animate={busy ? {} : { rotate: [0, -8, 8, -4, 0] }} transition={{ repeat: Infinity, duration: 1.6, repeatDelay: 0.8 }}>
-        <DiceFace value={5} size={120} />
-      </motion.div>
+      <ShakingDie busy={busy > 0} level={shake.level} />
       {team.bonusDie > 0 && (
         <p className="flex items-center gap-2 font-bold">
           plus Bonuswürfel <BonusDieBadge sides={team.bonusDie} />
         </p>
       )}
-      <Button variant="primary" size="xl" block loading={pending === 'dice.roll'} disabled={busy > 0} onClick={() => run({ type: 'dice.roll' })} className="animate-pulse-ring">
+      <Button variant="primary" size="xl" block loading={pending === 'dice.roll'} disabled={busy > 0} onClick={roll} className="animate-pulse-ring">
         {busy > 0 ? `Moment … ${Math.ceil(busy / 1000)}` : '🎲 Würfeln!'}
       </Button>
+      <ShakeHint shake={shake} />
     </Card>
   );
 }
@@ -161,13 +232,14 @@ function MyRoll({ state, me }: { state: GameState; me: Me }) {
 
 function Waiting({ state, currentId }: { state: GameState; currentId: string | null }) {
   const t = teamById(state, currentId);
+  const onVine = state.phase.name === 'dice' && state.phase.dice.vine?.teamId === currentId;
   return (
     <Card className="flex flex-col items-center gap-3 p-6 text-center">
       <span className="text-5xl animate-float">🎲</span>
       <p className="font-display text-2xl font-semibold">Würfelrunde</p>
       {t && (
         <p className="flex items-center gap-2 text-ink-2">
-          <TeamChip team={t} /> ist dran
+          <TeamChip team={t} /> {onVine ? 'hängt an der Liane 🌿' : 'ist dran'}
         </p>
       )}
     </Card>

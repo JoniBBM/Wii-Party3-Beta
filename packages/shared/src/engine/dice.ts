@@ -1,5 +1,6 @@
 /** Würfelrunde: Wurf, Bewegung, Sonderfelder, Vulkan, Feld-Minispiele, Sieg. */
 import { FIELD_GAME_MODE_LABEL, FIELD_INFO, type FieldGameMode } from '../constants.ts';
+import { islandLandmarks } from '../island.ts';
 import { pick, randInt } from '../rng.ts';
 import type { CommandOf } from '../schemas.ts';
 import type { BarrierCondition, DiceRound, EffectInput, Phase, RollRecord, Team } from '../types.ts';
@@ -125,7 +126,7 @@ export function erupt(tx: Tx) {
 }
 
 /** Wirkung des Feldes, auf dem das Team gelandet ist. Effekte verketten sich nicht. */
-function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'field_game' | 'finished' {
+function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'pending' | 'finished' {
   const s = tx.s;
   const rules = s.config.rules;
   const goal = goalOf(s);
@@ -189,7 +190,7 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'field_game'
       tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: 'Feld-Minispiel' });
       tx.effects.push({ type: 'field_game', teamId: team.id, stage: 'pending' });
       feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} landet auf einem Minispiel-Feld!`, team.id);
-      return 'field_game';
+      return 'pending';
     }
     case 'river': {
       const r = rules.river;
@@ -205,6 +206,23 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'field_game'
       while (to > 0 && s.config.board.fields[to] === 'river') to -= 1;
       move(tx, team, to, 'river');
       feed(tx, '💦', `Platsch! ${teamLabel(team)} fällt ins Wasser und treibt ${pos - to} Felder zurück`, team.id);
+      return 'done';
+    }
+    case 'vine': {
+      const v = rules.vine;
+      if (!v?.enabled) return 'done';
+      phase.dice.vine = { teamId: team.id, position: pos };
+      tx.effects.push({ type: 'vine', teamId: team.id, position: pos, stage: 'grab', roll: 0, sides: v.sides });
+      feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} schnappt sich die Liane – jetzt noch einmal würfeln!`, team.id);
+      return 'pending';
+    }
+    case 'cave': {
+      if (!rules.cave?.enabled) return 'done';
+      const exit = islandLandmarks(goal).caveExit;
+      if (exit >= pos) return 'done';
+      tx.effects.push({ type: 'cave', teamId: team.id, position: pos });
+      move(tx, team, exit, 'cave');
+      feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} fällt in die Lavahöhle und rutscht ${pos - exit} Felder hinunter`, team.id);
       return 'done';
     }
     case 'crater': {
@@ -282,7 +300,7 @@ function bump(tx: Tx, phase: DicePhase, startEffects: number) {
 export function handleDiceCommand(
   tx: Tx,
   cmd: CommandOf<
-    'dice.roll' | 'dice.skip' | 'fieldgame.setup' | 'fieldgame.result' | 'fieldgame.cancel' | 'round.next' | 'volcano.set' | 'volcano.erupt'
+    'dice.roll' | 'dice.skip' | 'vine.roll' | 'fieldgame.setup' | 'fieldgame.result' | 'fieldgame.cancel' | 'round.next' | 'volcano.set' | 'volcano.erupt'
   >,
 ) {
   const s = tx.s;
@@ -294,6 +312,7 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const dice = phase.dice;
       if (dice.fieldGame) fail('Zuerst muss das Feld-Minispiel abgeschlossen werden');
+      if (dice.vine) fail('Zuerst muss an der Liane gewürfelt werden');
       const currentId = currentTeamId(dice);
       if (!currentId) fail('Alle Teams haben schon gewürfelt');
       const staff = isStaff(tx.actor);
@@ -314,7 +333,7 @@ export function handleDiceCommand(
       const record: RollRecord = { teamId: team.id, main, bonus, bonusDie, total, from, to: from, outcome: '', manual, at: now };
       dice.rolls.push(record);
       let outcome = '';
-      let result: 'done' | 'field_game' | 'finished' = 'done';
+      let result: 'done' | 'pending' | 'finished' = 'done';
       const rollText = bonus ? `${main} + ${bonus} = ${total}` : `${main}`;
 
       if (rules.winRule === 'final_roll' && team.position === goal) {
@@ -383,7 +402,7 @@ export function handleDiceCommand(
         return;
       }
       tx.label = `Wurf ${teamLabel(team)}: ${rollText}`;
-      if (result !== 'field_game') advanceTurn(tx, phase);
+      if (result !== 'pending') advanceTurn(tx, phase);
       if (s.phase.name === 'dice' || s.phase.name === 'round_end') bump(tx, phase, start);
       return;
     }
@@ -392,6 +411,7 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const id = currentTeamId(phase.dice);
       if (!id) fail('Niemand ist mehr dran');
+      phase.dice.vine = null;
       const openFg = phase.dice.fieldGame;
       if (openFg) {
         if (openFg.stage === 'running') undoDraw(tx, openFg.drawn, openFg.item?.playerCount ?? '1');
@@ -402,6 +422,35 @@ export function handleDiceCommand(
       feed(tx, '⏭️', `${teamLabel(t)} wurde übersprungen`, t.id);
       tx.label = `${teamLabel(t)} übersprungen`;
       advanceTurn(tx, phase);
+      return;
+    }
+
+    case 'vine.roll': {
+      const phase = dicePhase(tx);
+      const dice = phase.dice;
+      const v = dice.vine;
+      if (!v) fail('Niemand hängt gerade an der Liane');
+      const staff = isStaff(tx.actor);
+      const team = resolveTeamFor(tx, cmd.teamId ?? (staff ? v.teamId : undefined));
+      if (team.id !== v.teamId) fail(`${teamLabel(findTeam(s, v.teamId))} hängt an der Liane`, 'forbidden');
+      if (now < dice.busyUntil - 300 && !(staff && cmd.force)) fail('Einen Moment – auf dem Spielbrett läuft noch die Animation', 'busy');
+      const start = tx.effects.length;
+      const sides = rules.vine?.sides ?? 6;
+      const roll = staff && cmd.value ? Math.min(cmd.value, sides) : randInt(tx.ctx.rng, 1, sides);
+      dice.vine = null;
+      tx.effects.push({ type: 'vine', teamId: team.id, position: team.position, stage: 'swing', roll, sides });
+      const from = team.position;
+      advance(tx, team, roll, 'vine');
+      feed(tx, '🌿', `${teamLabel(team)} würfelt ${roll} und schwingt an der Liane bis Feld ${team.position}`, team.id);
+      const record = [...dice.rolls].reverse().find((r) => r.teamId === team.id);
+      if (record) {
+        record.to = team.position;
+        record.outcome = `${record.outcome} · Liane +${team.position - from}`;
+      }
+      tx.label = `Lianen-Wurf ${teamLabel(team)}: ${roll}`;
+      if (checkArrival(tx, team)) return;
+      advanceTurn(tx, phase);
+      if (s.phase.name === 'dice' || s.phase.name === 'round_end') bump(tx, phase, start);
       return;
     }
 

@@ -118,6 +118,13 @@ export const rulesSchema = z.object({
       driftBack: range,
     })
     .default({ enabled: true, fallChance: 50, driftBack: { min: 2, max: 4 } }),
+  vine: z
+    .object({
+      enabled: z.boolean(),
+      sides: z.number().int().min(2).max(20),
+    })
+    .default({ enabled: true, sides: 6 }),
+  cave: z.object({ enabled: z.boolean() }).default({ enabled: true }),
   crater: z
     .object({
       enabled: z.boolean(),
@@ -241,6 +248,12 @@ export const commandSchema = z.discriminatedUnion('type', [
     force: z.boolean().optional(),
   }),
   z.object({ type: z.literal('dice.skip') }),
+  z.object({
+    type: z.literal('vine.roll'),
+    teamId: id.optional(),
+    value: z.number().int().min(1).max(20).optional(),
+    force: z.boolean().optional(),
+  }),
   z.object({
     type: z.literal('fieldgame.setup'),
     itemId: id.nullable().optional(),

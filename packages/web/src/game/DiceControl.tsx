@@ -22,7 +22,49 @@ import { ContentView } from './ContentView.tsx';
 
 export function DiceControl({ state, dice }: { state: GameState; dice: DiceRound }) {
   if (dice.fieldGame) return <FieldGameControl state={state} dice={dice} />;
+  if (dice.vine) return <VineControl state={state} dice={dice} />;
   return <RollControl state={state} dice={dice} />;
+}
+
+/** Team hängt an der Liane: Lianen-Wurf abwarten, für das Team werfen oder eintragen. */
+function VineControl({ state, dice }: { state: GameState; dice: DiceRound }) {
+  const { run, pending } = useCommand();
+  const now = useServerNow(250);
+  const presence = useLive((s) => s.presence);
+  const vine = dice.vine!;
+  const team = teamById(state, vine.teamId);
+  const sides = state.config.rules.vine?.sides ?? 6;
+  const busyMs = Math.max(0, dice.busyUntil - now);
+  return (
+    <div className="flex flex-col gap-4 rounded-3xl border-2 border-good/40 bg-good-soft/40 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-4xl">🌿</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-extrabold uppercase tracking-wide text-good">Liane</p>
+          <p className="flex flex-wrap items-center gap-2 font-bold">
+            <TeamChip team={team} /> hängt an der Liane und würfelt noch einmal (W{sides}).
+          </p>
+          <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted">
+            <Smartphone className="size-4" /> {presence[vine.teamId] ?? 0} Gerät{(presence[vine.teamId] ?? 0) === 1 ? '' : 'e'} – das Team kann am Handy schütteln oder tippen.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="primary" icon={<Dices className="size-5" />} loading={pending === 'vine.roll'} disabled={busyMs > 0} onClick={() => run({ type: 'vine.roll' })}>
+          {busyMs > 0 ? 'Animation läuft …' : 'Für Team würfeln'}
+        </Button>
+        <span className="text-sm font-semibold text-muted">oder eintragen:</span>
+        {Array.from({ length: sides }, (_, i) => i + 1).map((n) => (
+          <button key={n} type="button" className="grid size-9 place-items-center rounded-xl border-2 border-line font-display font-semibold hover:border-accent" onClick={() => run({ type: 'vine.roll', value: n, force: true })}>
+            {n}
+          </button>
+        ))}
+        <Button size="sm" variant="ghost" icon={<SkipForward className="size-4" />} onClick={() => run({ type: 'dice.skip' })}>
+          Aussetzen
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function RollControl({ state, dice }: { state: GameState; dice: DiceRound }) {
@@ -91,7 +133,8 @@ function RollControl({ state, dice }: { state: GameState; dice: DiceRound }) {
             >
               {busyMs > 0 ? 'Animation läuft …' : 'Für Team würfeln'}
             </Button>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <UnblockButton state={state} teamId={team.id} />
               <Button size="sm" icon={<Hand className="size-4" />} onClick={() => setManual(true)}>
                 Wurf eintragen
               </Button>

@@ -9,8 +9,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 export function mergeStatic(root: THREE.Object3D): THREE.Group {
   root.updateMatrixWorld(true);
   const rootInv = new THREE.Matrix4().copy(root.matrixWorld).invert();
-  const buckets = new Map<THREE.Material, { geos: THREE.BufferGeometry[]; cast: boolean }>();
-  const remove: THREE.Mesh[] = [];
+  const buckets = new Map<THREE.Material, { geos: THREE.BufferGeometry[]; meshes: THREE.Mesh[]; cast: boolean }>();
   const skip = new Set<THREE.Object3D>();
   root.traverse((o) => {
     if (o.userData.dynamic) o.traverse((c) => skip.add(c));
@@ -27,10 +26,10 @@ export function mergeStatic(root: THREE.Object3D): THREE.Group {
     if (!g.attributes.normal) g.computeVertexNormals();
     g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(rootInv, m.matrixWorld));
     let b = buckets.get(mat);
-    if (!b) buckets.set(mat, (b = { geos: [], cast: false }));
+    if (!b) buckets.set(mat, (b = { geos: [], meshes: [], cast: false }));
     b.geos.push(g);
+    b.meshes.push(m);
     b.cast ||= m.castShadow;
-    remove.push(m);
   });
   const merged = new THREE.Group();
   merged.name = 'merged-static';
@@ -38,15 +37,16 @@ export function mergeStatic(root: THREE.Object3D): THREE.Group {
     // Attribut-Sätze vereinheitlichen (uv/color nur, wenn alle sie haben)
     const keys = ['uv', 'color'].filter((k) => b.geos.every((g) => g.attributes[k]));
     for (const g of b.geos) for (const k of ['uv', 'color']) if (!keys.includes(k) && g.attributes[k]) g.deleteAttribute(k);
-    const geo = mergeGeometries(b.geos, false);
+    const geo = b.geos.length > 1 ? mergeGeometries(b.geos, false) : null;
+    for (const g of b.geos) if (g !== geo) g.dispose();
+    // nicht zusammenfassbar (oder nur ein Teil) → Originale behalten
     if (!geo) continue;
     const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = b.cast;
     mesh.receiveShadow = true;
     merged.add(mesh);
-    for (const g of b.geos) g.dispose();
+    for (const m of b.meshes) m.removeFromParent();
   }
-  for (const m of remove) m.removeFromParent();
   root.add(merged);
   return merged;
 }

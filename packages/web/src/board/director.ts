@@ -80,7 +80,20 @@ export class Director {
     if (changed) this.s.pieces.snap(positions);
     else this.s.pieces.arrangeAll();
     this.s.pieces.applyBlocked(st.teams);
+    const dice = st.phase.name === 'dice' ? st.phase.dice : null;
+    this.s.stunts.syncVine(dice?.vine?.teamId ?? null);
+    if (dice?.fieldGame) {
+      if (!this.stageField || this.stageField !== dice.fieldGame.position) {
+        this.stageField = dice.fieldGame.position;
+        this.s.stunts.stageOn(dice.fieldGame.position);
+      }
+    } else if (this.stageField !== null) {
+      this.stageField = null;
+      this.s.stunts.stageOff();
+    }
   }
+
+  private stageField: number | null = null;
 
   /** Kamera, wenn gerade nichts passiert. */
   private idleCamera() {
@@ -114,6 +127,8 @@ export class Director {
         this.generation += 1;
         this.s.pieces.abortAll();
         this.s.tweens.finishAll();
+        this.s.stunts.abortAll();
+        this.stageField = null;
         this.stopFireworks();
         this.caption(null);
         void this.s.dice.hide(0);
@@ -135,7 +150,7 @@ export class Director {
       const e = this.queue.shift()!;
       const gen = this.generation;
       try {
-        await this.play(e);
+        await this.play(e, gen);
       } catch (err) {
         console.warn('Animation fehlgeschlagen', err);
       }
@@ -173,29 +188,66 @@ export class Director {
     return pts;
   }
 
-  private async play(e: Effect) {
+  private async play(e: Effect, gen = this.generation) {
     const s = this.s;
     const A = s.audio;
+    /** nach Rückgängig nicht weiterspielen */
+    const stale = () => gen !== this.generation;
     switch (e.type) {
+      case 'vine': {
+        const { name, color } = this.teamCaption(e.teamId);
+        if (e.stage === 'grab') {
+          s.rig.set({ kind: 'focus', ...s.stunts.vineShot() }, 2);
+          this.say({ icon: '🌿', title: 'Ab an die Liane!', sub: `${name} würfelt gleich noch einmal`, tone: 'good', color }, 3200);
+          A.play('jingle-good', { volume: 0.7 });
+          await s.stunts.vineGrab(e.teamId);
+          if (stale()) return;
+          await s.tweens.wait(400);
+          if (stale()) return;
+        } else {
+          A.play('dice-shake', { volume: 0.9 });
+          await (e.sides === 6 ? s.dice.roll(e.roll, 0, 0) : s.dice.roll(0, e.roll, e.sides));
+          if (stale()) return;
+          A.play('pop', { volume: 0.7 });
+          this.say({ icon: '🌿', title: `${name} schwingt ${e.roll} ${e.roll === 1 ? 'Feld' : 'Felder'} weit!`, tone: 'good', color }, 2600);
+          void s.dice.hide(0.6);
+          await s.tweens.wait(300);
+          if (stale()) return;
+        }
+        return;
+      }
+      case 'cave': {
+        const { name, color } = this.teamCaption(e.teamId);
+        s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 8, 5.5, true) }, 2.2);
+        this.say({ icon: '🦇', title: 'Lavahöhle!', sub: `${name} fällt in ein Loch im Vulkan`, tone: 'bad', color }, 3000);
+        A.play('jingle-bad', { volume: 0.7 });
+        await s.stunts.caveFall(e.teamId);
+        if (stale()) return;
+        return;
+      }
       case 'river': {
         const { name, color } = this.teamCaption(e.teamId);
         s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 6.5, 4.2) }, 2.2);
         this.say({ icon: '🛢️', title: 'Wackelige Fässer!', sub: `${name} muss balancieren …`, tone: 'team', color }, 1900);
         A.creak();
         await s.pieces.wobble(e.teamId, 1.4);
+        if (stale()) return;
         if (e.result === 'safe') {
           s.pieces.setMode(e.teamId, 'cheer');
           A.play('jingle-good');
           this.say({ icon: '😅', title: 'Gerade noch mal gut gegangen!', sub: `${name} hält das Gleichgewicht`, tone: 'good', color }, 2200);
           await s.tweens.wait(800);
+          if (stale()) return;
           s.pieces.setMode(e.teamId, 'idle');
         } else {
           this.say({ icon: '💦', title: 'Platsch!', sub: `${name} fällt in den Fluss und treibt ab`, tone: 'bad', color }, 3200);
           await s.pieces.tumbleIntoWater(e.teamId, s.layout.ford.y);
+          if (stale()) return;
           const p = s.pieces.worldPos(e.teamId);
           A.splash();
           if (p) s.effects.splash(p.x, s.layout.ford.y, p.z, false);
           await s.tweens.wait(300);
+          if (stale()) return;
         }
         return;
       }
@@ -206,22 +258,27 @@ export class Director {
           this.say({ icon: '🕳️', title: 'Ab in den Krater!', sub: `${name} muss ${e.need} Augen sammeln, um herauszuklettern`, tone: 'bad', color }, 3400);
           A.play('whoosh-down');
           await s.pieces.fallIntoCrater(e.teamId);
+          if (stale()) return;
           A.play('thud');
           s.rig.shake(0.12, 0.4);
           const p = s.pieces.worldPos(e.teamId);
           if (p) s.effects.dust(p.x, p.y, p.z, new THREE.Color('#7a6a60'), 14);
           await s.tweens.wait(500);
+          if (stale()) return;
         } else if (e.result === 'climb') {
           this.say({ icon: '🧗', title: `${name} klettert …`, sub: `${e.climbed} von ${e.need} Augen – noch ${e.need - e.climbed}`, tone: 'team', color }, 2400);
           A.play('tick', { volume: 0.6 });
           await s.pieces.climb(e.teamId, e.climbed / Math.max(1, e.need));
+          if (stale()) return;
         } else {
           this.say({ icon: '🧗', title: `${name} ist wieder draußen!`, tone: 'good', color }, 2200);
           A.play('confirm');
           await s.pieces.climbOut(e.teamId);
+          if (stale()) return;
           const p = s.pieces.worldPos(e.teamId);
           if (p) s.effects.sparkle(p.x, p.y, p.z, new THREE.Color('#ffd27a'));
           await s.tweens.wait(300);
+          if (stale()) return;
           s.pieces.setMode(e.teamId, 'idle');
         }
         return;
@@ -234,6 +291,7 @@ export class Director {
         A.play('select', { volume: 0.6 });
         this.say({ icon: '🎲', title: `${name} ist dran!`, tone: 'team', color }, 2400);
         await s.tweens.wait(500);
+        if (stale()) return;
         return;
       }
       case 'dice': {
@@ -241,31 +299,67 @@ export class Director {
         this.follow(e.teamId);
         A.play('dice-shake', { volume: 0.9 });
         await s.dice.roll(e.main, e.bonus, e.bonusDie, () => A.play(Math.random() < 0.5 ? 'dice-throw-1' : 'dice-throw-2'));
+        if (stale()) return;
         const sum = e.bonus ? `${e.main} + ${e.bonus} = ${e.total}` : `${e.total}`;
         this.say({ icon: '🎲', title: `${name} würfelt ${sum}`, tone: 'team', color }, 2600);
         A.play('pop', { volume: 0.7 });
         void s.dice.hide(0.7);
         await s.tweens.wait(450);
+        if (stale()) return;
         return;
       }
       case 'move': {
+        if (e.reason === 'vine') {
+          s.rig.set({ kind: 'focus', ...s.stunts.swingShot(s.pieces.slotOn(e.teamId, e.to)) }, 1.6);
+          await s.stunts.vineSwing(e.teamId, e.to);
+          if (stale()) return;
+          return;
+        }
+        if (e.reason === 'cave') {
+          s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.to, 9, 5, true) }, 2.6);
+          this.say({ icon: '🦇', title: 'Durch den Berg gerutscht …', sub: `zurück auf Feld ${e.to}`, tone: 'bad', color: this.teamCaption(e.teamId).color }, 2600);
+          await s.tweens.wait(500);
+          if (stale()) return;
+          await s.stunts.caveSlide(e.teamId, e.to);
+          if (stale()) return;
+          return;
+        }
+        if (e.reason === 'catapult') {
+          this.follow(e.teamId, { distance: 15, height: 9 });
+          if (e.to > e.from) {
+            await s.stunts.spring(e.teamId);
+            if (stale()) return;
+            await s.pieces.fly(e.teamId, e.to, { height: 5 + Math.abs(e.to - e.from) * 0.6, duration: 1.7, spin: Math.PI * 2 });
+            if (stale()) return;
+            A.play('land');
+          } else {
+            const t = this.team(e.teamId);
+            await s.stunts.plane(e.teamId, e.to, teamColor(t?.color ?? 'red').hex);
+            if (stale()) return;
+          }
+          return;
+        }
         if (e.reason === 'river') {
           this.follow(e.teamId, { distance: 13, height: 8 });
           await s.pieces.drift(e.teamId, this.driftPath(), e.to);
+          if (stale()) return;
           return;
         }
-        if (e.reason === 'catapult' || e.reason === 'eruption' || e.reason === 'swap') {
+        if (e.reason === 'eruption' || e.reason === 'swap') {
           this.follow(e.teamId, { distance: 14, height: 9 });
           A.play(e.to > e.from ? 'whoosh-up' : 'whoosh-down');
           await s.pieces.fly(e.teamId, e.to);
+          if (stale()) return;
           A.play('land');
           return;
         }
         this.follow(e.teamId);
         if (Math.abs(e.to - e.from) > 14 && e.reason === 'correction') {
           await s.pieces.fly(e.teamId, e.to, { duration: 1.2, height: 4 });
+          if (stale()) return;
         } else {
           await s.pieces.walk(e.teamId, e.from, e.to);
+          if (stale()) return;
         }
         if (e.reason === 'reward') {
           A.play('jingle-good');
@@ -293,9 +387,18 @@ export class Director {
         const snd = sounds[e.field];
         if (snd) A.play(snd);
         this.say({ icon: info.icon, title: info.label, sub: `${name}${e.text ? ` · ${e.text}` : ''}`, tone, color }, 2800);
+        if (e.field === 'minigame') {
+          this.stageField = e.position;
+          s.stunts.stageOn(e.position);
+        }
+        if (e.field === 'volcano') {
+          s.stunts.geyser(e.position);
+          s.rig.shake(0.15, 0.6);
+        }
         if (e.field === 'catapult_forward' || e.field === 'catapult_backward') {
-          s.pieces.setMode(e.teamId, 'jump');
-          await s.tweens.wait(600);
+          s.pieces.setMode(e.teamId, e.field === 'catapult_forward' ? 'jump' : 'cheer');
+          await s.tweens.wait(500);
+          if (stale()) return;
         } else await s.tweens.wait(900);
         return;
       }
@@ -303,31 +406,31 @@ export class Director {
         const a = this.teamCaption(e.a);
         const b = this.teamCaption(e.b);
         this.say({ icon: '🔄', title: 'Platztausch!', sub: `${a.name} ⇄ ${b.name}`, tone: 'info' }, 3200);
-        const mid = new THREE.Vector3();
-        const pa = s.pieces.worldPos(e.a);
-        const pb = s.pieces.worldPos(e.b);
-        if (pa && pb) {
-          mid.addVectors(pa, pb).multiplyScalar(0.5);
-          const away = new THREE.Vector3(mid.x, 0, mid.z).normalize().multiplyScalar(26);
-          s.rig.set({ kind: 'focus', position: new THREE.Vector3(mid.x + away.x, mid.y + 22, mid.z + away.z), lookAt: mid }, 1.6);
-        }
-        A.play('whoosh-up');
-        await Promise.all([s.pieces.fly(e.a, e.posB, { height: 6, duration: 2.2 }), s.pieces.fly(e.b, e.posA, { height: 6, duration: 2.2, spin: -Math.PI * 2 })]);
-        A.play('land');
+        // Kamera begleitet das UFO
+        const pa = s.pieces.worldPos(e.a) ?? new THREE.Vector3();
+        const last = pa.clone();
+        s.rig.set({ kind: 'follow', target: () => (s.stunts.ufoTarget ? last.copy(s.stunts.ufoTarget).setY(s.stunts.ufoTarget.y - 3) : last), distance: 13, height: 8 }, 1.8);
+        await s.stunts.ufoSwap(e.a, e.b, e.posA, e.posB);
+        if (stale()) return;
         return;
       }
       case 'barrier': {
         const { name, color } = this.teamCaption(e.teamId);
         if (e.result === 'blocked') {
-          s.pieces.setCage(e.teamId, true);
           s.pieces.setMode(e.teamId, 'stuck');
-          A.play('thud');
+          A.play('whoosh-down', { volume: 0.6 });
+          await s.pieces.setCage(e.teamId, true, () => {
+            A.play('thud');
+            s.rig.shake(0.12, 0.3);
+            const p = s.pieces.worldPos(e.teamId);
+            if (p) s.effects.dust(p.x, p.y, p.z, new THREE.Color('#e9d6a8'), 12);
+          });
         } else if (e.result === 'stuck') {
           s.pieces.setMode(e.teamId, 'stuck');
           A.play('wrong', { volume: 0.7 });
           this.say({ icon: '🚧', title: `${name} sitzt fest`, sub: `Gewürfelt: ${e.roll}`, tone: 'bad', color }, 2400);
         } else {
-          s.pieces.setCage(e.teamId, false);
+          void s.pieces.setCage(e.teamId, false);
           s.pieces.setMode(e.teamId, 'cheer');
           A.play('confirm');
           const p = s.pieces.worldPos(e.teamId);
@@ -335,6 +438,7 @@ export class Director {
           this.say({ icon: '🔓', title: `${name} ist frei!`, tone: 'good', color }, 2200);
         }
         await s.tweens.wait(900);
+        if (stale()) return;
         s.pieces.setMode(e.teamId, e.result === 'blocked' || e.result === 'stuck' ? 'stuck' : 'idle');
         return;
       }
@@ -345,6 +449,7 @@ export class Director {
           A.play('jingle-bad');
           this.say({ icon: '😬', title: 'Knapp daneben!', sub: `${name} braucht mindestens ${e.needed}`, tone: 'bad', color }, 2600);
           await s.tweens.wait(1600);
+          if (stale()) return;
           s.pieces.setMode(e.teamId, 'idle');
         }
         return;
@@ -357,6 +462,7 @@ export class Director {
         if (p) s.effects.sparkle(p.x, p.y, p.z, new THREE.Color('#ffe066'), 40, 2);
         this.say({ icon: '⛰️', title: `${name} ist auf dem Gipfel!`, sub: 'Jetzt fehlt nur noch der Siegeswurf', tone: 'gold', color }, 3200);
         await s.tweens.wait(1400);
+        if (stale()) return;
         s.pieces.setMode(e.teamId, 'idle');
         return;
       }
@@ -365,6 +471,7 @@ export class Director {
         s.rig.shake(0.08 + (e.pressure / e.threshold) * 0.2, 0.8);
         if (e.pressure < e.threshold) this.say({ icon: '🌋', title: 'Der Vulkan brodelt …', sub: `Druck ${e.pressure} von ${e.threshold}`, tone: 'bad' }, 2200);
         await s.tweens.wait(600);
+        if (stale()) return;
         return;
       }
       case 'eruption': {
@@ -372,12 +479,16 @@ export class Director {
         this.say({ icon: '🌋', title: 'VULKANAUSBRUCH!', sub: e.affected.length ? 'Alle in der Nähe des Gipfels fliegen zurück!' : 'Glück gehabt – niemand in der Nähe.', tone: 'bad' }, 4200);
         A.play('jingle-alarm');
         await s.tweens.wait(900);
+        if (stale()) return;
         A.play('rumble', { volume: 1, rate: 0.8 });
         s.volcano.erupt();
         s.rig.shake(0.7, 2.2);
         await s.tweens.wait(700);
+        if (stale()) return;
         await Promise.all(e.affected.map((a, i) => s.tweens.wait(i * 120).then(() => s.pieces.fly(a.teamId, a.to, { height: 9, duration: 2.1, spin: Math.PI * 4 }))));
+        if (stale()) return;
         await s.tweens.wait(500);
+        if (stale()) return;
         return;
       }
       case 'victory': {
@@ -391,10 +502,15 @@ export class Director {
         s.effects.confettiBurst(p.x, p.y + 1.5, p.z, TEAM_COLORS.map((c) => c.hex), 260);
         this.startFireworks(p, color);
         await s.tweens.wait(2500);
+        if (stale()) return;
         return;
       }
       case 'field_game': {
         const { name, color } = this.teamCaption(e.teamId);
+        if (e.stage === 'won' || e.stage === 'lost' || e.stage === 'cancelled') {
+          this.stageField = null;
+          s.stunts.stageOff();
+        }
         if (e.stage === 'running') {
           A.play('jingle-start');
         } else if (e.stage === 'won') {
@@ -402,12 +518,14 @@ export class Director {
           s.pieces.setMode(e.teamId, 'cheer');
           this.say({ icon: '🏅', title: `${name} gewinnt das Minispiel!`, tone: 'good', color }, 2600);
           await s.tweens.wait(1200);
+          if (stale()) return;
           s.pieces.setMode(e.teamId, 'idle');
         } else if (e.stage === 'lost') {
           A.play('jingle-bad');
           s.pieces.setMode(e.teamId, 'sad');
           this.say({ icon: '😕', title: `${name} verliert das Minispiel`, tone: 'bad', color }, 2400);
           await s.tweens.wait(1200);
+          if (stale()) return;
           s.pieces.setMode(e.teamId, 'idle');
         }
         return;

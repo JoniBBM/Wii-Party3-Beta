@@ -79,6 +79,7 @@ Bei Spielen werden sofort die **Spieler ausgelost** (fair: wer seltener dran war
 
 - Die Regie kann **für ein Team würfeln** (wenn das Handy fehlt) oder einen **echten Würfelwurf eintragen**.
 - Während Animationen laufen, wartet das nächste Team automatisch („Moment …“).
+- **Liane**: Landet ein Team auf der Liane, wartet die Runde auf den **Lianen-Wurf**. Das Team würfelt am Handy (Knopf oder Handy **schütteln**), die Regie kann *Für Team würfeln* oder die Augenzahl direkt antippen.
 - **Minispiel-Feld**: Die Würfelrunde pausiert. Wähle Modus (*allein gegen alle* oder *Duell*), Gegner und Minispiel (oder Zufall), *Minispiel starten*, danach *gewinnt*/*verliert* antippen.
 - **Aussetzen** überspringt ein Team.
 
@@ -99,6 +100,7 @@ Gewinnt ein Team (Standard: auf dem Gipfel stehen und dann mindestens eine 6 wü
 | Falsch geklickt | **Rückgängig** oben rechts in der Regie (bis zu 40 Schritte). |
 | Figur steht falsch | In der Rangliste auf das Team tippen → *Position korrigieren*. |
 | Team hängt in der Sperre fest | Rangliste → Team → *Aus der Sperre befreien*. |
+| Schütteln zum Würfeln geht nicht | Bewegungssensoren geben Browser nur über eine sichere Verbindung frei (HTTPS). Im WLAN-Betrieb (`http://…`) bleibt der Würfel-Knopf; über `./start.sh online` (https) klappt auch das Schütteln. Am iPhone einmal *Würfeln durch Schütteln erlauben* antippen. |
 | Team kommt nicht aus dem Krater | Rangliste → Team → *Aus dem Krater holen* (oder in den Regeln weniger Augen zum Herausklettern einstellen). |
 | Ein Handy ist ausgeloggt | Mit der Team-PIN wieder beitreten – der Spielstand bleibt. |
 | Handys kommen nicht auf die Seite | Gleiches WLAN? Adresse unter *Einstellungen → Beitritts-Adresse* prüfen; ggf. `./start.sh online`. |
