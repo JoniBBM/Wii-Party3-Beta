@@ -184,6 +184,7 @@ function ContentPanel({ state, content }: { state: GameState; content: ActiveCon
       </div>
 
       {showQuestion && <p className="text-4xl leading-snug font-bold text-ink">{(item as { question: string }).question}</p>}
+      {showQuestion && item.kind === 'estimate' && item.unit && !revealed && <p className="text-2xl font-bold text-ink-2">Antwort in: {item.unit}</p>}
       {!showQuestion && 'question' in item && <p className="text-3xl font-bold text-ink-2">Gleich kommt die Frage …</p>}
       {item.kind === 'game' && item.description && <p className="text-2xl leading-relaxed font-semibold whitespace-pre-line text-ink-2">{item.description}</p>}
       {item.kind === 'game' && item.materials && <p className="text-xl font-bold text-ink-2">🧰 {item.materials}</p>}
@@ -280,7 +281,12 @@ function EstimateReveal({ state, content }: { state: GameState; content: ActiveC
           <span className="w-10">{placeLabel(r.rank)}</span>
           <span className="size-5 rounded-full" style={{ background: teamColor(t?.color ?? 'red').hex }} />
           <span className="flex-1 text-ink">{t?.name}</span>
-          <span className="text-ink-2 tabular-nums">{Number(a!.value).toLocaleString('de-DE')}</span>
+          <span className="text-ink-2 tabular-nums">
+            {Number(a!.value).toLocaleString('de-DE')} {item.unit}
+          </span>
+          <span className="w-40 text-right text-lg text-muted tabular-nums">
+            {Number(a!.value) === item.target ? 'genau!' : `${Number(a!.value) > item.target ? '+' : '−'}${Math.abs(Number(a!.value) - item.target).toLocaleString('de-DE')}`}
+          </span>
         </div>
       ))}
     </div>
