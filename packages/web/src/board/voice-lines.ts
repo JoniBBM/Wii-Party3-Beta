@@ -61,22 +61,59 @@ export const VOICE_LINES = {
   vine: [
     ['vine_1', '[excited] Ab an die Liane! Tarzan wäre stolz!'],
     ['vine_2', 'Lianen-Zeit! Gut festhalten und nochmal würfeln!'],
+    ['vine_3', '[excited] Stopp! Hier geht’s nur mit der Liane über den Bach!'],
   ],
   swing: [
     ['swing_1', '[excited] Juhuuu! Was für ein Schwung!'],
     ['swing_2', 'Und ab durch den Dschungel!'],
+    ['swing_3', 'Und der Rest des Wurfs zählt weiter. Ab dafür!'],
+  ],
+  riverChoose: [
+    ['rch_1', '[curious] Fässer oder Kisten? Das ist hier die Frage!'],
+    ['rch_2', '[mischievously] Eins davon hält, eins davon bricht. Viel Glück beim Raten!'],
+    ['rch_3', 'Jetzt bloß nicht ins Wasser gucken … einfach wählen!'],
   ],
   riverSafe: [
     ['rsafe_1', 'Balance wie ein Seiltänzer! Respekt!'],
     ['rsafe_2', '[nervous] Wackel, wackel … und geschafft!'],
+    ['rsafe_3', '[excited] Richtig gewählt! Trockene Füße und weiter geht’s!'],
   ],
   riverFall: [
     ['rfall_1', 'Platsch! [laughs] Hoffentlich habt ihr Badesachen dabei.'],
     ['rfall_2', 'Und tschüss – ab in den Fluss!'],
+    ['rfall_3', '[laughs] Falsch gewählt! Der Rest des Wurfs geht baden.'],
+    ['rfall_4', 'Platsch! Schwimmen statt laufen – das kostet den restlichen Wurf.'],
   ],
   cave: [
     ['cave_1', 'Huch, die Lavahöhle! Einmal Rutschbahn abwärts!'],
     ['cave_2', 'Ab in den Berg! [chuckles] Das war wohl die falsche Tür.'],
+    ['cave_3', '[laughs] Zu klein gewürfelt! Einmal Vulkan von innen, bitte!'],
+  ],
+  caveStop: [
+    ['cstop_1', '[nervous] Die Lavahöhle! Jetzt bloß nicht zu klein würfeln …'],
+    ['cstop_2', 'Mutprobe an der Höhle! Hoch würfeln, sonst geht’s abwärts!'],
+    ['cstop_3', '[dramatically] Es wird heiß! Würfel raus, Daumen drücken!'],
+  ],
+  cavePass: [
+    ['cpass_1', '[relieved] Puh! Geschafft! Die Höhle muss warten.'],
+    ['cpass_2', '[excited] Mutig vorbei! Weiter geht’s!'],
+  ],
+  skull: [
+    ['skull_1', '[gasps] Ein Totenkopf! Oh oh … der Boden gibt nach!'],
+    ['skull_2', '[dramatically] Totenkopf-Feld! Das war’s mit dem Sonnenbad – ab in den Vulkan!'],
+  ],
+  insideEnter: [
+    ['inenter_1', '[dramatically] Willkommen im Inneren des Vulkans! Hier ist es … etwas wärmer.'],
+    ['inenter_2', '[laughs] Strafrunde über der Lava! Bitte nicht runterschauen.'],
+    ['inenter_3', 'Sauna-Modus aktiviert! Lauft, so schnell ihr könnt!'],
+  ],
+  insideShout: [
+    ['shout_1', '[shouting] Volltreffer! Genau aufs Ausgangsfeld – raus hier!'],
+    ['shout_2', '[excited] Abkürzung gefunden! Und ab durchs Portal!'],
+  ],
+  insideExit: [
+    ['inexit_1', '[relieved] Endlich wieder frische Luft!'],
+    ['inexit_2', 'Raus aus dem Vulkan! Leicht angekokelt, aber gut gelaunt.'],
   ],
   craterFall: [
     ['crater_1', '[gasps] Ups! Falsche Abzweigung – ab in den Krater!'],
@@ -171,22 +208,95 @@ export const VOICE_LINES = {
     ['wrong_1', 'Leider falsch!'],
     ['wrong_2', '[sarcastic] Nö, das war nix.'],
   ],
+  // ab hier: nur „viel“ und „Quatschkopf“ – Geplauder zwischendurch
+  chat: [
+    ['chat_1', 'Ich sag’s euch, so ein Inselleben ist schon was Feines. Außer der Vulkan. Der ist schlecht gelaunt.'],
+    ['chat_2', '[curious] Wer liegt eigentlich vorne? [chuckles] Ach ja, ich seh’s ja.'],
+    ['chat_3', 'Ich mach hier übrigens alles ehrenamtlich. Für Kokosnüsse.'],
+    ['chat_4', '[whispers] Psst. Ich glaube, der Affe da hinten schummelt.'],
+    ['chat_5', 'Wisst ihr, was das Beste an dieser Insel ist? Kein WLAN-Passwort. Ach nee, Moment …'],
+    ['chat_6', 'Bleibt dran, Leute. Hier passiert gleich wieder was. Wahrscheinlich.'],
+    ['chat_7', '[sighs] Ein Kommentator hat’s schon schwer. Immer reden, nie würfeln.'],
+    ['chat_8', 'Die Stimmung ist großartig! Also, bei mir jedenfalls.'],
+  ],
+  waiting: [
+    ['wait_1', 'Hallo? Würfeln, bitte! Der Würfel beißt nicht.'],
+    ['wait_2', '[sighs] Ich werd hier noch braun vor lauter Warten.'],
+    ['wait_3', '[mischievously] Tick, tack … der Vulkan wartet auch nicht ewig!'],
+    ['wait_4', 'Ist da jemand eingeschlafen? Tippen, Leute, tippen!'],
+  ],
+  thinking: [
+    ['think_1', 'Denkt nach! Ich höre hier förmlich die Köpfe rauchen.'],
+    ['think_2', '[whispers] Ich weiß die Antwort. Aber ich sag nix.'],
+    ['think_3', 'Nicht beim Nachbarn abschreiben! [chuckles] Okay, ein bisschen vielleicht.'],
+  ],
+  // nur „Quatschkopf“: Lästern und dumme Sprüche
+  leader: [
+    ['lead_1', '[mischievously] Na, da vorne? Hochmut kommt vor dem Fall. Oder vor dem Vulkan.'],
+    ['lead_2', 'Die Führenden tun so cool. Dabei zittern denen schon die Knie.'],
+    ['lead_3', '[laughs] Genießt es, solange es dauert! Das UFO hat eure Adresse.'],
+    ['lead_4', 'Führung ist wie Eis am Strand. Schmilzt schneller, als man denkt.'],
+  ],
+  last: [
+    ['last_1', '[laughs] Und das Schlusslicht? Irgendwer muss ja das Licht ausmachen.'],
+    ['last_2', 'Ganz hinten ist auch eine Position. Eine sehr entspannte sogar.'],
+    ['last_3', '[sarcastic] Ihr seid nicht Letzte. Ihr seid nur … sehr weit von den Ersten entfernt.'],
+    ['last_4', 'Keine Sorge, ihr seid nicht langsam. Die anderen sind nur schneller.'],
+  ],
+  dumb: [
+    ['dumb_1', 'Ich hab mal versucht, eine Kokosnuss zu würfeln. Ging nicht. Die rollt nur.'],
+    ['dumb_2', '[curious] Warum heißt es eigentlich Würfel? Ist doch eher ein … Würfel. Okay, passt.'],
+    ['dumb_3', 'Fun Fact: Vulkane sind eigentlich nur sehr wütende Berge.'],
+    ['dumb_4', 'Ich bin übrigens auch eine Insel. Eine Insel der Ruhe. [laughs] Nein, Quatsch.'],
+    ['dumb_5', '[whispers] Wenn ihr ganz leise seid, hört ihr die Fische lachen.'],
+    ['dumb_6', 'Mein Arzt sagt, ich soll weniger reden. [laughs] Der hat keine Ahnung.'],
+    ['dumb_7', 'Wisst ihr, was ein Pirat am liebsten würfelt? Sechs-Arrr! [laughs] Sorry.'],
+    ['dumb_8', 'Was ist gelb und kann nicht schwimmen? Ein Bagger. [laughs] Hat mit dem Spiel nichts zu tun.'],
+    ['dumb_9', '[sighs] Ich hab heute Morgen einen Papagei nach dem Weg gefragt. Der hat nur nachgeplappert.'],
+    ['dumb_10', 'Taktik-Tipp: Einfach immer eine Sechs würfeln. Bitte, gern geschehen.'],
+  ],
+  mockBad: [
+    ['mbad_1', '[laughs] Hahaha! Entschuldigung. [laughs] Nein, eigentlich nicht.'],
+    ['mbad_2', 'Autsch! Das zeigen wir gleich nochmal in Zeitlupe. [chuckles] Spaß.'],
+    ['mbad_3', '[sarcastic] Super Strategie! Wirklich. Ganz toll.'],
+    ['mbad_4', 'Ich hätte das genauso gemacht. [laughs] Nee, hätte ich nicht.'],
+  ],
+  mockGood: [
+    ['mgood_1', '[sarcastic] Pures Glück. Können ist was anderes.'],
+    ['mgood_2', 'Okay, okay, nicht schlecht. Aber bildet euch bloß nix drauf ein!'],
+    ['mgood_3', '[mischievously] Schöner Zug! Bestimmt geschummelt.'],
+  ],
 } as const satisfies Record<string, readonly (readonly [string, string])[]>;
 
 export type VoiceCategory = keyof typeof VOICE_LINES;
 
-/** Spielerklärung: Abschnitte mit Text (wird auch als Untertitel gezeigt). */
+/**
+ * Spielerklärung: kurze Sätze, damit jede Vorführung genau zum gesprochenen Wort startet
+ * (wird auch als Untertitel gezeigt). Abschnitte und Vorführungen: pages/beamer/Explainer.tsx.
+ */
 export const EXPLAINER_LINES = [
-  ['explain_01', '[excited] Hallo und herzlich willkommen auf der Insel der Abenteuer! Ich bin euer Kommentator, und in zwei Minuten wisst ihr alles, was ihr wissen müsst. [mischievously] Also: Ohren auf!'],
-  ['explain_02', 'Ihr spielt in Teams. Jedes Team hat seine eigene Farbe und seine eigene Figur – die gestaltet ihr selbst auf dem Handy. Name, Frisur, Outfit, alles!'],
+  ['ex_welcome', '[excited] Hallo und herzlich willkommen auf der Insel der Abenteuer! Ich bin euer Kommentator, und in drei Minuten wisst ihr alles, was ihr wissen müsst. [mischievously] Also: Ohren auf!'],
+  ['ex_devices', 'Gespielt wird mit dem Handy, dem Tablet oder dem Laptop – Hauptsache, ein Browser ist drauf. Einfach den Code scannen oder die Adresse eintippen.'],
+  ['ex_teams', 'Ihr spielt in Teams. Jedes Team hat eine eigene Farbe und eine eigene Figur – die gestaltet ihr selbst. Name, Frisur, Outfit, alles!'],
   ['explain_03', 'Euer Ziel: der Gipfel des Vulkans, ganz da oben. Wer zuerst oben ankommt und dann noch den Siegeswurf schafft, gewinnt das Spiel.'],
   ['explain_04', 'Jede Runde läuft gleich ab: Zuerst kommt ein Minispiel oder eine Frage. Je besser ihr abschneidet, desto größer euer Bonuswürfel. Und dann wird gewürfelt!'],
-  ['explain_05', 'Bei den Fragen antwortet ihr direkt auf dem Handy: Quizfragen, Schätzfragen und Buzzer-Runden – wer zuerst drückt, darf antworten. Für die Minispiele werden Leute aus euren Teams gezogen. Also immer schön bereit sein!'],
-  ['explain_06', 'Würfeln ist ganz einfach: Wenn ihr dran seid, vibriert euer Handy. Tippen oder schütteln – und eure Figur läuft los.'],
-  ['explain_07', 'Unterwegs warten Sonderfelder. Die Sprungfeder katapultiert euch nach vorne. Das Flugzeug bringt euch leider zurück. [laughs] Das UFO tauscht euren Platz mit einem anderen Team. Und im Käfig sitzt ihr fest, bis ihr die richtige Zahl würfelt.'],
-  ['explain_08', 'Auf einem Minispiel-Feld gibt’s ein Extra-Minispiel – wer gewinnt, darf ein paar Felder vorziehen. Und die Vulkanfelder? [mischievously] Die heizen den Vulkan an …'],
-  ['explain_09', 'Dazu kommen ganz besondere Orte: Gleich am Anfang hängt die Liane – damit schwingt ihr ein Stück weiter. Im Fluss warten wackelige Fässer, da kann man schon mal baden gehen. [chuckles] Und am Vulkan lauern die Lavahöhle und das Kraterloch. Wer da reinfällt, muss erst wieder rausklettern.'],
-  ['explain_10', 'Apropos Vulkan: Mit jeder Runde steigt der Druck. Ist er zu hoch, bricht er aus – [dramatically] und alle in der Nähe des Gipfels fliegen ein ganzes Stück zurück!'],
+  ['ex_questions', 'Bei den Fragen antwortet ihr direkt auf eurem Gerät: Quizfragen, Schätzfragen und Buzzer-Runden.'],
+  ['ex_doubletap', '[mischievously] Profi-Tipp: Bei Antworten wie A, B, C oder D einfach doppelt tippen – dann ist eure Antwort sofort eingeloggt. Ohne extra Bestätigen!'],
+  ['ex_minigames', 'Für die Minispiele werden Leute aus euren Teams gezogen. Also immer schön bereit sein!'],
+  ['ex_dice', 'Würfeln ist ganz einfach: Wenn ihr dran seid, tippt ihr auf den Würfel – am Handy dürft ihr auch schütteln. Und schon läuft eure Figur los.'],
+  ['ex_spring', 'Unterwegs warten Sonderfelder. Die Sprungfeder katapultiert euch nach vorne!'],
+  ['ex_plane', 'Das Flugzeug bringt euch leider wieder zurück. [laughs]'],
+  ['ex_ufo', 'Das UFO tauscht euren Platz mit einem anderen Team – mal Glück, mal Pech.'],
+  ['ex_cage', 'Und im Käfig sitzt ihr fest, bis ihr die richtige Zahl würfelt.'],
+  ['ex_gamefield', 'Auf dem Minispiel-Feld gibt’s ein Extra-Minispiel. Wer gewinnt, darf ein paar Felder vorziehen.'],
+  ['ex_volcanofield', 'Und die Vulkanfelder? [mischievously] Die heizen den Vulkan an …'],
+  ['ex_vine', 'Dann die Mutproben! An der Liane kommt keiner vorbei: Ihr schwingt über den Bach, der Würfel sagt, wie weit – und der Rest eures Wurfs zählt weiter.'],
+  ['ex_river', 'Am Wasserfall heißt es: Fässer oder Kisten? Eins davon hält, das andere bricht. [laughs] Wer reinfällt, schwimmt rüber – und der restliche Wurf ist futsch.'],
+  ['ex_cave', 'Vor der Lavahöhle braucht ihr eine Drei oder mehr. Sonst geht’s ab ins Innere des Vulkans!'],
+  ['ex_skull', '[dramatically] Genau wie auf den Totenkopf-Feldern. Da drin lauft ihr ein paar Straffelder über die Lava. Wer genau das leuchtende Feld trifft, kommt früher raus.'],
+  ['ex_crater', 'Und wer am Kraterloch zu kurz würfelt, rutscht hinein und muss erst wieder rausklettern.'],
+  ['ex_pressure', 'Apropos Vulkan: Mit jeder Runde steigt der Druck.'],
+  ['ex_eruption', '[dramatically] Ist er zu hoch, bricht er aus – und alle in der Nähe des Gipfels fliegen ein ganzes Stück zurück!'],
   ['explain_11', '[warmly] Das war’s auch schon! Seid fair, habt Spaß, und möge das beste Team gewinnen. [excited] Und jetzt: Ab auf die Insel!'],
 ] as const;
 

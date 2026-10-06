@@ -33,9 +33,10 @@ export const DEFAULT_RULES: Rules = {
     zoneSize: 12,
     knockback: { min: 3, max: 6 },
   },
-  river: { enabled: true, fallChance: 50, driftBack: { min: 2, max: 4 } },
+  river: { enabled: true, fallChance: 50 },
   vine: { enabled: true, sides: 6 },
-  cave: { enabled: true },
+  cave: { enabled: true, need: 3 },
+  inside: { enabled: true, length: 9, shout: 4 },
   crater: { enabled: true, climb: 8 },
   autoCloseWhenAllAnswered: true,
 };
@@ -48,6 +49,9 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
   (config as Partial<GameConfig>).devices ??= 'personal';
   rules.vine ??= clone(DEFAULT_RULES.vine);
   rules.cave ??= clone(DEFAULT_RULES.cave);
+  rules.cave.need ??= DEFAULT_RULES.cave.need;
+  rules.inside ??= clone(DEFAULT_RULES.inside);
+  delete (rules.river as { driftBack?: unknown }).driftBack;
   // Bretter aus älteren Versionen kennen Fässer, Liane, Lavahöhle und Kraterloch noch nicht
   if (config.board?.fields?.length && !hasLandmarks(config.board)) config.board = withLandmarks(config.board);
   return config;
@@ -56,7 +60,17 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
 /** Gespeicherten Spielstand aus einer älteren Version ergänzen. */
 export function upgradeState(state: GameState): GameState {
   upgradeConfig(state.config);
-  for (const t of state.teams) t.crater ??= null;
+  for (const t of state.teams) {
+    t.crater ??= null;
+    t.inside ??= null;
+  }
+  // Liane wartete früher auf einen eigenen Wurf → jetzt allgemeine Mutprobe
+  if (state.phase.name === 'dice') {
+    const d = state.phase.dice;
+    if (d.vine && !d.challenge) d.challenge = { teamId: d.vine.teamId, kind: 'vine', position: d.vine.position, remaining: 0 };
+    delete d.vine;
+    d.challenge ??= null;
+  }
   return state;
 }
 

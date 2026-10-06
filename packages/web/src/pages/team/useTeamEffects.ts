@@ -85,12 +85,17 @@ export function useTeamEffects(teamId: string | null) {
             break;
           case 'river':
             if (e.teamId !== teamId) break;
-            if (e.result === 'fall')
-              later(at + 1500, () => {
-                vibrate([150, 80, 150]);
-                toast.error('💦 Platsch! Ihr seid von den Fässern gefallen und treibt zurück.');
+            if (e.stage === 'choose')
+              later(at + 300, () => {
+                vibrate([80, 60, 80]);
+                ping();
               });
-            else later(at + 1500, () => toast.success('🛢️ Geschafft – ihr balanciert sicher über die Fässer!'));
+            else if (e.result === 'fall')
+              later(at + 1800, () => {
+                vibrate([150, 80, 150]);
+                toast.error(`💦 Platsch! Die ${e.choice === 'crates' ? 'Kisten' : 'Fässer'} sind eingebrochen – ihr schwimmt rüber, der Rest des Wurfs verfällt.`);
+              });
+            else later(at + 1500, () => toast.success(`${e.choice === 'crates' ? '📦' : '🛢️'} Geschafft – trocken über den Fluss!`));
             break;
           case 'crater':
             if (e.teamId !== teamId) break;
@@ -110,11 +115,22 @@ export function useTeamEffects(teamId: string | null) {
               });
             break;
           case 'cave':
-            if (e.teamId === teamId)
-              later(at + 1200, () => {
-                vibrate([200, 100, 200]);
-                toast.error('🦇 Ihr seid in die Lavahöhle gefallen und rutscht zum Vulkanfuß hinunter!');
+            if (e.teamId !== teamId) break;
+            if (e.stage === 'stop')
+              later(at + 300, () => {
+                vibrate([80, 60, 80]);
+                ping();
               });
+            else if (e.success) later(at + 1600, () => toast.success(`🦇 ${e.roll}! Mutprobe bestanden – weiter geht’s.`));
+            break;
+          case 'inside':
+            if (e.teamId !== teamId) break;
+            if (e.stage === 'enter')
+              later(at + 1200, () => {
+                vibrate([200, 100, 200, 100, 200]);
+                toast.error('🌋 Ihr seid ins Innere des Vulkans gefallen! Lauft den Weg über die Lava-Inseln, um wieder herauszukommen.');
+              });
+            else if (e.stage === 'exit') later(at + 1500, () => toast.success(e.shout ? '✨ Ausgangsfeld! Ihr seid sofort wieder draußen.' : '🌋 Geschafft – ihr seid zurück auf der Insel!'));
             break;
           case 'buzz':
             if (e.teamId === teamId) vibrate(120);

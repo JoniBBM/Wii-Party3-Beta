@@ -4,10 +4,10 @@
  */
 import * as THREE from 'three';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
-import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import {
   BloomEffect,
   BrightnessContrastEffect,
+  DepthOfFieldEffect,
   HueSaturationEffect,
   EffectComposer,
   EffectPass,
@@ -19,7 +19,7 @@ import {
   VignetteEffect,
 } from 'postprocessing';
 import { N8AOPostPass } from 'n8ao';
-import type { Effect, GameState, RenderQuality } from '@insel/shared';
+import type { Effect, GameState, RenderQuality, Resolution } from '@insel/shared';
 import { windUniforms } from './assets.ts';
 import { BoardAudio } from './audio.ts';
 import { CameraRig } from './camera.ts';
@@ -29,6 +29,7 @@ import { attachManualCamera } from './manual.ts';
 import { DiceOverlay } from './dice3d.ts';
 import { Director, type Caption } from './director.ts';
 import { buildFields, type FieldMeshes } from './fields.ts';
+import { VolcanoInside } from './inside.ts';
 import { buildLayout, type IslandLayout } from './layout.ts';
 import { Effects } from './particles.ts';
 import { Pieces } from './pieces.ts';
@@ -40,6 +41,7 @@ import { buildAnimals, type AnimalWorld } from './animals.ts';
 import { buildHeightfield, buildTerrainMesh, heightTexture, terrainColorSampler } from './terrain.ts';
 import { Tweens } from './tweens.ts';
 import { buildVolcano, type VolcanoFx } from './volcano.ts';
+import { createUltraTerrainMaterial, loadUltraTextures } from './ultra.ts';
 import { createRiver, createWater, type RiverFx, type Water } from './water.ts';
 import { fx } from './worldfx.ts';
 import { createSky, type Sky } from './sky.ts';
@@ -57,17 +59,20 @@ interface Preset {
   tilt: boolean;
   /** Anteil der Grasbüschel */
   grass: number;
+  /** Ultra: echte Materialien, Tiefenschärfe, Wellen-Normalen, feinere Umgebungsverdeckung */
+  ultra?: boolean;
 }
 
 /** Laufzeit-Stufen: lassen sich ohne Neuaufbau der Insel umschalten. */
 const PRESETS: Record<Quality, Preset> = {
-  high: { pixelRatio: 2, shadow: 4096, shadowEvery: 1, ao: true, bloom: true, tilt: true, grass: 1 },
-  balanced: { pixelRatio: 1.25, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, tilt: true, grass: 0.6 },
-  eco: { pixelRatio: 1, shadow: 1024, shadowEvery: 3, ao: false, bloom: false, tilt: false, grass: 0.3 },
+  ultra: { pixelRatio: 2, shadow: 4096, shadowEvery: 1, ao: true, bloom: true, tilt: false, grass: 1, ultra: true },
+  high: { pixelRatio: 2, shadow: 4096, shadowEvery: 1, ao: true, bloom: true, tilt: true, grass: 0.55 },
+  balanced: { pixelRatio: 1.25, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, tilt: true, grass: 0.33 },
+  eco: { pixelRatio: 1, shadow: 1024, shadowEvery: 3, ao: false, bloom: false, tilt: false, grass: 0.17 },
 };
 
-/** Aufbau (einmalig): Geländeauflösung, Wasser, Dichte der Deko. */
-const BUILD = { terrain: 384, water: 260, density: 1, grass: 20000 };
+/** Aufbau (einmalig): Geländeauflösung, Wasser, Dichte der Deko (Gras: Ultra nutzt alles). */
+const BUILD = { terrain: 384, water: 260, density: 1, grass: 36000 };
 
 const HORIZON = new THREE.Color('#bfe3f7');
 
@@ -107,6 +112,12 @@ export class BoardScene {
   private animals: AnimalWorld | null = null;
   private composer: EffectComposer | null = null;
   private grass: THREE.InstancedMesh | null = null;
+  private terrain: THREE.Mesh | null = null;
+  private terrainBase: THREE.Material | null = null;
+  private terrainUltra: THREE.Material | null = null;
+  private envBase: THREE.Texture | null = null;
+  private envUltra: THREE.Texture | null = null;
+  private dof: DepthOfFieldEffect | null = null;
   private grassFull = 0;
   private frame = 0;
   private shadowEvery = 1;
@@ -114,14 +125,24 @@ export class BoardScene {
   fps = 60;
   private fpsFrames = 0;
   private fpsSince = performance.now();
-  private labels: CSS2DRenderer;
+  /** Renderauflösung aus der Regie (auto = je Grafikstufe) */
+  private resolution: Resolution = 'auto';
   private sun!: THREE.DirectionalLight;
   private raf = 0;
-  private clock = new THREE.Clock();
+  private timer = new THREE.Timer();
   private ro: ResizeObserver;
   private disposed = false;
   private captionListeners = new Set<(c: Caption | null) => void>();
   private lastState: GameState | null = null;
+  /** Welche Welt gerade zu sehen ist (Insel oder Vulkan-Inneres) */
+  view: 'island' | 'inside' = 'island';
+  /** Vulkan-Inneres als eigene Szene (erst angelegt, wenn die Regel aktiv ist) */
+  inside: VolcanoInside | null = null;
+  private insideKey = '';
+  private islandHeightAt: ((x: number, z: number) => number) | null = null;
+  private islandBlockers: Parameters<CameraRig['setBlockers']>[0] = [];
+  private islandSight: Pieces['lineOfSight'] = null;
+  onViewChange: ((v: 'island' | 'inside') => void) | null = null;
   quality: Quality;
 
   private constructor(
@@ -142,7 +163,7 @@ export class BoardScene {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.pixelRatio));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     this.shadowEvery = preset.shadowEvery;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -151,9 +172,6 @@ export class BoardScene {
     this.renderer.domElement.className = 'block size-full';
     container.appendChild(this.renderer.domElement);
 
-    this.labels = new CSS2DRenderer();
-    this.labels.domElement.className = 'pointer-events-none absolute inset-0';
-    container.appendChild(this.labels.domElement);
 
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
@@ -198,6 +216,7 @@ export class BoardScene {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       const env = pmrem.fromEquirectangular(hdr).texture;
       this.scene.environment = env;
+      this.envBase = env;
       this.scene.environmentIntensity = 0.55;
       hdr.dispose();
       pmrem.dispose();
@@ -215,12 +234,14 @@ export class BoardScene {
     let hTexCache: THREE.DataTexture | null = null;
     const heightTex0 = () => (hTexCache ??= heightTexture(field));
     const terrain = buildTerrainMesh(layout, field);
+    this.terrain = terrain;
+    this.terrainBase = terrain.material as THREE.Material;
     this.scene.add(terrain);
     this.water = createWater(heightTex0(), { segments: BUILD.water, fog: HORIZON, fogNear: 140, fogFar: 420 });
     this.water.setSun(this.sun.position, this.sun.color);
     this.scene.add(this.water.mesh);
     const hTex = heightTex0();
-    this.river = createRiver(hTex, { mist: true });
+    this.river = createRiver(hTex, { mist: true, creek: layout.creek });
     this.scene.add(this.river.group);
 
     // Felder
@@ -288,9 +309,15 @@ export class BoardScene {
     this.stunts = new Stunts(layout, field, this.pieces, this.tweens, this.effects, this.audio);
     this.scene.add(this.stunts.group);
     this.rig = new CameraRig(this.camera, layout);
-    this.rig.heightAt = (x, z) => field.height(x, z);
-    this.rig.setBlockers([...(this.props?.blockers ?? []), ...this.stunts.blockers]);
-    this.pieces.lineOfSight = (from, to) => this.rig.occlusion(from, to, true) < 0.08;
+    this.islandHeightAt = (x, z) => field.height(x, z);
+    this.rig.heightAt = this.islandHeightAt;
+    this.islandBlockers = [...(this.props?.blockers ?? []), ...this.stunts.blockers];
+    this.rig.setBlockers(this.islandBlockers);
+    this.rig.canopies = [...(this.props?.canopies ?? []), ...this.stunts.crowns];
+    this.stunts.shotPicker = (target, dist, height, prefer) => this.rig.clearShot(target, dist, height, prefer);
+    this.islandSight = (from, to) => this.rig.occlusion(from, to, true) < 0.08;
+    this.pieces.lineOfSight = this.islandSight;
+    this.pieces.isShown = (p) => this.pieces.isInside(p.teamId) === (this.view === 'inside');
     this.ceremony = new Ceremony(this.pieces, this.tweens, this.effects, this.audio, this.rig);
     this.scene.add(this.ceremony.group);
     this.detachManual = attachManualCamera(this.renderer.domElement, this.rig);
@@ -300,6 +327,7 @@ export class BoardScene {
     });
 
     if (!PERF.has('nopost')) this.setupPost(preset);
+    this.applyUltra(!!preset.ultra);
     this.resize();
     this.rig.jump();
     progress(1, 'Fertig!');
@@ -310,31 +338,112 @@ export class BoardScene {
   private setupPost(p: Preset) {
     this.composer?.dispose();
     const composer = new EffectComposer(this.renderer, { frameBufferType: THREE.HalfFloatType, multisampling: PERF.has('msaa') ? 4 : 0 });
-    composer.addPass(new RenderPass(this.scene, this.camera));
+    const world = this.viewScene;
+    composer.addPass(new RenderPass(world, this.camera));
     if (p.ao && !PERF.has('noao'))
       try {
-        const ao = new N8AOPostPass(this.scene, this.camera, 1, 1);
+        const ao = new N8AOPostPass(world, this.camera, 1, 1);
         ao.configuration.aoRadius = 2.2;
         ao.configuration.distanceFalloff = 1.2;
         ao.configuration.intensity = 2.2;
-        ao.configuration.halfRes = true;
-        ao.setQualityMode('Medium');
+        ao.configuration.halfRes = !p.ultra;
+        ao.setQualityMode(p.ultra ? 'High' : 'Medium');
         composer.addPass(ao);
       } catch (e) {
         console.warn('Ambient Occlusion nicht verfügbar', e);
       }
     const effects: ConstructorParameters<typeof EffectPass>[1][] = [];
-    if (p.bloom) effects.push(new BloomEffect({ luminanceThreshold: 0.92, luminanceSmoothing: 0.2, intensity: 0.9, mipmapBlur: true, radius: 0.7 }));
+    if (p.bloom) effects.push(new BloomEffect({ luminanceThreshold: p.ultra ? 0.88 : 0.92, luminanceSmoothing: 0.2, intensity: p.ultra ? 1.05 : 0.9, mipmapBlur: true, radius: p.ultra ? 0.78 : 0.7, levels: p.ultra ? 9 : 8 }));
     if (p.tilt) effects.push(new TiltShiftEffect({ offset: 0.05, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: 1 }));
+    this.dof = null;
+    if (p.ultra) {
+      // echte Tiefenschärfe: scharf, wohin die Kamera schaut; Hintergrund weich
+      const dof = new DepthOfFieldEffect(this.camera, { focusDistance: 20, focusRange: 16, bokehScale: 2.2, resolutionScale: 0.5 });
+      dof.target = this.rig.focusPoint;
+      this.dof = dof;
+      effects.push(dof);
+    }
     effects.push(
       new VignetteEffect({ offset: 0.32, darkness: 0.38 }),
       new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
-      new HueSaturationEffect({ saturation: 0.08 }),
-      new BrightnessContrastEffect({ contrast: 0.06 }),
+      new HueSaturationEffect({ saturation: p.ultra ? 0.12 : 0.08 }),
+      new BrightnessContrastEffect({ contrast: p.ultra ? 0.09 : 0.06 }),
     );
     composer.addPass(new EffectPass(this.camera, ...effects));
     composer.addPass(new EffectPass(this.camera, new SMAAEffect()));
     this.composer = composer;
+  }
+
+  /** Ultra-Grafik an/aus: Gelände-Materialien, Wellen, schärferes Umgebungslicht (lädt beim ersten Mal). */
+  private applyUltra(on: boolean) {
+    if (!on) {
+      if (this.terrain && this.terrainBase) this.terrain.material = this.terrainBase;
+      this.water.setUltra(null);
+      if (this.envBase) this.scene.environment = this.envBase;
+      this.renderer.toneMappingExposure = 1;
+      return;
+    }
+    void loadUltraTextures()
+      .then(async (tex) => {
+        if (this.disposed || !PRESETS[this.quality].ultra) return;
+        if (this.terrain && this.terrainBase) {
+          this.terrainUltra ??= createUltraTerrainMaterial(this.terrainBase as THREE.MeshStandardMaterial, tex);
+          this.terrain.material = this.terrainUltra;
+        }
+        this.water.setUltra(tex.water);
+        this.renderer.shadowMap.needsUpdate = true;
+        if (!this.envUltra) {
+          const hdr = await new HDRLoader().loadAsync('/assets/ultra/hdri/sky_2k.hdr');
+          hdr.mapping = THREE.EquirectangularReflectionMapping;
+          const pmrem = new THREE.PMREMGenerator(this.renderer);
+          this.envUltra = pmrem.fromEquirectangular(hdr).texture;
+          hdr.dispose();
+          pmrem.dispose();
+        }
+        if (PRESETS[this.quality].ultra && !this.disposed) this.scene.environment = this.envUltra;
+      })
+      .catch((e: unknown) => console.warn('Ultra-Grafik konnte nicht geladen werden', e));
+  }
+
+  /** Szene, die gerade gezeigt wird. */
+  private get viewScene(): THREE.Scene {
+    return this.view === 'inside' && this.inside ? this.inside.scene : this.scene;
+  }
+
+  /** Vulkan-Inneres anlegen bzw. an die Regeln (Länge, Ausgangsfeld) anpassen. */
+  private ensureInside(rules: GameState['config']['rules']) {
+    const r = rules.inside;
+    if (!r?.enabled && !this.inside) return;
+    const length = r?.length ?? 9;
+    const shout = r?.shout ?? 4;
+    const key = `${length}|${shout}`;
+    if (!this.inside) {
+      this.inside = new VolcanoInside({ length, shout, quality: this.quality });
+      const inside = this.inside;
+      this.pieces.inside = { root: inside.scene, spot: (st, i, n) => inside.spot(st, i, n), facing: (st) => inside.facing(st) };
+    } else if (key !== this.insideKey) this.inside.setPath(length, shout);
+    this.insideKey = key;
+  }
+
+  /** Zwischen Insel und Vulkan-Innerem umschalten (harter Schnitt). */
+  setView(v: 'island' | 'inside') {
+    if (v === 'inside' && !this.inside) return;
+    if (v === this.view) return;
+    this.view = v;
+    if (v === 'inside') {
+      const inside = this.inside!;
+      this.rig.heightAt = (x, z) => inside.heightAt(x, z);
+      this.rig.setBlockers([]);
+      this.pieces.lineOfSight = null;
+    } else {
+      this.rig.heightAt = this.islandHeightAt;
+      this.rig.setBlockers(this.islandBlockers);
+      this.pieces.lineOfSight = this.islandSight;
+    }
+    if (!PERF.has('nopost')) this.setupPost(PRESETS[this.quality]);
+    this.renderer.shadowMap.needsUpdate = true;
+    this.audio.setScene(v);
+    this.onViewChange?.(v);
   }
 
   /** Grafikstufe live umschalten (Auflösung, Schatten, Nachbearbeitung, Gras). */
@@ -342,7 +451,7 @@ export class BoardScene {
     if (q === this.quality) return;
     this.quality = q;
     const p = PRESETS[q];
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, p.pixelRatio));
+    this.applyPixelRatio();
     if (this.sun.shadow.mapSize.x !== p.shadow) {
       this.sun.shadow.mapSize.set(p.shadow, p.shadow);
       this.sun.shadow.map?.dispose();
@@ -350,6 +459,8 @@ export class BoardScene {
     }
     this.shadowEvery = p.shadowEvery;
     this.renderer.shadowMap.needsUpdate = true;
+    this.inside?.setQuality(q);
+    this.applyUltra(!!p.ultra);
     if (this.grass) this.grass.count = Math.round(this.grassFull * p.grass);
     if (!PERF.has('nopost')) this.setupPost(p);
     this.resize();
@@ -362,11 +473,33 @@ export class BoardScene {
     return () => this.captionListeners.delete(fn);
   }
 
+  /** Auflösung live ändern (Regie → Beamer). */
+  setResolution(r: Resolution) {
+    if (r === this.resolution) return;
+    this.resolution = r;
+    this.resize();
+  }
+
+  /** Bildpunkte je CSS-Pixel aus Grafikstufe bzw. gewählter Auflösung. */
+  private applyPixelRatio() {
+    const h = this.container.clientHeight || window.innerHeight || 1;
+    const r = this.resolution;
+    const pr = r === 'auto' ? Math.min(window.devicePixelRatio, PRESETS[this.quality].pixelRatio) : r === 'native' ? window.devicePixelRatio : Number(r) / h;
+    const clamped = Math.max(0.35, Math.min(3, pr));
+    if (Math.abs(this.renderer.getPixelRatio() - clamped) > 0.001) this.renderer.setPixelRatio(clamped);
+  }
+
+  /** Tatsächliche Renderauflösung (für die Regie). */
+  get renderSize() {
+    const v = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    return { width: v.x, height: v.y };
+  }
+
   private resize() {
     const w = this.container.clientWidth || 1;
     const h = this.container.clientHeight || 1;
+    this.applyPixelRatio();
     this.renderer.setSize(w, h, false);
-    this.labels.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.composer?.setSize(w, h);
@@ -379,25 +512,29 @@ export class BoardScene {
   private loop = () => {
     if (this.disposed) return;
     this.raf = requestAnimationFrame(this.loop);
-    const dt = Math.min(0.05, this.clock.getDelta());
-    const t = this.clock.elapsedTime;
+    this.timer.update();
+    const dt = Math.min(0.05, this.timer.getDelta());
+    const t = this.timer.getElapsed();
     windUniforms.uWindTime.value = t;
     fx.uTime.value = t;
     this.tweens.update(dt);
     this.pieces.update(t, dt);
     this.stunts.update(t, dt, this.camera);
     this.ceremony.update(t, dt);
-    this.fields.update(t);
-    this.volcano.update(t, dt);
     this.effects.update(dt);
-    this.water.update(t);
-    this.river.update(t, dt);
-    this.sky.update(t, dt);
-    this.props?.update(t, dt);
-    this.ambient?.update(t);
-    this.animals?.update(t, dt, this.camera);
+    if (this.view === 'inside' && this.inside) this.inside.update(t, dt, this.camera);
+    else {
+      this.fields.update(t);
+      this.volcano.update(t, dt);
+      this.water.update(t);
+      this.river.update(t, dt);
+      this.sky.update(t, dt);
+      this.props?.update(t, dt);
+      this.ambient?.update(t);
+      this.animals?.update(t, dt, this.camera);
+    }
     this.rig.update(dt);
-    this.pieces.updateTags(this.camera);
+    this.pieces.updateTags(this.camera, t);
     // Schatten nicht in jedem Bild neu zeichnen (Sonne steht still; bewegte Dinge sind langsam)
     if (++this.frame % this.shadowEvery === 0) this.renderer.shadowMap.needsUpdate = true;
     const now = performance.now();
@@ -408,7 +545,15 @@ export class BoardScene {
       this.fpsSince = now;
     }
     if (this.composer) this.composer.render(dt);
-    else this.renderer.render(this.scene, this.camera);
+    else this.renderer.render(this.viewScene, this.camera);
+    // Namensschilder ohne Nachbearbeitung über der Insel (der Würfel liegt darüber)
+    if (this.pieces.tags.visible) {
+      const auto = this.renderer.autoClear;
+      this.renderer.autoClear = false;
+      this.renderer.clearDepth();
+      this.renderer.render(this.pieces.tags.scene, this.camera);
+      this.renderer.autoClear = auto;
+    }
     if (this.dice.visible) {
       const auto = this.renderer.autoClear;
       this.renderer.autoClear = false;
@@ -419,7 +564,6 @@ export class BoardScene {
       this.renderer.toneMapping = tm;
       this.renderer.autoClear = auto;
     }
-    this.labels.render(this.scene, this.camera);
   };
 
   /** Neuer Spielzustand vom Server. */
@@ -433,11 +577,14 @@ export class BoardScene {
         (f === 'river' && rules.river?.enabled === false) ||
         (f === 'crater' && rules.crater?.enabled === false) ||
         (f === 'vine' && rules.vine?.enabled === false) ||
-        (f === 'cave' && rules.cave?.enabled === false)
+        (f === 'cave' && (rules.cave?.enabled === false || rules.inside?.enabled === false))
           ? 'normal'
-          : f,
+          : f === 'skull' && rules.inside?.enabled === false
+            ? 'normal'
+            : f,
       ),
     );
+    this.ensureInside(rules);
     this.pieces.sync(state.teams);
     const v = state.config.rules.volcano;
     this.volcano.setPressure(v.enabled ? state.volcano.pressure / Math.max(1, v.threshold) : 0);
@@ -464,10 +611,12 @@ export class BoardScene {
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.director.dispose();
+    this.commentator.dispose();
     this.detachManual?.();
     this.ceremony.stop();
     this.stunts.dispose();
     this.composer?.dispose();
+    this.inside?.dispose();
     this.water.dispose();
     this.effects.dispose();
     this.scene.traverse((o) => {
@@ -480,7 +629,7 @@ export class BoardScene {
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
-    this.labels.domElement.remove();
+    this.pieces.tags.dispose();
   }
 }
 

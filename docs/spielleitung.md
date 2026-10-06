@@ -16,8 +16,8 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 5. **Spiel einrichten** (optional):
    - *Inhalte*: welche Sammlungen in diesem Spiel vorkommen.
    - *Ablaufplan*: feste Reihenfolge von Spielen/Fragen per Drag & Drop.
-   - *Spielfeld*: Länge des Weges, Sonderfelder neu verteilen oder einzeln antippen und ändern. Die **Fässer im Fluss** und das **Kraterloch** gehören fest zur Insel (markiert mit „fest“).
-   - *Regeln*: Bonuswürfel, Siegbedingung, Katapulte, Sperre, Vulkan, Sturzgefahr auf den Fässern, Augen zum Herausklettern aus dem Krater …
+   - *Spielfeld*: Länge des Weges, Sonderfelder neu verteilen oder einzeln antippen und ändern. **Liane**, **Fässer oder Kisten** (Fluss), **Lavahöhle** und **Kraterloch** gehören fest zur Insel (markiert mit „fest“). **Totenkopf-Felder** lassen sich wie andere Sonderfelder setzen.
+   - *Regeln*: Bonuswürfel, Siegbedingung, Katapulte, Sperre, Vulkan, Einbruch-Wahrscheinlichkeit am Fluss, Mindestwurf an der Lavahöhle, Länge des Strafwegs im Vulkan-Inneren und Lage des Ausgangsfelds, Augen zum Herausklettern aus dem Krater …
    Danach **Speichern** – oder mit **Als Vorlage** für spätere Abende sichern.
 
    ![Spielfeld-Editor](bilder/regie-spielfeld.webp)
@@ -36,7 +36,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 4. Feinarbeit unter *Teams*: Namen und Farben ändern, Spieler per Auswahlfeld verschieben, Fotos tauschen, Spieler von der Auslosung ausnehmen (z. B. bei Verletzung).
 5. Die Handys wechseln automatisch zur Team-Ansicht. Solange das Spiel noch nicht läuft, steht dort groß **„Gestaltet euer Team!“**: Teamname ändern und Spielfigur gestalten (Haare, Gesicht, Zubehör – das Shirt hat immer die Teamfarbe). Der Beamer zeigt Änderungen sofort. Später geht das jederzeit unter *Team* oder per Tipp auf die Figur oben links.
 6. Wer kein eigenes Handy hat: Ein Team-Handy reicht. Weitere Geräte treten mit der **Team-PIN** bei (steht in der Regie und auf den Team-Handys). Unter *Teams → QR-Codes drucken* gibt es eine Druckseite mit QR-Code und PIN pro Team.
-7. **Spielerklärung** (empfohlen): Regie → *Beamer* → **Spielerklärung starten**. Der Kommentator erklärt in gut zwei Minuten das ganze Spiel – mit Kamerafahrt über die Insel, Vorführung der Sonderfelder und Untertiteln.
+7. **Spielerklärung** (empfohlen): Regie → *Beamer* → **Spielerklärung starten**. Der Kommentator erklärt in gut drei Minuten das ganze Spiel – Mitspielen mit Handy, Tablet oder Laptop, Doppeltipp zum Abschicken, Sonderfelder, Mutproben und das Vulkan-Innere – mit Kamerafahrt über die Insel, Vorführungen genau zum gesprochenen Satz und Untertiteln.
 8. **Spiel starten**. Die Anmeldung schließt sich automatisch; Nachzügler kommen mit der Team-PIN rein.
 
 ![Regie in der Lobby](bilder/regie-lobby.webp)
@@ -80,7 +80,12 @@ Bei Spielen werden sofort die **Spieler ausgelost** (fair: wer seltener dran war
 
 - Die Regie kann **für ein Team würfeln** (wenn das Handy fehlt) oder einen **echten Würfelwurf eintragen**.
 - Während Animationen laufen, wartet das nächste Team automatisch („Moment …“).
-- **Liane**: Landet ein Team auf der Liane, wartet die Runde auf den **Lianen-Wurf**. Das Team würfelt am Handy (Knopf oder Handy **schütteln**), die Regie kann *Für Team würfeln* oder die Augenzahl direkt antippen.
+- **Mutproben**: An Liane, Wasserfall und Lavahöhle hält **jedes** Team, das vorbeikommt – auch mitten im Wurf. Die Runde wartet dann auf das Team:
+  - *Liane*: Lianen-Wurf am Handy (Knopf oder Handy **schütteln**), danach geht es mit dem Rest des Wurfs weiter.
+  - *Fässer oder Kisten*: Das Team tippt am Handy auf 🛢️ oder 📦. Bricht die Seite ein, verfällt der restliche Wurf.
+  - *Lavahöhle*: Mutprobe-Wurf; mit mindestens einer 3 geht es weiter, sonst ab ins Vulkan-Innere.
+  - Die Regie kann jeweils *Für Team würfeln/wählen*, die Augenzahl eintragen, beim Fluss **einbrechen** oder **halten** erzwingen oder das Team aussetzen lassen.
+- **Vulkan-Inneres**: Teams im Vulkan würfeln normal weiter; der Beamer wechselt für ihren Zug in die Vulkanhöhle. Genau aufs Ausgangsfeld = sofort raus, sonst bis zum Ende laufen.
 - **Minispiel-Feld**: Die Würfelrunde pausiert. Wähle Modus (*allein gegen alle* oder *Duell*), Gegner und Minispiel (oder Zufall), *Minispiel starten*, danach *gewinnt*/*verliert* antippen.
 - **Aussetzen** überspringt ein Team.
 
@@ -116,11 +121,22 @@ Alles wirkt sofort auf allen Beamern – auch ohne Spiel und in der Lobby. Eine 
 | Bereich | Was geht |
 |---|---|
 | Status | Jeder verbundene Beamer mit Bildrate, Grafikstufe, Auflösung, Ton frei?, Vollbild, freie Kamera · **Neu laden** · **Spielerklärung starten/stoppen** |
-| Bild | Grafik **Automatisch / Schön / Ausgewogen / Sparsam** (ohne Neuladen), Vollbild, Rangliste & Kopfzeile, Namensschilder, Foto-Blasen beim Ziehen, Bildrate anzeigen |
-| Ton & Musik | Gesamtlautstärke; Musik, Effekte, Kommentator, Meeresrauschen je an/aus mit eigener Lautstärke und **Test**-Knopf; wie oft der Kommentator spricht (nie / ab und zu / viel) |
+| Bild | Grafik **Automatisch / Ultra / Schön / Ausgewogen / Sparsam** (ohne Neuladen), **Auflösung** (Automatisch, Bildschirm, 720p, 1080p, 1440p, 4K – darunter steht, was gerade wirklich gerendert wird), Vollbild, Rangliste & Kopfzeile, Namensschilder, Foto-Blasen beim Ziehen, Bildrate anzeigen |
+| Ton & Musik | Gesamtlautstärke; Musik, Effekte, Kommentator, Umgebungsgeräusche je an/aus mit eigener Lautstärke und **Test**-Knopf; **Musikstück** (automatisch passend zum Spiel oder ein festes Stück) und **Stücke abwechseln**; wie oft der Kommentator spricht (nie / ab und zu / viel / Quatschkopf) |
 | Kamera | Ruhig oder lebhaft · Reaktion nach jedem Zug an/aus · Knöpfe *Automatik, Insel, Start, Vulkan, Gipfel* und je Team · Steuerkreuz (schieben, drehen, neigen, zoomen – gedrückt halten). Nach 60 s ohne Eingabe übernimmt wieder die Automatik. |
 
-Die **Musik** wechselt von selbst: Lobby-Musik vor dem Start, Insel-Musik beim Würfeln, Spannungsmusik bei Fragen und Minispielen, Finale bei der Siegerehrung. Der **Kommentator** (Stimme „DiMario“) kommentiert Würfe, Sonderfelder, Fragen und Reaktionen – die Musik wird dabei leiser.
+Die **Musik** wechselt von selbst: Lobby-Musik vor dem Start, Insel-Musik beim Würfeln, Spannungsmusik bei Fragen und Minispielen, eigene Musik im Vulkan-Inneren, Finale bei der Siegerehrung. Für jede Stimmung gibt es mehrere Stücke (13 insgesamt); mit **Stücke abwechseln** laufen sie nacheinander, sonst wird eins wiederholt. Wer ein bestimmtes Stück will, wählt es fest aus.
+
+Der **Kommentator** (Stimme „DiMario“) kommentiert Würfe, Sonderfelder, Mutproben, Fragen und Reaktionen – die Musik wird dabei leiser:
+
+| Stufe | Wie |
+|---|---|
+| nie | kein Kommentar (Erklärung und Siegerehrung sprechen trotzdem) |
+| ab und zu | bei den wichtigen Momenten |
+| viel | fast jeder Zug, dazu Geplauder zwischendurch (wenn ein Team mit dem Würfeln trödelt, während Fragen …) |
+| 🤪 Quatschkopf | redet ständig, lästert über Führende und Letzte, macht sich über Pech lustig und reißt richtig dumme Witze |
+
+**Grafikstufe Ultra**: echte Materialien fürs Gelände (Sand, Gras, Fels, Weg, Vulkangestein, Kiesel – freie CC0-Texturen), Wellen-Normalen und breiter Sonnenglanz auf dem Meer, doppelt so viel Gras, Tiefenschärfe auf den Punkt, auf den die Kamera schaut, feinere Umgebungsverdeckung und schärferes Himmelslicht. Die Texturen (~28 MB) werden erst geladen, wenn Ultra gewählt wird. Nur für sehr starke Grafikkarten – *Automatisch* nimmt nie Ultra, schaltet aber von Ultra herunter, wenn es ruckelt.
 
 ![Regie: Beamer fernsteuern](bilder/regie-beamer.webp)
 
@@ -135,4 +151,5 @@ Kein Menü – nur Maus, Touch und Tastatur für die **freie Kamera**:
 | Mausrad / zwei Finger auseinander | zoomen |
 | Pfeiltasten · W A S D · + / − | drehen/neigen · verschieben · zoomen |
 | Leertaste, Esc oder Doppelklick | zurück zur Automatik |
-| F | Vollbild an/aus |
+
+Vollbild gibt es per Mausklick ins Bild (wenn in der Regie eingeschaltet) – Tasten schalten das Vollbild nicht um.

@@ -18,8 +18,6 @@ export const DURATION = {
   volcano: 1300,
   eruption: 5200,
   fieldGame: 1200,
-  riverSafe: 2400,
-  riverFall: 2600,
   craterFall: 2600,
   craterClimb: 1700,
   craterOut: 1900,
@@ -28,8 +26,14 @@ export const DURATION = {
   planeRide: 4200,
   vineSwing: 2700,
   caveFall: 1900,
-  caveSlide: 2900,
   react: 2300,
+  riverChoose: 1800,
+  riverCross: 2800,
+  riverFall: 3400,
+  caveStop: 1700,
+  insideEnter: 3600,
+  insideStep: 480,
+  insideExit: 3400,
 } as const;
 
 export function effectDuration(e: EffectInput): number {
@@ -41,9 +45,8 @@ export function effectDuration(e: EffectInput): number {
       if (e.reason === 'catapult') return e.to > e.from ? DURATION.springFlight : DURATION.planeRide;
       if (e.reason === 'eruption' || e.reason === 'swap') return DURATION.flight;
       // Treiben im Fluss: gemächlich flussabwärts, dann ans Ufer
-      if (e.reason === 'river') return DURATION.flight;
+      if (e.reason === 'river') return 0; // in der Überquerung (Effekt 'river') enthalten
       if (e.reason === 'vine') return DURATION.vineSwing;
-      if (e.reason === 'cave') return DURATION.caveSlide;
       return DURATION.stepBase + Math.abs(e.to - e.from) * DURATION.step;
     case 'field':
       return DURATION.field;
@@ -65,13 +68,15 @@ export function effectDuration(e: EffectInput): number {
     case 'field_game':
       return DURATION.fieldGame;
     case 'river':
-      return e.result === 'fall' ? DURATION.riverFall : DURATION.riverSafe;
+      return e.stage === 'choose' ? DURATION.riverChoose : e.result === 'fall' ? DURATION.riverFall : DURATION.riverCross;
     case 'crater':
       return e.result === 'fall' ? DURATION.craterFall : e.result === 'out' ? DURATION.craterOut : DURATION.craterClimb;
     case 'vine':
       return e.stage === 'grab' ? DURATION.vineGrab : DURATION.dice;
     case 'cave':
-      return DURATION.caveFall;
+      return e.stage === 'stop' ? DURATION.caveStop : DURATION.dice + (e.success ? 0 : DURATION.caveFall);
+    case 'inside':
+      return e.stage === 'enter' ? DURATION.insideEnter : e.stage === 'exit' ? DURATION.insideExit : 600 + Math.abs(e.to - e.from) * DURATION.insideStep;
     case 'react':
       return DURATION.react;
     default:

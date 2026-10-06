@@ -3,7 +3,7 @@
  * (Würfel → Laufen → Sonderfeld → …), führt die Kamera und liefert Einblendungen fürs HUD.
  */
 import * as THREE from 'three';
-import { FIELD_INFO, RIVER, RIVER_FORD, standings, teamById, teamColor, TEAM_COLORS, type Effect, type GameState, type Mood } from '@insel/shared';
+import { FIELD_INFO, standings, teamById, teamColor, TEAM_COLORS, type Effect, type GameState, type Mood } from '@insel/shared';
 import type { VoiceCategory } from './voice-lines.ts';
 import type { BoardScene } from './scene.ts';
 
@@ -32,6 +32,8 @@ export class Director {
   private currentCaption = 0;
   /** Reaktionen nach dem Zug zeigen (Beamer-Show) */
   reactions = true;
+  /** Wahl am Wasserfall (für die folgende Bewegung über den Fluss) */
+  private riverPick: { choice: 'barrels' | 'crates'; result: 'safe' | 'fall' } | null = null;
 
   constructor(
     private s: BoardScene,
@@ -63,6 +65,44 @@ export class Director {
     return this.state ? teamById(this.state, id) : undefined;
   }
 
+  /** Platz des Teams: ganz vorne, ganz hinten oder dazwischen (für Lästereien). */
+  private rankOf(id: string): 'leader' | 'last' | null {
+    if (!this.state || this.state.teams.length < 2) return null;
+    const order = standings(this.state);
+    if (order[0]?.team.id === id) return 'leader';
+    if (order[order.length - 1]?.team.id === id) return 'last';
+    return null;
+  }
+
+  /** Worüber der Kommentator zwischendurch plaudert. */
+  private updateTalk() {
+    const st = this.state;
+    const c = this.s.commentator;
+    if (!st || st.status !== 'running') return c.setContext('off');
+    if (this.running) return c.setContext('busy');
+    const p = st.phase;
+    if (p.name === 'dice' && !p.dice.fieldGame) {
+      const id = p.dice.challenge?.teamId ?? p.dice.order[p.dice.index];
+      return c.setContext('waiting', id ? this.rankOf(id) : null);
+    }
+    if (p.name === 'content' && p.content.stage === 'open') return c.setContext('thinking');
+    c.setContext('idle');
+  }
+
+  /** Richtige Welt zeigen: Vulkan-Inneres, wenn das Team dort ist, sonst die Insel. */
+  private viewFor(teamId: string | null) {
+    const inside = !!teamId && this.s.pieces.isInside(teamId);
+    const want = inside ? 'inside' : 'island';
+    if (this.s.view === want) return false;
+    this.s.setView(want);
+    if (inside && teamId) {
+      const step = this.s.pieces.insideStep(teamId) ?? 0;
+      this.s.rig.set({ kind: 'focus', ...this.s.inside!.plateShot(step) }, 2);
+    } else this.s.rig.set({ kind: 'overview' }, 1);
+    this.s.rig.jump();
+    return true;
+  }
+
   private teamCaption(id: string) {
     const t = this.team(id);
     return { name: t?.name ?? 'Team', color: teamColor(t?.color ?? 'red').hex };
@@ -77,6 +117,7 @@ export class Director {
         this.reconcile();
         this.idleCamera();
       }
+      this.updateTalk();
     }, 350);
   }
 
@@ -90,6 +131,7 @@ export class Director {
       positions[t.id] = t.position;
       if (this.s.pieces.positionOf(t.id) !== t.position) changed = true;
     }
+    for (const t of st.teams) this.s.pieces.setInside(t.id, t.inside ? t.inside.step : null);
     if (changed) this.s.pieces.snap(positions);
     else this.s.pieces.arrangeAll();
     this.s.pieces.applyBlocked(st.teams);
@@ -100,7 +142,7 @@ export class Director {
       this.s.pieces.snap(positions);
     }
     const dice = st.phase.name === 'dice' ? st.phase.dice : null;
-    this.s.stunts.syncVine(dice?.vine?.teamId ?? null);
+    this.s.stunts.syncVine(dice?.challenge?.kind === 'vine' ? dice.challenge.teamId : null);
     if (dice?.fieldGame) {
       if (!this.stageField || this.stageField !== dice.fieldGame.position) {
         this.stageField = dice.fieldGame.position;
@@ -120,15 +162,29 @@ export class Director {
     if (!st) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (st.phase.name === 'dice' && !st.phase.dice.fieldGame) {
-      const id = st.phase.dice.order[st.phase.dice.index];
+      const ch = st.phase.dice.challenge;
+      const id = ch?.teamId ?? st.phase.dice.order[st.phase.dice.index];
       if (id) {
         this.s.pieces.setActive(id);
+        const color = teamColor(this.team(id)?.color ?? 'red').hex;
+        this.viewFor(id);
+        if (this.s.pieces.isInside(id) && this.s.inside) {
+          const step = this.s.pieces.insideStep(id) ?? 0;
+          this.s.inside.highlight(step, color);
+          this.s.rig.set({ kind: 'focus', ...this.s.inside.plateShot(step) }, 1.4);
+          return;
+        }
         const pos = this.s.pieces.positionOf(id);
-        this.s.fields.highlight(pos, teamColor(this.team(id)?.color ?? 'red').hex);
-        this.s.rig.set({ kind: 'follow', target: () => this.s.pieces.worldPos(id) }, 1.4);
+        this.s.fields.highlight(pos, color);
+        // Mutproben: Kamera so, dass man sieht, worum es geht
+        if (ch?.kind === 'river') this.s.rig.set({ kind: 'focus', ...this.s.stunts.riverShot() }, 1.4);
+        else if (ch?.kind === 'vine') this.s.rig.set({ kind: 'focus', ...this.s.stunts.vineShot() }, 1.4);
+        else this.s.rig.set({ kind: 'follow', target: () => this.s.pieces.worldPos(id) }, 1.4);
         return;
       }
     }
+    this.viewFor(null);
+    this.s.inside?.highlight(null);
     if (st.phase.name === 'finished' && st.winnerTeamId) {
       this.s.ceremony.focus();
       return;
@@ -166,6 +222,7 @@ export class Director {
 
   private async run() {
     this.running = true;
+    this.updateTalk();
     while (this.queue.length && !this.disposed) {
       const e = this.queue.shift()!;
       const gen = this.generation;
@@ -178,6 +235,7 @@ export class Director {
       this.s.tweens.speed = this.queue.length > 8 ? 2.2 : this.queue.length > 4 ? 1.5 : 1;
     }
     this.running = false;
+    this.updateTalk();
     this.s.tweens.speed = 1;
     this.reconcile();
     if (this.idleTimer) clearTimeout(this.idleTimer);
@@ -188,26 +246,6 @@ export class Director {
     this.s.rig.set({ kind: 'follow', target: () => this.s.pieces.worldPos(id), ...opts }, 2.2);
   }
 
-  /** Weg der Strömung ab der Furt flussabwärts (Wasserhöhe, Figur steckt bis zur Brust drin). */
-  private driftPath(): THREE.Vector3[] {
-    const ford = this.s.layout.ford;
-    const pts: THREE.Vector3[] = [];
-    let prev = new THREE.Vector3(ford.x, ford.y, ford.z);
-    let acc = 0;
-    for (let i = RIVER_FORD; i < RIVER.length - 1 && acc < 6.5; i++) {
-      const a = RIVER[i]!;
-      const b = RIVER[i + 1]!;
-      for (let k = 1; k <= 4 && acc < 6.5; k++) {
-        const f = k / 4;
-        const q = new THREE.Vector3(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f - 0.5, a.z + (b.z - a.z) * f);
-        acc += q.distanceTo(prev);
-        prev = q;
-        pts.push(q);
-      }
-    }
-    return pts;
-  }
-
   private async play(e: Effect, gen = this.generation) {
     const s = this.s;
     const A = s.audio;
@@ -216,9 +254,10 @@ export class Director {
     switch (e.type) {
       case 'vine': {
         const { name, color } = this.teamCaption(e.teamId);
+        const rest = e.remaining ? ` – danach noch ${e.remaining} ${e.remaining === 1 ? 'Feld' : 'Felder'}` : '';
         if (e.stage === 'grab') {
           s.rig.set({ kind: 'focus', ...s.stunts.vineShot() }, 2);
-          this.say({ icon: '🌿', title: 'Ab an die Liane!', sub: `${name} würfelt gleich noch einmal`, tone: 'good', color }, 3200);
+          this.say({ icon: '🌿', title: 'Halt – hier geht’s nur mit der Liane!', sub: `${name} würfelt gleich, wie weit es über den Bach schwingt${rest}`, tone: 'team', color }, 3600);
           A.play('liane');
           this.voice('vine');
           await s.stunts.vineGrab(e.teamId);
@@ -230,7 +269,7 @@ export class Director {
           await (e.sides === 6 ? s.dice.roll(e.roll, 0, 0) : s.dice.roll(0, e.roll, e.sides));
           if (stale()) return;
           A.play('pop', { volume: 0.7 });
-          this.say({ icon: '🌿', title: `${name} schwingt ${e.roll} ${e.roll === 1 ? 'Feld' : 'Felder'} weit!`, tone: 'good', color }, 2600);
+          this.say({ icon: '🌿', title: `${name} schwingt ${e.roll} ${e.roll === 1 ? 'Feld' : 'Felder'} weit!`, sub: e.remaining ? `und läuft dann noch ${e.remaining} weiter` : undefined, tone: 'good', color }, 2600);
           this.voice('swing', { delay: 600 });
           void s.dice.hide(0.6);
           await s.tweens.wait(300);
@@ -240,40 +279,57 @@ export class Director {
       }
       case 'cave': {
         const { name, color } = this.teamCaption(e.teamId);
-        s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 8, 5.5, true) }, 2.2);
-        this.say({ icon: '🦇', title: 'Lavahöhle!', sub: `${name} fällt in ein Loch im Vulkan`, tone: 'bad', color }, 3000);
+        s.rig.set({ kind: 'focus', ...s.rig.clearShot(s.pieces.worldPos(e.teamId) ?? s.pieces.slotOn(e.teamId, e.position), 8, 5) }, 2.2);
+        if (e.stage === 'stop') {
+          this.say({ icon: '🦇', title: 'Mutprobe an der Lavahöhle!', sub: `${name} braucht mindestens eine ${e.need} – sonst geht’s ins Vulkan-Innere`, tone: 'team', color }, 3600);
+          A.play('hoehle', { volume: 0.7 });
+          A.play('rumble', { volume: 0.4 });
+          s.pieces.setMode(e.teamId, 'shock');
+          this.voice('caveStop', { delay: 300 });
+          await s.tweens.wait(900);
+          if (stale()) return;
+          s.pieces.setMode(e.teamId, 'idle');
+          return;
+        }
+        A.play('dice-shake', { volume: 0.9 });
+        await s.dice.roll(e.roll, 0, 0, () => A.play('dice-throw-1'));
+        if (stale()) return;
+        void s.dice.hide(0.7);
+        if (e.success) {
+          A.play('jingle-good');
+          s.pieces.setMode(e.teamId, 'cheer');
+          this.say({ icon: '💪', title: `${name} würfelt ${e.roll} – geschafft!`, sub: e.remaining ? `weiter geht’s, noch ${e.remaining} ${e.remaining === 1 ? 'Feld' : 'Felder'}` : undefined, tone: 'good', color }, 2600);
+          this.voice('cavePass', { delay: 300 });
+          await s.tweens.wait(700);
+          if (stale()) return;
+          s.pieces.setMode(e.teamId, 'idle');
+          return;
+        }
+        this.say({ icon: '🦇', title: `Nur eine ${e.roll}!`, sub: `${name} fällt in die Lavahöhle …`, tone: 'bad', color }, 3000);
         A.play('hoehle');
-        this.voice('cave');
+        this.voice('cave', { delay: 400 });
         await s.stunts.caveFall(e.teamId);
         if (stale()) return;
         return;
       }
       case 'river': {
         const { name, color } = this.teamCaption(e.teamId);
-        s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 6.5, 4.2) }, 2.2);
-        this.say({ icon: '🛢️', title: 'Wackelige Fässer!', sub: `${name} muss balancieren …`, tone: 'team', color }, 1900);
-        A.creak();
-        await s.pieces.wobble(e.teamId, 1.4);
-        if (stale()) return;
-        if (e.result === 'safe') {
-          s.pieces.setMode(e.teamId, 'cheer');
-          A.play('zauber');
-          this.voice('riverSafe');
-          this.say({ icon: '😅', title: 'Gerade noch mal gut gegangen!', sub: `${name} hält das Gleichgewicht`, tone: 'good', color }, 2200);
-          await s.tweens.wait(800);
+        if (e.stage === 'choose') {
+          s.rig.set({ kind: 'focus', ...s.stunts.riverShot() }, 2);
+          const rest = e.remaining ? ` – danach noch ${e.remaining} ${e.remaining === 1 ? 'Feld' : 'Felder'}` : '';
+          this.say({ icon: '🛢️', title: 'Fässer oder Kisten?', sub: `${name} muss wählen – eine Seite bricht ein${rest}`, tone: 'team', color }, 3800);
+          A.creak();
+          this.voice('riverChoose', { delay: 500 });
+          void s.stunts.riverPonder(e.teamId);
+          await s.tweens.wait(900);
           if (stale()) return;
-          s.pieces.setMode(e.teamId, 'idle');
-        } else {
-          this.say({ icon: '💦', title: 'Platsch!', sub: `${name} fällt in den Fluss und treibt ab`, tone: 'bad', color }, 3200);
-          this.voice('riverFall', { delay: 700 });
-          await s.pieces.tumbleIntoWater(e.teamId, s.layout.ford.y);
-          if (stale()) return;
-          const p = s.pieces.worldPos(e.teamId);
-          A.splash();
-          if (p) s.effects.splash(p.x, s.layout.ford.y, p.z, false);
-          await s.tweens.wait(300);
-          if (stale()) return;
+          return;
         }
+        const what = e.choice === 'crates' ? 'Kisten' : 'Fässer';
+        s.rig.set({ kind: 'focus', ...s.stunts.riverShot() }, 2);
+        this.say({ icon: e.choice === 'crates' ? '📦' : '🛢️', title: `${name} nimmt die ${what}!`, tone: 'team', color }, 2000);
+        // die Bewegung über den Fluss folgt als eigener Effekt
+        this.riverPick = { choice: e.choice ?? 'barrels', result: e.result ?? 'safe' };
         return;
       }
       case 'crater': {
@@ -310,13 +366,81 @@ export class Director {
         }
         return;
       }
+      case 'inside': {
+        const { name, color } = this.teamCaption(e.teamId);
+        const ins = s.inside;
+        if (!ins) return;
+        if (e.stage === 'enter') {
+          s.pieces.setInside(e.teamId, 0);
+          s.setView('inside');
+          s.rig.set({ kind: 'focus', ...ins.dropShot() }, 3);
+          s.rig.jump();
+          this.say({ icon: '🌋', title: 'Ab ins Vulkan-Innere!', sub: `${name} muss über die Lava-Inseln zum Ausgang`, tone: 'bad', color }, 3600);
+          this.voice('insideEnter', { delay: 300 });
+          A.play('whoosh-down');
+          await s.pieces.insideDrop(e.teamId, ins.dropPoint);
+          if (stale()) return;
+          A.play('lavaplatsch');
+          ins.lavaBurst(s.pieces.worldPos(e.teamId) ?? ins.dropPoint);
+          s.rig.shake(0.2, 0.5);
+          await s.tweens.wait(500);
+          if (stale()) return;
+          // dann der Überblick: Weg, Ausgangsfeld und Portal
+          s.rig.set({ kind: 'focus', ...ins.plateShot(0) }, 1.5);
+          await s.tweens.wait(700);
+          if (stale()) return;
+          return;
+        }
+        if (e.stage === 'walk') {
+          if (!s.pieces.isInside(e.teamId)) s.pieces.setInside(e.teamId, e.from);
+          this.viewFor(e.teamId);
+          s.rig.set({ kind: 'follow', target: () => s.pieces.worldPos(e.teamId), distance: 9, height: 6 }, 2);
+          await s.pieces.insideWalk(e.teamId, e.from, e.to, () => A.step(false));
+          if (stale()) return;
+          ins.highlight(e.to, color);
+          return;
+        }
+        // Ausgang: grüner Wirbel, dann zurück auf die Insel
+        this.viewFor(e.teamId);
+        const at = s.pieces.worldPos(e.teamId) ?? ins.portal;
+        s.rig.set({ kind: 'focus', ...ins.plateShot(e.from) }, 2.4);
+        this.say(
+          e.shout
+            ? { icon: '✨', title: 'Volltreffer aufs Ausgangsfeld!', sub: `${name} darf sofort raus`, tone: 'gold', color }
+            : { icon: '🌀', title: 'Geschafft!', sub: `${name} verlässt den Vulkan`, tone: 'good', color },
+          3000,
+        );
+        this.voice(e.shout ? 'insideShout' : 'insideExit', { delay: 200 });
+        A.play('warp');
+        ins.warpFlash(at);
+        await s.pieces.insideVanish(e.teamId);
+        if (stale()) return;
+        ins.highlight(null);
+        s.pieces.setInside(e.teamId, null);
+        s.setView('island');
+        s.rig.set({ kind: 'focus', ...s.rig.clearShot(s.pieces.slotOn(e.teamId, e.returnTo), 8, 5) }, 2.4);
+        s.rig.jump();
+        await s.stunts.warpOut(e.teamId, e.returnTo);
+        if (stale()) return;
+        return;
+      }
       case 'turn': {
         const { name, color } = this.teamCaption(e.teamId);
         s.pieces.setActive(e.teamId);
-        s.fields.highlight(s.pieces.positionOf(e.teamId), color);
-        this.follow(e.teamId);
+        this.viewFor(e.teamId);
+        if (s.pieces.isInside(e.teamId) && s.inside) {
+          const step = s.pieces.insideStep(e.teamId) ?? 0;
+          s.inside.highlight(step, color);
+          s.rig.set({ kind: 'focus', ...s.inside.plateShot(step) }, 1.8);
+        } else {
+          s.inside?.highlight(null);
+          s.fields.highlight(s.pieces.positionOf(e.teamId), color);
+          this.follow(e.teamId);
+        }
         A.play('zug', { volume: 0.8 });
-        this.voice('turn', { delay: 400 });
+        // Quatschkopf: über Führende und Letzte lästern
+        const rank = this.rankOf(e.teamId);
+        if (!(rank && s.commentator.level === 'crazy' && Math.random() < 0.45 && s.commentator.comment(rank, { delay: 400 }))) this.voice('turn', { delay: 400 });
         this.say({ icon: '🎲', title: `${name} ist dran!`, tone: 'team', color }, 2400);
         await s.tweens.wait(500);
         if (stale()) return;
@@ -324,6 +448,7 @@ export class Director {
       }
       case 'dice': {
         const { name, color } = this.teamCaption(e.teamId);
+        this.viewFor(e.teamId);
         this.follow(e.teamId);
         A.play('dice-shake', { volume: 0.9 });
         await s.dice.roll(e.main, e.bonus, e.bonusDie, () => A.play(Math.random() < 0.5 ? 'dice-throw-1' : 'dice-throw-2'));
@@ -345,13 +470,8 @@ export class Director {
           if (stale()) return;
           return;
         }
-        if (e.reason === 'cave') {
-          s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.to, 9, 5, true) }, 2.6);
-          this.say({ icon: '🦇', title: 'Durch den Berg gerutscht …', sub: `zurück auf Feld ${e.to}`, tone: 'bad', color: this.teamCaption(e.teamId).color }, 2600);
-          await s.tweens.wait(500);
-          if (stale()) return;
-          await s.stunts.caveSlide(e.teamId, e.to);
-          if (stale()) return;
+        if (e.reason === 'inside') {
+          s.pieces.release(e.teamId, e.to, 'idle', false);
           return;
         }
         if (e.reason === 'catapult') {
@@ -373,9 +493,27 @@ export class Director {
           return;
         }
         if (e.reason === 'river') {
-          this.follow(e.teamId, { distance: 13, height: 8 });
-          await s.pieces.drift(e.teamId, this.driftPath(), e.to);
+          const pick = this.riverPick ?? { choice: 'barrels' as const, result: 'safe' as const };
+          this.riverPick = null;
+          const { name, color } = this.teamCaption(e.teamId);
+          s.rig.set({ kind: 'focus', ...s.stunts.riverShot() }, 2);
+          const cross = s.stunts.riverCross(e.teamId, pick.choice, pick.result, e.to);
+          if (pick.result === 'fall') {
+            window.setTimeout(() => {
+              if (stale()) return;
+              this.say({ icon: '💦', title: 'Krach – Platsch!', sub: `${name} schwimmt rüber, der restliche Wurf ist futsch`, tone: 'bad', color }, 3200);
+              this.voice('riverFall');
+            }, 900);
+          } else {
+            window.setTimeout(() => {
+              if (stale()) return;
+              this.say({ icon: '😅', title: 'Hält!', sub: `${name} kommt trocken rüber`, tone: 'good', color }, 2200);
+              this.voice('riverSafe');
+            }, 900);
+          }
+          await cross;
           if (stale()) return;
+          if (pick.result === 'fall') this.follow(e.teamId);
           return;
         }
         if (e.reason === 'eruption' || e.reason === 'swap') {
@@ -408,13 +546,14 @@ export class Director {
         const y = s.fields.topY[e.position]!;
         const c = new THREE.Color(info.color);
         s.effects.sparkle(spot.x, y, spot.z, c, 30);
-        const tone: Caption['tone'] = e.field === 'catapult_forward' ? 'good' : e.field === 'catapult_backward' || e.field === 'barrier' ? 'bad' : 'info';
+        const tone: Caption['tone'] = e.field === 'catapult_forward' ? 'good' : e.field === 'catapult_backward' || e.field === 'barrier' || e.field === 'skull' ? 'bad' : 'info';
         const sounds: Partial<Record<string, Parameters<typeof A.play>[0]>> = {
           catapult_forward: 'jingle-good',
           catapult_backward: 'jingle-bad',
           swap: 'jingle-swap',
           minigame: 'jingle-fanfare',
           volcano: 'lava',
+          skull: 'jingle-bad',
         };
         if (e.field === 'minigame') this.voice('fieldGame', { delay: 500 });
         const snd = sounds[e.field];
@@ -427,6 +566,15 @@ export class Director {
         if (e.field === 'volcano') {
           s.stunts.geyser(e.position);
           s.rig.shake(0.15, 0.6);
+        }
+        if (e.field === 'skull') {
+          s.rig.set({ kind: 'focus', ...s.rig.clearShot(s.pieces.worldPos(e.teamId) ?? new THREE.Vector3(spot.x, y, spot.z), 6.5, 4) }, 2.2);
+          this.voice('skull', { delay: 200 });
+          await s.tweens.wait(500);
+          if (stale()) return;
+          await s.stunts.trapdoor(e.teamId, e.position);
+          if (stale()) return;
+          return;
         }
         if (e.field === 'catapult_forward' || e.field === 'catapult_backward') {
           s.pieces.setMode(e.teamId, e.field === 'catapult_forward' ? 'jump' : 'cheer');
@@ -609,6 +757,7 @@ export class Director {
         }
         return;
       case 'round_end':
+        this.viewFor(null);
         s.rig.set({ kind: 'overview' }, 0.8);
         this.voice('roundEnd', { delay: 1500 });
         return;

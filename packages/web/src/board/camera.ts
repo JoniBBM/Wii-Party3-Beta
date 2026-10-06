@@ -92,6 +92,10 @@ export class CameraRig {
   private autoStiffness = 1.8;
   private pos = new THREE.Vector3(30, 26, 52);
   private look = new THREE.Vector3(0, 4, 0);
+  /** Punkt, auf den die Kamera gerade schaut (z. B. für die Schärfe) */
+  get focusPoint() {
+    return this.look;
+  }
   private vel = new THREE.Vector3();
   private lookVel = new THREE.Vector3();
   private wantPos = new THREE.Vector3();
@@ -481,6 +485,46 @@ export class CameraRig {
     this.lookVel.set(0, 0, 0);
     this.camera.position.copy(this.pos);
     this.camera.lookAt(this.look);
+  }
+
+  /** Baumkronen (Palmen) – für freie Sicht bei Nahaufnahmen */
+  canopies: THREE.Vector3[] = [];
+
+  /**
+   * Freie Sicht auf einen Punkt: probiert 16 Richtungen in zwei Höhen und nimmt die mit den
+   * wenigsten Hindernissen (Gelände, Gebäude, Baumkronen); bei Gleichstand die bevorzugte Richtung.
+   */
+  clearShot(target: THREE.Vector3, dist = 8, height = 5, prefer?: THREE.Vector3) {
+    const preferA = prefer ? Math.atan2(prefer.z, prefer.x) : null;
+    const seg = new THREE.Line3();
+    const q = new THREE.Vector3();
+    let best: { position: THREE.Vector3; lookAt: THREE.Vector3 } | null = null;
+    let bestScore = Infinity;
+    const look = target.clone().setY(target.y + 0.8);
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      for (const h of [height, height * 1.6]) {
+        const position = new THREE.Vector3(target.x + Math.cos(a) * dist, target.y + h, target.z + Math.sin(a) * dist);
+        let score = this.occlusion(position, look) * 12;
+        if (this.insideBlocker(position)) score += 20;
+        if (this.heightAt && position.y < this.heightAt(position.x, position.z) + 1.2) score += 20;
+        seg.set(position, look);
+        for (const c of this.canopies) {
+          if (Math.abs(c.x - target.x) > dist + 4 || Math.abs(c.z - target.z) > dist + 4) continue;
+          const d = seg.closestPointToPoint(c, true, q).distanceTo(c);
+          if (d < 2.6) score += (2.6 - d) * 1.5;
+          // Kamera mitten in einer Krone
+          if (position.distanceTo(c) < 3) score += 12;
+        }
+        if (preferA !== null) score += (1 - Math.cos(a - preferA)) * 0.8;
+        if (h > height) score += 0.5;
+        if (score < bestScore) {
+          bestScore = score;
+          best = { position, lookAt: look };
+        }
+      }
+    }
+    return best!;
   }
 
   /** Seitlicher Blick auf ein Feld (z. B. Fässer in der Furt); `outside` = von der Bergseite weg. */

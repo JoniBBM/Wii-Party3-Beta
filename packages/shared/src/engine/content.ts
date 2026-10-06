@@ -490,7 +490,7 @@ export function handleContentCommand(
       const order = results.order.filter((id) => s.teams.some((t) => t.id === id));
       s.phase = {
         name: 'dice',
-        dice: { order, index: 0, rolls: [], fieldGame: null, vine: null, busyUntil: now },
+        dice: { order, index: 0, rolls: [], fieldGame: null, challenge: null, busyUntil: now },
         results,
       };
       tx.effects.push({ type: 'turn', teamId: order[0]! });

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vulkan-Inneres – Vorschau</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #hud {
+        position: fixed;
+        left: 8px;
+        top: 8px;
+        color: #fff;
+        font: 12px/1.4 ui-monospace, monospace;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 4px 8px;
+        border-radius: 4px;
+        pointer-events: none;
+        white-space: pre;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud"></div>
+    <!-- Nur für die Entwicklung: ?shot=overview|plate3|portal|drop &quality=eco|balanced|high|ultra &length=9 &shout=4 &figs=0 &fx=burst|warp &hud=0 -->
+    <script type="module" src="/src/dev/insidePreview.ts"></script>
+  </body>
+</html>

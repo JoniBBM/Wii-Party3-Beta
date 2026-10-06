@@ -134,6 +134,30 @@ const ICONS: Partial<Record<FieldType, IconDrawer>> = {
     c.quadraticCurveTo(s * 0.62, s * 0.36, s * 0.5, s * 0.5);
     c.fill();
   },
+  skull: (c, s) => {
+    // Totenkopf: Schädel und Kiefer weiß, Augen, Nase und Zahnlücken in der Feldfarbe
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.arc(s * 0.5, s * 0.43, s * 0.23, 0, Math.PI * 2);
+    c.fill();
+    c.beginPath();
+    c.roundRect(s * 0.37, s * 0.54, s * 0.26, s * 0.2, s * 0.05);
+    c.fill();
+    c.shadowColor = 'transparent';
+    c.fillStyle = '#3b2f4a';
+    for (const x of [0.41, 0.59]) {
+      c.beginPath();
+      c.ellipse(s * x, s * 0.45, s * 0.062, s * 0.07, 0, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.beginPath();
+    c.moveTo(s * 0.5, s * 0.53);
+    c.lineTo(s * 0.47, s * 0.59);
+    c.lineTo(s * 0.53, s * 0.59);
+    c.closePath();
+    c.fill();
+    for (const x of [0.45, 0.5, 0.55]) c.fillRect(s * x - s * 0.008, s * 0.64, s * 0.016, s * 0.1);
+  },
   crater: (c, s) => {
     stroke(c, s * 0.07);
     c.beginPath();
@@ -240,7 +264,8 @@ export function buildFields(layout: IslandLayout): FieldMeshes {
   layout.fields.forEach((f, i) => {
     const special = i === 0 || i === n - 1;
     // Auf den Fässern in der Furt: kleinere, flache Scheibe auf dem Fassdeckel
-    const scale = i === 0 ? 2.1 : i === n - 1 ? 1.55 : f.ford ? 0.78 : 1;
+    // Furt: keine Feldscheiben – dort liegen die Fässer bzw. Kisten (Mutprobe, stunts.ts)
+    const scale = i === 0 ? 2.1 : i === n - 1 ? 1.55 : f.ford ? 0.0001 : 1;
     radii.push(r * scale);
     const y = f.y + (f.ford ? -0.1 : 0.02);
     if (f.ford || f.bridge) m.makeScale(0.0001, 0.0001, 0.0001).setPosition(f.x, y, f.z);
@@ -283,7 +308,7 @@ export function buildFields(layout: IslandLayout): FieldMeshes {
       c.set(type === 'start' ? '#ffffff' : FIELD_INFO[type].color);
       bodies.setColorAt(i, c.clone().multiplyScalar(0.82));
       caps.setColorAt(i, c);
-      const tex = iconTexture(type);
+      const tex = f.ford ? null : iconTexture(type);
       if (tex) {
         const icon = new THREE.Mesh(iconGeo, iconMaterial(type, tex));
         const size = radii[i]! * (type === 'start' ? 1.2 : 1.45);

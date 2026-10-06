@@ -27,8 +27,14 @@ import {
   Waves,
 } from 'lucide-react';
 import {
+  MUSIC_MOOD_LABEL,
+  MUSIC_MOODS,
+  MUSIC_TRACKS,
   QUALITY_INFO,
   QUALITY_LEVELS,
+  RESOLUTION_INFO,
+  RESOLUTIONS,
+  type Resolution,
   teamColor,
   type CameraCommand,
   type CommentaryLevel,
@@ -287,6 +293,7 @@ function CameraPad() {
 /** Vollständige Steuerseite (Regie → Beamer). */
 export function BeamerControl() {
   const s = useLive((x) => x.show.settings);
+  const firstBeamer = useLive((x) => x.beamers[0]);
   const set = (p: ShowPatch) => void patch(p);
   const test = (what: 'sound' | 'voice' | 'music') => void sendShow({ type: 'test', what });
 
@@ -312,7 +319,7 @@ export function BeamerControl() {
       <Card>
         <CardHeader title="Bild" icon={<Sparkles className="size-5 text-accent" />} />
         <div className="flex flex-col gap-4 p-5">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {QUALITY_LEVELS.map((q) => (
               <button
                 key={q}
@@ -326,6 +333,13 @@ export function BeamerControl() {
             ))}
           </div>
           <p className="text-sm text-muted">{QUALITY_INFO[s.quality].text}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-bold">Auflösung</span>
+            <Segmented<Resolution> size="sm" value={s.resolution} onChange={(v) => set({ resolution: v })} options={RESOLUTIONS.map((r) => ({ value: r, label: RESOLUTION_INFO[r] }))} />
+          </div>
+          <p className="-mt-2 text-xs text-muted">
+            Automatisch richtet sich nach der Grafikstufe. Niedriger = flüssiger, höher = schärfer. Tatsächlich gerendert wird gerade: {firstBeamer ? `${firstBeamer.width}×${firstBeamer.height}` : '–'}.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Switch checked={s.fullscreen} onChange={(v) => set({ fullscreen: v })} label={<span className="inline-flex items-center gap-1.5"><Maximize className="size-4" /> Vollbild</span>} />
             <Switch checked={s.hud} onChange={(v) => set({ hud: v })} label="Rangliste & Kopfzeile" />
@@ -351,7 +365,27 @@ export function BeamerControl() {
           <AudioRow icon={<Music className="size-4" />} label="Musik" on={s.music} volume={s.musicVolume} onToggle={(v) => set({ music: v })} onVolume={(v) => set({ musicVolume: v })} test={() => test('music')} />
           <AudioRow icon={<Sparkles className="size-4" />} label="Effekte" on={s.sound} volume={s.soundVolume} onToggle={(v) => set({ sound: v })} onVolume={(v) => set({ soundVolume: v })} test={() => test('sound')} />
           <AudioRow icon={<Mic className="size-4" />} label="Kommentator" on={s.voice} volume={s.voiceVolume} onToggle={(v) => set({ voice: v })} onVolume={(v) => set({ voiceVolume: v })} test={() => test('voice')} />
-          <AudioRow icon={<Waves className="size-4" />} label="Meeresrauschen" on={s.ambience} volume={s.ambienceVolume} onToggle={(v) => set({ ambience: v })} onVolume={(v) => set({ ambienceVolume: v })} />
+          <div className="mb-2 flex flex-wrap items-center gap-3 pl-8">
+            <select
+              className="field h-9 w-auto py-1 text-sm"
+              aria-label="Musikstück"
+              value={s.musicTrack}
+              onChange={(e) => set({ musicTrack: e.target.value as ShowSettings['musicTrack'] })}
+            >
+              <option value="auto">🎼 Automatisch passend zum Spiel</option>
+              {MUSIC_MOODS.map((m) => (
+                <optgroup key={m} label={MUSIC_MOOD_LABEL[m]}>
+                  {MUSIC_TRACKS.filter((t) => t.mood === m).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <Switch checked={s.musicRotate} disabled={s.musicTrack !== 'auto'} onChange={(v) => set({ musicRotate: v })} label="Stücke abwechseln" />
+          </div>
+          <AudioRow icon={<Waves className="size-4" />} label="Umgebung (Meer, Dschungel, Vulkan)" on={s.ambience} volume={s.ambienceVolume} onToggle={(v) => set({ ambience: v })} onVolume={(v) => set({ ambienceVolume: v })} />
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <span className="text-sm font-bold">Kommentator spricht</span>
             <Segmented<CommentaryLevel>
@@ -362,9 +396,19 @@ export function BeamerControl() {
                 { value: 'off', label: 'nie' },
                 { value: 'some', label: 'ab und zu' },
                 { value: 'lots', label: 'viel' },
+                { value: 'crazy', label: '🤪 Quatschkopf' },
               ]}
             />
           </div>
+          <p className="text-xs text-muted">
+            {s.commentary === 'crazy'
+              ? 'Redet ständig, lästert über Führende und Letzte und haut auch mal ziemlich dumme Sprüche raus.'
+              : s.commentary === 'lots'
+                ? 'Kommentiert fast jeden Zug und plaudert auch zwischendurch.'
+                : s.commentary === 'some'
+                  ? 'Meldet sich bei den wichtigen Momenten.'
+                  : 'Kein Kommentar – nur Erklärung und Siegerehrung.'}
+          </p>
         </div>
       </Card>
 

@@ -107,9 +107,9 @@ function TeamQuickEdit({ state, team, onClose }: { state: GameState; team: Team;
             </Button>
           </div>
         </div>
-        {(team.blocked || team.crater) && (
+        {(team.blocked || team.crater || team.inside) && (
           <Button variant="primary" onClick={() => run({ type: 'team.unblock', teamId: team.id }).then((r) => r.ok && onClose())}>
-            {team.crater ? 'Aus dem Krater holen' : 'Aus der Sperre befreien'}
+            {team.inside ? 'Aus dem Vulkan holen' : team.crater ? 'Aus dem Krater holen' : 'Aus der Sperre befreien'}
           </Button>
         )}
       </div>

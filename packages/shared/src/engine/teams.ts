@@ -42,6 +42,7 @@ export function createTeam(tx: Tx, name?: string, color?: TeamColorKey): Team {
     bonusDie: 0,
     blocked: null,
     crater: null,
+    inside: null,
     figure: randomFigure(tx.ctx.rng),
     pin: newPin(tx),
     joinToken: tx.ctx.newToken(),
@@ -226,7 +227,11 @@ export function handleTeamCommand(tx: Tx, cmd: CommandOf<
     case 'team.setPosition': {
       const t = findTeam(s, cmd.teamId);
       const to = Math.max(0, Math.min(goalOf(s), cmd.position));
-      tx.effects.push({ type: 'move', teamId: t.id, from: t.position, to, reason: 'correction' });
+      if (t.inside) {
+        // aus dem Vulkan-Inneren direkt aufs gewünschte Feld (grüner Warp)
+        tx.effects.push({ type: 'inside', teamId: t.id, stage: 'exit', from: t.inside.step, to: t.inside.step, returnTo: to, shout: false });
+        t.inside = null;
+      } else tx.effects.push({ type: 'move', teamId: t.id, from: t.position, to, reason: 'correction' });
       t.position = to;
       t.crater = null;
       tx.label = `${teamLabel(t)} auf Feld ${to} gesetzt`;
@@ -243,7 +248,12 @@ export function handleTeamCommand(tx: Tx, cmd: CommandOf<
 
     case 'team.unblock': {
       const t = findTeam(s, cmd.teamId);
-      if (!t.blocked && !t.crater) fail('Team ist nicht gesperrt');
+      if (!t.blocked && !t.crater && !t.inside) fail('Team ist nicht gesperrt');
+      if (t.inside) {
+        tx.effects.push({ type: 'inside', teamId: t.id, stage: 'exit', from: t.inside.step, to: t.inside.step, returnTo: t.inside.returnTo, shout: false });
+        t.position = t.inside.returnTo;
+        t.inside = null;
+      }
       if (t.crater) {
         tx.effects.push({ type: 'crater', teamId: t.id, position: t.position, result: 'out', roll: 0, climbed: t.crater.need, need: t.crater.need });
         t.crater = null;

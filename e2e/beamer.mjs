@@ -124,7 +124,10 @@ try {
       await sleep(1500);
       await shot('feldminispiel');
       await cmd({ type: 'fieldgame.result', won: true });
-    } else if (state.phase.dice.vine) await cmd({ type: 'vine.roll', force: true });
+    } else if (state.phase.dice.challenge) {
+      const c = state.phase.dice.challenge;
+      await cmd(c.kind === 'river' ? { type: 'challenge.choose', choice: 'barrels', force: true } : { type: 'challenge.roll', force: true });
+    }
     else await cmd({ type: 'dice.roll', force: true });
     await sleep(600);
   }

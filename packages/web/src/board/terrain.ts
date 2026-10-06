@@ -72,6 +72,8 @@ export interface Heightfield {
   pathDistance(x: number, z: number): number;
   /** Abstand zum Wasser des Flusses (negativ = im Wasser) */
   riverDistance(x: number, z: number): number;
+  /** Abstand zum Bach hinter der Liane (negativ = im Wasser) */
+  creekDistance(x: number, z: number): number;
   /** Abstand zum Rand der Schlucht (negativ = in der Schlucht) */
   gorgeDistance(x: number, z: number): number;
   /** Geländeneigung 0 (flach) … 1 (senkrecht). */
@@ -85,6 +87,8 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
   const pathGrid = new SegmentGrid(layout.path, 3, 6);
   const riverGrid = new SegmentGrid(riverPts, 3, 7);
   const gorgeGrid = new SegmentGrid(GORGE, 3, 6);
+  const creek = layout.creek;
+  const creekGrid = creek.length > 1 ? new SegmentGrid(creek, 3, 4) : null;
   const half = TERRAIN_SIZE / 2;
   const n = res + 1;
   const heights = new Float32Array(n * n);
@@ -111,6 +115,13 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
     const a = riverPts[r.i]!;
     const b = riverPts[r.i + 1]!;
     return { d: r.d, w: a.w + (b.w - a.w) * r.f, level: riverLevelAt(r.i, r.f), i: r.i };
+  };
+  const creekInfo = (x: number, z: number) => {
+    const c = creekGrid?.nearest(x, z);
+    if (!c || c.i < 0) return null;
+    const a = creek[c.i]!;
+    const b = creek[c.i + 1]!;
+    return { d: c.d, w: a.w + (b.w - a.w) * c.f, level: a.y + (b.y - a.y) * c.f, first: c.i === 0 && c.f < 0.05 };
   };
   const gorgeInfo = (x: number, z: number) => {
     const g = gorgeGrid.nearest(x, z);
@@ -169,6 +180,12 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
         const k = 1 - smoothstep(rv.w * 0.5, rv.w + 0.5, rv.d);
         h = Math.min(h, lerp(h, rv.level - depth, k));
       }
+      // Bach hinter der Liane: schmales Bett mit flachen Ufern
+      const ck = creekInfo(x, z);
+      if (ck && !ck.first) {
+        const k = 1 - smoothstep(ck.w * 0.6, ck.w + 0.4, ck.d);
+        h = Math.min(h, lerp(h, ck.level - 0.28 - ck.w * 0.2, k));
+      }
       // Becken unter dem Wasserfall
       const dp = Math.hypot(x - pool.x, z - pool.z);
       if (dp < pool.w + 1.2) {
@@ -207,8 +224,13 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
     pathDistance: (x, z) => pathGrid.nearest(x, z).d,
     riverDistance(x, z) {
       const r = riverInfo(x, z);
+      const c = creekInfo(x, z);
       const dPool = Math.hypot(x - pool.x, z - pool.z) - pool.w;
-      return Math.min(r ? r.d - r.w : Infinity, dPool);
+      return Math.min(r ? r.d - r.w : Infinity, c ? c.d - c.w : Infinity, dPool);
+    },
+    creekDistance(x, z) {
+      const c = creekInfo(x, z);
+      return c ? c.d - c.w : Infinity;
     },
     gorgeDistance(x, z) {
       const g = gorgeInfo(x, z);
@@ -223,6 +245,9 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
     },
   };
 }
+
+/** Reihenfolge der Ultra-Materialien (Attribute matA/matB, Ebenen der Texturfelder in ultra.ts) */
+export const MAT = { sand: 0, grass: 1, rock: 2, path: 3, volcanic: 4, pebbles: 5 } as const;
 
 const C = (hex: string) => new THREE.Color(hex);
 const COL = {
@@ -268,6 +293,20 @@ export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THRE
   const normals = geo.attributes.normal as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
   const glow = new Float32Array(pos.count);
+  // Materialanteile je Punkt für die Ultra-Grafik (Sand, Gras, Fels, Weg | Vulkangestein, Kiesel)
+  const matA = new Float32Array(pos.count * 4);
+  const matB = new Float32Array(pos.count * 2);
+  const W = new Float32Array(6);
+  const setW = (k: number) => {
+    W.fill(0);
+    W[k] = 1;
+  };
+  const mixW = (k: number, a: number) => {
+    if (a <= 0) return;
+    const b = Math.min(1, a);
+    for (let j = 0; j < 6; j++) W[j]! *= 1 - b;
+    W[k]! += b;
+  };
   const pathWidth = layout.fieldRadius * 1.22;
   const v = layout.volcano;
   const tmp = new THREE.Color();
@@ -287,14 +326,17 @@ export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THRE
 
     // --- Grundfarbe nach Höhe / Lage -------------------------------------------
     if (h < 0.05) {
+      setW(MAT.sand);
       // Meeresgrund: Sand, Seegraswiesen, tiefer grünlich
       tmp.copy(COL.seabed).lerp(COL.seagrass, smoothstep(0.15, 0.55, n1) * smoothstep(-0.6, -1.8, h) * 0.85);
       tmp.lerp(COL.seabedDeep, smoothstep(-2.5, -7, h));
       tmp.lerp(COL.sandWet, smoothstep(-0.6, 0.05, h) * 0.7);
     } else if (h < 1.05 + n1 * 0.35 && d < 9) {
+      setW(MAT.sand);
       tmp.copy(COL.sandWet).lerp(COL.sand, smoothstep(0.1, 0.5, h));
       tmp.lerp(COL.sandLight, smoothstep(0.2, 0.9, n2 * 0.5 + 0.5) * smoothstep(0.4, 0.9, h) * 0.7);
     } else {
+      setW(MAT.grass);
       tmp.copy(COL.grass).lerp(COL.grassDark, smoothstep(-0.25, 0.45, n1));
       tmp.lerp(COL.grassLight, smoothstep(0.3, 0.8, n2) * 0.4);
       tmp.lerp(COL.grassGold, smoothstep(0.45, 0.85, n3 * 0.5 + 0.5) * 0.3);
@@ -307,6 +349,7 @@ export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THRE
       tmp.lerp(COL.meadow, blobMask('ruinsHill', x, z) * 0.45);
       // Übergang Sand → Gras
       tmp.lerp(COL.sand, smoothstep(1.55, 1.05, h + n1 * 0.25) * smoothstep(12, 4, d) * 0.85);
+      mixW(MAT.sand, smoothstep(1.55, 1.05, h + n1 * 0.25) * smoothstep(12, 4, d) * 0.85);
     }
 
     // --- Fels an steilen Hängen: geschichtete Klippen ---------------------------
@@ -316,27 +359,32 @@ export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THRE
       const rockC = COL.rock.clone().lerp(COL.rockLight, smoothstep(0.55, 0.9, band)).lerp(COL.rockDark, smoothstep(0.25, 0.05, band) * 0.7);
       rockC.lerp(COL.rockRed, smoothstep(0.35, 0.8, n2) * 0.3);
       tmp.lerp(rockC, steep * 0.95);
+      mixW(MAT.rock, steep * 0.95);
     }
     // Grasnarbe oben an Klippenkanten bleibt grün; feuchtes Ufer am Fluss
     const rd = field.riverDistance(x, z);
     if (rd < 1.6 && h > 0.2) {
       tmp.lerp(COL.mud, smoothstep(1.6, 0.2, rd) * 0.55);
       tmp.lerp(COL.pebbles, smoothstep(0.6, -0.4, rd) * smoothstep(0.2, 0.7, n3) * 0.6);
+      mixW(MAT.pebbles, smoothstep(1.6, 0.2, rd) * 0.75);
     }
 
     // --- Vulkan --------------------------------------------------------------
     if (dv < 27) {
       // Übergang Wiese → Erde → Asche/Basalt
       tmp.lerp(COL.earth, smoothstep(22, 16, dv) * smoothstep(4, 7.5, h) * 0.55);
+      mixW(MAT.path, smoothstep(22, 16, dv) * smoothstep(4, 7.5, h) * 0.45);
       const cone = smoothstep(21, 13, dv) * smoothstep(7, 10.5, h);
       const ashC = COL.ash.clone().lerp(COL.basalt, smoothstep(-0.2, 0.4, n1)).lerp(COL.lavaRed, smoothstep(0.4, 0.8, n2) * 0.45);
       tmp.lerp(ashC, cone * 0.92);
+      mixW(MAT.volcanic, cone * 0.95);
       // erstarrte Lavaströme: radiale Bahnen
       const flow = smoothstep(0.58, 0.82, noise2(th * 4.2 + 1.3, dv * 0.09) * 0.5 + 0.5);
       tmp.lerp(COL.lavaRock, flow * cone * smoothstep(23, CRATER.crest + 2, dv) * 0.85);
       // Schwefel am Kraterrand
       tmp.lerp(COL.sulfur, smoothstep(CRATER.crest + 2.5, CRATER.crest + 0.6, dv) * smoothstep(0.55, 0.85, n3 * 0.5 + 0.5) * 0.45);
       if (dv < CRATER.crest - 0.15) {
+        setW(MAT.volcanic);
         tmp.copy(COL.crater).lerp(COL.lavaRock, n3 * 0.5 + 0.5);
         // Glut im Kraterboden
         glow[i] = smoothstep(CRATER.ledge + 0.8, CRATER.lava, dv) * 0.55 + smoothstep(0.6, 0.85, n3 * 0.5 + 0.5) * smoothstep(CRATER.crest, CRATER.ledge, dv) * 0.35;
@@ -345,11 +393,15 @@ export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THRE
 
     // --- Weg ------------------------------------------------------------------
     const pd = field.pathDistance(x, z);
-    const pathK = 1 - smoothstep(pathWidth * 0.78 + n2 * 0.12, pathWidth + 0.38, pd);
+    // der Bach unterbricht den Weg (dort Uferkies statt Weg)
+    const cd = field.creekDistance(x, z);
+    const pathK = (1 - smoothstep(pathWidth * 0.78 + n2 * 0.12, pathWidth + 0.38, pd)) * smoothstep(0.1, 0.7, cd);
     if (pathK > 0 && !(Math.hypot(x - br.x, z - br.z) < br.length * 0.5 && h < br.a.y - 1)) {
       tmp.lerp(COL.pathEdge, smoothstep(0, 0.55, pathK) * 0.65);
       const center = COL.path.clone().lerp(COL.pathStone, smoothstep(0.35, 0.75, n3 * 0.5 + 0.5) * 0.5);
       tmp.lerp(center, smoothstep(0.45, 1, pathK));
+      mixW(MAT.path, smoothstep(0, 0.55, pathK) * 0.65);
+      mixW(MAT.path, smoothstep(0.45, 1, pathK));
       glow[i] = 0;
     }
 
@@ -357,9 +409,13 @@ export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THRE
     colors[i * 3] = tmp.r * shade;
     colors[i * 3 + 1] = tmp.g * shade;
     colors[i * 3 + 2] = tmp.b * shade;
+    matA.set([W[0]!, W[1]!, W[2]!, W[3]!], i * 4);
+    matB.set([W[4]!, W[5]!], i * 2);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.setAttribute('glow', new THREE.BufferAttribute(glow, 1));
+  geo.setAttribute('matA', new THREE.BufferAttribute(matA, 4));
+  geo.setAttribute('matB', new THREE.BufferAttribute(matB, 2));
 
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0 });
   patchTerrainMaterial(material);

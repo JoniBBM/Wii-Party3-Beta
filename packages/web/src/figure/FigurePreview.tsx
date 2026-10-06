@@ -40,7 +40,7 @@ export function FigurePreview({
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
@@ -98,17 +98,18 @@ export function FigurePreview({
     ro.observe(el);
     resize();
 
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
     let raf = 0;
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.05, clock.getDelta());
+      timer.update();
+      const dt = Math.min(0.05, timer.getDelta());
       if (!dragging) {
         vel *= 0.94;
         rotY += vel + dt * 0.25;
       }
       pivot.rotation.y = rotY;
-      rig.update(clock.elapsedTime, dt);
+      rig.update(timer.getElapsed(), dt);
       renderer.render(scene, camera);
     };
     loop();

@@ -59,8 +59,15 @@ export interface IslandLayout {
   fieldRadius: number;
   fordFields: number[];
   craterField: number;
+  /** Bach hinter der Liane (quert den Weg zwischen Lianenfeld und nächstem Feld) */
+  creek: CreekPoint[];
   /** Weghöhe an Bogenlänge s */
   pathY: (s: number) => number;
+}
+
+/** Punkt der Bach-Mittellinie: Wasserspiegel y, halbe Breite w (Quelle → Mündung). */
+export interface CreekPoint extends P3 {
+  w: number;
 }
 
 /** Wasserspiegel der Furt + Höhe der Fässer */
@@ -167,6 +174,7 @@ export function buildLayout(fieldCount: number): IslandLayout {
     return a.y + (b.y - a.y) * ((s - a.s) / Math.max(1e-6, b.s - a.s));
   };
   const fields: FieldSpot[] = plan.fields.map((f) => ({ ...f, y: pathY(f.s) }));
+  const creek = buildCreek(fields, fieldRadiusFor(plan), plan.vineField);
   const bp0 = path.find((p) => p.s >= plan.bridge.s0)!;
   const bp1 = path.find((p) => p.s >= plan.bridge.s1) ?? path[path.length - 1]!;
   const start = fields[0]!;
@@ -187,10 +195,54 @@ export function buildLayout(fieldCount: number): IslandLayout {
     fieldRadius: fieldRadiusFor(plan),
     fordFields: plan.fordFields,
     craterField: plan.craterField,
+    creek,
     pathY,
   };
   cache.set(fieldCount, layout);
   return layout;
+}
+
+/**
+ * Bach hinter der Liane: entspringt am Hang neben dem Lianenfeld, quert den Weg zwischen
+ * Lianenfeld und nächstem Feld und fließt bergab ins Meer. Deshalb gibt es dort die Liane.
+ */
+function buildCreek(fields: FieldSpot[], radius: number, vine: number): CreekPoint[] {
+  const a = fields[vine];
+  const b = fields[vine + 1];
+  if (!a || !b) return [];
+  const mx = (a.x + b.x) / 2;
+  const mz = (a.z + b.z) / 2;
+  const gap = Math.hypot(b.x - a.x, b.z - a.z);
+  const dx = (b.x - a.x) / gap;
+  const dz = (b.z - a.z) / gap;
+  // quer zum Weg; bergab = Seite mit dem niedrigeren Gelände
+  let px = -dz;
+  let pz = dx;
+  if (natural(mx + px * 6, mz + pz * 6) > natural(mx - px * 6, mz - pz * 6)) {
+    px = -px;
+    pz = -pz;
+  }
+  const halfW = Math.max(0.2, Math.min(0.48, (gap - radius * 2) * 0.25));
+  const pathY = (a.y + b.y) / 2;
+  const out: CreekPoint[] = [];
+  let level = pathY - 0.05;
+  for (let k = -3.2; k <= 26; k += 0.4) {
+    // sanft mäandernd
+    const wig = Math.sin(k * 0.55) * 0.5 * Math.min(1, Math.abs(k) / 3) + Math.sin(k * 1.3 + 1) * 0.12;
+    const x = mx + px * k + dx * wig;
+    const z = mz + pz * k + dz * wig;
+    const ground = natural(x, z);
+    // am Weg unter der Weghöhe, sonst knapp unter dem Gelände; immer bergab
+    const want = Math.abs(k) < 2.2 ? pathY - 0.42 : ground - 0.32;
+    level = Math.min(level - 0.004, want);
+    if (level < 0.06) {
+      out.push({ x, y: 0.06, z, w: halfW * 1.4 });
+      break;
+    }
+    // zur Mündung hin breiter
+    out.push({ x, y: level, z, w: halfW * (1 + Math.max(0, k) * 0.03) });
+  }
+  return out;
 }
 
 /** Wasserspiegel des Flusses an einem Punkt der Mittellinie (Index i, Anteil f) – mit Wasserfall. */

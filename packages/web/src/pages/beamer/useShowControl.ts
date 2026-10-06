@@ -3,23 +3,33 @@
  * Ton und Musik, Kommentator, Kamera, Vollbild, Neu laden. Meldet Bildrate & Co. zurück.
  */
 import { useEffect, useRef, useState } from 'react';
-import type { GameState, RenderQuality } from '@insel/shared';
+import { MUSIC_TRACKS, type GameState, type MusicMood, type RenderQuality, type ShowSettings } from '@insel/shared';
 import type { MusicTrack } from '../../board/audio.ts';
 import type { BoardScene } from '../../board/scene.ts';
 import { beamerReport, onShowCommand, onShowTest, useLive } from '../../lib/live.ts';
 import { boardAudio } from './BoardCanvas.tsx';
 import { qualityOverride } from './prefs.ts';
 
-const DOWN: Record<RenderQuality, RenderQuality | null> = { high: 'balanced', balanced: 'eco', eco: null };
+const DOWN: Record<RenderQuality, RenderQuality | null> = { ultra: 'high', high: 'balanced', balanced: 'eco', eco: null };
 
-/** Welche Musik zur Spielphase passt. */
-function trackFor(state: GameState | null, explaining: boolean): { track: MusicTrack; loop?: boolean; then?: MusicTrack } {
-  if (explaining || !state || state.status === 'lobby') return { track: 'lobby' };
-  if (state.status === 'finished') return { track: 'finale', loop: false, then: 'lobby' };
+/** Welche Stimmung zur Spielphase passt. */
+function moodFor(state: GameState | null, explaining: boolean, insideView: boolean): MusicMood {
+  if (explaining || !state || state.status === 'lobby') return 'lobby';
+  if (state.status === 'finished') return 'finale';
+  if (insideView) return 'vulkan';
   const p = state.phase;
-  if (p.name === 'content' && p.content.stage !== 'revealed') return { track: 'spannung' };
-  if (p.name === 'dice' && p.dice.fieldGame?.stage === 'running') return { track: 'spannung' };
-  return { track: 'insel' };
+  if (p.name === 'content' && p.content.stage !== 'revealed') return 'spannung';
+  if (p.name === 'dice' && p.dice.fieldGame?.stage === 'running') return 'spannung';
+  return 'insel';
+}
+
+const tracksOf = (mood: MusicMood) => MUSIC_TRACKS.filter((t) => t.mood === mood).map((t) => t.id as MusicTrack);
+
+/** Musik-Wunsch aus Phase und Regie-Einstellung (festes Stück oder automatisch, rotierend). */
+function musicFor(settings: ShowSettings, mood: MusicMood): { list: MusicTrack[]; loop: boolean; rotate: boolean; then?: MusicTrack } {
+  if (mood === 'finale') return { list: tracksOf('finale'), loop: false, rotate: true, then: tracksOf('lobby')[0] };
+  if (settings.musicTrack !== 'auto') return { list: [settings.musicTrack], loop: true, rotate: false };
+  return { list: tracksOf(mood), loop: true, rotate: settings.musicRotate };
 }
 
 export function startFullscreen() {
@@ -35,21 +45,23 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
   const [audioReady, setAudioReady] = useState(false);
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement);
   const [manual, setManual] = useState(false);
+  const [insideView, setInsideView] = useState(false);
   const autoLevel = useRef<RenderQuality>('high');
 
-  // Ton freischalten: im Kiosk-Modus sofort, sonst beim ersten Klick/Tastendruck
+  // Ton freischalten: im Kiosk-Modus sofort, sonst beim ersten Klick/Tastendruck.
+  // Vollbild nur per Mausklick/Touch (nicht bei Tasten – die steuern die Kamera).
   useEffect(() => {
-    const tryUnlock = () =>
-      void boardAudio.unlock().then(() => {
-        setAudioReady(boardAudio.ready);
-        if (useLive.getState().show.settings.fullscreen) void startFullscreen();
-      });
-    tryUnlock();
-    window.addEventListener('pointerdown', tryUnlock);
-    window.addEventListener('keydown', tryUnlock);
+    const unlock = () => void boardAudio.unlock().then(() => setAudioReady(boardAudio.ready));
+    const onPointer = () => {
+      unlock();
+      if (useLive.getState().show.settings.fullscreen) void startFullscreen();
+    };
+    unlock();
+    window.addEventListener('pointerdown', onPointer);
+    window.addEventListener('keydown', unlock);
     return () => {
-      window.removeEventListener('pointerdown', tryUnlock);
-      window.removeEventListener('keydown', tryUnlock);
+      window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('keydown', unlock);
     };
   }, []);
 
@@ -71,6 +83,9 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
     scene.rig.style = settings.camera;
     scene.director.reactions = settings.reactions;
   }, [scene, settings.commentary, settings.tags, settings.camera, settings.reactions]);
+  useEffect(() => {
+    if (scene) scene.commentator.paused = explainer.running;
+  }, [scene, explainer.running]);
 
   // Grafikstufe (fest oder automatisch)
   useEffect(() => {
@@ -78,13 +93,16 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
     if (settings.quality === 'auto') autoLevel.current = 'high';
     scene.setQuality(qualityOverride() ?? (settings.quality === 'auto' ? autoLevel.current : settings.quality));
   }, [scene, settings.quality]);
+  useEffect(() => scene?.setResolution(settings.resolution), [scene, settings.resolution]);
 
-  // Freie Kamera melden
+  // Freie Kamera melden; Ansicht Vulkan-Inneres (für die Musik)
   useEffect(() => {
     if (!scene) return;
     scene.rig.onManualChange = (m) => setManual(m);
+    scene.onViewChange = (v) => setInsideView(v === 'inside');
     return () => {
       scene.rig.onManualChange = null;
+      scene.onViewChange = null;
     };
   }, [scene]);
 
@@ -108,8 +126,8 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
       beamerReport('beamer:stats', {
         fps: Math.round(scene.fps),
         quality: scene.quality,
-        width: Math.round(window.innerWidth * devicePixelRatio),
-        height: Math.round(window.innerHeight * devicePixelRatio),
+        width: scene.renderSize.width,
+        height: scene.renderSize.height,
         audio: boardAudio.ready,
         fullscreen: !!document.fullscreenElement,
         manual: !!scene.rig.manual,
@@ -119,11 +137,15 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
     return () => clearInterval(id);
   }, [scene]);
 
-  // Musik passend zur Phase
-  const music = trackFor(state, explainer.running);
+  // Musik passend zur Phase (oder fest gewählt), auf Wunsch rotierend
+  const music = musicFor(settings, moodFor(state, explainer.running, insideView));
+  const musicKey = `${music.list.join('|')}|${music.loop}|${music.rotate}`;
   useEffect(() => {
-    boardAudio.setMusic(music.track, { loop: music.loop, then: music.then });
-  }, [music.track, music.loop, music.then]);
+    // Finale: aus der Liste ein Stück zufällig, einmal
+    const list = music.loop ? music.list : [music.list[Math.floor(Math.random() * music.list.length)]!];
+    boardAudio.setMusic(list, { loop: music.loop, rotate: music.rotate, then: music.then });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [musicKey]);
 
   // Kommentator: Spielstart und Begrüßung in der Lobby
   const status = state?.status ?? null;

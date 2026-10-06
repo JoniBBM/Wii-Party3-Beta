@@ -70,6 +70,8 @@ const OCEAN_FRAGMENT = /* glsl */ `
   uniform vec3 uFogColor;
   uniform float uFogNear;
   uniform float uFogFar;
+  uniform float uUltra;
+  uniform sampler2D uWaterNormal;
   varying vec3 vWorld;
   varying vec3 vNormalW;
   varying float vWave;
@@ -97,6 +99,14 @@ const OCEAN_FRAGMENT = /* glsl */ `
     float r2 = fxNoise(q * 2.3 - uTime * vec2(0.22, 0.41));
     float ripple = r1 * 0.55 + r2 * 0.45;
     vec3 n = normalize(vNormalW + vec3(ripple - 0.5, 0.0, fxNoise(q * 1.7 + 3.0 + uTime * 0.3) - 0.5) * 0.22);
+    if (uUltra > 0.5) {
+      // Ultra: echte Wellen-Normalen in zwei Größen, gegeneinander ziehend
+      vec3 a = texture2D(uWaterNormal, vWorld.xz * 0.045 + uTime * vec2(0.012, 0.007)).rgb * 2.0 - 1.0;
+      vec3 b = texture2D(uWaterNormal, vWorld.xz * 0.13 - uTime * vec2(0.009, 0.016)).rgb * 2.0 - 1.0;
+      vec3 c = texture2D(uWaterNormal, vWorld.xz * 0.38 + uTime * vec2(0.021, -0.013)).rgb * 2.0 - 1.0;
+      vec2 d = (a.xy * 0.5 + b.xy * 0.35 + c.xy * 0.2) * mix(0.35, 1.0, smoothstep(0.2, 2.5, depth));
+      n = normalize(vNormalW + vec3(d.x, 0.0, d.y) * 0.9);
+    }
 
     vec3 view = normalize(cameraPosition - vWorld);
     float fresnel = pow(1.0 - max(dot(n, view), 0.0), 4.0);
@@ -109,6 +119,11 @@ const OCEAN_FRAGMENT = /* glsl */ `
     // Sonnenglanz + Glitzern
     vec3 h = normalize(uSunDir + view);
     float spec = pow(max(dot(n, h), 0.0), 260.0);
+    if (uUltra > 0.5) {
+      // Wellenkämme heller und grüner (Licht scheint durch), breiterer Sonnenpfad
+      col = mix(col, uShallow * 1.15, smoothstep(0.02, 0.16, vWave) * 0.35 * smoothstep(1.0, 4.0, depth));
+      spec = spec * 1.4 + pow(max(dot(n, h), 0.0), 40.0) * 0.12;
+    }
     float glint = step(0.985, fxNoise(vWorld.xz * 6.0 + uTime * 1.7)) * pow(max(dot(n, h), 0.0), 18.0);
     col += uSunColor * (spec * 1.8 + glint * 2.4) * shade;
 
@@ -145,10 +160,15 @@ const OCEAN_FRAGMENT = /* glsl */ `
   }
 `;
 
+const FLAT_NORMAL = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1);
+FLAT_NORMAL.needsUpdate = true;
+
 export interface Water {
   mesh: THREE.Mesh;
   update: (t: number) => void;
   setSun: (dir: THREE.Vector3, color: THREE.Color) => void;
+  /** Ultra-Grafik: echte Wellen-Normalen (null = aus) */
+  setUltra: (normal: THREE.Texture | null) => void;
   dispose: () => void;
 }
 
@@ -179,6 +199,8 @@ export function createWater(heightTex: THREE.Texture, opts: { segments: number; 
       uFogColor: { value: opts.fog.clone() },
       uFogNear: { value: opts.fogNear },
       uFogFar: { value: opts.fogFar },
+      uUltra: { value: 0 },
+      uWaterNormal: { value: FLAT_NORMAL },
       uFxTime: fx.uTime,
       uFxCloud: fx.uCloud,
       uFxDrift: fx.uCloudDrift,
@@ -195,6 +217,10 @@ export function createWater(heightTex: THREE.Texture, opts: { segments: number; 
     setSun(dir, color) {
       (material.uniforms.uSunDir!.value as THREE.Vector3).copy(dir).normalize();
       (material.uniforms.uSunColor!.value as THREE.Color).copy(color);
+    },
+    setUltra(normal) {
+      material.uniforms.uUltra!.value = normal ? 1 : 0;
+      material.uniforms.uWaterNormal!.value = normal ?? FLAT_NORMAL;
     },
     dispose() {
       geo.dispose();
@@ -340,7 +366,7 @@ export interface RiverFx {
   fallBase: THREE.Vector3;
 }
 
-export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean }): RiverFx {
+export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; creek?: { x: number; y: number; z: number; w: number }[] }): RiverFx {
   const group = new THREE.Group();
   group.name = 'river';
   const material = new THREE.ShaderMaterial({
@@ -363,6 +389,16 @@ export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean }): 
   const upper = sampleRiver(0, RIVER_LIP).filter((p) => p.y > 0);
   group.add(riverRibbon(upper, material));
   group.add(riverRibbon(sampleRiver(RIVER_POOL, RIVER.length - 1).filter((p) => p.y > 0.14), material));
+  // Bach hinter der Liane (schmal, mit Gefälle → schnellere Strömung im Shader)
+  const creek = opts.creek ?? [];
+  if (creek.length > 2) {
+    const samples: RiverSample[] = creek.map((p, i) => {
+      const q = creek[Math.min(creek.length - 1, i + 1)]!;
+      const len = Math.hypot(q.x - p.x, q.z - p.z) || 1;
+      return { x: p.x, z: p.z, y: p.y, w: Math.max(0.05, p.w - 0.5), slope: Math.min(0.6, Math.max(0, (p.y - q.y) / len) * 2 + 0.05) };
+    });
+    group.add(riverRibbon(samples, material));
+  }
 
   // Wasserfall: Vorhang von der Kante ins Becken
   const lip = RIVER[RIVER_LIP]!;

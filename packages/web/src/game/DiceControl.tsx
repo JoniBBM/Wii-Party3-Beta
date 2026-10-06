@@ -22,43 +22,77 @@ import { ContentView } from './ContentView.tsx';
 
 export function DiceControl({ state, dice }: { state: GameState; dice: DiceRound }) {
   if (dice.fieldGame) return <FieldGameControl state={state} dice={dice} />;
-  if (dice.vine) return <VineControl state={state} dice={dice} />;
+  if (dice.challenge) return <ChallengeControl state={state} dice={dice} />;
   return <RollControl state={state} dice={dice} />;
 }
 
-/** Team hängt an der Liane: Lianen-Wurf abwarten, für das Team werfen oder eintragen. */
-function VineControl({ state, dice }: { state: GameState; dice: DiceRound }) {
+const CHALLENGE_INFO = {
+  vine: { icon: '🌿', title: 'Liane', tone: 'good' },
+  river: { icon: '🛢️', title: 'Fässer oder Kisten', tone: 'accent' },
+  cave: { icon: '🦇', title: 'Mutprobe Lavahöhle', tone: 'bad' },
+} as const;
+
+/** Team steht an einer Mutprobe: abwarten, für das Team würfeln/wählen oder Ergebnis eintragen. */
+function ChallengeControl({ state, dice }: { state: GameState; dice: DiceRound }) {
   const { run, pending } = useCommand();
   const now = useServerNow(250);
   const presence = useLive((s) => s.presence);
-  const vine = dice.vine!;
-  const team = teamById(state, vine.teamId);
-  const sides = state.config.rules.vine?.sides ?? 6;
+  const c = dice.challenge!;
+  const team = teamById(state, c.teamId);
+  const info = CHALLENGE_INFO[c.kind];
+  const sides = c.kind === 'vine' ? (state.config.rules.vine?.sides ?? 6) : 6;
   const busyMs = Math.max(0, dice.busyUntil - now);
+  const rest = c.remaining > 0 ? ` Danach noch ${c.remaining} Felder.` : '';
+  const what =
+    c.kind === 'vine'
+      ? `hält an der Liane und würfelt, wie weit es schwingt (W${sides}).${rest}`
+      : c.kind === 'cave'
+        ? `muss mindestens eine ${state.config.rules.cave.need} würfeln – sonst geht es ins Vulkan-Innere.${rest}`
+        : `wählt Fässer oder Kisten.${rest}`;
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border-2 border-good/40 bg-good-soft/40 p-4">
+    <div className="flex flex-col gap-4 rounded-3xl border-2 border-accent/40 bg-accent-soft/30 p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-4xl">🌿</span>
+        <span className="text-4xl">{info.icon}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-good">Liane</p>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-accent">Mutprobe · {info.title}</p>
           <p className="flex flex-wrap items-center gap-2 font-bold">
-            <TeamChip team={team} /> hängt an der Liane und würfelt noch einmal (W{sides}).
+            <TeamChip team={team} /> {what}
           </p>
           <p className="mt-1 inline-flex items-center gap-1 text-sm text-muted">
-            <Smartphone className="size-4" /> {presence[vine.teamId] ?? 0} Gerät{(presence[vine.teamId] ?? 0) === 1 ? '' : 'e'} – das Team kann am Handy schütteln oder tippen.
+            <Smartphone className="size-4" /> {presence[c.teamId] ?? 0} Gerät{(presence[c.teamId] ?? 0) === 1 ? '' : 'e'} – das Team kann es selbst am Gerät machen.
           </p>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" icon={<Dices className="size-5" />} loading={pending === 'vine.roll'} disabled={busyMs > 0} onClick={() => run({ type: 'vine.roll' })}>
-          {busyMs > 0 ? 'Animation läuft …' : 'Für Team würfeln'}
-        </Button>
-        <span className="text-sm font-semibold text-muted">oder eintragen:</span>
-        {Array.from({ length: sides }, (_, i) => i + 1).map((n) => (
-          <button key={n} type="button" className="grid size-9 place-items-center rounded-xl border-2 border-line font-display font-semibold hover:border-accent" onClick={() => run({ type: 'vine.roll', value: n, force: true })}>
-            {n}
-          </button>
-        ))}
+      {c.kind === 'river' ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" loading={pending === 'challenge.choose'} disabled={busyMs > 0} onClick={() => run({ type: 'challenge.choose', choice: 'barrels' })}>
+            🛢️ Fässer
+          </Button>
+          <Button variant="primary" loading={pending === 'challenge.choose'} disabled={busyMs > 0} onClick={() => run({ type: 'challenge.choose', choice: 'crates' })}>
+            📦 Kisten
+          </Button>
+          <span className="text-sm font-semibold text-muted">oder Ergebnis vorgeben:</span>
+          <Button size="sm" variant="good" onClick={() => run({ type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true })}>
+            trocken rüber
+          </Button>
+          <Button size="sm" variant="bad" onClick={() => run({ type: 'challenge.choose', choice: 'barrels', result: 'fall', force: true })}>
+            bricht ein
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" icon={<Dices className="size-5" />} loading={pending === 'challenge.roll'} disabled={busyMs > 0} onClick={() => run({ type: 'challenge.roll' })}>
+            {busyMs > 0 ? 'Animation läuft …' : 'Für Team würfeln'}
+          </Button>
+          <span className="text-sm font-semibold text-muted">oder eintragen:</span>
+          {Array.from({ length: sides }, (_, i) => i + 1).map((n) => (
+            <button key={n} type="button" className="grid size-9 place-items-center rounded-xl border-2 border-line font-display font-semibold hover:border-accent" onClick={() => run({ type: 'challenge.roll', value: n, force: true })}>
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+      <div>
         <Button size="sm" variant="ghost" icon={<SkipForward className="size-4" />} onClick={() => run({ type: 'dice.skip' })}>
           Aussetzen
         </Button>
@@ -331,7 +365,7 @@ function FieldGameControl({ state, dice }: { state: GameState; dice: DiceRound }
 export function UnblockButton({ state, teamId }: { state: GameState; teamId: string }) {
   const { run } = useCommand();
   const team = teamById(state, teamId);
-  if (!team?.blocked && !team?.crater) return null;
+  if (!team?.blocked && !team?.crater && !team?.inside) return null;
   return (
     <Button size="sm" icon={<Unlock className="size-4" />} onClick={() => run({ type: 'team.unblock', teamId })}>
       Befreien

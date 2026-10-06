@@ -40,6 +40,7 @@ export const FIELD_TYPES = [
   'crater',
   'vine',
   'cave',
+  'skull',
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
@@ -122,25 +123,32 @@ export const FIELD_INFO: Record<
     icon: '🌋',
   },
   river: {
-    label: 'Fässer im Fluss',
+    label: 'Fässer oder Kisten',
     short: 'Fluss',
-    description: 'Wackelige Fässer in der Furt. Mit etwas Pech fällt das Team ins Wasser und wird flussabwärts zurückgespült.',
+    description: 'Mutprobe am Wasserfall: Jedes Team hält vor dem Fluss an und wählt Fässer oder Kisten. Bricht die gewählte Seite ein, schwimmt es ans andere Ufer und der restliche Wurf verfällt.',
     color: '#2bb3c9',
     icon: '🛢️',
   },
   vine: {
     label: 'Liane',
     short: 'Liane',
-    description: 'Das Team schwingt sich an der Liane nach vorne: Es würfelt noch einmal und fliegt so viele Felder weiter.',
+    description: 'Mutprobe über den Bach: Jedes Team hält an der Liane an, würfelt, wie weit es schwingt, und läuft danach mit dem restlichen Wurf weiter.',
     color: '#6fa83a',
     icon: '🌿',
   },
   cave: {
     label: 'Lavahöhle',
     short: 'Höhle',
-    description: 'Ein Loch am Vulkanhang: Das Team fällt hinein, rutscht durch den Berg und kommt am Vulkanfuß wieder heraus.',
+    description: 'Mutprobe „Vulkan oder nicht“: Jedes Team hält hier an und würfelt. Mit mindestens einer 3 geht es mit dem restlichen Wurf weiter, sonst fällt es ins Innere des Vulkans.',
     color: '#6b4a3a',
     icon: '🦇',
+  },
+  skull: {
+    label: 'Totenkopf',
+    short: 'Totenkopf',
+    description: 'Der Boden bricht ein: Das Team fällt ins Innere des Vulkans und muss dort einen Weg über die Lava-Inseln laufen.',
+    color: '#3b2f4a',
+    icon: '💀',
   },
   crater: {
     label: 'Kraterloch',

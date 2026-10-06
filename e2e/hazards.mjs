@@ -70,13 +70,16 @@ try {
     console.log('Foto', name);
   };
 
-  // --- Furt: Team A springt auf das erste Fass und fällt hinein ---
+  // --- Wasserfall: Team A hält am Ufer, wählt die Kisten – die brechen ein ---
   await cmd({ type: 'team.setPosition', teamId: a.id, position: ford - 3 });
   await round();
   await rollFor(a.id, 3);
-  await shoot('fluss-1-wackeln', 3600);
-  await shoot('fluss-2-platsch', 1300);
-  await shoot('fluss-3-treiben', 1600);
+  await shoot('fluss-1-wahl', 3800);
+  await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()) + 200);
+  await cmd({ type: 'challenge.choose', choice: 'crates' });
+  await shoot('fluss-2-wackeln', 1500);
+  await shoot('fluss-3-platsch', 900);
+  await shoot('fluss-4-schwimmen', 1000);
   await sleep(2500);
   console.log('Team A nach dem Sturz auf Feld', state.teams[0].position);
   while (state.phase.name === 'dice') await cmd({ type: 'dice.skip' });

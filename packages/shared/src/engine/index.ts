@@ -171,6 +171,8 @@ export function applyCommand(state: GameState, cmd: Command, actor: Actor, ctx: 
     case 'dice.roll':
     case 'dice.skip':
     case 'vine.roll':
+    case 'challenge.roll':
+    case 'challenge.choose':
     case 'fieldgame.setup':
     case 'fieldgame.result':
     case 'fieldgame.cancel':

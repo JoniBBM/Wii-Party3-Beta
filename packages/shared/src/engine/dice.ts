@@ -1,9 +1,8 @@
 /** Würfelrunde: Wurf, Bewegung, Sonderfelder, Vulkan, Feld-Minispiele, Sieg. */
-import { FIELD_GAME_MODE_LABEL, FIELD_INFO, type FieldGameMode } from '../constants.ts';
-import { islandLandmarks } from '../island.ts';
+import { FIELD_GAME_MODE_LABEL, FIELD_INFO, type FieldGameMode, type FieldType } from '../constants.ts';
 import { pick, randInt } from '../rng.ts';
 import type { CommandOf } from '../schemas.ts';
-import type { BarrierCondition, DiceRound, EffectInput, Mood, Phase, RollRecord, Team } from '../types.ts';
+import type { BarrierCondition, ChallengeKind, DiceRound, EffectInput, GameState, Mood, Phase, RollRecord, Team } from '../types.ts';
 import { drawForTeams, undoDraw } from './draw.ts';
 import { effectsDuration } from './durations.ts';
 import { fail, feed, findTeam, goalOf, isStaff, resolveTeamFor, teamLabel, type Tx } from './tx.ts';
@@ -64,6 +63,78 @@ function advance(tx: Tx, team: Team, steps: number, reason: Extract<EffectInput,
   }
 }
 
+/** Ufer vor dem Fluss (Pflichthalt) und erstes Feld am anderen Ufer. */
+export function riverSpan(fields: readonly FieldType[]): { bank: number; exit: number } | null {
+  const start = fields.indexOf('river');
+  if (start < 1) return null;
+  let end = start;
+  while (fields[end + 1] === 'river') end++;
+  return { bank: start - 1, exit: Math.min(fields.length - 1, end + 1) };
+}
+
+/** Liegt auf diesem Feld eine Mutprobe (Pflichthalt beim Vorwärtslaufen)? */
+export function challengeAt(s: GameState, pos: number): ChallengeKind | null {
+  const f = s.config.board.fields[pos];
+  const r = s.config.rules;
+  if (f === 'vine' && r.vine?.enabled) return 'vine';
+  if (f === 'cave' && r.cave?.enabled && r.inside?.enabled) return 'cave';
+  if (r.river?.enabled && riverSpan(s.config.board.fields)?.bank === pos) return 'river';
+  return null;
+}
+
+/** Team hält an einer Mutprobe an und wartet auf Wurf bzw. Wahl. */
+function startChallenge(tx: Tx, phase: DicePhase, team: Team, kind: ChallengeKind, remaining: number) {
+  const rules = tx.s.config.rules;
+  const position = team.position;
+  phase.dice.challenge = { teamId: team.id, kind, position, remaining };
+  const rest = remaining > 0 ? ` (danach noch ${remaining} ${remaining === 1 ? 'Feld' : 'Felder'})` : '';
+  if (kind === 'vine') {
+    tx.effects.push({ type: 'vine', teamId: team.id, position, stage: 'grab', roll: 0, sides: rules.vine.sides, remaining });
+    feed(tx, '🌿', `${teamLabel(team)} hält an der Liane – jetzt würfeln, wie weit es über den Bach schwingt${rest}`, team.id);
+  } else if (kind === 'river') {
+    tx.effects.push({ type: 'river', teamId: team.id, position, stage: 'choose', choice: null, result: null, remaining });
+    feed(tx, '🛢️', `${teamLabel(team)} steht am Wasserfall: Fässer oder Kisten?${rest}`, team.id);
+  } else {
+    tx.effects.push({ type: 'cave', teamId: team.id, position, stage: 'stop', roll: 0, need: rules.cave.need, success: false, remaining });
+    feed(tx, '🦇', `${teamLabel(team)} muss an der Lavahöhle mindestens eine ${rules.cave.need} würfeln – sonst geht es ins Vulkan-Innere`, team.id);
+  }
+}
+
+/** Ins Innere des Vulkans fallen; zurück geht es später auf `team.position`. */
+function enterInside(tx: Tx, team: Team) {
+  team.inside = { step: 0, returnTo: team.position };
+  team.blocked = null;
+  team.crater = null;
+  tx.effects.push({ type: 'inside', teamId: team.id, stage: 'enter', from: 0, to: 0, returnTo: team.position, shout: false });
+  feed(tx, '🌋', `${teamLabel(team)} fällt ins Innere des Vulkans und muss ${tx.s.config.rules.inside.length} Felder über die Lava-Inseln laufen`, team.id);
+}
+
+/**
+ * Vorwärts laufen. An Mutproben (Liane, Ufer vor dem Fluss, Lavahöhle) hält das Team an –
+ * der Rest des Wurfs wird gemerkt. Sonst wirkt das Zielfeld wie gewohnt.
+ */
+function walk(tx: Tx, phase: DicePhase, team: Team, steps: number, reason: Extract<EffectInput, { type: 'move' }>['reason']): 'done' | 'pending' | 'finished' {
+  const s = tx.s;
+  const goal = goalOf(s);
+  const from = team.position;
+  // Wer am Ufer steht, muss erst Fässer oder Kisten wählen
+  if (steps > 0 && challengeAt(s, from) === 'river') {
+    startChallenge(tx, phase, team, 'river', steps);
+    return 'pending';
+  }
+  const last = Math.min(goal, from + steps);
+  for (let p = from + 1; p <= last; p++) {
+    const kind = challengeAt(s, p);
+    if (kind) {
+      move(tx, team, p, reason);
+      startChallenge(tx, phase, team, kind, steps - (p - from));
+      return 'pending';
+    }
+  }
+  advance(tx, team, steps, reason);
+  return checkArrival(tx, team) ? 'finished' : applyField(tx, phase, team);
+}
+
 function victory(tx: Tx, team: Team) {
   const s = tx.s;
   s.winnerTeamId = team.id;
@@ -105,7 +176,7 @@ export function erupt(tx: Tx) {
   const zoneStart = goal - v.zoneSize + 1;
   const affected: { teamId: string; from: number; to: number }[] = [];
   for (const t of s.teams) {
-    if (t.position < zoneStart) continue;
+    if (t.position < zoneStart || t.inside) continue;
     const back = randInt(tx.ctx.rng, v.knockback.min, v.knockback.max);
     const to = Math.max(0, t.position - back);
     affected.push({ teamId: t.id, from: t.position, to });
@@ -150,7 +221,7 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'pending' | 
       return 'done';
     }
     case 'swap': {
-      const others = s.teams.filter((t) => t.id !== team.id && t.position !== pos);
+      const others = s.teams.filter((t) => t.id !== team.id && t.position !== pos && !t.inside);
       const far = others.filter((t) => Math.abs(t.position - pos) >= rules.swapMinDistance);
       const target = pick(tx.ctx.rng, far.length ? far : others);
       if (!target) {
@@ -192,37 +263,10 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'pending' | 
       feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} landet auf einem Minispiel-Feld!`, team.id);
       return 'pending';
     }
-    case 'river': {
-      const r = rules.river;
-      if (!r.enabled) return 'done';
-      const fall = randInt(tx.ctx.rng, 1, 100) <= r.fallChance;
-      tx.effects.push({ type: 'river', teamId: team.id, position: pos, result: fall ? 'fall' : 'safe' });
-      if (!fall) {
-        feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} balanciert sicher über die Fässer`, team.id);
-        return 'done';
-      }
-      // Die Strömung treibt flussabwärts – mindestens bis vor die Furt
-      let to = Math.max(0, pos - randInt(tx.ctx.rng, r.driftBack.min, r.driftBack.max));
-      while (to > 0 && s.config.board.fields[to] === 'river') to -= 1;
-      move(tx, team, to, 'river');
-      feed(tx, '💦', `Platsch! ${teamLabel(team)} fällt ins Wasser und treibt ${pos - to} Felder zurück`, team.id);
-      return 'done';
-    }
-    case 'vine': {
-      const v = rules.vine;
-      if (!v?.enabled) return 'done';
-      phase.dice.vine = { teamId: team.id, position: pos };
-      tx.effects.push({ type: 'vine', teamId: team.id, position: pos, stage: 'grab', roll: 0, sides: v.sides });
-      feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} schnappt sich die Liane – jetzt noch einmal würfeln!`, team.id);
-      return 'pending';
-    }
-    case 'cave': {
-      if (!rules.cave?.enabled) return 'done';
-      const exit = islandLandmarks(goal).caveExit;
-      if (exit >= pos) return 'done';
-      tx.effects.push({ type: 'cave', teamId: team.id, position: pos });
-      move(tx, team, exit, 'cave');
-      feed(tx, FIELD_INFO[field].icon, `${teamLabel(team)} fällt in die Lavahöhle und rutscht ${pos - exit} Felder hinunter`, team.id);
+    case 'skull': {
+      if (!rules.inside?.enabled) return 'done';
+      tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: 'Ab ins Vulkan-Innere!' });
+      enterInside(tx, team);
       return 'done';
     }
     case 'crater': {
@@ -266,11 +310,19 @@ export function moodAfterTurn(effects: readonly EffectInput[], teamId: string, g
         else positive = true;
         break;
       case 'cave':
-        mood = 'angry';
+        if (e.stage === 'roll') {
+          if (e.success) positive = true;
+          else mood = 'shock';
+        }
         break;
       case 'river':
         if (e.result === 'fall') mood ??= 'sad';
-        else positive = true;
+        else if (e.result === 'safe') positive = true;
+        break;
+      case 'inside':
+        if (e.stage === 'enter') mood ??= 'angry';
+        else if (e.stage === 'exit') return 'super';
+        else mood ??= 'meh';
         break;
       case 'barrier':
         if (e.result === 'blocked' || e.result === 'stuck') mood ??= 'angry';
@@ -280,7 +332,7 @@ export function moodAfterTurn(effects: readonly EffectInput[], teamId: string, g
         if (!e.success) mood = 'sad';
         break;
       case 'field':
-        if (e.field === 'catapult_backward') mood = 'shock';
+        if (e.field === 'catapult_backward' || e.field === 'skull') mood = 'shock';
         if (e.field === 'catapult_forward') positive = true;
         break;
       case 'vine':
@@ -365,7 +417,7 @@ function bump(tx: Tx, phase: DicePhase, startEffects: number) {
 export function handleDiceCommand(
   tx: Tx,
   cmd: CommandOf<
-    'dice.roll' | 'dice.skip' | 'vine.roll' | 'fieldgame.setup' | 'fieldgame.result' | 'fieldgame.cancel' | 'round.next' | 'volcano.set' | 'volcano.erupt'
+    'dice.roll' | 'dice.skip' | 'vine.roll' | 'challenge.roll' | 'challenge.choose' | 'fieldgame.setup' | 'fieldgame.result' | 'fieldgame.cancel' | 'round.next' | 'volcano.set' | 'volcano.erupt'
   >,
 ) {
   const s = tx.s;
@@ -377,7 +429,7 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const dice = phase.dice;
       if (dice.fieldGame) fail('Zuerst muss das Feld-Minispiel abgeschlossen werden');
-      if (dice.vine) fail('Zuerst muss an der Liane gewürfelt werden');
+      if (dice.challenge) fail(dice.challenge.kind === 'river' ? 'Zuerst müssen Fässer oder Kisten gewählt werden' : dice.challenge.kind === 'vine' ? 'Zuerst muss an der Liane gewürfelt werden' : 'Zuerst muss die Mutprobe an der Lavahöhle gewürfelt werden');
       const currentId = currentTeamId(dice);
       if (!currentId) fail('Alle Teams haben schon gewürfelt');
       const staff = isStaff(tx.actor);
@@ -412,6 +464,24 @@ export function handleDiceCommand(
           outcome = `Siegeswurf verfehlt (${total} < ${rules.finalRollMin})`;
           feed(tx, '😬', `${teamLabel(team)} würfelt ${rollText} – knapp vorbei, nächste Runde nochmal!`, team.id);
         }
+      } else if (team.inside) {
+        // Strafweg im Vulkan: genau aufs Ausgangsfeld oder bis zum Ende laufen, dann zurück auf die Insel
+        const ins = team.inside;
+        const len = rules.inside.length;
+        const reached = ins.step + total;
+        const shout = reached === rules.inside.shout;
+        const to = Math.min(len, reached);
+        tx.effects.push({ type: 'inside', teamId: team.id, stage: 'walk', from: ins.step, to, returnTo: ins.returnTo, shout: false });
+        if (shout || reached >= len) {
+          tx.effects.push({ type: 'inside', teamId: team.id, stage: 'exit', from: to, to, returnTo: ins.returnTo, shout });
+          team.inside = null;
+          feed(tx, '🌋', shout ? `${teamLabel(team)} trifft das Ausgangsfeld und darf sofort aus dem Vulkan!` : `${teamLabel(team)} hat den Weg durch den Vulkan geschafft und ist zurück auf der Insel`, team.id);
+          outcome = shout ? 'Ausgangsfeld – raus aus dem Vulkan' : 'Raus aus dem Vulkan';
+        } else {
+          ins.step = to;
+          feed(tx, '🌋', `${teamLabel(team)} würfelt ${rollText} im Vulkan – noch ${len - to} Felder bis zum Ausgang`, team.id);
+          outcome = `Im Vulkan (${to}/${len})`;
+        }
       } else if (team.crater) {
         // Herausklettern: Augen sammeln, der Rest geht auf dem Weg weiter
         const c = team.crater;
@@ -422,10 +492,7 @@ export function handleDiceCommand(
           team.crater = null;
           feed(tx, '🧗', rest ? `${teamLabel(team)} klettert aus dem Krater und läuft ${rest} Felder weiter` : `${teamLabel(team)} klettert aus dem Krater`, team.id);
           outcome = rest ? `Aus dem Krater, ${rest} Felder` : 'Aus dem Krater geklettert';
-          if (rest > 0) {
-            advance(tx, team, rest, 'dice');
-            result = checkArrival(tx, team) ? 'finished' : applyField(tx, phase, team);
-          }
+          if (rest > 0) result = walk(tx, phase, team, rest, 'dice');
         } else {
           tx.effects.push({ type: 'crater', teamId: team.id, position: team.position, result: 'climb', roll: total, climbed: c.climbed, need: c.need });
           feed(tx, '🧗', `${teamLabel(team)} würfelt ${rollText} und klettert – noch ${c.need - c.climbed} Augen bis zum Rand`, team.id);
@@ -436,9 +503,8 @@ export function handleDiceCommand(
           team.blocked = null;
           tx.effects.push({ type: 'barrier', teamId: team.id, roll: main, result: 'released' });
           feed(tx, '🔓', `${teamLabel(team)} würfelt ${main} und ist frei!`, team.id);
-          advance(tx, team, total, 'dice');
           outcome = `Befreit, ${total} Felder`;
-          result = checkArrival(tx, team) ? 'finished' : applyField(tx, phase, team);
+          result = walk(tx, phase, team, total, 'dice');
         } else {
           team.blocked.attempts += 1;
           const max = rules.barrierMaxAttempts;
@@ -454,10 +520,9 @@ export function handleDiceCommand(
           }
         }
       } else {
-        advance(tx, team, total, 'dice');
+        result = walk(tx, phase, team, total, 'dice');
         feed(tx, '🎲', `${teamLabel(team)} würfelt ${rollText} → Feld ${team.position}`, team.id);
-        outcome = `${total} Felder`;
-        result = checkArrival(tx, team) ? 'finished' : applyField(tx, phase, team);
+        outcome = result === 'pending' ? `${total} Felder (Halt bei Feld ${team.position})` : `${total} Felder`;
       }
 
       record.to = team.position;
@@ -479,7 +544,8 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const id = currentTeamId(phase.dice);
       if (!id) fail('Niemand ist mehr dran');
-      phase.dice.vine = null;
+      phase.dice.challenge = null;
+      delete phase.dice.vine;
       const openFg = phase.dice.fieldGame;
       if (openFg) {
         if (openFg.stage === 'running') undoDraw(tx, openFg.drawn, openFg.item?.playerCount ?? '1');
@@ -493,32 +559,92 @@ export function handleDiceCommand(
       return;
     }
 
-    case 'vine.roll': {
+    case 'vine.roll':
+    case 'challenge.roll': {
       const phase = dicePhase(tx);
       const dice = phase.dice;
-      const v = dice.vine;
-      if (!v) fail('Niemand hängt gerade an der Liane');
+      const c = dice.challenge;
+      if (!c || c.kind === 'river') fail('Gerade wartet keine Mutprobe mit Würfel');
       const staff = isStaff(tx.actor);
-      const team = resolveTeamFor(tx, cmd.teamId ?? (staff ? v.teamId : undefined));
-      if (team.id !== v.teamId) fail(`${teamLabel(findTeam(s, v.teamId))} hängt an der Liane`, 'forbidden');
+      const team = resolveTeamFor(tx, cmd.teamId ?? (staff ? c.teamId : undefined));
+      if (team.id !== c.teamId) fail(`${teamLabel(findTeam(s, c.teamId))} ist bei der Mutprobe dran`, 'forbidden');
       if (now < dice.busyUntil - 300 && !(staff && cmd.force)) fail('Einen Moment – auf dem Spielbrett läuft noch die Animation', 'busy');
       const start = tx.effects.length;
-      const sides = rules.vine?.sides ?? 6;
-      const roll = staff && cmd.value ? Math.min(cmd.value, sides) : randInt(tx.ctx.rng, 1, sides);
-      dice.vine = null;
-      tx.effects.push({ type: 'vine', teamId: team.id, position: team.position, stage: 'swing', roll, sides });
-      const from = team.position;
-      advance(tx, team, roll, 'vine');
-      feed(tx, '🌿', `${teamLabel(team)} würfelt ${roll} und schwingt an der Liane bis Feld ${team.position}`, team.id);
+      dice.challenge = null;
+      const record = [...dice.rolls].reverse().find((r) => r.teamId === team.id);
+      let result: 'done' | 'pending' | 'finished' = 'done';
+      let note = '';
+      if (c.kind === 'vine') {
+        const sides = rules.vine?.sides ?? 6;
+        const roll = staff && cmd.value ? Math.min(cmd.value, sides) : randInt(tx.ctx.rng, 1, sides);
+        tx.effects.push({ type: 'vine', teamId: team.id, position: team.position, stage: 'swing', roll, sides, remaining: c.remaining });
+        move(tx, team, c.position + roll, 'vine');
+        feed(tx, '🌿', `${teamLabel(team)} würfelt ${roll} und schwingt über den Bach bis Feld ${team.position}${c.remaining ? ` – jetzt noch ${c.remaining} Felder` : ''}`, team.id);
+        note = `Liane +${roll}`;
+        tx.label = `Lianen-Wurf ${teamLabel(team)}: ${roll}`;
+        result = checkArrival(tx, team) ? 'finished' : walk(tx, phase, team, c.remaining, 'dice');
+      } else {
+        const need = rules.cave.need;
+        const roll = staff && cmd.value ? Math.min(cmd.value, 6) : randInt(tx.ctx.rng, 1, 6);
+        const success = roll >= need;
+        tx.effects.push({ type: 'cave', teamId: team.id, position: team.position, stage: 'roll', roll, need, success, remaining: c.remaining });
+        tx.label = `Mutprobe ${teamLabel(team)}: ${roll}`;
+        if (success) {
+          feed(tx, '🦇', `${teamLabel(team)} würfelt ${roll} – geschafft, weiter geht’s!`, team.id);
+          note = `Mutprobe ${roll} ✓`;
+          result = walk(tx, phase, team, c.remaining, 'dice');
+        } else {
+          note = `Mutprobe ${roll} ✗ – Vulkan`;
+          enterInside(tx, team);
+        }
+      }
+      if (record) {
+        record.to = team.position;
+        record.outcome = `${record.outcome} · ${note}`;
+      }
+      if (result === 'finished') return;
+      if (result !== 'pending') {
+        react(tx, team, record?.from ?? team.position, start);
+        advanceTurn(tx, phase);
+      }
+      if (s.phase.name === 'dice' || s.phase.name === 'round_end') bump(tx, phase, start);
+      return;
+    }
+
+    case 'challenge.choose': {
+      const phase = dicePhase(tx);
+      const dice = phase.dice;
+      const c = dice.challenge;
+      if (!c || c.kind !== 'river') fail('Gerade steht niemand am Wasserfall');
+      const staff = isStaff(tx.actor);
+      const team = resolveTeamFor(tx, cmd.teamId ?? (staff ? c.teamId : undefined));
+      if (team.id !== c.teamId) fail(`${teamLabel(findTeam(s, c.teamId))} ist am Wasserfall dran`, 'forbidden');
+      if (now < dice.busyUntil - 300 && !(staff && cmd.force)) fail('Einen Moment – auf dem Spielbrett läuft noch die Animation', 'busy');
+      const start = tx.effects.length;
+      dice.challenge = null;
+      const fall = staff && cmd.result ? cmd.result === 'fall' : randInt(tx.ctx.rng, 1, 100) <= rules.river.fallChance;
+      const what = cmd.choice === 'barrels' ? 'Fässer' : 'Kisten';
+      tx.effects.push({ type: 'river', teamId: team.id, position: team.position, stage: 'cross', choice: cmd.choice, result: fall ? 'fall' : 'safe', remaining: c.remaining });
+      const span = riverSpan(s.config.board.fields);
+      if (span) move(tx, team, span.exit, 'river');
+      let result: 'done' | 'pending' | 'finished' = 'done';
+      if (fall) {
+        feed(tx, '💦', `${teamLabel(team)} wählt die ${what} – die brechen ein! Platsch, ans andere Ufer schwimmen, der restliche Wurf verfällt`, team.id);
+      } else {
+        feed(tx, '🛢️', `${teamLabel(team)} wählt die ${what} und kommt trocken rüber${c.remaining ? ` – noch ${c.remaining} Felder` : ''}`, team.id);
+        result = checkArrival(tx, team) ? 'finished' : walk(tx, phase, team, c.remaining, 'dice');
+      }
       const record = [...dice.rolls].reverse().find((r) => r.teamId === team.id);
       if (record) {
         record.to = team.position;
-        record.outcome = `${record.outcome} · Liane +${team.position - from}`;
+        record.outcome = `${record.outcome} · ${what} ${fall ? '✗' : '✓'}`;
       }
-      tx.label = `Lianen-Wurf ${teamLabel(team)}: ${roll}`;
-      if (checkArrival(tx, team)) return;
-      react(tx, team, record?.from ?? from, start);
-      advanceTurn(tx, phase);
+      tx.label = `${what} gewählt: ${teamLabel(team)}`;
+      if (result === 'finished') return;
+      if (result !== 'pending') {
+        react(tx, team, record?.from ?? team.position, start);
+        advanceTurn(tx, phase);
+      }
       if (s.phase.name === 'dice' || s.phase.name === 'round_end') bump(tx, phase, start);
       return;
     }

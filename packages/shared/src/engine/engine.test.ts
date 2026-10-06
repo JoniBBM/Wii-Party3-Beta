@@ -383,37 +383,51 @@ describe('Würfeln & Sonderfelder', () => {
     expect(h.team(0).position).toBe(7);
   });
 
-  it('Fässer im Fluss: sicher drüber oder ins Wasser und zurücktreiben', () => {
+  it('Fässer oder Kisten: Halt am Ufer, Wahl, trocken weiter oder Rest verfällt', () => {
     const h = harness({ config: { board: boardWith({ 9: 'river', 10: 'river' }) } }).setup();
     const [a, b] = [h.team(0), h.team(1)];
-    h.mutate((s) => (s.config.rules.river = { enabled: true, fallChance: 100, driftBack: { min: 3, max: 3 } }));
-    h.toDice([a.id, b.id]);
-    const r = h.run({ type: 'dice.roll', main: 5, force: true }, ADMIN);
-    h.mutate((s) => (s.teams[0]!.position = 9));
-    expect(r.effects.some((e) => e.type === 'river')).toBe(false);
-    h.toDice([a.id, b.id]);
-    const r2 = h.run({ type: 'dice.roll', main: 1, force: true }, ADMIN);
-    // Landet auf 10 → fällt → 3 zurück wäre 7 (vor der Furt)
-    expect(r2.effects.find((e) => e.type === 'river')).toMatchObject({ result: 'fall', position: 10 });
-    expect(r2.effects.find((e) => e.type === 'move' && e.reason === 'river')).toMatchObject({ from: 10, to: 7 });
-    expect(h.team(0).position).toBe(7);
-    // Treiben endet nie auf einem Fass
     h.mutate((s) => {
-      s.config.rules.river.driftBack = { min: 1, max: 1 };
-      s.teams[0]!.position = 9;
+      s.config.rules.river = { enabled: true, fallChance: 0 };
+      s.teams[0]!.position = 2;
     });
     h.toDice([a.id, b.id]);
-    h.run({ type: 'dice.roll', main: 1, force: true }, ADMIN);
+    // 2 + 6 → genau am Ufer (Feld 8), kein Rest
+    const r = h.run({ type: 'dice.roll', main: 6, force: true }, ADMIN);
     expect(h.team(0).position).toBe(8);
-    // Ohne Sturzgefahr bleibt man stehen
+    expect(r.effects.find((e) => e.type === 'river')).toMatchObject({ stage: 'choose', position: 8, remaining: 0 });
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ kind: 'river', teamId: a.id });
+    expect(phase(h.s, 'dice').dice.index).toBe(0);
+    h.tick(10_000);
+    expect(() => h.run({ type: 'dice.roll', force: true }, ADMIN)).toThrow(/Fässer oder Kisten/);
+    // Andere Teams dürfen nicht wählen
+    expect(() => h.run({ type: 'challenge.choose', choice: 'barrels' }, { role: 'team', teamId: b.id })).toThrow(EngineError);
+    const r2 = h.run({ type: 'challenge.choose', choice: 'crates' }, { role: 'team', teamId: a.id });
+    expect(r2.effects.find((e) => e.type === 'river')).toMatchObject({ stage: 'cross', choice: 'crates', result: 'safe' });
+    expect(h.team(0).position).toBe(11); // anderes Ufer, Rest 0
+    expect(phase(h.s, 'dice').dice.index).toBe(1);
+
+    // Mit Rest: sicher → Rest wird gelaufen; eingebrochen → Rest verfällt
     h.mutate((s) => {
-      s.config.rules.river.fallChance = 0;
-      s.teams[0]!.position = 8;
+      s.teams[1]!.position = 6;
     });
+    h.tick(10_000);
+    h.run({ type: 'dice.roll', main: 6, force: true }, ADMIN); // 6 → Ufer 8, Rest 4
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ kind: 'river', remaining: 4 });
+    h.tick(10_000);
+    h.run({ type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true }, ADMIN);
+    expect(h.team(1).position).toBe(15);
+    h.mutate((s) => (s.teams[0]!.position = 7));
     h.toDice([a.id, b.id]);
-    const r3 = h.run({ type: 'dice.roll', main: 1, force: true }, ADMIN);
-    expect(r3.effects.find((e) => e.type === 'river')).toMatchObject({ result: 'safe' });
-    expect(h.team(0).position).toBe(9);
+    h.run({ type: 'dice.roll', main: 5, force: true }, ADMIN); // Ufer, Rest 4
+    h.tick(10_000);
+    const r3 = h.run({ type: 'challenge.choose', choice: 'barrels', result: 'fall', force: true }, ADMIN);
+    expect(r3.effects.find((e) => e.type === 'river')).toMatchObject({ result: 'fall' });
+    expect(h.team(0).position).toBe(11);
+    // Wer am Ufer steht, muss beim nächsten Wurf zuerst wählen
+    h.mutate((s) => (s.teams[1]!.position = 8));
+    h.tick(10_000);
+    h.run({ type: 'dice.roll', main: 2, force: true }, ADMIN);
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ kind: 'river', teamId: b.id, remaining: 2 });
   });
 
   it('Krater: hineinfallen, Augen sammeln, Rest weiterlaufen', () => {
@@ -455,43 +469,36 @@ describe('Würfeln & Sonderfelder', () => {
     expect(h.team(0).position).toBeLessThan(36);
   });
 
-  it('Liane: Team hängt an der Liane, würfelt erneut und schwingt nach vorne', () => {
+  it('Liane: Pflichthalt, Lianen-Wurf, danach mit dem restlichen Wurf weiter', () => {
     const h = harness({ config: { board: boardWith({ 4: 'vine' }) } }).setup();
     const [a, b] = [h.team(0), h.team(1)];
     h.toDice([a.id, b.id]);
-    const r = h.run({ type: 'dice.roll', main: 4, force: true }, ADMIN);
-    expect(r.effects.find((e) => e.type === 'vine')).toMatchObject({ stage: 'grab', position: 4, sides: 6 });
-    const dice = phase(h.s, 'dice').dice;
-    expect(dice.vine).toEqual({ teamId: a.id, position: 4 });
-    expect(dice.index).toBe(0); // Runde wartet auf den Lianen-Wurf
-    // Normales Würfeln ist gesperrt, das andere Team darf nicht für A werfen
+    // Wurf 6 über die Liane hinweg → hält bei 4, Rest 2
+    const r = h.run({ type: 'dice.roll', main: 6, force: true }, ADMIN);
+    expect(h.team(0).position).toBe(4);
+    expect(r.effects.find((e) => e.type === 'vine')).toMatchObject({ stage: 'grab', position: 4, sides: 6, remaining: 2 });
+    expect(phase(h.s, 'dice').dice.challenge).toEqual({ teamId: a.id, kind: 'vine', position: 4, remaining: 2 });
+    expect(phase(h.s, 'dice').dice.index).toBe(0);
     h.tick(10_000);
     expect(() => h.run({ type: 'dice.roll', force: true }, ADMIN)).toThrow(/Liane/);
-    const teamB = { role: 'team' as const, teamId: b.id };
-    expect(() => h.run({ type: 'vine.roll' }, teamB)).toThrow(EngineError);
-    // Team A wirft selbst
-    const teamA = { role: 'team' as const, teamId: a.id };
-    const r2 = h.run({ type: 'vine.roll' }, teamA);
-    const swing = r2.effects.find((e) => e.type === 'vine');
-    expect(swing).toMatchObject({ stage: 'swing' });
-    const roll = (swing as { roll: number }).roll;
-    expect(roll).toBeGreaterThanOrEqual(1);
-    expect(roll).toBeLessThanOrEqual(6);
-    expect(h.team(0).position).toBe(4 + roll);
+    expect(() => h.run({ type: 'challenge.roll' }, { role: 'team', teamId: b.id })).toThrow(EngineError);
+    const r2 = h.run({ type: 'challenge.roll' }, { role: 'team', teamId: a.id });
+    const swing = r2.effects.find((e) => e.type === 'vine') as { roll: number; stage: string };
+    expect(swing.stage).toBe('swing');
+    expect(h.team(0).position).toBe(4 + swing.roll + 2);
     expect(r2.effects.find((e) => e.type === 'move' && e.reason === 'vine')).toBeTruthy();
-    expect(phase(h.s, 'dice').dice.vine).toBeNull();
+    expect(phase(h.s, 'dice').dice.challenge).toBeNull();
     expect(phase(h.s, 'dice').dice.index).toBe(1);
-    // Regie kann einen festen Wert setzen; Überspringen löst die Liane
-    h.mutate((s) => (s.teams[1]!.position = 0));
+    // Genau auf der Liane: Rest 0; alter Befehlsname geht weiterhin
     h.tick(10_000);
     h.run({ type: 'dice.roll', main: 4, force: true }, ADMIN);
-    expect(phase(h.s, 'dice').dice.vine?.teamId).toBe(b.id);
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ teamId: b.id, remaining: 0 });
     h.tick(10_000);
     h.run({ type: 'vine.roll', value: 3, force: true }, ADMIN);
     expect(h.team(1).position).toBe(7);
   });
 
-  it('Lavahöhle: hineinfallen und zum Vulkanfuß rutschen', () => {
+  it('Lavahöhle: Mutprobe – mit 3+ weiter, sonst ins Vulkan-Innere', () => {
     const goal = 72;
     const marks = islandLandmarks(goal);
     const board = generateBoard(goal, 3);
@@ -501,21 +508,87 @@ describe('Würfeln & Sonderfelder', () => {
     const [a, b] = [h.team(0), h.team(1)];
     h.mutate((s) => {
       s.config.rules.volcano.enabled = false;
+      for (let i = cave + 1; i < cave + 8; i++) if (s.config.board.fields[i] !== 'crater') s.config.board.fields[i] = 'normal';
       s.teams[0]!.position = cave - 2;
+      s.teams[1]!.position = cave - 1;
     });
     h.toDice([a.id, b.id]);
-    const r = h.run({ type: 'dice.roll', main: 2, force: true }, ADMIN);
-    expect(r.effects.find((e) => e.type === 'cave')).toMatchObject({ position: cave });
-    expect(r.effects.find((e) => e.type === 'move' && e.reason === 'cave')).toMatchObject({ from: cave, to: marks.caveExit });
-    expect(h.team(0).position).toBe(marks.caveExit);
-    // abgeschaltet → normales Feld
-    h.mutate((s) => {
-      s.config.rules.cave.enabled = false;
-      s.teams[1]!.position = cave - 2;
-    });
+    h.run({ type: 'dice.roll', main: 5, force: true }, ADMIN); // hält an der Höhle, Rest 3
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ kind: 'cave', position: cave, remaining: 3 });
+    h.tick(10_000);
+    const r = h.run({ type: 'challenge.roll', value: 4, force: true }, ADMIN);
+    expect(r.effects.find((e) => e.type === 'cave')).toMatchObject({ stage: 'roll', roll: 4, need: 3, success: true });
+    expect(h.team(0).position).toBe(cave + 3);
+    // Team B würfelt zu wenig → Vulkan-Inneres, zurück später auf die Höhle
     h.tick(10_000);
     h.run({ type: 'dice.roll', main: 2, force: true }, ADMIN);
+    h.tick(10_000);
+    const r2 = h.run({ type: 'challenge.roll', value: 2, force: true }, ADMIN);
+    expect(r2.effects.find((e) => e.type === 'inside')).toMatchObject({ stage: 'enter', returnTo: cave });
+    expect(h.team(1).inside).toEqual({ step: 0, returnTo: cave });
     expect(h.team(1).position).toBe(cave);
+  });
+
+  it('Totenkopf und Vulkan-Inneres: Strafweg, Ausgangsfeld, Schutz vor Tausch und Ausbruch', () => {
+    const h = harness({ config: { board: boardWith({ 6: 'skull', 12: 'swap' }) } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.mutate((s) => {
+      s.config.rules.inside = { enabled: true, length: 9, shout: 4 };
+      s.config.rules.swapMinDistance = 0;
+    });
+    h.toDice([a.id, b.id]);
+    const r = h.run({ type: 'dice.roll', main: 6, force: true }, ADMIN);
+    expect(r.effects.find((e) => e.type === 'field')).toMatchObject({ field: 'skull' });
+    expect(h.team(0).inside).toEqual({ step: 0, returnTo: 6 });
+    // Team B landet auf dem Tauschfeld – Team A im Vulkan ist sicher
+    h.mutate((s) => (s.teams[1]!.position = 9));
+    h.tick(10_000);
+    const r2 = h.run({ type: 'dice.roll', main: 3, force: true }, ADMIN);
+    expect(r2.effects.find((e) => e.type === 'field')).toMatchObject({ text: 'Niemand zum Tauschen' });
+    expect(h.team(0).position).toBe(6);
+    // Im Vulkan: 3 Schritte, dann genau aufs Ausgangsfeld (4) → raus
+    h.toDice([a.id, b.id]);
+    const r3 = h.run({ type: 'dice.roll', main: 3, force: true }, ADMIN);
+    expect(r3.effects.find((e) => e.type === 'inside')).toMatchObject({ stage: 'walk', from: 0, to: 3 });
+    expect(h.team(0).inside).toEqual({ step: 3, returnTo: 6 });
+    h.toDice([a.id, b.id]);
+    const r4 = h.run({ type: 'dice.roll', main: 1, force: true }, ADMIN);
+    expect(r4.effects.find((e) => e.type === 'inside' && e.stage === 'exit')).toMatchObject({ shout: true, returnTo: 6 });
+    expect(h.team(0).inside).toBeNull();
+    expect(h.team(0).position).toBe(6);
+    // Bis zum Ende laufen (9) → raus; überzählige Augen verfallen
+    h.mutate((s) => (s.teams[0]!.inside = { step: 6, returnTo: 6 }));
+    h.toDice([a.id, b.id]);
+    h.run({ type: 'dice.roll', main: 5, force: true }, ADMIN);
+    expect(h.team(0).inside).toBeNull();
+    expect(h.team(0).position).toBe(6);
+    // Ausbruch trifft niemanden im Vulkan-Inneren
+    h.mutate((s) => {
+      s.teams[0]!.position = 38;
+      s.teams[0]!.inside = { step: 1, returnTo: 38 };
+    });
+    h.run({ type: 'volcano.erupt' }, ADMIN);
+    expect(h.team(0).position).toBe(38);
+    expect(h.team(0).inside).not.toBeNull();
+  });
+
+  it('Regie holt ein Team aus dem Vulkan-Inneren (befreien oder auf ein Feld setzen)', () => {
+    const h = harness().setup();
+    h.mutate((s) => {
+      s.teams[0]!.position = 20;
+      s.teams[0]!.inside = { step: 2, returnTo: 20 };
+      s.teams[1]!.position = 30;
+      s.teams[1]!.inside = { step: 5, returnTo: 30 };
+    });
+    const r = h.run({ type: 'team.unblock', teamId: h.team(0).id }, ADMIN);
+    expect(r.effects.find((e) => e.type === 'inside')).toMatchObject({ stage: 'exit', returnTo: 20 });
+    expect(h.team(0).inside).toBeNull();
+    expect(h.team(0).position).toBe(20);
+    const r2 = h.run({ type: 'team.setPosition', teamId: h.team(1).id, position: 12 }, ADMIN);
+    expect(r2.effects.find((e) => e.type === 'inside')).toMatchObject({ stage: 'exit', returnTo: 12 });
+    expect(r2.effects.some((e) => e.type === 'move')).toBe(false);
+    expect(h.team(1).inside).toBeNull();
+    expect(h.team(1).position).toBe(12);
   });
 
   it('alte Spielstände ohne Fluss/Krater werden ergänzt', () => {
@@ -713,14 +786,15 @@ describe('Reaktionen nach dem Zug', () => {
     expect(moodAfterTurn([], 'a', 5)).toBe('happy');
     expect(moodAfterTurn([], 'a', 9)).toBe('super');
     expect(moodAfterTurn([{ type: 'summit', teamId: 'a' }], 'a', 2)).toBe('super');
-    expect(moodAfterTurn([{ type: 'river', teamId: 'a', position: 9, result: 'fall' }], 'a', -2)).toBe('sad');
-    expect(moodAfterTurn([{ type: 'cave', teamId: 'a', position: 30 }], 'a', -6)).toBe('angry');
+    expect(moodAfterTurn([{ type: 'river', teamId: 'a', position: 9, stage: 'cross', choice: 'barrels', result: 'fall', remaining: 3 }], 'a', 2)).toBe('sad');
+    expect(moodAfterTurn([{ type: 'cave', teamId: 'a', position: 30, stage: 'roll', roll: 1, need: 3, success: false, remaining: 0 }], 'a', 2)).toBe('shock');
+    expect(moodAfterTurn([{ type: 'inside', teamId: 'a', stage: 'exit', from: 9, to: 9, returnTo: 20, shout: false }], 'a', 0)).toBe('super');
     expect(moodAfterTurn([{ type: 'crater', teamId: 'a', position: 36, result: 'fall', roll: 0, climbed: 0, need: 8 }], 'a', 3)).toBe('shock');
     expect(moodAfterTurn([{ type: 'barrier', teamId: 'a', roll: 2, result: 'stuck' }], 'a', 0)).toBe('angry');
     expect(moodAfterTurn([{ type: 'field', teamId: 'a', field: 'catapult_forward', position: 4, text: '+3' }], 'a', 7)).toBe('super');
     expect(moodAfterTurn([{ type: 'eruption', affected: [{ teamId: 'a', from: 38, to: 30 }] }], 'a', -4)).toBe('shock');
     // Fremde Effekte zählen nicht
-    expect(moodAfterTurn([{ type: 'cave', teamId: 'b', position: 30 }], 'a', 4)).toBe('happy');
+    expect(moodAfterTurn([{ type: 'cave', teamId: 'b', position: 30, stage: 'roll', roll: 1, need: 3, success: false, remaining: 0 }], 'a', 4)).toBe('happy');
   });
 
   it('kann abgeschaltet werden', () => {

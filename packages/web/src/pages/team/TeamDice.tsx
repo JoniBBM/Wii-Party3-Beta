@@ -1,7 +1,7 @@
 /** Würfeln am Handy: großer Würfelknopf, Würfelanimation, Ergebnis, Feld-Minispiel-Hinweis. */
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { FIELD_GAME_MODE_LABEL, FIELD_INFO, barrierText, teamById, type GameState } from '@insel/shared';
+import { FIELD_GAME_MODE_LABEL, FIELD_INFO, barrierText, teamById, type Challenge, type GameState } from '@insel/shared';
 import { useCommand, useServerNow } from '../../lib/hooks.ts';
 import { useShake } from '../../lib/shake.ts';
 import { Button, Card } from '../../ui/basics.tsx';
@@ -51,11 +51,15 @@ export function TeamDice({ state, me }: { state: GameState; me: Me }) {
     );
   }
 
-  const vine = dice.vine;
+  const challenge = dice.challenge;
   return (
     <>
-      {vine && vine.teamId === team.id ? (
-        <VinePanel state={state} />
+      {challenge && challenge.teamId === team.id ? (
+        challenge.kind === 'river' ? (
+          <RiverPanel state={state} challenge={challenge} />
+        ) : (
+          <ChallengeRollPanel state={state} challenge={challenge} />
+        )
       ) : mine ? (
         <RollPanel state={state} me={me} />
       ) : myRoll ? (
@@ -116,26 +120,76 @@ function ShakingDie({ busy, level, value = 5 }: { busy: boolean; level: number; 
   );
 }
 
-function VinePanel({ state }: { state: GameState }) {
+/** Mutprobe mit Würfel: Liane (wie weit schwingen) oder Lavahöhle (Vulkan oder nicht). */
+function ChallengeRollPanel({ state, challenge }: { state: GameState; challenge: Challenge }) {
   const { run, pending } = useCommand();
   const now = useServerNow(200);
   const busy = state.phase.name === 'dice' ? Math.max(0, state.phase.dice.busyUntil - now) : 0;
-  const sides = state.config.rules.vine?.sides ?? 6;
+  const vine = challenge.kind === 'vine';
+  const sides = vine ? (state.config.rules.vine?.sides ?? 6) : 6;
+  const need = state.config.rules.cave?.need ?? 3;
   const roll = () => {
     if (busy > 0 || pending) return;
-    void run({ type: 'vine.roll' });
+    void run({ type: 'challenge.roll' });
   };
   const shake = useShake(busy === 0, roll);
+  const rest = challenge.remaining > 0 ? `Danach lauft ihr noch ${challenge.remaining} ${challenge.remaining === 1 ? 'Feld' : 'Felder'} weiter.` : '';
   return (
     <Card className="flex flex-col items-center gap-4 overflow-hidden p-6 text-center">
-      <span className="text-6xl animate-float">🌿</span>
-      <p className="font-display text-3xl font-semibold">Ihr hängt an der Liane!</p>
-      <p className="text-ink-2">Würfelt noch einmal (W{sides}) – so viele Felder schwingt ihr nach vorne.</p>
+      <span className="text-6xl animate-float">{vine ? '🌿' : '🦇'}</span>
+      <p className="font-display text-3xl font-semibold">{vine ? 'Ab an die Liane!' : 'Mutprobe: Vulkan oder nicht?'}</p>
+      <p className="text-ink-2">
+        {vine
+          ? `Würfelt (W${sides}), wie weit ihr über den Bach schwingt. ${rest}`
+          : `Würfelt mindestens eine ${need}, sonst fallt ihr ins Innere des Vulkans! ${rest}`}
+      </p>
       <ShakingDie busy={busy > 0} level={shake.level} value={sides >= 6 ? 6 : sides} />
-      <Button variant="primary" size="xl" block loading={pending === 'vine.roll'} disabled={busy > 0} onClick={roll} className="animate-pulse-ring">
-        {busy > 0 ? `Moment … ${Math.ceil(busy / 1000)}` : '🌿 Lianen-Wurf!'}
+      <Button variant="primary" size="xl" block loading={pending === 'challenge.roll'} disabled={busy > 0} onClick={roll} className="animate-pulse-ring">
+        {busy > 0 ? `Moment … ${Math.ceil(busy / 1000)}` : vine ? '🌿 Lianen-Wurf!' : '🎲 Mutprobe würfeln!'}
       </Button>
       <ShakeHint shake={shake} />
+    </Card>
+  );
+}
+
+/** Mutprobe am Wasserfall: Fässer oder Kisten? */
+function RiverPanel({ state, challenge }: { state: GameState; challenge: Challenge }) {
+  const { run, pending } = useCommand();
+  const now = useServerNow(200);
+  const busy = state.phase.name === 'dice' ? Math.max(0, state.phase.dice.busyUntil - now) : 0;
+  const choose = (choice: 'barrels' | 'crates') => {
+    if (busy > 0 || pending) return;
+    void run({ type: 'challenge.choose', choice });
+  };
+  return (
+    <Card className="flex flex-col items-center gap-4 overflow-hidden p-6 text-center">
+      <span className="text-6xl animate-float">🌊</span>
+      <p className="font-display text-3xl font-semibold">Fässer oder Kisten?</p>
+      <p className="text-ink-2">
+        Eine Seite trägt euch, die andere bricht vielleicht ein – dann fallt ihr ins Wasser und der Rest eures Wurfs verfällt.
+        {challenge.remaining > 0 && ` Sonst geht es danach noch ${challenge.remaining} ${challenge.remaining === 1 ? 'Feld' : 'Felder'} weiter.`}
+      </p>
+      <div className="grid w-full grid-cols-2 gap-3">
+        {(
+          [
+            ['barrels', '🛢️', 'Fässer', '#c27a3a'],
+            ['crates', '📦', 'Kisten', '#a8743f'],
+          ] as const
+        ).map(([value, icon, label, color]) => (
+          <button
+            key={value}
+            type="button"
+            disabled={busy > 0 || !!pending}
+            onClick={() => choose(value)}
+            className="flex flex-col items-center gap-1 rounded-3xl border-4 border-white px-3 py-5 text-white shadow-lifted transition active:scale-95 disabled:opacity-50"
+            style={{ background: `linear-gradient(180deg, ${color}, color-mix(in srgb, ${color} 70%, black))` }}
+          >
+            <span className="text-5xl">{icon}</span>
+            <span className="font-display text-2xl font-semibold">{label}</span>
+          </button>
+        ))}
+      </div>
+      {busy > 0 && <p className="text-sm font-bold text-muted">Moment … {Math.ceil(busy / 1000)}</p>}
     </Card>
   );
 }
@@ -158,6 +212,12 @@ function RollPanel({ state, me }: { state: GameState; me: Me }) {
     <Card className="flex flex-col items-center gap-4 overflow-hidden p-6 text-center">
       <p className="font-display text-3xl font-semibold">Ihr seid dran!</p>
       {team.blocked && <p className="rounded-2xl bg-warn-soft px-3 py-2 font-bold">🚧 Ihr steckt fest. Zum Befreien braucht ihr {barrierText(rules.barrier)}.</p>}
+      {team.inside && (
+        <p className="rounded-2xl bg-bad-soft px-3 py-2 font-bold">
+          🌋 Ihr seid im Vulkan! Noch {state.config.rules.inside.length - team.inside.step} Felder bis zum Ausgang
+          {team.inside.step < state.config.rules.inside.shout ? ` – mit genau ${state.config.rules.inside.shout - team.inside.step} landet ihr auf dem leuchtenden Ausgangsfeld und seid sofort draußen` : ''}.
+        </p>
+      )}
       {team.crater && (
         <p className="rounded-2xl bg-warn-soft px-3 py-2 font-bold">
           🕳️ Ihr hängt im Krater! Noch {team.crater.need - team.crater.climbed} Augen bis zum Rand – was übrig bleibt, lauft ihr weiter.
@@ -232,14 +292,15 @@ function MyRoll({ state, me }: { state: GameState; me: Me }) {
 
 function Waiting({ state, currentId }: { state: GameState; currentId: string | null }) {
   const t = teamById(state, currentId);
-  const onVine = state.phase.name === 'dice' && state.phase.dice.vine?.teamId === currentId;
+  const ch = state.phase.name === 'dice' ? state.phase.dice.challenge : null;
+  const at = ch && ch.teamId === currentId ? ch.kind : null;
   return (
     <Card className="flex flex-col items-center gap-3 p-6 text-center">
       <span className="text-5xl animate-float">🎲</span>
       <p className="font-display text-2xl font-semibold">Würfelrunde</p>
       {t && (
         <p className="flex items-center gap-2 text-ink-2">
-          <TeamChip team={t} /> {onVine ? 'hängt an der Liane 🌿' : 'ist dran'}
+          <TeamChip team={t} /> {at === 'vine' ? 'hängt an der Liane 🌿' : at === 'river' ? 'wählt Fässer oder Kisten 🛢️' : at === 'cave' ? 'macht die Mutprobe an der Lavahöhle 🦇' : t.inside ? 'ist im Vulkan 🌋' : 'ist dran'}
         </p>
       )}
     </Card>

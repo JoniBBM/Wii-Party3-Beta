@@ -46,6 +46,8 @@ export const COMMAND_ROLES: Record<CommandType, Role[]> = {
   'dice.roll': [...STAFF, ...TEAMISH],
   'dice.skip': STAFF,
   'vine.roll': [...STAFF, ...TEAMISH],
+  'challenge.roll': [...STAFF, ...TEAMISH],
+  'challenge.choose': [...STAFF, ...TEAMISH],
   'fieldgame.setup': STAFF,
   'fieldgame.result': STAFF,
   'fieldgame.cancel': STAFF,

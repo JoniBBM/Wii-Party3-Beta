@@ -329,24 +329,11 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
   root.add(buildRopeBridge(layout));
 
   // =========================================================================
-  // Furt: Flöße aus Fässern unter den Feldern, treibende Fässer und Kisten
+  // Furt: die beiden Wege (Fässer / Kisten) baut stunts.ts; hier treibende Fässer und
+  // Kisten weiter flussabwärts, Kanu am Ufer
   // =========================================================================
   {
-    const ford = layout.ford;
-    const level = ford.y;
-    const fr = layout.fieldRadius;
-    // Unter jedem Furt-Feld ein großes Fass, das im Wasser steht (das Feld liegt auf dem Deckel)
-    const barrels: { o: THREE.Object3D; ph: number; y: number }[] = [];
-    for (const i of layout.fordFields) {
-      const f = layout.fields[i]!;
-      const b = bigBarrel(fr * 1.04, 1.7);
-      b.position.set(f.x, layout.ford.raftY - 0.1 - 1.7, f.z);
-      b.rotation.y = R() * 6;
-      root.add(b);
-    }
-    // treibende Fässer und Kisten zwischen den großen Fässern und weiter flussabwärts
-    const floaters: { o: THREE.Object3D; ph: number; y: number }[] = barrels;
-    const along = layout.path.filter((p) => p.s > ford.s0 - 0.6 && p.s < ford.s1 + 0.6);
+    const floaters: { o: THREE.Object3D; ph: number; y: number }[] = [];
     const drift = (x: number, z: number, y: number, crateish: boolean) => {
       const o = crateish ? floatingCrate(0.55) : bigBarrel(0.3, 0.75);
       if (!crateish) o.rotation.set(Math.PI / 2, R() * 3, 0);
@@ -356,14 +343,8 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
       root.add(o);
       floaters.push({ o, ph: R() * 6, y });
     };
-    for (let k = 3; k < along.length - 3; k += 6) {
-      const p = along[k]!;
-      if (layout.fordFields.some((i) => Math.hypot(layout.fields[i]!.x - p.x, layout.fields[i]!.z - p.z) < fr * 1.5)) continue;
-      const side = R() < 0.5 ? -1 : 1;
-      drift(p.x + side * (fr * 1.3 + R() * 0.4), p.z + (R() - 0.5) * 0.6, level - 0.05, R() < 0.4);
-    }
-    for (let k = 0; k < 6; k++) {
-      const p = RIVER[5 + (k % 6)]!;
+    for (let k = 0; k < 5; k++) {
+      const p = RIVER[8 + (k % 4)]!;
       drift(p.x + (R() - 0.5) * p.w, p.z + (R() - 0.5) * p.w, p.y - 0.05, k % 2 === 0);
     }
     updaters.push((t) => {
@@ -372,21 +353,6 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
         f.o.rotation.z = Math.sin(t * 1.3 + f.ph) * 0.08 + (f.o.rotation.x ? 0 : 0);
       }
     });
-    // Führungsseil über den Fluss
-    const a = along[0]!;
-    const b = along[along.length - 1]!;
-    const hd = Math.atan2(b.z - a.z, b.x - a.x);
-    const off = fr * 1.55;
-    for (const side of [-1, 1]) {
-      const ox = Math.cos(hd + Math.PI / 2) * off * side;
-      const oz = Math.sin(hd + Math.PI / 2) * off * side;
-      const pa = new THREE.Vector3(a.x + ox, a.y + 1.1, a.z + oz);
-      const pb = new THREE.Vector3(b.x + ox, b.y + 1.1, b.z + oz);
-      for (const q of [pa, pb]) root.add(mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.6, 7), mat(WOOD_DARK), q.x, q.y - 0.75, q.z));
-      const mid = pa.clone().lerp(pb, 0.5);
-      mid.y -= 0.45;
-      root.add(rope([pa, mid, pb], 0.03));
-    }
     // Kanu am Ufer
     add(N('canoe'), { ...ground(19.2, 0.6, 0.02), rotY: 0.4, scale: 1 }, 0.45);
   }
@@ -572,7 +538,7 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
 }
 
 /** Holzfass mit Dauben und Eisenreifen (Lathe, Unterkante bei y = 0). */
-function bigBarrel(radius: number, height: number): THREE.Group {
+export function bigBarrel(radius: number, height: number): THREE.Group {
   const g = new THREE.Group();
   const pts: THREE.Vector2[] = [];
   for (let k = 0; k <= 10; k++) {
@@ -603,7 +569,7 @@ function bigBarrel(radius: number, height: number): THREE.Group {
 }
 
 /** Schwimmende Holzkiste. */
-function floatingCrate(size: number): THREE.Group {
+export function floatingCrate(size: number): THREE.Group {
   const g = new THREE.Group();
   g.add(mesh(new THREE.BoxGeometry(size, size, size), mat('#a5733f', { flat: true })));
   for (const y of [-size * 0.35, size * 0.35]) g.add(mesh(new THREE.BoxGeometry(size * 1.02, size * 0.12, size * 1.02), mat('#7a4f2b', { flat: true }), 0, y, 0));

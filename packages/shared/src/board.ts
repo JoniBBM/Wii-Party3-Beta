@@ -28,6 +28,7 @@ export function defaultFieldCounts(goal: number): Partial<Record<FieldType, numb
     barrier: Math.max(1, Math.round(goal / 18)),
     minigame: Math.max(1, Math.round(goal / 10)),
     volcano: goal >= 40 ? 3 : goal >= 25 ? 1 : 0,
+    skull: goal >= 50 ? 2 : goal >= 30 ? 1 : 0,
   };
 }
 
@@ -64,6 +65,8 @@ export function generateBoard(goal: number = DEFAULT_GOAL, seed = 1, counts = de
   // Vulkanfelder liegen im oberen Teil des Bergs.
   const volcanoFrom = Math.max(4, goal - Math.max(18, Math.round(goal * 0.28)));
   add('volcano', c.volcano ?? 0, volcanoFrom, goal - 2);
+  // Totenkopf-Felder in der Mitte der Strecke (dort tut der Strafweg im Vulkan am meisten weh)
+  add('skull', c.skull ?? 0, Math.round(goal * 0.3), goal - 6);
 
   wants.sort((a, b) => a.ideal - b.ideal || a.type.localeCompare(b.type));
 

@@ -3,7 +3,7 @@
  * - Effekte: Kenney-Klänge (CC0) und eigene Effekte (ElevenLabs), lautheitsangeglichen
  * - Musik: Stücke im Inselstil, gestreamt, mit weicher Überblendung (auch beim Wiederholen)
  * - Sprache: Kommentator und Spielerklärung; die Musik wird dabei leiser
- * - Umgebung: Meeresrauschen und Vögel als Synthese
+ * - Umgebung: aufgenommene Schleifen (Strand, Dschungel, Vulkan-Inneres); Meeresrauschen und Vögel als Synthese, falls die Dateien fehlen
  */
 import type { ShowSettings } from '@insel/shared';
 
@@ -18,11 +18,13 @@ const KENNEY = [
 export const FX = [
   'jubel', 'aww', 'applaus', 'trommelwirbel', 'vulkan', 'feder', 'ufo', 'flugzeug', 'platsch', 'liane', 'zauber', 'posaune', 'feuerwerk',
   'kaefig', 'salto', 'fass', 'frage', 'richtig', 'falsch', 'pfiff', 'swoosh', 'hoehle', 'zug', 'fallen', 'lava', 'aerger', 'blase',
+  'bruch', 'warp', 'falltuer', 'lavaplatsch',
 ] as const;
 
 export type FxName = (typeof FX)[number];
 export type SampleName = (typeof KENNEY)[number] | FxName;
-export type MusicTrack = 'insel' | 'lobby' | 'spannung' | 'finale';
+/** Dateiname unter /assets/audio/music/ (siehe MUSIC_TRACKS in @insel/shared) */
+export type MusicTrack = string;
 
 interface Sample {
   buffer: AudioBuffer;
@@ -55,6 +57,11 @@ export class BoardAudio {
   private master!: GainNode;
   private sfx!: GainNode;
   private ambience!: GainNode;
+  /** künstliches Meeresrauschen + Vogelzwitschern (Ersatz, falls die Aufnahmen fehlen) */
+  private synth!: GainNode;
+  /** aufgenommene Ambiente-Schleifen (Strand, Dschungel, Vulkan) */
+  private layers = new Map<string, GainNode>();
+  private ambiScene: 'island' | 'inside' = 'island';
   private music!: GainNode;
   private duck!: GainNode;
   private voice!: GainNode;
@@ -63,7 +70,8 @@ export class BoardAudio {
   private birdTimer: number | null = null;
   private musicTimer: number | null = null;
   private decks: Deck[] = [];
-  private wanted: { track: MusicTrack; loop: boolean; then: MusicTrack | null } | null = null;
+  /** gewünschte Musik: Liste (bei `rotate` nacheinander), aktuelles Stück, Folgestück nach einem einmaligen Stück */
+  private wanted: { list: MusicTrack[]; index: number; loop: boolean; rotate: boolean; then: MusicTrack | null } | null = null;
   private voiceSrc: AudioBufferSourceNode | null = null;
   private voiceDone: (() => void) | null = null;
   private levels: AudioLevels = {
@@ -98,11 +106,13 @@ export class BoardAudio {
       this.duck = this.bus(this.master);
       this.music = this.bus(this.duck);
       this.voice = this.bus(this.master);
+      this.synth = this.bus(this.ambience);
       this.ambience.gain.value = 0;
       this.music.gain.value = 0;
       void this.preload();
       this.startOcean();
       this.scheduleBirds();
+      void this.syncAmbience();
       this.musicTimer = window.setInterval(() => this.tickMusic(), 250);
     }
     if (this.ctx.state !== 'running') await this.ctx.resume();
@@ -206,25 +216,40 @@ export class BoardAudio {
   // Musik
   // -------------------------------------------------------------------------
 
-  /** Gewünschtes Stück; wechselt weich. `then` folgt, wenn ein nicht wiederholtes Stück endet. */
-  setMusic(track: MusicTrack | null, opts: { loop?: boolean; then?: MusicTrack } = {}) {
-    const next = track ? { track, loop: opts.loop ?? true, then: opts.then ?? null } : null;
-    if (next && this.wanted && this.wanted.track === next.track && this.wanted.loop === next.loop) return;
-    this.wanted = next;
+  /**
+   * Gewünschte Musik; wechselt weich. Mehrere Stücke + `rotate`: nacheinander (Start zufällig),
+   * sonst wird das erste wiederholt. `loop: false` spielt einmal, danach `then`.
+   */
+  setMusic(tracks: MusicTrack | MusicTrack[] | null, opts: { loop?: boolean; rotate?: boolean; then?: MusicTrack } = {}) {
+    const list = tracks === null ? [] : Array.isArray(tracks) ? tracks : [tracks];
+    if (!list.length) {
+      this.wanted = null;
+      this.syncMusic();
+      return;
+    }
+    const loop = opts.loop ?? true;
+    const rotate = (opts.rotate ?? false) && list.length > 1;
+    const w = this.wanted;
+    if (w && w.loop === loop && w.rotate === rotate && w.list.join('|') === list.join('|')) return;
+    // läuft das gewünschte Stück schon (z. B. gleiche Stimmung), dort weitermachen
+    const playing = this.decks.find((d) => !d.dying && list.includes(d.track))?.track;
+    const index = playing ? list.indexOf(playing) : rotate ? Math.floor(Math.random() * list.length) : 0;
+    this.wanted = { list, index, loop, rotate, then: opts.then ?? null };
     this.syncMusic();
   }
 
   get musicTrack() {
-    return this.wanted?.track ?? null;
+    const w = this.wanted;
+    return w ? (w.list[w.index] ?? null) : null;
   }
 
   private syncMusic() {
     if (!this.ctx) return;
-    const want = this.levels.music ? this.wanted : null;
+    const want = this.levels.music ? this.musicTrack : null;
     const live = this.decks.filter((d) => !d.dying);
-    if (want && live.some((d) => d.track === want.track)) return;
+    if (want && live.some((d) => d.track === want)) return;
     for (const d of live) this.fadeOut(d, SWITCH);
-    if (want) this.startDeck(want.track, SWITCH, 0);
+    if (want) this.startDeck(want, SWITCH, 0);
   }
 
   private startDeck(track: MusicTrack, fade: number, at: number) {
@@ -249,8 +274,8 @@ export class BoardAudio {
   private onEnded(deck: Deck) {
     this.kill(deck);
     const w = this.wanted;
-    if (w && w.track === deck.track && !w.loop) {
-      this.wanted = w.then ? { track: w.then, loop: true, then: null } : null;
+    if (w && w.list[w.index] === deck.track && !w.loop) {
+      this.wanted = w.then ? { list: [w.then], index: 0, loop: true, rotate: false, then: null } : null;
       this.syncMusic();
     }
   }
@@ -275,17 +300,19 @@ export class BoardAudio {
     this.decks = this.decks.filter((x) => x !== d);
   }
 
-  /** Endlosschleife: kurz vor Schluss dasselbe Stück von vorn einblenden. */
+  /** Kurz vor Schluss überblenden: dasselbe Stück von vorn bzw. (rotieren) das nächste. */
   private tickMusic() {
     const w = this.wanted;
     if (!w?.loop || !this.levels.music) return;
+    const current = w.list[w.index];
     for (const d of this.decks) {
-      if (d.dying || d.handedOver || d.track !== w.track) continue;
+      if (d.dying || d.handedOver || d.track !== current) continue;
       const dur = d.el.duration;
       if (!Number.isFinite(dur) || dur < XFADE * 3) continue;
       if (d.el.currentTime >= dur - XFADE - 0.3) {
         d.handedOver = true;
-        this.startDeck(w.track, XFADE, 0);
+        if (w.rotate) w.index = (w.index + 1) % w.list.length;
+        this.startDeck(w.list[w.index]!, XFADE, 0);
         this.fadeOut(d, XFADE);
       }
     }
@@ -357,6 +384,49 @@ export class BoardAudio {
   // Umgebung
   // -------------------------------------------------------------------------
 
+  /** Welt für das Hintergrundgeräusch: Insel (Strand + Dschungel) oder Vulkan-Inneres. */
+  setScene(v: 'island' | 'inside') {
+    this.ambiScene = v;
+    void this.syncAmbience();
+  }
+
+  /** Aufgenommene Schleifen ein-/ausblenden (bei Bedarf erst laden). */
+  private async syncAmbience() {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const want: Record<string, number> = this.ambiScene === 'inside' ? { vulkan: 1.1 } : { strand: 0.85, dschungel: 0.5 };
+    let islandReady = this.ambiScene === 'island';
+    for (const name of ['strand', 'dschungel', 'vulkan']) {
+      const target = want[name] ?? 0;
+      let g = this.layers.get(name);
+      if (!g && target > 0) {
+        const sample = await this.load(`ambi-${name}`, `/assets/audio/ambience/${name}.mp3`, true);
+        if (!sample || !this.ctx) {
+          if (name !== 'vulkan') islandReady = false;
+          continue;
+        }
+        g = this.layers.get(name);
+        if (!g) {
+          g = ctx.createGain();
+          g.gain.value = 0;
+          g.connect(this.ambience);
+          const src = ctx.createBufferSource();
+          src.buffer = sample.buffer;
+          src.loop = true;
+          src.connect(g);
+          // jede Schicht an anderer Stelle beginnen
+          src.start(0, Math.random() * sample.buffer.duration);
+          this.layers.set(name, g);
+        }
+      }
+      if (!g) continue;
+      const gain = (this.samples.get(`ambi-${name}`)?.gain ?? 1) * target;
+      g.gain.setTargetAtTime(gain, ctx.currentTime, target > 0 ? 0.6 : 0.35);
+    }
+    // Ersatzgeräusch nur, wenn die Aufnahmen auf der Insel fehlen
+    this.synth.gain.setTargetAtTime(this.ambiScene === 'island' && !islandReady ? 1 : 0, ctx.currentTime, 0.5);
+  }
+
   /** Meeresrauschen: gefiltertes Rauschen mit langsamer Lautstärkewelle. */
   private startOcean() {
     const ctx = this.ctx!;
@@ -388,7 +458,7 @@ export class BoardAudio {
     const lfo2Gain = ctx.createGain();
     lfo2Gain.gain.value = 300;
     lfo2.connect(lfo2Gain).connect(filter.frequency);
-    src.connect(filter).connect(swell).connect(this.ambience);
+    src.connect(filter).connect(swell).connect(this.synth);
     src.start();
     lfo.start();
     lfo2.start();
@@ -412,7 +482,7 @@ export class BoardAudio {
         g.gain.setValueAtTime(0.0001, st);
         g.gain.exponentialRampToValueAtTime(0.18, st + 0.01);
         g.gain.exponentialRampToValueAtTime(0.0001, st + 0.08);
-        o.connect(g).connect(this.ambience);
+        o.connect(g).connect(this.synth);
         o.start(st);
         o.stop(st + 0.1);
       }

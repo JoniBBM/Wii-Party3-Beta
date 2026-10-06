@@ -69,7 +69,7 @@ try {
         await cmd({ type: 'fieldgame.setup' });
         await sleep(1500);
         await cmd({ type: 'fieldgame.result', won: Math.random() < 0.5 });
-      } else if (d.vine) await cmd({ type: 'vine.roll' });
+      } else if (d.challenge) await cmd((d.challenge.kind === 'river' ? { type: 'challenge.choose', choice: Math.random() < 0.5 ? 'barrels' : 'crates' } : { type: 'challenge.roll' }));
       else await cmd({ type: 'dice.roll' });
       await sleep(200);
     }

@@ -1,5 +1,6 @@
 // Alle Feld-Auftritte auf dem Beamer durchspielen und in Bildfolgen fotografieren:
-// Sprungfeder, Flugzeug, UFO-Tausch, Käfig, Minispiel-Bühne, Geysir, Liane, Lavahöhle.
+// Sprungfeder, Flugzeug, UFO-Tausch, Käfig, Minispiel-Bühne, Geysir, Liane über den Bach,
+// Fässer oder Kisten, Lavahöhle, Totenkopf, Vulkan-Inneres.
 //   npm run build -w @insel/web && node e2e/stunts.mjs [ausgabeordner] [nur,diese]
 import { chromium, devices } from 'playwright';
 import { io } from 'socket.io-client';
@@ -36,9 +37,13 @@ try {
   const fields = [...state.config.board.fields];
   const vine = fields.indexOf('vine');
   const cave = fields.indexOf('cave');
+  const bank = fields.indexOf('river') - 1;
   // Sonderfelder für die Probe an feste Stellen legen
   for (let i = 1; i < fields.length - 1; i++) if (!['vine', 'cave', 'river', 'crater'].includes(fields[i])) fields[i] = 'normal';
   Object.assign(fields, { 3: 'catapult_forward', 12: 'catapult_backward', 15: 'swap', 18: 'barrier', 28: 'minigame', 44: 'volcano' });
+  let skull = 32;
+  while (fields[skull] !== 'normal' || fields[skull - 1] !== 'normal' || fields[skull + 1] !== 'normal') skull++;
+  fields[skull] = 'skull';
   const config = structuredClone(state.config);
   config.board.fields = fields;
   config.rules.catapultForward = { min: 5, max: 5 };
@@ -149,15 +154,46 @@ try {
     console.log('Foto handy-liane');
     await phoneCtx.close();
     await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()));
-    await cmd({ type: 'vine.roll', value: 5, force: true });
+    await cmd({ type: 'challenge.roll', value: 5, force: true });
     await burst('liane-schwung', 2400, 6, 380);
+  });
+  await scene('fluss', async () => {
+    // am Ufer halten, Kisten wählen – die brechen ein
+    await place(a.id, bank - 2);
+    await round();
+    await rollFor(a.id, 4);
+    await burst('fluss-wahl', 3600, 2, 700);
+    await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()));
+    await cmd({ type: 'challenge.choose', choice: 'crates', result: 'fall', force: true });
+    await burst('fluss-bruch', 600, 8, 380);
+    // zweites Team: Fässer halten
+    await place(b.id, bank - 1);
+    await round();
+    await rollFor(b.id, 3);
+    await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()) + 300);
+    await cmd({ type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true });
+    await burst('fluss-faesser', 500, 5, 380);
   });
   await scene('hoehle', async () => {
     await place(b.id, cave - 2);
     await round();
     await rollFor(b.id, 2);
-    await burst('hoehle-sturz', 4000, 4, 450);
-    await burst('hoehle-ausgang', 700, 4, 500);
+    await burst('hoehle-halt', 3600, 2, 600);
+    await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()));
+    await cmd({ type: 'challenge.roll', value: 1, force: true });
+    await burst('hoehle-sturz', 2400, 4, 450);
+    await burst('vulkan-innen', 1400, 4, 600);
+    // nächster Zug im Vulkan: genau aufs Ausgangsfeld
+    await round();
+    await rollFor(b.id, state.config.rules.inside.shout);
+    await burst('vulkan-weg', 3200, 4, 450);
+    await burst('vulkan-ausgang', 1200, 6, 450);
+  });
+  await scene('totenkopf', async () => {
+    await place(a.id, skull - 3);
+    await round();
+    await rollFor(a.id, 3);
+    await burst('totenkopf', 4200, 6, 400);
   });
   // Rückgängig mitten im Auftritt: Figuren müssen danach exakt auf ihren Feldern stehen
   const undoCheck = async (name, setup, delay) => {
@@ -166,7 +202,7 @@ try {
     await sleep(delay);
     await new Promise((res) => sock.emit('undo', res));
     await sleep(2500);
-    const vineTeam = state.phase.name === 'dice' ? state.phase.dice.vine?.teamId : null;
+    const vineTeam = state.phase.name === 'dice' && state.phase.dice.challenge?.kind === 'vine' ? state.phase.dice.challenge.teamId : null;
     const res = await page.evaluate(([teams, vineTeam]) => {
       const b = window.__board;
       return teams.map((t) => {
@@ -197,8 +233,20 @@ try {
     await round();
     await rollFor(a.id, 3);
     await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()));
-    await cmd({ type: 'vine.roll', value: 4, force: true });
+    await cmd({ type: 'challenge.roll', value: 4, force: true });
   }, 2600);
+  await undoCheck('undo-fluss', async () => {
+    await place(a.id, bank - 1);
+    await round();
+    await rollFor(a.id, 3);
+    await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()) + 300);
+    await cmd({ type: 'challenge.choose', choice: 'barrels', result: 'fall', force: true });
+  }, 1500);
+  await undoCheck('undo-totenkopf', async () => {
+    await place(a.id, skull - 2);
+    await round();
+    await rollFor(a.id, 2);
+  }, 4200);
   console.log('Positionen', state.teams.map((t) => t.position).join(', '));
   sock.close();
 } catch (e) {

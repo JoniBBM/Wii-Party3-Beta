@@ -185,9 +185,16 @@ describe('Server', () => {
       expect((await regie.cmd({ type: 'fieldgame.cancel' })).ok).toBe(true);
       await regie.waitFor((s) => s.phase.name === 'dice' && !s.phase.dice.fieldGame);
     }
-    if (afterRoll.phase.name === 'dice' && afterRoll.phase.dice.vine) {
-      expect((await regie.cmd({ type: 'vine.roll', force: true, value: 1 })).ok).toBe(true);
-      await regie.waitFor((s) => s.phase.name === 'dice' && !s.phase.dice.vine);
+    // … oder an einer Mutprobe (Liane, Wasserfall, Lavahöhle) halten
+    let pending = afterRoll.phase.name === 'dice' ? afterRoll.phase.dice.challenge : null;
+    while (pending) {
+      const res =
+        pending.kind === 'river'
+          ? await regie.cmd({ type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true })
+          : await regie.cmd({ type: 'challenge.roll', force: true, value: pending.kind === 'cave' ? 6 : 1 });
+      expect(res.ok).toBe(true);
+      const next = await regie.waitFor((s) => s.phase.name !== 'dice' || s.phase.dice.challenge?.kind !== pending!.kind || s.phase.dice.challenge.position !== pending!.position);
+      pending = next.phase.name === 'dice' ? next.phase.dice.challenge : null;
     }
 
     // Animation läuft → zweites Team muss warten, Regie kann erzwingen

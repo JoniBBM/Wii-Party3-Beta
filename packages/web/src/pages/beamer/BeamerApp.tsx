@@ -10,7 +10,7 @@ import { useSystemSync } from '../../lib/system.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { BoardCanvas } from './BoardCanvas.tsx';
 import { Explainer } from './Explainer.tsx';
-import { BeamerStatus, CaptionBanner, Ranking, toggleFullscreen, TopBar } from './Hud.tsx';
+import { BeamerStatus, CaptionBanner, Ranking, TopBar } from './Hud.tsx';
 import { DiceBanner, PhaseOverlay, VictoryBanner } from './Overlays.tsx';
 import { PhotoBubbles } from './PhotoBubbles.tsx';
 import { useShowControl } from './useShowControl.ts';
@@ -37,16 +37,6 @@ export default function BeamerApp() {
       root.style.fontSize = prev;
       document.body.style.overflow = '';
     };
-  }, []);
-
-  // Tastenkürzel: F = Vollbild (Kamera-Tasten siehe board/manual.ts)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
-      if (e.key === 'f' || e.key === 'F') toggleFullscreen();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   useEffect(() => {

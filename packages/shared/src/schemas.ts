@@ -115,16 +115,22 @@ export const rulesSchema = z.object({
     .object({
       enabled: z.boolean(),
       fallChance: z.number().int().min(0).max(100),
-      driftBack: range,
     })
-    .default({ enabled: true, fallChance: 50, driftBack: { min: 2, max: 4 } }),
+    .default({ enabled: true, fallChance: 50 }),
   vine: z
     .object({
       enabled: z.boolean(),
       sides: z.number().int().min(2).max(20),
     })
     .default({ enabled: true, sides: 6 }),
-  cave: z.object({ enabled: z.boolean() }).default({ enabled: true }),
+  cave: z.object({ enabled: z.boolean(), need: z.number().int().min(1).max(6).default(3) }).default({ enabled: true, need: 3 }),
+  inside: z
+    .object({
+      enabled: z.boolean(),
+      length: z.number().int().min(3).max(20),
+      shout: z.number().int().min(0).max(19),
+    })
+    .default({ enabled: true, length: 9, shout: 4 }),
   crater: z
     .object({
       enabled: z.boolean(),
@@ -251,10 +257,19 @@ export const commandSchema = z.discriminatedUnion('type', [
     force: z.boolean().optional(),
   }),
   z.object({ type: z.literal('dice.skip') }),
+  /** Mutprobe würfeln (Liane: wie weit schwingen; Lavahöhle: Vulkan oder nicht). `vine.roll` = alter Name. */
   z.object({
-    type: z.literal('vine.roll'),
+    type: z.enum(['challenge.roll', 'vine.roll']),
     teamId: id.optional(),
     value: z.number().int().min(1).max(20).optional(),
+    force: z.boolean().optional(),
+  }),
+  /** Fässer oder Kisten wählen; die Regie kann das Ergebnis vorgeben. */
+  z.object({
+    type: z.literal('challenge.choose'),
+    teamId: id.optional(),
+    choice: z.enum(['barrels', 'crates']),
+    result: z.enum(['safe', 'fall']).optional(),
     force: z.boolean().optional(),
   }),
   z.object({

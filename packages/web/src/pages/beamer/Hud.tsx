@@ -62,6 +62,7 @@ export function Ranking({ state }: { state: GameState }) {
                 <span className="flex gap-0.5">
                   {team.blocked && <span title="gesperrt">🚧</span>}
                   {team.crater && <span title="im Krater">🕳️</span>}
+                  {team.inside && <span title="im Vulkan">🌋</span>}
                   <BonusDieBadge sides={team.bonusDie} />
                 </span>
               </div>
@@ -156,9 +157,4 @@ export function BeamerStatus({ audioReady, fullscreen, wantFullscreen, manual, f
       )}
     </>
   );
-}
-
-export function toggleFullscreen() {
-  if (document.fullscreenElement) void document.exitFullscreen();
-  else void document.documentElement.requestFullscreen?.().catch(() => {});
 }

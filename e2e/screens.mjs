@@ -132,7 +132,10 @@ try {
   // Spiel mit ausgelosten Spielern
   while (state.phase.name === 'dice') {
     if (state.phase.dice.fieldGame) await cmd({ type: 'fieldgame.cancel' });
-    else if (state.phase.dice.vine) await cmd({ type: 'vine.roll', force: true });
+    else if (state.phase.dice.challenge) {
+      const c = state.phase.dice.challenge;
+      await cmd(c.kind === 'river' ? { type: 'challenge.choose', choice: 'crates', force: true } : { type: 'challenge.roll', force: true });
+    }
     else await cmd({ type: 'dice.roll', force: true });
     await sleep(300);
   }

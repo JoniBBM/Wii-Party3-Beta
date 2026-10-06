@@ -1,14 +1,16 @@
 /**
  * Auftritte der Sonderfelder auf dem Beamer:
- * Liane am Riesenbaum (schwingen und abspringen), Lavahöhle (hineinfallen, Fledermäuse,
- * am Vulkanfuß herausrutschen), Sprungfeder (Katapult vorwärts), Flugzeug mit Strickleiter
+ * Liane am Riesenbaum über den Bach (schwingen und abspringen), Fässer oder Kisten am
+ * Wasserfall (zwei Wege über den Fluss, eine Seite bricht ein), Lavahöhle (hineinfallen,
+ * Fledermäuse), Totenkopf-Falltür, Sprungfeder (Katapult vorwärts), Flugzeug mit Strickleiter
  * und Fallschirm (Katapult rückwärts), UFO mit Traktorstrahl (Platztausch),
  * Minispiel-Bühne mit Scheinwerfern und Dampf-Geysir (Vulkanfeld).
  */
 import * as THREE from 'three';
-import { FIELD_INFO, VOLCANO } from '@insel/shared';
+import { FIELD_INFO, RIVER, RIVER_FORD, VOLCANO, type RiverChoice } from '@insel/shared';
 import { worldMaterial } from './assets.ts';
 import type { BoardAudio } from './audio.ts';
+import { bigBarrel, floatingCrate } from './landmarks.ts';
 import type { IslandLayout } from './layout.ts';
 import type { Effects } from './particles.ts';
 import type { Pieces } from './pieces.ts';
@@ -55,6 +57,18 @@ function mesh(geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0,
   return me;
 }
 
+/** Fass bzw. Kiste auf einem der beiden Wege über den Fluss. */
+interface LaneItem {
+  o: THREE.Group;
+  /** Mitte der Oberseite (dort steht die Figur) */
+  top: THREE.Vector3;
+  ph: number;
+  /** Sekunden bis zum Wiederauftauchen nach dem Zerbersten */
+  hidden: number;
+  /** Auftauchen 0 … 1 */
+  rise: number;
+}
+
 /** Beendet einen Auftritt, wenn zwischendurch Rückgängig gedrückt wurde. */
 class Aborted extends Error {}
 
@@ -79,6 +93,8 @@ export class Stunts {
   private mouth: { pos: THREE.Vector3; inner: THREE.Vector3 } | null = null;
   // Minispiel-Bühne
   private stage: THREE.Group | null = null;
+  // Fässer oder Kisten: zwei Wege über den Fluss
+  private lanes: Record<RiverChoice, LaneItem[]> = { barrels: [], crates: [] };
 
   constructor(
     private layout: IslandLayout,
@@ -90,6 +106,8 @@ export class Stunts {
   ) {
     this.group.name = 'stunts';
     this.buildVineTree();
+    this.buildCreekDeco();
+    this.buildFord();
     this.buildCave();
   }
 
@@ -123,6 +141,12 @@ export class Stunts {
     this.ufoTarget = null;
     this.lianaTarget = 0;
     this.stageOff(true);
+    for (const lane of [this.lanes.barrels, this.lanes.crates])
+      for (const it of lane) {
+        it.hidden = 0;
+        it.rise = 0;
+        it.o.visible = true;
+      }
   }
 
   private async run(fn: (epoch: number) => Promise<void>) {
@@ -182,6 +206,8 @@ export class Stunts {
       [-0.3, 2.0, 0.4, 1.3],
     ];
     crown.forEach(([dx, dy, dz, r], i) => tree.add(mesh(new THREE.IcosahedronGeometry(r!, 1), leaves[i % 3]!, tx + dx!, top.y + dy!, tz + dz!)));
+    for (const [dx, dy, dz] of crown) this.crowns.push(new THREE.Vector3(tx + dx!, top.y + dy!, tz + dz!));
+    this.crowns.push(new THREE.Vector3(pivot.x + side.x * sx * 0.4, pivot.y + 0.55, pivot.z + side.z * sx * 0.4));
     tree.add(mesh(new THREE.IcosahedronGeometry(1.0, 1), leaves[1]!, pivot.x + side.x * sx * 0.4, pivot.y + 0.55, pivot.z + side.z * sx * 0.4));
     // Liane: dreht sich um die Aufhängung, Achse quer zur Laufrichtung
     const liana = new THREE.Group();
@@ -204,13 +230,21 @@ export class Stunts {
 
   /** Sichthindernisse für die Kamera (Riesenbaum) */
   readonly blockers: { x: number; z: number; r: number; top: number }[] = [];
+  /** Baumkronen des Lianenbaums (für freie Sicht bei Nahaufnahmen) */
+  readonly crowns: THREE.Vector3[] = [];
 
   private treeSide = 1;
 
-  /** Kamera für die Liane: von der baumabgewandten Seite, leicht von hinten. */
+  /** Freie Sicht (von scene.ts gesetzt: Kamera prüft Gelände, Gebäude, Baumkronen). */
+  shotPicker: ((target: THREE.Vector3, dist: number, height: number, prefer?: THREE.Vector3) => { position: THREE.Vector3; lookAt: THREE.Vector3 }) | null = null;
+
+  /** Kamera für die Liane: Liane, Bach und Landeplätze im Bild, möglichst ohne Palmen davor. */
   vineShot() {
     const { f, dir, side } = this.vineFrame();
     const s = -this.treeSide;
+    const target = new THREE.Vector3(f.x + dir.x * 1.6, f.y + 1.2, f.z + dir.z * 1.6);
+    const prefer = side.clone().multiplyScalar(s).addScaledVector(dir, -0.5);
+    if (this.shotPicker) return this.shotPicker(target, 8.5, 6.5, prefer);
     return {
       position: new THREE.Vector3(f.x + side.x * s * 9 - dir.x * 4, f.y + 5.5, f.z + side.z * s * 9 - dir.z * 4),
       lookAt: new THREE.Vector3(f.x + dir.x * 2, f.y + 2, f.z + dir.z * 2),
@@ -319,6 +353,427 @@ export class Stunts {
       this.audio.play('land');
       this.effects.dust(target.x, target.y, target.z);
       this.pieces.release(teamId, to, 'cheer');
+    });
+  }
+
+  // =========================================================================
+  // Bach hinter der Liane: Quellfelsen, Steine am Ufer, Schilf
+  // =========================================================================
+  private buildCreekDeco() {
+    const creek = this.layout.creek;
+    if (creek.length < 3) return;
+    const rock = mat('#7d7468', { flat: true });
+    const moss = mat('#5f8a3a', { flat: true });
+    const src = creek[0]!;
+    const next = creek[2]!;
+    const back = new THREE.Vector3(src.x - next.x, 0, src.z - next.z).normalize();
+    // Quelle: Felsen, aus denen das Wasser sprudelt
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 1.4 - 0.7 + Math.atan2(back.z, back.x);
+      const r = 0.55 + (k % 2) * 0.25;
+      const x = src.x + back.x * 0.5 + Math.cos(a) * r;
+      const z = src.z + back.z * 0.5 + Math.sin(a) * r;
+      const m = mesh(new THREE.DodecahedronGeometry(0.32 + (k % 3) * 0.12, 0), k % 2 ? moss : rock, x, this.field.height(x, z) + 0.12, z);
+      m.rotation.set(k, k * 1.7, k * 0.5);
+      m.scale.y = 0.7;
+      this.group.add(m);
+    }
+    // Ufersteine und Schilf entlang des Bachs (nicht direkt am Weg)
+    const reed = mat('#6f9a3b', { flat: true });
+    for (let i = 4; i < creek.length - 2; i += 3) {
+      const p = creek[i]!;
+      const q = creek[i + 1]!;
+      const dx = q.x - p.x;
+      const dz = q.z - p.z;
+      const l = Math.hypot(dx, dz) || 1;
+      const sx = -dz / l;
+      const sz = dx / l;
+      if (this.field.pathDistance(p.x, p.z) < this.layout.fieldRadius * 1.6) continue;
+      const side = i % 2 ? 1 : -1;
+      const x = p.x + sx * side * (p.w + 0.35);
+      const z = p.z + sz * side * (p.w + 0.35);
+      if (i % 6 === 1) {
+        const m = mesh(new THREE.DodecahedronGeometry(0.18 + (i % 3) * 0.06, 0), rock, x, this.field.height(x, z) + 0.05, z);
+        m.rotation.set(i, i, i);
+        this.group.add(m);
+      } else {
+        for (let k = 0; k < 3; k++) {
+          const blade = mesh(new THREE.ConeGeometry(0.035, 0.7 + k * 0.15, 4), reed, x + (k - 1) * 0.09, this.field.height(x, z) + 0.35, z + (k % 2) * 0.08, false);
+          blade.rotation.z = (k - 1) * 0.18;
+          this.group.add(blade);
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // Fässer oder Kisten: zwei schwimmende Wege über den Fluss
+  // =========================================================================
+  /** Ufer vor dem Fluss und erstes Feld dahinter */
+  private fordSpan() {
+    const ff = this.layout.fordFields;
+    return { bank: ff[0]! - 1, exit: ff[ff.length - 1]! + 1 };
+  }
+
+  private buildFord() {
+    const ff = this.layout.fordFields;
+    if (!ff.length) return;
+    const fr = this.layout.fieldRadius;
+    const top = this.layout.ford.raftY - 0.08;
+    // Kisten liegen flussaufwärts (zum Wasserfall hin), Fässer auf dem Weg
+    const a = RIVER[RIVER_FORD - 1]!;
+    const b = RIVER[RIVER_FORD + 1]!;
+    const flow = new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
+    const f0 = this.layout.fields[ff[0]!]!;
+    const side0 = new THREE.Vector3(-Math.sin(f0.heading), 0, Math.cos(f0.heading));
+    const sgn = side0.dot(flow) > 0 ? -1 : 1;
+    const gap = fr * 2.3 + 0.5;
+    const rope = mat('#c9a66b', { rough: 1 });
+    ff.forEach((i, k) => {
+      const f = this.layout.fields[i]!;
+      const side = new THREE.Vector3(-Math.sin(f.heading), 0, Math.cos(f.heading));
+      // Fass
+      const barrel = bigBarrel(fr * 1.0, 1.7);
+      barrel.position.set(f.x, top - 1.7, f.z);
+      barrel.rotation.y = k * 1.3;
+      const bHolder = new THREE.Group();
+      bHolder.add(barrel);
+      this.group.add(bHolder);
+      this.lanes.barrels.push({ o: bHolder, top: new THREE.Vector3(f.x, top, f.z), ph: k * 1.7, hidden: 0, rise: 0 });
+      // Kiste
+      const cx = f.x + side.x * sgn * gap;
+      const cz = f.z + side.z * sgn * gap;
+      const crate = floatingCrate(fr * 1.75);
+      crate.scale.y = 1.7 / (fr * 1.75);
+      crate.position.set(cx, top - 0.85, cz);
+      crate.rotation.y = f.heading + 0.08 * (k % 2 ? 1 : -1);
+      const cHolder = new THREE.Group();
+      cHolder.add(crate);
+      this.group.add(cHolder);
+      this.lanes.crates.push({ o: cHolder, top: new THREE.Vector3(cx, top + 0.02, cz), ph: k * 2.3 + 1, hidden: 0, rise: 0 });
+    });
+    // Seile außen an beiden Wegen
+    const span = this.fordSpan();
+    const bank = this.layout.fields[span.bank]!;
+    const exit = this.layout.fields[span.exit]!;
+    for (const off of [-sgn * (fr * 1.45), sgn * (gap + fr * 1.35)]) {
+      const pa = new THREE.Vector3(bank.x + side0.x * off, bank.y + 1.0, bank.z + side0.z * off);
+      const pb = new THREE.Vector3(exit.x + side0.x * off, exit.y + 1.0, exit.z + side0.z * off);
+      for (const q of [pa, pb]) this.group.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.5, 7), mat('#6b4630'), q.x, q.y - 0.7, q.z));
+      const mid = pa.clone().lerp(pb, 0.5);
+      mid.y -= 0.5;
+      const curve = new THREE.CatmullRomCurve3([pa, mid, pb]);
+      this.group.add(mesh(new THREE.TubeGeometry(curve, 16, 0.03, 5, false), rope, 0, 0, 0, false));
+    }
+    // Wegweiser am Ufer: links Fässer, rechts Kisten
+    const dir = new THREE.Vector3(Math.cos(bank.heading), 0, Math.sin(bank.heading));
+    const px = bank.x - dir.x * 0.4 + side0.x * -sgn * (fr + 0.7);
+    const pz = bank.z - dir.z * 0.4 + side0.z * -sgn * (fr + 0.7);
+    const py = this.field.height(px, pz);
+    const post = new THREE.Group();
+    post.position.set(px, py, pz);
+    post.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.1, 7), mat('#6b4630'), 0, 1.05, 0));
+    const board = (text: string, toward: THREE.Vector3, y: number) => {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 128;
+      const g = c.getContext('2d')!;
+      g.fillStyle = '#d9b46a';
+      g.fillRect(0, 0, 512, 128);
+      g.fillStyle = '#7a4f2b';
+      g.fillRect(0, 0, 512, 10);
+      g.fillRect(0, 118, 512, 10);
+      g.font = '600 72px Fredoka, Nunito, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#4a2e18';
+      g.fillText(text, 256, 68);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.38, 0.06), [
+        mat('#b98352'), mat('#b98352'), mat('#b98352'), mat('#b98352'),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }),
+      ]);
+      sign.castShadow = true;
+      // Schild zeigt mit der Spitze zum jeweiligen Weg
+      const yaw = Math.atan2(toward.x, toward.z);
+      sign.position.set(toward.x * 0.55, y, toward.z * 0.55);
+      sign.rotation.y = yaw - Math.PI / 2;
+      post.add(sign);
+    };
+    const toBarrels = dir.clone().multiplyScalar(0.6).addScaledVector(side0, sgn * 0.15).normalize();
+    const toCrates = dir.clone().multiplyScalar(0.4).addScaledVector(side0, sgn * 0.9).normalize();
+    board('🛢️ Fässer', toBarrels, 1.75);
+    board('📦 Kisten', toCrates, 1.3);
+    this.group.add(post);
+    this.blockers.push({ x: px, z: pz, r: 0.5, top: py + 2.2 });
+  }
+
+  /** Kamera fürs Wählen und Überqueren: vom Ufer aus, beide Wege im Bild. */
+  riverShot() {
+    const span = this.fordSpan();
+    const bank = this.layout.fields[span.bank]!;
+    const exit = this.layout.fields[span.exit]!;
+    const mid = new THREE.Vector3((bank.x + exit.x) / 2, this.layout.ford.y + 0.6, (bank.z + exit.z) / 2);
+    const crates = this.lanes.crates;
+    if (crates.length) mid.lerp(crates[Math.floor(crates.length / 2)]!.top, 0.35);
+    const dir = new THREE.Vector3(exit.x - bank.x, 0, exit.z - bank.z).normalize();
+    const side = new THREE.Vector3(-dir.z, 0, dir.x);
+    const toCrates = crates.length ? Math.sign(side.dot(crates[0]!.top.clone().sub(mid))) : 1;
+    return {
+      position: new THREE.Vector3(bank.x - dir.x * 6.5 - side.x * toCrates * 3.2, bank.y + 5.2, bank.z - dir.z * 6.5 - side.z * toCrates * 3.2),
+      lookAt: mid,
+    };
+  }
+
+  /** Am Ufer: Figur schaut abwechselnd zu den Fässern und zu den Kisten. */
+  riverPonder(teamId: string) {
+    return this.run(async (epoch) => {
+      const p = this.pieces.get(teamId);
+      const b = this.lanes.barrels[0];
+      const c = this.lanes.crates[0];
+      if (!p || !b || !c || p.busy) return;
+      const at = p.holder.position.clone();
+      const look = (q: THREE.Vector3) => Math.atan2(q.x - at.x, q.z - at.z);
+      p.rig.setMode('shrug');
+      for (const q of [b.top, c.top, b.top, c.top]) {
+        const r0 = p.holder.rotation.y;
+        const r1 = look(q);
+        let d = (r1 - r0) % (Math.PI * 2);
+        if (d > Math.PI) d -= Math.PI * 2;
+        if (d < -Math.PI) d += Math.PI * 2;
+        await this.tweens.run(0.4, (t) => (p.holder.rotation.y = r0 + d * t), ease.inOut);
+        this.guard(epoch);
+        await this.tweens.wait(250);
+        this.guard(epoch);
+      }
+      p.rig.setMode('idle');
+    });
+  }
+
+  /**
+   * Über den Fluss: von Fass zu Fass bzw. Kiste zu Kiste hüpfen. Bricht die Seite ein,
+   * zerbirst sie unter der Figur, die ins Wasser fällt und ans andere Ufer schwimmt.
+   */
+  riverCross(teamId: string, choice: RiverChoice, result: 'safe' | 'fall', exitField: number) {
+    return this.run(async (epoch) => {
+      const g = this.pieces.grab(teamId);
+      const lane = this.lanes[choice];
+      if (!g || !lane.length) {
+        this.pieces.release(teamId, exitField, result === 'fall' ? 'sad' : 'cheer');
+        return;
+      }
+      const breakAt = result === 'fall' ? Math.min(lane.length - 1, Math.floor(lane.length / 2)) : -1;
+      const hop = async (to: THREE.Vector3, height: number, secs: number) => {
+        const from = g.holder.position.clone();
+        const r0 = g.holder.rotation.y;
+        const yaw = Math.atan2(to.x - from.x, to.z - from.z);
+        let d = (yaw - r0) % (Math.PI * 2);
+        if (d > Math.PI) d -= Math.PI * 2;
+        if (d < -Math.PI) d += Math.PI * 2;
+        g.rig.setMode('jump');
+        await this.tweens.run(secs, (t) => {
+          g.holder.position.lerpVectors(from, to, t);
+          g.holder.position.y += Math.sin(t * Math.PI) * height;
+          g.holder.rotation.y = r0 + d * Math.min(1, t * 2.5);
+        }, ease.inOut);
+        this.guard(epoch);
+        this.audio.step(true);
+      };
+      for (let k = 0; k < lane.length; k++) {
+        const item = lane[k]!;
+        await hop(item.top.clone().setY(item.o.position.y + item.top.y + 0.05), 0.75, 0.42);
+        if (k === breakAt) {
+          // wackeln … krachen … platsch
+          g.rig.setMode('balance');
+          this.audio.creak();
+          const r0 = g.holder.rotation.z;
+          await this.tweens.run(0.55, (t) => (g.holder.rotation.z = r0 + Math.sin(t * Math.PI * 6) * 0.25), ease.linear);
+          this.guard(epoch);
+          g.holder.rotation.z = 0;
+          this.audio.play('bruch');
+          this.burst(item, choice);
+          const water = this.layout.ford.y;
+          const a = g.holder.position.clone();
+          const b = a.clone().setY(water - 0.55);
+          g.rig.setMode('fly');
+          await this.tweens.run(0.5, (t) => {
+            g.holder.position.lerpVectors(a, b, t);
+            g.holder.position.y += Math.sin(t * Math.PI) * 0.5;
+          }, ease.in);
+          this.guard(epoch);
+          this.audio.splash(1);
+          this.effects.splash(b.x, water, b.z, true);
+          // ans andere Ufer schwimmen, die Strömung zieht ein Stück mit
+          g.rig.setMode('swim');
+          const exit = this.pieces.slotOn(teamId, exitField);
+          const shore = exit.clone().lerp(b, 0.25).setY(water - 0.5);
+          const flow = new THREE.Vector3(RIVER[RIVER_FORD + 1]!.x - RIVER[RIVER_FORD]!.x, 0, RIVER[RIVER_FORD + 1]!.z - RIVER[RIVER_FORD]!.z).normalize();
+          const mid = b.clone().lerp(shore, 0.5).addScaledVector(flow, 1.2);
+          const curve = new THREE.CatmullRomCurve3([b, mid, shore]);
+          await this.tweens.run(1.5, (t) => {
+            const q = curve.getPointAt(t);
+            g.holder.position.set(q.x, q.y + Math.sin(t * 20) * 0.05, q.z);
+            const tan = curve.getTangentAt(t);
+            g.holder.rotation.y = Math.atan2(tan.x, tan.z) + Math.sin(t * 10) * 0.25;
+          }, ease.inOut);
+          this.guard(epoch);
+          g.rig.setMode('jump');
+          const s0 = g.holder.position.clone();
+          await this.tweens.run(0.6, (t) => {
+            g.holder.position.lerpVectors(s0, exit, t);
+            g.holder.position.y += Math.sin(t * Math.PI) * 1.1;
+          }, ease.inOut);
+          this.guard(epoch);
+          this.effects.dust(exit.x, exit.y, exit.z, new THREE.Color('#9cc7d8'), 10);
+          this.pieces.release(teamId, exitField, 'sad');
+          return;
+        }
+        await this.tweens.wait(60);
+        this.guard(epoch);
+      }
+      const exit = this.pieces.slotOn(teamId, exitField);
+      await hop(exit, 0.9, 0.5);
+      this.audio.play('land');
+      this.pieces.release(teamId, exitField, 'cheer');
+    });
+  }
+
+  /** Fass bzw. Kiste zerbirst: Bretter fliegen, das Teil taucht später wieder auf. */
+  private burst(item: LaneItem, choice: RiverChoice) {
+    item.o.visible = false;
+    item.hidden = 3.4;
+    const at = item.top;
+    const plank = new THREE.BoxGeometry(choice === 'crates' ? 0.7 : 0.18, 0.06, choice === 'crates' ? 0.18 : 0.75);
+    const woodA = mat('#a5733f', { flat: true });
+    const woodB = mat('#8c5a31', { flat: true });
+    const bits: { o: THREE.Mesh; v: THREE.Vector3; w: THREE.Vector3 }[] = [];
+    for (let k = 0; k < 10; k++) {
+      const o = this.temp(mesh(plank, k % 2 ? woodA : woodB, at.x, at.y - 0.1, at.z));
+      const a = (k / 10) * Math.PI * 2;
+      bits.push({ o, v: new THREE.Vector3(Math.cos(a) * 2.2, 2.5 + Math.random() * 2, Math.sin(a) * 2.2), w: new THREE.Vector3(Math.random() * 8, Math.random() * 8, Math.random() * 8) });
+    }
+    if (choice === 'barrels') {
+      // Fassreifen kullern mit
+      const hoop = new THREE.TorusGeometry(this.layout.fieldRadius * 0.9, 0.04, 5, 20);
+      for (let k = 0; k < 2; k++) {
+        const o = this.temp(mesh(hoop, mat('#4a4744', { rough: 0.5 }), at.x, at.y, at.z));
+        bits.push({ o, v: new THREE.Vector3((k - 0.5) * 2, 3, (0.5 - k) * 1.5), w: new THREE.Vector3(3, 0, 2) });
+      }
+    }
+    this.effects.splash(at.x, this.layout.ford.y, at.z, true);
+    this.effects.dust(at.x, at.y, at.z, new THREE.Color('#a5733f'), 18);
+    const water = this.layout.ford.y;
+    let life = 0;
+    const upd = (_t: number, dt: number) => {
+      life += dt;
+      for (const b of bits) {
+        if (b.o.position.y > water || b.v.y > 0) {
+          b.v.y -= 9.8 * dt;
+          b.o.position.addScaledVector(b.v, dt);
+          b.o.rotation.x += b.w.x * dt;
+          b.o.rotation.y += b.w.y * dt;
+          b.o.rotation.z += b.w.z * dt;
+          if (b.o.position.y <= water && b.v.y < 0) {
+            b.o.position.y = water;
+            b.v.set(b.v.x * 0.2, 0, b.v.z * 0.2);
+          }
+        } else {
+          // treiben ab und versinken langsam
+          b.o.position.x += 0.6 * dt;
+          b.o.position.y = water - Math.max(0, life - 2.4) * 0.25;
+          b.o.rotation.x *= 0.96;
+          b.o.rotation.z *= 0.96;
+        }
+      }
+      if (life > 4.5) {
+        for (const b of bits) this.drop(b.o);
+        this.updaters.delete(upd);
+      }
+    };
+    this.updaters.add(upd);
+  }
+
+  // =========================================================================
+  // Totenkopf: Falltür bricht auf, Figur stürzt ins Vulkan-Innere
+  // =========================================================================
+  trapdoor(teamId: string, field: number) {
+    return this.run(async (epoch) => {
+      const g = this.pieces.grab(teamId);
+      const f = this.layout.fields[field];
+      if (!g || !f) return;
+      const at = g.holder.position.clone();
+      // dunkles Loch, aus dem es glüht
+      const hole = this.temp(new THREE.Mesh(new THREE.CircleGeometry(0.75, 24), new THREE.MeshBasicMaterial({ color: '#120806' })));
+      hole.rotation.x = -Math.PI / 2;
+      hole.position.set(at.x, at.y + 0.02, at.z);
+      hole.scale.setScalar(0.01);
+      const glow = this.temp(new THREE.Mesh(new THREE.CircleGeometry(0.5, 20), new THREE.MeshBasicMaterial({ color: '#ff6a1a', transparent: true, opacity: 0.7, toneMapped: false })));
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.set(at.x, at.y + 0.03, at.z);
+      glow.scale.setScalar(0.01);
+      this.audio.play('falltuer');
+      g.rig.setMode('shock');
+      this.effects.dust(at.x, at.y, at.z, new THREE.Color('#5b4a40'), 16);
+      await this.tweens.run(0.35, (t) => {
+        hole.scale.setScalar(0.01 + t);
+        glow.scale.setScalar(0.01 + t * 0.9);
+      }, ease.out);
+      this.guard(epoch);
+      await this.tweens.wait(250);
+      this.guard(epoch);
+      g.rig.setMode('fly');
+      await this.tweens.run(0.6, (t) => {
+        g.holder.position.set(at.x, at.y + Math.sin(t * Math.PI) * 0.3 - t * t * 2.2, at.z);
+        g.holder.rotation.y += 0.25;
+        g.holder.scale.setScalar(Math.max(0.05, 1 - t * 0.8));
+      }, ease.in);
+      this.guard(epoch);
+      g.holder.visible = false;
+      g.holder.scale.setScalar(1);
+      this.bats(at.clone().setY(at.y + 0.6));
+      await this.tweens.run(0.5, (t) => {
+        hole.scale.setScalar(1 - t * 0.99);
+        glow.scale.setScalar(0.91 - t * 0.9);
+      });
+      this.drop(hole);
+      this.drop(glow);
+    });
+  }
+
+  /** Aus dem Vulkan zurück: grüner Lichtstrahl am Feld, Figur springt aus dem Boden. */
+  warpOut(teamId: string, field: number) {
+    return this.run(async (epoch) => {
+      const g = this.pieces.grab(teamId);
+      if (!g) return;
+      const at = this.pieces.slotOn(teamId, field);
+      const beam = this.temp(new THREE.Mesh(
+        new THREE.CylinderGeometry(0.55, 0.85, 7, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: '#5dff8a', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }),
+      ));
+      beam.position.set(at.x, at.y + 3.5, at.z);
+      this.audio.play('warp');
+      await this.tweens.run(0.35, (t) => ((beam.material as THREE.MeshBasicMaterial).opacity = t * 0.55));
+      this.guard(epoch);
+      g.holder.visible = true;
+      g.holder.scale.setScalar(0.2);
+      g.holder.position.copy(at).setY(at.y - 0.6);
+      g.rig.setMode('jump');
+      this.effects.sparkle(at.x, at.y + 0.5, at.z, new THREE.Color('#7dffa0'), 40, 1.6);
+      await this.tweens.run(0.8, (t) => {
+        g.holder.position.set(at.x, at.y - 0.6 + Math.sin(t * Math.PI) * 2.4 + t * 0.6, at.z);
+        g.holder.scale.setScalar(0.2 + Math.min(1, t * 1.6) * 0.8);
+        g.holder.rotation.y += 0.3;
+      }, ease.out);
+      this.guard(epoch);
+      g.holder.scale.setScalar(1);
+      this.audio.play('land');
+      this.effects.dust(at.x, at.y, at.z);
+      this.pieces.release(teamId, field, 'cheer');
+      await this.tweens.run(0.5, (t) => ((beam.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - t)));
+      this.drop(beam);
     });
   }
 
@@ -925,6 +1380,24 @@ export class Stunts {
       const p = this.pieces.get(this.hanging);
       if (p) p.holder.position.copy(this.lianaTip()).sub(new THREE.Vector3(0, p.rig.height * 0.85, 0));
     }
+    // Fässer und Kisten schaukeln; zerborstene tauchen wieder auf
+    for (const lane of [this.lanes.barrels, this.lanes.crates])
+      for (const it of lane) {
+        if (it.hidden > 0) {
+          it.hidden -= dt;
+          if (it.hidden <= 0) {
+            it.o.visible = true;
+            it.rise = 0.001;
+          }
+          continue;
+        }
+        if (it.rise > 0) it.rise = Math.min(1, it.rise + dt / 1.3);
+        const sink = it.rise > 0 && it.rise < 1 ? (1 - ease.out(it.rise)) * -1.9 : 0;
+        if (it.rise >= 1) it.rise = 0;
+        it.o.position.y = Math.sin(t * 1.6 + it.ph) * 0.035 + sink;
+        it.o.rotation.z = Math.sin(t * 1.2 + it.ph) * 0.025;
+        it.o.rotation.x = Math.sin(t * 1.05 + it.ph * 2) * 0.02;
+      }
     for (const u of this.updaters) u(t, dt);
   }
 

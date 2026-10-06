@@ -51,6 +51,18 @@ try {
   await page.mouse.click(800, 450); // Ton freischalten (wie am echten Beamer)
   await sleep(2500);
   const board = (fn, arg) => page.evaluate(fn, arg);
+  /** bis zur Würfelrunde: ggf. nächste Runde, Inhalt wählen, auswerten */
+  const toDice = async () => {
+    if (state.phase.name === 'dice') return;
+    if (state.phase.name === 'round_end') await cmd({ type: 'round.next' });
+    await cmd({ type: 'content.select', source: 'random' });
+    await cmd({ type: 'content.open' });
+    const c = state.phase.content;
+    if (c.item.kind === 'game') await cmd({ type: 'content.rank', ranking: state.teams.map((t, i) => ({ teamId: t.id, rank: i + 1 })) });
+    else if (c.stage !== 'revealed') await cmd({ type: 'content.reveal' });
+    await cmd({ type: 'content.finish' });
+    await cmd({ type: 'results.confirm' });
+  };
   const shot = (name) => page.screenshot({ path: join(out, `${name}.png`) });
 
   // --- Fernsteuerung (Lobby, Spiel noch nicht gestartet) -------------------------
@@ -85,23 +97,55 @@ try {
     await page.keyboard.press('Space');
     await sleep(300);
     check(await board(() => !window.__board.rig.manual), 'Leertaste = zurück zur Automatik');
-    await showCmd({ type: 'set', patch: { fps: false } });
+    // Tasten schalten kein Vollbild (früher: F) – vorher Vollbild vom Klick verlassen
+    await page.evaluate(() => document.fullscreenElement && document.exitFullscreen().catch(() => {}));
+    await sleep(300);
+    await page.keyboard.press('f');
+    await sleep(300);
+    check(await page.evaluate(() => !document.fullscreenElement), 'Taste F schaltet kein Vollbild');
+    // Auflösung fest auf 720p
+    await showCmd({ type: 'set', patch: { resolution: '720' } });
+    await sleep(2600);
+    check(beamers[0]?.height === 720, `Auflösung aus der Regie: 720p (${beamers[0]?.width}×${beamers[0]?.height})`);
+    await showCmd({ type: 'set', patch: { resolution: 'auto' } });
+    // Ultra: echte Materialien werden nachgeladen
+    await showCmd({ type: 'set', patch: { quality: 'ultra' } });
+    await page.waitForFunction(() => window.__board.scene.getObjectByName('terrain')?.material.customProgramCacheKey?.() === 'insel-terrain-ultra', null, { timeout: 30000 }).catch(() => null);
+    check((await board(() => window.__board.quality)) === 'ultra', 'Grafikstufe aus der Regie: Ultra');
+    check(await board(() => window.__board.scene.getObjectByName('terrain')?.material.customProgramCacheKey?.() === 'insel-terrain-ultra'), 'Ultra: Gelände mit echten Materialien');
+    await sleep(2500);
+    await shot('ultra-insel');
+    await showCmd({ type: 'set', patch: { quality: 'high' } });
+    await sleep(800);
+    check(await board(() => window.__board.scene.getObjectByName('terrain')?.material.customProgramCacheKey?.() === 'insel-terrain'), 'zurück auf Schön: normales Gelände');
+    // Musik: festes Stück, dann wieder automatisch und rotierend
+    await showCmd({ type: 'set', patch: { musicTrack: 'insel-calypso' } });
+    await sleep(800);
+    check((await board(() => window.__board.audio.musicTrack)) === 'insel-calypso', 'Musik: festes Stück aus der Regie');
+    await showCmd({ type: 'set', patch: { musicTrack: 'auto', musicRotate: true } });
+    await sleep(800);
+    check(/^lobby/.test((await board(() => window.__board.audio.musicTrack)) ?? ''), 'Musik: automatisch (Lobby)');
+    await showCmd({ type: 'set', patch: { commentary: 'crazy' } });
+    await sleep(500);
+    check((await board(() => window.__board.commentator.level)) === 'crazy', 'Kommentator: Quatschkopf');
+    await showCmd({ type: 'set', patch: { fps: false, commentary: 'lots' } });
   }
 
   // --- Spielerklärung -------------------------------------------------------------
   if (want('erklaerung')) {
     await showCmd({ type: 'explain', action: 'start' });
     const t0 = Date.now();
-    const shots = [4, 16, 30, 48, 62, 80, 100, 118, 132];
+    const shots = [4, 16, 30, 58, 75, 92, 104, 116, 128, 140, 152, 164, 176];
     for (const s of shots) {
       const wait = t0 + s * 1000 - Date.now();
       if (wait > 0) await sleep(wait);
       await shot(`erklaerung-${String(s).padStart(3, '0')}`);
       if (!show.explainer.running) break;
     }
-    for (let i = 0; i < 40 && show.explainer.running; i++) await sleep(1000);
+    for (let i = 0; i < 90 && show.explainer.running; i++) await sleep(1000);
     check(!show.explainer.running, `Erklärung läuft durch und meldet sich fertig (${Math.round((Date.now() - t0) / 1000)} s)`);
     check(await board(() => !window.__board.pieces.get('__demo_a')), 'Vorführ-Figuren wieder weg');
+    check((await board(() => window.__board.view)) === 'island', 'nach der Erklärung wieder auf der Insel');
   }
 
   // --- Spiel: Foto-Blasen, Reaktion, Siegerehrung -------------------------------------
@@ -130,12 +174,15 @@ try {
       await cmd({ type: 'results.confirm' });
     }
     const id = state.phase.dice.order[state.phase.dice.index];
-    await cmd({ type: 'team.setPosition', teamId: id, position: 2 });
+    const fields = state.config.board.fields;
+    // hinter der Liane starten, damit keine Mutprobe dazwischenkommt
+    const startPos = fields.indexOf('vine') + 1;
+    await cmd({ type: 'team.setBonus', teamId: id, bonusDie: 0 });
+    await cmd({ type: 'team.setPosition', teamId: id, position: startPos });
     await sleep(1500);
     // Ein normales Feld als Ziel suchen
-    const fields = state.config.board.fields;
     let main = 6;
-    for (let m = 6; m >= 1; m--) if (fields[2 + m] === 'normal') { main = m; break; }
+    for (let m = 6; m >= 1; m--) if (fields[startPos + m] === 'normal' && !fields.slice(startPos + 1, startPos + m).some((f) => f !== 'normal')) { main = m; break; }
     await cmd({ type: 'dice.roll', main, force: true });
     const steps = [2600, 2200, 1300, 600, 500];
     let k = 0;
@@ -144,7 +191,65 @@ try {
       await shot(`reaktion-${k++}`);
     }
   }
+  if (want('vulkan')) {
+    // Totenkopf → Vulkan-Inneres → genau aufs Ausgangsfeld → zurück auf die Insel
+    const fields = state.config.board.fields;
+    const skull = fields.indexOf('skull');
+    check(skull > 0, `Brett hat ein Totenkopf-Feld (${skull})`);
+    if (state.phase.name !== 'dice') {
+      await cmd({ type: 'content.select', source: 'random' });
+      await cmd({ type: 'content.open' });
+      const c = state.phase.content;
+      if (c.item.kind === 'game') await cmd({ type: 'content.rank', ranking: state.teams.map((t, i) => ({ teamId: t.id, rank: i + 1 })) });
+      else if (c.stage !== 'revealed') await cmd({ type: 'content.reveal' });
+      await cmd({ type: 'content.finish' });
+      await cmd({ type: 'results.confirm' });
+    }
+    const id = state.phase.dice.order[state.phase.dice.index];
+    await cmd({ type: 'team.setBonus', teamId: id, bonusDie: 0 });
+    await cmd({ type: 'team.setPosition', teamId: id, position: skull - 1 });
+    await sleep(2500);
+    await cmd({ type: 'dice.roll', main: 1, force: true });
+    check(!!state.teams.find((t) => t.id === id).inside, 'Team ist im Vulkan-Inneren');
+    await sleep(5200);
+    check((await board(() => window.__board.view)) === 'inside', 'Beamer zeigt das Vulkan-Innere');
+    await shot('vulkan-innen-1');
+    await sleep(1500);
+    await shot('vulkan-innen-2');
+    // Runde zu Ende bringen, nächste Runde: genau aufs Ausgangsfeld
+    while (state.phase.name === 'dice') await cmd({ type: 'dice.skip' });
+    if (state.phase.name === 'round_end') await cmd({ type: 'round.next' });
+    await cmd({ type: 'content.select', source: 'random' });
+    await cmd({ type: 'content.open' });
+    const c2 = state.phase.content;
+    if (c2.item.kind === 'game') await cmd({ type: 'content.rank', ranking: state.teams.map((t, i) => ({ teamId: t.id, rank: i + 1 })) });
+    else if (c2.stage !== 'revealed') await cmd({ type: 'content.reveal' });
+    await cmd({ type: 'content.finish' });
+    await cmd({ type: 'results.confirm' });
+    while (state.phase.name === 'dice' && state.phase.dice.order[state.phase.dice.index] !== id) await cmd({ type: 'dice.skip' });
+    await cmd({ type: 'team.setBonus', teamId: id, bonusDie: 0 });
+    await sleep(Math.max(0, state.phase.dice.busyUntil - Date.now()) + 2500);
+    check((await board(() => window.__board.view)) === 'inside', 'am Zug im Vulkan: Beamer zeigt das Innere');
+    await shot('vulkan-zug');
+    await cmd({ type: 'dice.roll', main: state.config.rules.inside.shout, force: true });
+    check(!state.teams.find((t) => t.id === id).inside, 'genau aufs Ausgangsfeld: sofort draußen');
+    await sleep(4200);
+    await shot('vulkan-weg');
+    await sleep(3500);
+    await shot('vulkan-warp');
+    await sleep(3000);
+    check((await board(() => window.__board.view)) === 'island', 'danach wieder auf der Insel');
+    check(state.teams.find((t) => t.id === id).position === skull, 'zurück auf dem Totenkopf-Feld');
+  }
   if (want('sieg')) {
+    await toDice();
+    // offene Mutprobe erst erledigen
+    if (state.phase.name === 'dice' && state.phase.dice.challenge) {
+      const c = state.phase.dice.challenge;
+      await cmd(c.kind === 'river' ? { type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true } : { type: 'challenge.roll', value: 6, force: true });
+      await sleep(500);
+      await toDice();
+    }
     while (state.phase.name === 'dice' && state.phase.dice.index < state.phase.dice.order.length) {
       const id = state.phase.dice.order[state.phase.dice.index];
       const goal = state.config.board.fields.length - 1;

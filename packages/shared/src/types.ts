@@ -120,23 +120,30 @@ export interface Rules {
     zoneSize: number;
     knockback: Range;
   };
-  /** Fässer in der Flussfurt */
+  /** Mutprobe am Wasserfall: Fässer oder Kisten wählen */
   river: {
     enabled: boolean;
-    /** Wahrscheinlichkeit in Prozent, ins Wasser zu fallen */
+    /** Wahrscheinlichkeit in Prozent, dass die gewählte Seite einbricht (dann verfällt der restliche Wurf) */
     fallChance: number;
-    /** So viele Felder spült die Strömung zurück */
-    driftBack: Range;
   };
-  /** Liane am Anfang: noch einmal würfeln und so weit nach vorne schwingen */
+  /** Liane über den Bach: Pflichthalt, würfeln wie weit man schwingt, dann mit dem restlichen Wurf weiter */
   vine: {
     enabled: boolean;
     /** Seitenzahl des Lianen-Würfels */
     sides: number;
   };
-  /** Lavahöhle an den Serpentinen: hineinfallen, zum Vulkanfuß hinunterrutschen */
+  /** Lavahöhle an den Serpentinen: Mutprobe „Vulkan oder nicht“ – mit mindestens `need` weiter, sonst ins Vulkan-Innere */
   cave: {
     enabled: boolean;
+    need: number;
+  };
+  /** Inneres des Vulkans: Strafweg über Lava-Inseln (Totenkopf-Feld, verpatzte Mutprobe) */
+  inside: {
+    enabled: boolean;
+    /** Länge des Wegs im Vulkan */
+    length: number;
+    /** Wer genau auf diesem Feld landet, kommt sofort heraus (Ausgangsfeld) */
+    shout: number;
   };
   /** Loch am Kraterrand */
   crater: {
@@ -208,6 +215,8 @@ export interface Team {
   blocked: null | { attempts: number; since: number };
   /** In den Krater gefallen: gesammelte Augen beim Herausklettern. */
   crater: null | { climbed: number; need: number };
+  /** Im Inneren des Vulkans: Fortschritt auf dem Strafweg und Rückkehrfeld auf der Insel. */
+  inside: null | { step: number; returnTo: number };
   figure: FigureConfig;
   /** 4-stellige PIN zum Beitreten. */
   pin: string;
@@ -314,12 +323,26 @@ export interface FieldGame {
   drawn: Record<string, string[]>;
 }
 
+export type ChallengeKind = 'vine' | 'river' | 'cave';
+export type RiverChoice = 'barrels' | 'crates';
+
+export interface Challenge {
+  teamId: string;
+  kind: ChallengeKind;
+  /** Feld, auf dem das Team anhält (Liane, Ufer vor dem Fluss, Lavahöhle) */
+  position: number;
+  /** Augen, die nach der Mutprobe noch gelaufen werden (sofern sie gelingt) */
+  remaining: number;
+}
+
 export interface DiceRound {
   order: string[];
   index: number;
   rolls: RollRecord[];
   fieldGame: FieldGame | null;
-  /** Team hängt an der Liane und muss noch den Lianen-Würfel werfen. */
+  /** Pflichthalt an einer Mutprobe (Liane, Fässer/Kisten, Lavahöhle): wartet auf Wurf bzw. Wahl. */
+  challenge?: Challenge | null;
+  /** @deprecated ältere Spielstände – wird beim Laden zu `challenge` */
   vine?: { teamId: string; position: number } | null;
   /** Bis zu diesem Zeitpunkt laufen auf dem Beamer noch Animationen. */
   busyUntil: number;
@@ -389,7 +412,7 @@ export interface GameState {
 // Effekte: Ereignisse für Animationen, Sounds und Hinweise (nicht Teil des Zustands)
 // ---------------------------------------------------------------------------
 
-export type MoveReason = 'dice' | 'catapult' | 'reward' | 'penalty' | 'eruption' | 'swap' | 'correction' | 'river' | 'vine' | 'cave';
+export type MoveReason = 'dice' | 'catapult' | 'reward' | 'penalty' | 'eruption' | 'swap' | 'correction' | 'river' | 'vine' | 'cave' | 'inside';
 
 /** Stimmung einer Figur nach ihrem Zug (Beamer: kurze Großaufnahme mit passender Reaktion). */
 export type Mood = 'super' | 'happy' | 'ok' | 'meh' | 'sad' | 'angry' | 'shock';
@@ -400,12 +423,14 @@ export type EffectInput =
   | { type: 'field'; teamId: string; field: FieldType; position: number; text: string }
   | { type: 'swap'; a: string; b: string; posA: number; posB: number }
   | { type: 'barrier'; teamId: string; roll: number; result: 'blocked' | 'stuck' | 'released' | 'opened' }
-  /** Fässer im Fluss: gehalten oder ins Wasser gefallen (dann folgt ein move mit reason 'river'). */
-  | { type: 'river'; teamId: string; position: number; result: 'safe' | 'fall' }
+  /** Fässer oder Kisten: Halt am Ufer (wartet auf die Wahl) bzw. Überquerung (danach folgt ein move mit reason 'river'). */
+  | { type: 'river'; teamId: string; position: number; stage: 'choose' | 'cross'; choice: RiverChoice | null; result: 'safe' | 'fall' | null; remaining: number }
   /** Liane: gepackt (wartet auf den Lianen-Wurf) bzw. geschwungen (danach folgt ein move mit reason 'vine'). */
-  | { type: 'vine'; teamId: string; position: number; stage: 'grab' | 'swing'; roll: number; sides: number }
-  /** Lavahöhle: hineingefallen (danach folgt ein move mit reason 'cave' zum Ausgang). */
-  | { type: 'cave'; teamId: string; position: number }
+  | { type: 'vine'; teamId: string; position: number; stage: 'grab' | 'swing'; roll: number; sides: number; remaining: number }
+  /** Lavahöhle („Vulkan oder nicht“): Halt (wartet auf den Wurf) bzw. Ergebnis. */
+  | { type: 'cave'; teamId: string; position: number; stage: 'stop' | 'roll'; roll: number; need: number; success: boolean; remaining: number }
+  /** Vulkan-Inneres: hineinfallen, auf dem Strafweg laufen, herauskommen (Ausgangsfeld oder Ende). */
+  | { type: 'inside'; teamId: string; stage: 'enter' | 'walk' | 'exit'; from: number; to: number; returnTo: number; shout: boolean }
   /** Krater: hineingefallen, ein Stück geklettert oder wieder draußen. */
   | { type: 'crater'; teamId: string; position: number; result: 'fall' | 'climb' | 'out'; roll: number; climbed: number; need: number }
   | { type: 'final_roll'; teamId: string; roll: number; needed: number; success: boolean }
