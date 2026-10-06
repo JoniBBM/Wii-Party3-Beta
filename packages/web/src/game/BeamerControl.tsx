@@ -41,7 +41,7 @@ import {
   type ShowPatch,
   type ShowSettings,
 } from '@insel/shared';
-import { sendShow, useLive } from '../lib/live.ts';
+import { pairBeamer, sendShow, useLive } from '../lib/live.ts';
 import { Badge, Button, Card, CardHeader, Segmented, Switch } from '../ui/basics.tsx';
 import { toast } from '../ui/toast.tsx';
 
@@ -154,6 +154,45 @@ function PadButton({ label, onPress, children }: { label: string; onPress: () =>
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Neuen Beamer freigeben: Ein Beamer ohne Zugang zeigt einen vierstelligen Code – erst nach
+ * der Freigabe sieht er Fotos, Beitritts-Adressen und Spielverlauf.
+ */
+function PairBeamer() {
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{4}$/.test(code)) return;
+    setBusy(true);
+    const r = await pairBeamer(code);
+    setBusy(false);
+    if (r.ok) {
+      toast.success('Beamer freigegeben');
+      setCode('');
+    } else toast.error(r.error ?? 'Freigabe fehlgeschlagen');
+  };
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-2xl bg-bg-2 px-3 py-2">
+      <label htmlFor="beamer-pair" className="min-w-0 flex-1 text-sm font-semibold text-ink-2">
+        Beamer zeigt einen Code? Hier eingeben, um ihn freizugeben:
+      </label>
+      <input
+        id="beamer-pair"
+        className="field h-10 w-28 text-center font-mono text-lg tracking-[0.3em]"
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="0000"
+        value={code}
+        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+      />
+      <Button type="submit" size="sm" variant="primary" loading={busy} disabled={code.length !== 4}>
+        Freigeben
+      </Button>
+    </form>
   );
 }
 
@@ -312,6 +351,7 @@ export function BeamerControl() {
         />
         <div className="flex flex-col gap-4 p-5">
           <BeamerStatusList />
+          <PairBeamer />
           <ExplainerControl />
         </div>
       </Card>

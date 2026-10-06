@@ -61,8 +61,22 @@ export interface IslandLayout {
   craterField: number;
   /** Bach hinter der Liane (quert den Weg zwischen Lianenfeld und nächstem Feld) */
   creek: CreekPoint[];
+  /** Becken an der Furt: gleichmäßig tief, Platz für beide Wege (Fässer und Kisten) */
+  fordBasin: FordBasin | null;
   /** Weghöhe an Bogenlänge s */
   pathY: (s: number) => number;
+}
+
+/** Rechteckiges Becken (weich gerundet) an der Furt: Mitte, Achse flussabwärts (`along`), quer dazu (`across`). */
+export interface FordBasin {
+  x: number;
+  z: number;
+  /** Wasserspiegel */
+  y: number;
+  along: { x: number; z: number };
+  across: { x: number; z: number };
+  halfAlong: number;
+  halfAcross: number;
 }
 
 /** Punkt der Bach-Mittellinie: Wasserspiegel y, halbe Breite w (Quelle → Mündung). */
@@ -175,6 +189,7 @@ export function buildLayout(fieldCount: number): IslandLayout {
   };
   const fields: FieldSpot[] = plan.fields.map((f) => ({ ...f, y: pathY(f.s) }));
   const creek = buildCreek(fields, fieldRadiusFor(plan), plan.vineField);
+  const fordBasin = buildFordBasin(plan, fields, fieldRadiusFor(plan));
   const bp0 = path.find((p) => p.s >= plan.bridge.s0)!;
   const bp1 = path.find((p) => p.s >= plan.bridge.s1) ?? path[path.length - 1]!;
   const start = fields[0]!;
@@ -196,10 +211,51 @@ export function buildLayout(fieldCount: number): IslandLayout {
     fordFields: plan.fordFields,
     craterField: plan.craterField,
     creek,
+    fordBasin,
     pathY,
   };
   cache.set(fieldCount, layout);
   return layout;
+}
+
+/**
+ * Becken an der Furt: Der Fluss wird dort quer zum Weg bis knapp vor die Uferfelder und
+ * flussauf-/abwärts ein Stück gleichmäßig tief, damit Fässer und Kisten ganz im Wasser liegen.
+ */
+function buildFordBasin(plan: IslandPlan, fields: FieldSpot[], radius: number): FordBasin | null {
+  const ff = plan.fordFields;
+  if (!ff.length) return null;
+  const bank = fields[ff[0]! - 1];
+  const exit = fields[ff[ff.length - 1]! + 1];
+  if (!bank || !exit) return null;
+  const a = RIVER[Math.max(0, RIVER_FORD - 1)]!;
+  const b = RIVER[Math.min(RIVER.length - 1, RIVER_FORD + 1)]!;
+  let ax = b.x - a.x;
+  let az = b.z - a.z;
+  const al = Math.hypot(ax, az) || 1;
+  ax /= al;
+  az /= al;
+  // Mitte zwischen den Furtfeldern, quer = senkrecht zur Strömung
+  const first = fields[ff[0]!]!;
+  const last = fields[ff[ff.length - 1]!]!;
+  const x = (first.x + last.x) / 2;
+  const z = (first.z + last.z) / 2;
+  const across = { x: -az, z: ax };
+  const reach = (f: FieldSpot) => Math.abs((f.x - x) * across.x + (f.z - z) * across.z);
+  const halfAcross = Math.max(1.6, Math.min(reach(bank), reach(exit)) - radius - 0.45);
+  return { x, z, y: plan.ford.y, along: { x: ax, z: az }, across, halfAlong: Math.max(4.6, radius * 2.3 + 3), halfAcross };
+}
+
+/** Lage eines Punkts im Furtbecken: >0 = innen (1 = voll), 0 = draußen; `edge` = Breite der Böschung. */
+export function basinWeight(bn: FordBasin, x: number, z: number, edge = 0.9): number {
+  const dx = x - bn.x;
+  const dz = z - bn.z;
+  const u = Math.abs(dx * bn.along.x + dz * bn.along.z);
+  const v = Math.abs(dx * bn.across.x + dz * bn.across.z);
+  const su = Math.min(1, Math.max(0, (bn.halfAlong - u) / edge));
+  const sv = Math.min(1, Math.max(0, (bn.halfAcross - v) / edge));
+  const s = su * sv;
+  return s * s * (3 - 2 * s);
 }
 
 /**

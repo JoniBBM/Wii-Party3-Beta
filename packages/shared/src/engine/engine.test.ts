@@ -591,6 +591,38 @@ describe('Würfeln & Sonderfelder', () => {
     expect(h.team(1).position).toBe(12);
   });
 
+  it('Lianen-Schwung endet spätestens am Flussufer – der Rest zählt zur Furt', () => {
+    const h = harness({ config: { board: boardWith({ 4: 'vine', 9: 'river', 10: 'river' }) } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.mutate((s) => (s.config.rules.river = { enabled: true, fallChance: 0 }));
+    h.toDice([a.id, b.id]);
+    h.run({ type: 'dice.roll', main: 5, force: true }, ADMIN);
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ kind: 'vine', position: 4, remaining: 1 });
+    h.tick(10_000);
+    // Schwung 6 von Feld 4 → nicht bis 10, sondern Halt am Ufer (8); 2 + 1 Felder bleiben übrig
+    h.run({ type: 'vine.roll', value: 6, force: true }, ADMIN);
+    expect(h.team(0).position).toBe(8);
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ kind: 'river', teamId: a.id, position: 8, remaining: 3 });
+  });
+
+  it('Regie setzt ein Team mitten in der Mutprobe um → Mutprobe entfällt; Neustart leert das Vulkan-Innere', () => {
+    const h = harness({ config: { board: boardWith({ 4: 'vine' }) } }).setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.toDice([a.id, b.id]);
+    h.run({ type: 'dice.roll', main: 6, force: true }, ADMIN);
+    expect(phase(h.s, 'dice').dice.challenge).toMatchObject({ teamId: a.id });
+    h.run({ type: 'team.setPosition', teamId: a.id, position: 12 }, ADMIN);
+    expect(phase(h.s, 'dice').dice.challenge).toBeNull();
+    expect(h.team(0).position).toBe(12);
+    h.mutate((s) => {
+      s.teams[1]!.inside = { step: 3, returnTo: 20 };
+      s.status = 'finished';
+      s.round = Math.max(1, s.round);
+    });
+    h.run({ type: 'game.reopenLobby' }, ADMIN);
+    expect(h.s.teams.every((t) => t.inside === null && t.position === 0)).toBe(true);
+  });
+
   it('alte Spielstände ohne Fluss/Krater werden ergänzt', () => {
     const h = harness().setup();
     const old = JSON.parse(JSON.stringify(h.s)) as GameState;

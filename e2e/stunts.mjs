@@ -23,6 +23,8 @@ const browser = await chromium.launch({ args: ['--enable-gpu', '--ignore-gpu-blo
 const errors = [];
 try {
   const { token } = await post('/api/auth/admin', { password: 'st' });
+  // Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
+  const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
   const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
   await post('/api/games', { name: 'Auftritte', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
   const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
@@ -57,7 +59,7 @@ try {
   page.on('pageerror', (e) => errors.push('page: ' + e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
   await page.addInitScript(() => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })));
-  await page.goto(`${base}/beamer?debug`);
+  await page.goto(`${base}/beamer?debug#bt=${beamerToken}`);
   await page.waitForFunction(() => window.__board, null, { timeout: 60000 });
   const [a, b] = state.teams;
 

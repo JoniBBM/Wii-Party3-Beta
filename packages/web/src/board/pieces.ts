@@ -144,6 +144,7 @@ export class Pieces {
     if (!p || !this.demos.has(id)) return;
     p.holder.removeFromParent();
     this.insideSteps.delete(id);
+    this.crater.delete(id);
     this.tags.remove(id);
     p.rig.dispose();
     this.pieces.delete(id);
@@ -299,8 +300,10 @@ export class Pieces {
     const dir = to > from ? 1 : -1;
     let cur = from;
     const epoch = this.epoch;
+    // abgebrochen (Rückgängig) oder Figur entfernt (Spielerklärung beendet) → aufhören
+    const gone = () => epoch !== this.epoch || this.pieces.get(teamId) !== p;
     while (cur !== to) {
-      if (epoch !== this.epoch) return;
+      if (gone()) return;
       const next = cur + dir;
       const a = p.holder.position.clone();
       const last = next === to;
@@ -313,7 +316,7 @@ export class Pieces {
         p.holder.position.y += Math.sin(t * Math.PI) * hop;
         p.holder.rotation.y = r0 + shortAngle(r0, yaw) * Math.min(1, t * 2.5);
       }, ease.linear);
-      if (epoch !== this.epoch) return;
+      if (gone()) return;
       cur = next;
       p.position = cur;
       this.cb.onStep?.(teamId, cur);
@@ -662,8 +665,9 @@ export class Pieces {
     p.busy = true;
     p.rig.setMode('walk');
     let cur = from;
+    const gone = () => epoch !== this.epoch || this.pieces.get(teamId) !== p;
     while (cur !== to) {
-      if (epoch !== this.epoch) return;
+      if (gone()) return;
       const next = cur + (to > cur ? 1 : -1);
       const a = p.holder.position.clone();
       this.insideSteps.set(teamId, next);
@@ -677,7 +681,7 @@ export class Pieces {
         p.holder.position.y += Math.sin(t * Math.PI) * hop;
         p.holder.rotation.y = r0 + shortAngle(r0, yaw) * Math.min(1, t * 2.5);
       }, ease.inOut);
-      if (epoch !== this.epoch) return;
+      if (gone()) return;
       cur = next;
       onStep?.(cur);
     }

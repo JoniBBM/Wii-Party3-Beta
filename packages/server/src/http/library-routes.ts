@@ -23,12 +23,18 @@ function stripMeta(item: ContentItem): ContentItemInput {
   return rest as ContentItemInput;
 }
 
+const collectionMeta = z.object({ name: z.string().trim().min(1).max(120), description: z.string().max(2000).optional().default('') });
+
 export function importCollections(database: db.DB, collections: ExportFile['collections']) {
   const now = Date.now();
   let items = 0;
   const created: string[] = [];
   database.transaction(() => {
-    for (const c of collections) {
+    for (const raw of collections.slice(0, 500)) {
+      // Namen und Beschreibung prüfen (Importdateien kommen von außen)
+      const meta = collectionMeta.safeParse(raw);
+      if (!meta.success || !Array.isArray(raw.items)) continue;
+      const c = { ...meta.data, items: raw.items.slice(0, 5000) };
       const collection = { id: newId(), name: c.name, description: c.description ?? '', createdAt: now, updatedAt: now };
       db.insertCollection(database, collection);
       created.push(collection.id);

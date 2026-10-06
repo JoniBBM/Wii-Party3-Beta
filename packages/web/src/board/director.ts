@@ -18,6 +18,9 @@ export interface Caption {
 
 let captionSeq = 0;
 
+/** Effekte, die auf der Insel spielen – oder (mit Team) dort, wo das Team gerade ist */
+const ISLAND_FX = new Set<Effect['type']>(['vine', 'cave', 'river', 'crater', 'field', 'swap', 'barrier', 'final_roll', 'summit', 'eruption', 'victory', 'move', 'react']);
+
 export class Director {
   private queue: Effect[] = [];
   private running = false;
@@ -34,6 +37,8 @@ export class Director {
   reactions = true;
   /** Wahl am Wasserfall (für die folgende Bewegung über den Fluss) */
   private riverPick: { choice: 'barrels' | 'crates'; result: 'safe' | 'fall' } | null = null;
+  /** Spielerklärung läuft: Figuren, Kamera und Ansicht gehören ihr – nichts angleichen */
+  private paused = false;
 
   constructor(
     private s: BoardScene,
@@ -89,18 +94,30 @@ export class Director {
     c.setContext('idle');
   }
 
-  /** Richtige Welt zeigen: Vulkan-Inneres, wenn das Team dort ist, sonst die Insel. */
-  private viewFor(teamId: string | null) {
+  /**
+   * Richtige Welt zeigen: Vulkan-Inneres, wenn das Team dort ist, sonst die Insel –
+   * Wechsel mit kurzer Schwarzblende statt Kameraflug.
+   */
+  private async viewFor(teamId: string | null): Promise<boolean> {
     const inside = !!teamId && this.s.pieces.isInside(teamId);
     const want = inside ? 'inside' : 'island';
     if (this.s.view === want) return false;
-    this.s.setView(want);
-    if (inside && teamId) {
-      const step = this.s.pieces.insideStep(teamId) ?? 0;
-      this.s.rig.set({ kind: 'focus', ...this.s.inside!.plateShot(step) }, 2);
-    } else this.s.rig.set({ kind: 'overview' }, 1);
-    this.s.rig.jump();
+    await this.s.fadeCut(() => {
+      this.s.setView(want);
+      if (inside && teamId) this.camFor(teamId, 3);
+      else this.s.rig.set({ kind: 'overview' }, 1);
+    });
     return true;
+  }
+
+  /** Kamera aufs Team: im Vulkan von vorn auf seine Platte, auf der Insel mitfahren. */
+  private camFor(teamId: string, stiffness = 2) {
+    const ins = this.s.inside;
+    if (ins && this.s.pieces.isInside(teamId)) {
+      this.s.rig.set({ kind: 'focus', ...ins.plateShot(this.s.pieces.insideStep(teamId) ?? 0) }, stiffness);
+      return;
+    }
+    this.follow(teamId);
   }
 
   private teamCaption(id: string) {
@@ -108,11 +125,37 @@ export class Director {
     return { name: t?.name ?? 'Team', color: teamColor(t?.color ?? 'red').hex };
   }
 
+  /**
+   * Während der Spielerklärung pausieren: Effekte werden verworfen (der Zustand wird danach
+   * einfach angeglichen), Kamera und Ansicht bleiben unangetastet.
+   */
+  setPaused(on: boolean) {
+    if (this.paused === on) return;
+    this.paused = on;
+    if (on) {
+      this.queue = [];
+      this.generation += 1;
+      if (this.idleTimer) clearTimeout(this.idleTimer);
+      if (this.reconcileTimer) clearTimeout(this.reconcileTimer);
+      this.riverPick = null;
+      this.s.commentator.cancel();
+      this.caption(null);
+      return;
+    }
+    window.setTimeout(() => {
+      if (this.paused || this.running || this.disposed) return;
+      this.reconcile(true);
+      this.idleCamera();
+      this.updateTalk();
+    }, 60);
+  }
+
   onState(state: GameState) {
     this.state = state;
     if (this.reconcileTimer) clearTimeout(this.reconcileTimer);
     // Kurz warten: Effekte zur Änderung kommen direkt nach dem Zustand
     this.reconcileTimer = window.setTimeout(() => {
+      if (this.paused) return;
       if (!this.running && this.queue.length === 0) {
         this.reconcile();
         this.idleCamera();
@@ -122,9 +165,9 @@ export class Director {
   }
 
   /** Figuren an den Serverzustand angleichen (nach Rückgängig, Neuverbindung, Korrekturen). */
-  private reconcile() {
+  private reconcile(force = false) {
     const st = this.state;
-    if (!st) return;
+    if (!st || this.paused) return;
     const positions: Record<string, number> = {};
     let changed = false;
     for (const t of st.teams) {
@@ -132,7 +175,9 @@ export class Director {
       if (this.s.pieces.positionOf(t.id) !== t.position) changed = true;
     }
     for (const t of st.teams) this.s.pieces.setInside(t.id, t.inside ? t.inside.step : null);
-    if (changed) this.s.pieces.snap(positions);
+    // nach Rückgängig immer hart setzen: abgebrochene Animationen hinterlassen sonst
+    // unsichtbare oder geschrumpfte Figuren (Höhlensturz, Wirbel im Vulkan)
+    if (changed || force) this.s.pieces.snap(positions);
     else this.s.pieces.arrangeAll();
     this.s.pieces.applyBlocked(st.teams);
     // Endstand: Siegerpodest (auch nach Neuladen); sonst ggf. abbauen
@@ -159,7 +204,7 @@ export class Director {
   /** Kamera, wenn gerade nichts passiert. */
   private idleCamera() {
     const st = this.state;
-    if (!st) return;
+    if (!st || this.paused) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (st.phase.name === 'dice' && !st.phase.dice.fieldGame) {
       const ch = st.phase.dice.challenge;
@@ -167,7 +212,7 @@ export class Director {
       if (id) {
         this.s.pieces.setActive(id);
         const color = teamColor(this.team(id)?.color ?? 'red').hex;
-        this.viewFor(id);
+        void this.viewFor(id);
         if (this.s.pieces.isInside(id) && this.s.inside) {
           const step = this.s.pieces.insideStep(id) ?? 0;
           this.s.inside.highlight(step, color);
@@ -183,7 +228,7 @@ export class Director {
         return;
       }
     }
-    this.viewFor(null);
+    void this.viewFor(null);
     this.s.inside?.highlight(null);
     if (st.phase.name === 'finished' && st.winnerTeamId) {
       this.s.ceremony.focus();
@@ -206,16 +251,18 @@ export class Director {
         this.stopFireworks();
         this.s.ceremony.stop();
         this.s.audio.stopVoice();
+        this.s.commentator.cancel();
         this.caption(null);
         void this.s.dice.hide(0);
         window.setTimeout(() => {
-          this.reconcile();
+          this.reconcile(true);
           this.idleCamera();
         }, 50);
         continue;
       }
-      this.queue.push(e);
+      if (!this.paused) this.queue.push(e);
     }
+    if (this.paused) return;
     this.s.tweens.speed = this.queue.length > 8 ? 2.2 : this.queue.length > 4 ? 1.5 : 1;
     if (!this.running) void this.run();
   }
@@ -237,6 +284,7 @@ export class Director {
     this.running = false;
     this.updateTalk();
     this.s.tweens.speed = 1;
+    if (this.paused) return;
     this.reconcile();
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = window.setTimeout(() => !this.running && this.idleCamera(), 1400);
@@ -251,6 +299,11 @@ export class Director {
     const A = s.audio;
     /** nach Rückgängig nicht weiterspielen */
     const stale = () => gen !== this.generation;
+    // Effekte auf der Insel (Ausbruch, Sieg, UFO, Sonderfelder …) nie im Vulkan-Inneren abspielen
+    if (ISLAND_FX.has(e.type)) {
+      await this.viewFor('teamId' in e && typeof e.teamId === 'string' ? e.teamId : null);
+      if (stale()) return;
+    }
     switch (e.type) {
       case 'vine': {
         const { name, color } = this.teamCaption(e.teamId);
@@ -371,10 +424,14 @@ export class Director {
         const ins = s.inside;
         if (!ins) return;
         if (e.stage === 'enter') {
-          s.pieces.setInside(e.teamId, 0);
-          s.setView('inside');
-          s.rig.set({ kind: 'focus', ...ins.dropShot() }, 3);
-          s.rig.jump();
+          // Schwarzblende, dann fällt die Figur von oben auf die erste Platte
+          await s.fadeCut(() => {
+            s.pieces.setInside(e.teamId, 0);
+            s.pieces.get(e.teamId)!.holder.visible = false;
+            s.setView('inside');
+            s.rig.set({ kind: 'focus', ...ins.plateShot(0) }, 3);
+          });
+          if (stale()) return;
           this.say({ icon: '🌋', title: 'Ab ins Vulkan-Innere!', sub: `${name} muss über die Lava-Inseln zum Ausgang`, tone: 'bad', color }, 3600);
           this.voice('insideEnter', { delay: 300 });
           A.play('whoosh-down');
@@ -383,25 +440,27 @@ export class Director {
           A.play('lavaplatsch');
           ins.lavaBurst(s.pieces.worldPos(e.teamId) ?? ins.dropPoint);
           s.rig.shake(0.2, 0.5);
-          await s.tweens.wait(500);
-          if (stale()) return;
-          // dann der Überblick: Weg, Ausgangsfeld und Portal
-          s.rig.set({ kind: 'focus', ...ins.plateShot(0) }, 1.5);
-          await s.tweens.wait(700);
+          await s.tweens.wait(900);
           if (stale()) return;
           return;
         }
         if (e.stage === 'walk') {
           if (!s.pieces.isInside(e.teamId)) s.pieces.setInside(e.teamId, e.from);
-          this.viewFor(e.teamId);
-          s.rig.set({ kind: 'follow', target: () => s.pieces.worldPos(e.teamId), distance: 9, height: 6 }, 2);
-          await s.pieces.insideWalk(e.teamId, e.from, e.to, () => A.step(false));
+          await this.viewFor(e.teamId);
+          if (stale()) return;
+          // Kamera fährt von Platte zu Platte mit (immer von vorn, Lavafall im Hintergrund)
+          s.rig.set({ kind: 'focus', ...ins.plateShot(e.from) }, 2);
+          await s.pieces.insideWalk(e.teamId, e.from, e.to, (st) => {
+            A.step(false);
+            s.rig.set({ kind: 'focus', ...ins.plateShot(st) }, 2.2);
+          });
           if (stale()) return;
           ins.highlight(e.to, color);
           return;
         }
         // Ausgang: grüner Wirbel, dann zurück auf die Insel
-        this.viewFor(e.teamId);
+        await this.viewFor(e.teamId);
+        if (stale()) return;
         const at = s.pieces.worldPos(e.teamId) ?? ins.portal;
         s.rig.set({ kind: 'focus', ...ins.plateShot(e.from) }, 2.4);
         this.say(
@@ -416,10 +475,12 @@ export class Director {
         await s.pieces.insideVanish(e.teamId);
         if (stale()) return;
         ins.highlight(null);
-        s.pieces.setInside(e.teamId, null);
-        s.setView('island');
-        s.rig.set({ kind: 'focus', ...s.rig.clearShot(s.pieces.slotOn(e.teamId, e.returnTo), 8, 5) }, 2.4);
-        s.rig.jump();
+        await s.fadeCut(() => {
+          s.pieces.setInside(e.teamId, null);
+          s.setView('island');
+          s.rig.set({ kind: 'focus', ...s.rig.clearShot(s.pieces.slotOn(e.teamId, e.returnTo), 8, 5) }, 2.4);
+        });
+        if (stale()) return;
         await s.stunts.warpOut(e.teamId, e.returnTo);
         if (stale()) return;
         return;
@@ -427,7 +488,8 @@ export class Director {
       case 'turn': {
         const { name, color } = this.teamCaption(e.teamId);
         s.pieces.setActive(e.teamId);
-        this.viewFor(e.teamId);
+        await this.viewFor(e.teamId);
+        if (stale()) return;
         if (s.pieces.isInside(e.teamId) && s.inside) {
           const step = s.pieces.insideStep(e.teamId) ?? 0;
           s.inside.highlight(step, color);
@@ -448,8 +510,9 @@ export class Director {
       }
       case 'dice': {
         const { name, color } = this.teamCaption(e.teamId);
-        this.viewFor(e.teamId);
-        this.follow(e.teamId);
+        await this.viewFor(e.teamId);
+        if (stale()) return;
+        this.camFor(e.teamId);
         A.play('dice-shake', { volume: 0.9 });
         await s.dice.roll(e.main, e.bonus, e.bonusDie, () => A.play(Math.random() < 0.5 ? 'dice-throw-1' : 'dice-throw-2'));
         if (stale()) return;
@@ -757,7 +820,7 @@ export class Director {
         }
         return;
       case 'round_end':
-        this.viewFor(null);
+        await this.viewFor(null);
         s.rig.set({ kind: 'overview' }, 0.8);
         this.voice('roundEnd', { delay: 1500 });
         return;
@@ -765,8 +828,10 @@ export class Director {
         if (!this.reactions) return;
         const pos = s.pieces.worldPos(e.teamId);
         if (!pos) return;
-        // kurz zur Figur, von vorn – dann reagiert sie
-        const shot = s.rig.portraitShot(pos);
+        // kurz zur Figur, von vorn – dann reagiert sie (im Vulkan von der Kameraseite des Weges)
+        const shot = s.pieces.isInside(e.teamId)
+          ? { position: pos.clone().add(new THREE.Vector3(0, 2.0, 4.6)), lookAt: pos.clone().add(new THREE.Vector3(0, 0.95, 0)) }
+          : s.rig.portraitShot(pos);
         s.rig.set({ kind: 'focus', ...shot }, 1.5);
         await s.tweens.wait(300);
         if (stale()) return;

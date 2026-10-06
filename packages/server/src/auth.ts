@@ -21,10 +21,19 @@ export function teamKey(joinToken: string): string {
   return createHash('sha256').update(joinToken).digest('base64url').slice(0, 12);
 }
 
+/**
+ * Schlüssel der Spielleitung: hängt an den Passwörtern. Wer ADMIN_PASSWORD (oder
+ * MODERATOR_PASSWORD) ändert, macht alle bisherigen Regie-, Moderator- und Beamer-Tokens ungültig.
+ */
+export function staffKey(): string {
+  return createHmac('sha256', config.secret).update(`staff|${config.adminPassword}|${config.moderatorPassword}`).digest('base64url').slice(0, 12);
+}
+
 const DAY = 24 * 60 * 60 * 1000;
 const LIFETIME: Partial<Record<Role, number>> = {
-  admin: 14 * DAY,
+  admin: 3 * DAY,
   moderator: 2 * DAY,
+  beamer: 30 * DAY,
   team: 3 * DAY,
   player: 3 * DAY,
 };
@@ -66,11 +75,11 @@ export function verifyToken(token: string | undefined | null): Session | null {
   }
 }
 
+/** Passwortvergleich in konstanter Zeit (auch die Länge verrät nichts). */
 export function checkPassword(given: string, expected: string): boolean {
   if (!expected) return false;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  const h = (v: string) => createHmac('sha256', config.secret).update(v).digest();
+  return timingSafeEqual(h(given), h(expected));
 }
 
 /** Kurze, gut lesbare IDs. */
@@ -87,29 +96,53 @@ export function newSecretToken(): string {
 }
 
 /**
- * Bremse gegen Raten von PIN und Passwort. Gezählt werden nur **Fehlversuche** – sowohl je IP als
- * auch insgesamt. (Hinter Docker Desktop teilen sich oft alle Handys eine IP; erfolgreiche
- * Anmeldungen dürfen deshalb nie gebremst werden.)
+ * Bremse gegen Raten von PIN und Passwort. Gezählt werden nur **Fehlversuche**. Je IP: nach
+ * `perIp` Fehlern ist diese IP gesperrt – mit jeder weiteren Sperre doppelt so lang (bis 1 h).
+ * Insgesamt gibt es eine großzügige Obergrenze gegen massenhaftes Raten von vielen Adressen,
+ * die nur das Raten bremst (erfolgreiche Anmeldungen werden nie gezählt).
  */
-const failures = new Map<string, { count: number; since: number }>();
+interface FailBucket {
+  count: number;
+  since: number;
+  /** gesperrt bis (ms) */
+  until: number;
+  /** Anzahl bisheriger Sperren (für die Verdopplung) */
+  strikes: number;
+}
+const failures = new Map<string, FailBucket>();
 
-function bucket(key: string, windowMs: number) {
+function bucket(key: string, windowMs: number): FailBucket {
   const now = Date.now();
   let b = failures.get(key);
-  if (!b || now - b.since > windowMs) {
-    b = { count: 0, since: now };
+  if (!b) {
+    if (failures.size > 10_000) {
+      // alte, nicht gesperrte Einträge aufräumen
+      for (const [k, v] of failures) if (v.until < now && now - v.since > windowMs) failures.delete(k);
+    }
+    b = { count: 0, since: now, until: 0, strikes: 0 };
     failures.set(key, b);
+  } else if (now - b.since > windowMs && b.until < now) {
+    b.count = 0;
+    b.since = now;
   }
-  if (failures.size > 5000) failures.clear();
   return b;
 }
 
-export function tooManyFailures(scope: string, ip: string, perIp = 10, global = 40, windowMs = 60_000): boolean {
-  return bucket(`${scope}:${ip}`, windowMs).count >= perIp || bucket(`${scope}:*`, windowMs).count >= global;
+export function tooManyFailures(scope: string, ip: string, perIp = 10, global = 200, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const mine = bucket(`${scope}:${ip}`, windowMs);
+  if (mine.until > now) return true;
+  return bucket(`${scope}:*`, windowMs).count >= global;
 }
 
-export function noteFailure(scope: string, ip: string, windowMs = 60_000) {
-  bucket(`${scope}:${ip}`, windowMs).count += 1;
+export function noteFailure(scope: string, ip: string, perIp = 10, windowMs = 60_000) {
+  const mine = bucket(`${scope}:${ip}`, windowMs);
+  mine.count += 1;
+  if (mine.count >= perIp) {
+    mine.strikes += 1;
+    mine.until = Date.now() + Math.min(60 * 60_000, windowMs * 2 ** (mine.strikes - 1));
+    mine.count = 0;
+  }
   bucket(`${scope}:*`, windowMs).count += 1;
 }
 

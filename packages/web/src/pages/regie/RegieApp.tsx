@@ -28,6 +28,7 @@ import { LibraryPage } from './LibraryPage.tsx';
 import { GamesPage } from './GamesPage.tsx';
 import { SettingsPage } from './SettingsPage.tsx';
 import { BeamerControl } from '../../game/BeamerControl.tsx';
+import { SecurityNotice } from '../../game/SecurityNotice.tsx';
 
 const NAV = [
   { to: '/regie', end: true, label: 'Live', icon: Clapperboard },
@@ -51,7 +52,7 @@ export default function RegieApp() {
 function RegieShell({ theme, setTheme }: { theme: string; setTheme: (t: 'light' | 'dark' | 'system') => void }) {
   useLiveConnection('admin', 'regie');
   useLibrarySync('admin');
-  useSystemSync();
+  useSystemSync('admin');
   const { state, status, undo, appName } = useLive();
   const navigate = useNavigate();
   const dark = theme === 'dark' || (theme === 'system' && document.documentElement.dataset.theme === 'dark');
@@ -113,6 +114,7 @@ function RegieShell({ theme, setTheme }: { theme: string; setTheme: (t: 'light' 
       </header>
 
       <main className="mx-auto max-w-[1500px] p-4 lg:p-6">
+        <SecurityNotice />
         <Routes>
           <Route index element={<LivePage />} />
           <Route path="beamer" element={<BeamerControl />} />

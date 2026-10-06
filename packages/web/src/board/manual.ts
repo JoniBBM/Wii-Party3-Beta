@@ -2,6 +2,7 @@
  * Freie Kamera auf dem Beamer: Maus (ziehen = drehen, rechte Taste/Umschalt = verschieben,
  * Rad = zoomen), Touch (ein Finger drehen, zwei Finger zoomen/verschieben) und Tastatur
  * (Pfeile/WASD, +/−). Doppelklick oder Leertaste/Esc = zurück zur Automatik.
+ * Während der Spielerklärung gesperrt (`rig.locked`).
  */
 import type { CameraRig } from './camera.ts';
 
@@ -11,6 +12,7 @@ export function attachManualCamera(el: HTMLElement, rig: CameraRig): () => void 
   let pinch = 0;
 
   const down = (e: PointerEvent) => {
+    if (rig.locked) return;
     if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
     el.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -22,6 +24,10 @@ export function attachManualCamera(el: HTMLElement, rig: CameraRig): () => void 
     return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
   };
   const move = (e: PointerEvent) => {
+    if (rig.locked) {
+      pointers.clear();
+      return;
+    }
     const prev = pointers.get(e.pointerId);
     if (!prev) return;
     const dx = e.clientX - prev.x;
@@ -46,12 +52,14 @@ export function attachManualCamera(el: HTMLElement, rig: CameraRig): () => void 
   };
   const wheel = (e: WheelEvent) => {
     e.preventDefault();
+    if (rig.locked) return;
     rig.nudge({ zoom: Math.max(-0.4, Math.min(0.4, e.deltaY * 0.0015)) });
   };
-  const dbl = () => rig.endManual();
+  const dbl = () => !rig.locked && rig.endManual();
   const menu = (e: Event) => e.preventDefault();
   const key = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (rig.locked) return;
     const k = e.key;
     const step = 0.12;
     if (k === 'ArrowLeft') rig.nudge({ yaw: step });

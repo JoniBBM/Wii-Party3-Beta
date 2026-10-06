@@ -3,11 +3,12 @@ import { existsSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { config } from '../config.ts';
+import { config, security } from '../config.ts';
 import * as db from '../db.ts';
 import type { Live } from '../live.ts';
 import type { GameRuntime } from '../runtime.ts';
-import { ADMIN, requireRole } from './common.ts';
+import { isPrivileged } from '@insel/shared';
+import { ADMIN, requireRole, sessionOf, STAFF } from './common.ts';
 
 const inDocker = existsSync('/.dockerenv');
 
@@ -67,16 +68,25 @@ export function systemRoutes(app: FastifyInstance, runtime: GameRuntime, databas
 
   app.get('/api/system/info', async (req) => {
     const settings = db.getSettings(database);
-    const urls = await joinUrls(req, database);
+    // Netzwerkadressen und Spiel-ID nur für Spielleitung und freigegebene Beamer (QR-Code)
+    const role = sessionOf(req, runtime.state).role;
+    const trusted = isPrivileged(role) || role === 'beamer';
+    const urls = trusted ? await joinUrls(req, database) : [];
     return {
       appName: settings.appName,
       version: config.version,
       authDisabled: config.authDisabled,
       joinUrls: urls,
       joinUrl: urls[0]?.url ?? null,
-      activeGameId: runtime.state?.id ?? null,
+      activeGameId: trusted ? (runtime.state?.id ?? null) : null,
       serverNow: Date.now(),
     };
+  });
+
+  /** Sicherheitslage für die Regie (Warnhinweis bei schwachem Passwort o. Ä.). */
+  app.get('/api/system/security', async (req) => {
+    requireRole(req, runtime, STAFF);
+    return { ...security, authDisabled: config.authDisabled, online: config.online };
   });
 
   app.put('/api/system/settings', async (req) => {

@@ -214,7 +214,7 @@ function RollPanel({ state, me }: { state: GameState; me: Me }) {
       {team.blocked && <p className="rounded-2xl bg-warn-soft px-3 py-2 font-bold">🚧 Ihr steckt fest. Zum Befreien braucht ihr {barrierText(rules.barrier)}.</p>}
       {team.inside && (
         <p className="rounded-2xl bg-bad-soft px-3 py-2 font-bold">
-          🌋 Ihr seid im Vulkan! Noch {state.config.rules.inside.length - team.inside.step} Felder bis zum Ausgang
+          🌋 Ihr seid im Vulkan! Noch {state.config.rules.inside.length - team.inside.step} {state.config.rules.inside.length - team.inside.step === 1 ? 'Feld' : 'Felder'} bis zum Ausgang
           {team.inside.step < state.config.rules.inside.shout ? ` – mit genau ${state.config.rules.inside.shout - team.inside.step} landet ihr auf dem leuchtenden Ausgangsfeld und seid sofort draußen` : ''}.
         </p>
       )}

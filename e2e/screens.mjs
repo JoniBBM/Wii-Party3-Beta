@@ -28,6 +28,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const post = async (path, body, token) =>
   (await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) })).json();
 const { token } = await post('/api/auth/admin', { password: PASS });
+// Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
+const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
 const auth = { authorization: `Bearer ${token}` };
 const templates = (await (await fetch(`${base}/api/templates`, { headers: auth })).json()).templates;
 await post('/api/games', { name: 'Sommerfreizeit 2026', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
@@ -60,12 +62,12 @@ try {
   const names = ['Mia', 'Leon', 'Emma', 'Paul', 'Lena', 'Ben', 'Hanna', 'Finn', 'Sofia', 'Noah', 'Lea', 'Elias'];
   const tokens = [];
   for (const n of names) tokens.push((await post('/api/auth/register', { name: n })).token);
-  const beamer = await open('/beamer', { viewport: { width: 1920, height: 1080 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })) });
+  const beamer = await open(`/beamer#bt=${beamerToken}`, { viewport: { width: 1920, height: 1080 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })) });
   await beamer.waitForFunction(() => !document.body.innerText.includes('Lade Insel'), null, { timeout: 60000 }).catch(() => {});
   const regie = await open('/regie', { viewport: { width: 1440, height: 900 } }, staff('admin'));
   await shot(beamer, 'beamer-lobby-anmeldung', 2500);
   // Inselansichten ohne Einblendungen
-  const view = await open('/beamer?debug', { viewport: { width: 1920, height: 1080 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })) });
+  const view = await open(`/beamer?debug#bt=${beamerToken}`, { viewport: { width: 1920, height: 1080 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })) });
   await view.waitForFunction(() => window.__board, null, { timeout: 60000 });
   for (const [name, cam] of [
     ['insel-gesamt', [62, 58, 86, 0, 3, -3]],
@@ -164,7 +166,7 @@ try {
   await shot(phone, 'handy-rangliste', 800);
 
   // Schnell-Modus
-  const fast = await open('/beamer', { viewport: { width: 1280, height: 720 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'fast', sound: false })) });
+  const fast = await open(`/beamer#bt=${beamerToken}`, { viewport: { width: 1280, height: 720 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'fast', sound: false })) });
   await fast.waitForFunction(() => !document.body.innerText.includes('Lade Insel'), null, { timeout: 60000 }).catch(() => {});
   await shot(fast, 'beamer-schnell', 3000);
 

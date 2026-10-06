@@ -10,9 +10,27 @@ import sharp from 'sharp';
 import { isPrivileged } from '@insel/shared';
 import { gameMediaDir, removeFile } from '../media.ts';
 import type { GameRuntime } from '../runtime.ts';
-import { HttpError, sessionOf } from './common.ts';
+import { rateLimited } from '../auth.ts';
+import { clientIp, HttpError, sessionOf } from './common.ts';
 
-const MAX_BYTES = 15 * 1024 * 1024;
+const MAX_BYTES = 8 * 1024 * 1024;
+/** Nur echte Fotos (kein SVG, PDF …) */
+const FORMATS = new Set(['jpeg', 'png', 'webp', 'heif', 'avif', 'gif']);
+
+// Bildverarbeitung begrenzen: ein Thread, höchstens zwei Fotos gleichzeitig
+sharp.concurrency(1);
+let busy = 0;
+const waiting: (() => void)[] = [];
+async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (busy >= 2) await new Promise<void>((r) => waiting.push(r));
+  busy++;
+  try {
+    return await fn();
+  } finally {
+    busy--;
+    waiting.shift()?.();
+  }
+}
 
 export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
   function targetPlayer(req: Parameters<typeof sessionOf>[0], requested: string | undefined) {
@@ -32,25 +50,28 @@ export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
   }
 
   app.post('/api/media/photo', async (req) => {
-    const file = await req.file({ limits: { fileSize: MAX_BYTES, files: 1 } });
+    if (rateLimited(`photo:${clientIp(req)}`, 30)) throw new HttpError(429, 'Zu viele Fotos – bitte kurz warten');
+    const file = await req.file({ limits: { fileSize: MAX_BYTES, files: 1, fields: 4 } });
     if (!file) throw new HttpError(400, 'Kein Foto empfangen');
     const fields = file.fields as Record<string, { value?: string } | undefined>;
     const { state, player } = targetPlayer(req, fields.playerId?.value);
+    if (rateLimited(`photo:p:${player.id}`, 6)) throw new HttpError(429, 'Zu viele Fotos – bitte kurz warten');
     const input = await file.toBuffer();
-    if (file.file.truncated) throw new HttpError(413, 'Das Foto ist zu groß');
+    if (file.file.truncated) throw new HttpError(413, 'Das Foto ist zu groß (höchstens 8 MB)');
     let output: Buffer;
     try {
-      output = await sharp(input, { limitInputPixels: 50_000_000 })
-        .rotate()
-        .resize(360, 360, { fit: 'cover', position: 'attention' })
-        .webp({ quality: 82 })
-        .toBuffer();
+      output = await withSlot(async () => {
+        const img = sharp(input, { limitInputPixels: 30_000_000, failOn: 'error' });
+        const meta = await img.metadata();
+        if (!meta.format || !FORMATS.has(meta.format)) throw new Error('format');
+        return img.rotate().resize(360, 360, { fit: 'cover', position: 'attention' }).webp({ quality: 82 }).toBuffer();
+      });
     } catch {
-      throw new HttpError(400, 'Das Bild konnte nicht gelesen werden');
+      throw new HttpError(400, 'Das Bild konnte nicht gelesen werden (bitte ein Foto: JPG, PNG, HEIC …)');
     }
     const dir = gameMediaDir(state.id);
     mkdirSync(dir, { recursive: true });
-    const name = `${player.id}-${randomBytes(4).toString('hex')}.webp`;
+    const name = `${player.id}-${randomBytes(12).toString('hex')}.webp`; // nicht erratbar
     writeFileSync(join(dir, name), output);
     const url = `/media/${state.id}/${name}`;
     const old = player.photo;

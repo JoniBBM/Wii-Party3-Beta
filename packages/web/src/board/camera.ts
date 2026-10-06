@@ -162,7 +162,11 @@ export class CameraRig {
   }
 
   /** Eingabe der freien Kamera (Drehen, Neigen, Zoomen, Verschieben). */
+  /** Gesperrt (z. B. während der Spielerklärung): Maus, Tastatur und Fernsteuerung bewegen nichts */
+  locked = false;
+
   nudge(d: { yaw?: number; pitch?: number; zoom?: number; panX?: number; panZ?: number }, hold = 30) {
+    if (this.locked) return;
     const m = this.beginManual(hold);
     m.yaw += d.yaw ?? 0;
     m.pitch = Math.max(0.08, Math.min(1.45, m.pitch + (d.pitch ?? 0)));
@@ -181,6 +185,7 @@ export class CameraRig {
 
   /** Feste Einstellung der freien Kamera (z. B. „Vulkan“ aus der Regie). */
   manualShot(shot: { position: THREE.Vector3; lookAt: THREE.Vector3 }, hold = 40) {
+    if (this.locked) return;
     const d = shot.position.clone().sub(shot.lookAt);
     const dist = Math.max(4, d.length());
     const had = !!this.manual;
@@ -508,6 +513,7 @@ export class CameraRig {
         let score = this.occlusion(position, look) * 12;
         if (this.insideBlocker(position)) score += 20;
         if (this.heightAt && position.y < this.heightAt(position.x, position.z) + 1.2) score += 20;
+        score += this.crowding(position, look);
         seg.set(position, look);
         for (const c of this.canopies) {
           if (Math.abs(c.x - target.x) > dist + 4 || Math.abs(c.z - target.z) > dist + 4) continue;
@@ -525,6 +531,25 @@ export class CameraRig {
       }
     }
     return best!;
+  }
+
+  /**
+   * Gelände dicht neben der Blickachse (z. B. die Vulkanflanke) füllt sonst als unscharfe Wand
+   * ein Drittel des Bildes: Strahlen schräg links/rechts der Blickrichtung prüfen.
+   */
+  private crowding(position: THREE.Vector3, look: THREE.Vector3): number {
+    if (!this.heightAt) return 0;
+    const dir = look.clone().sub(position).normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    let score = 0;
+    for (const side of [-0.42, 0.42]) {
+      const d = dir.clone().applyAxisAngle(up, side);
+      for (const t of [2.5, 5]) {
+        const p = position.clone().addScaledVector(d, t);
+        if (this.heightAt(p.x, p.z) > p.y - 0.4) score += 4;
+      }
+    }
+    return score;
   }
 
   /** Seitlicher Blick auf ein Feld (z. B. Fässer in der Furt); `outside` = von der Bergseite weg. */

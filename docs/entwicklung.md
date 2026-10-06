@@ -33,7 +33,8 @@ Dann `http://localhost:5173` öffnen. Vite leitet `/api`, `/media` und `/socket.
 - **Engine** (`packages/shared/src/engine/engine.test.ts`): kompletter Spielablauf, alle Inhaltsarten, Sonderfelder, Vulkan, Siegregeln, Rechte, Projektion.
 - **Server** (`packages/server/src/server.test.ts`): echter Server mit echten WebSockets – Anmeldung, PIN-Beitritt, Frage, Auflösung, Würfeln, Animationssperre, Rückgängig.
 - **Browser** (`e2e/`, Playwright, nach `npm run build` und `npx playwright install chromium`):
-  - `node e2e/flow.mjs [ordner]` – Regie + 4 Handys + Moderator + Beamer spielen eine Runde, mit Screenshots und Prüfung der Browser-Konsolen.
+  - `node e2e/flow.mjs [ordner]` – Regie + 4 Handys + Moderator + Beamer spielen eine Runde, mit Screenshots und Prüfung der Browser-Konsolen; der Beamer wird dabei per Code aus der Regie freigegeben.
+  - Die übrigen Skripte geben ihrem Beamer einen Zugang über `/api/auth/beamer-link` und `/beamer#bt=…` – ohne zeigt ein Beamer nur die Insel und einen Kopplungscode.
   - `node e2e/beamer.mjs [ordner]` – steuert ein Spiel per WebSocket und fotografiert den Beamer in allen Phasen (Lobby, Frage, Würfel, Ausbruch, Sieg).
   - `node e2e/screens.mjs [ordner]` – Galerie aller Oberflächen in typischen Größen (auch für die Doku).
   - `node e2e/hazards.mjs [ordner]` – spielt die Inselgefahren durch (Kisten brechen ein, Schwimmen, Kraterloch, Klettern, Herauskommen) und fotografiert den Beamer.

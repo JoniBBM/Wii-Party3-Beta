@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { DEFAULT_SHOW, type BeamerStats, type CameraCommand, type CommandInput, type Effect, type GameState, type Session, type ShowCommand, type ShowState } from '@insel/shared';
-import { getToken, type TokenSlot } from './storage.ts';
+import { getToken, setToken, type TokenSlot } from './storage.ts';
 
 export interface Ack {
   ok: boolean;
@@ -31,6 +31,8 @@ interface LiveStore {
   show: ShowState;
   /** Rückmeldungen der verbundenen Beamer (nur Regie/Moderator). */
   beamers: BeamerStats[];
+  /** Noch nicht freigegebener Beamer: Code, den die Regie eingibt */
+  pairCode: string | null;
 }
 
 export const useLive = create<LiveStore>(() => ({
@@ -44,6 +46,7 @@ export const useLive = create<LiveStore>(() => ({
   presence: {},
   show: { settings: DEFAULT_SHOW, explainer: { running: false, id: 0, startedAt: 0 } },
   beamers: [],
+  pairCode: null,
 }));
 
 const cmdListeners = new Set<(cmd: CameraCommand | { type: 'reload' }) => void>();
@@ -82,7 +85,7 @@ export function connectLive(slot: TokenSlot | null, view: string) {
   if (socket && current && current.slot === slot && current.view === view && current.token === token) return;
   socket?.close();
   current = { slot, view, token };
-  useLive.setState({ status: 'connecting', received: false });
+  useLive.setState({ status: 'connecting', received: false, pairCode: null });
   const s = io({ path: '/socket.io', auth: { token, view }, transports: ['websocket', 'polling'], reconnectionDelayMax: 4000 });
   socket = s;
   s.on('connect', () => useLive.setState({ status: 'online' }));
@@ -113,6 +116,14 @@ export function connectLive(slot: TokenSlot | null, view: string) {
     for (const fn of cmdListeners) fn(cmd);
   });
   s.on('beamers', (beamers: BeamerStats[]) => useLive.setState({ beamers }));
+  // Beamer-Kopplung: Code anzeigen, bis die Regie ihn freigibt – dann Zugang merken
+  s.on('beamer:pair', (p: { code?: string }) => useLive.setState({ pairCode: typeof p?.code === 'string' ? p.code : null }));
+  s.on('beamer:token', (token: unknown) => {
+    if (typeof token !== 'string' || current?.slot !== 'beamer') return;
+    setToken('beamer', token);
+    useLive.setState({ pairCode: null });
+    reauth();
+  });
   s.on('changed', (what: string) => {
     for (const fn of changeListeners) fn(what);
   });
@@ -152,6 +163,18 @@ export function sendShow(cmd: ShowCommand): Promise<Ack> {
   });
 }
 
+/** Regie: Beamer mit dem Code freigeben, den er gerade zeigt. */
+export function pairBeamer(code: string): Promise<Ack> {
+  return new Promise((resolve) => {
+    if (!socket || !socket.connected) return resolve({ ok: false, error: 'Keine Verbindung zum Spielserver' });
+    const timer = setTimeout(() => resolve({ ok: false, error: 'Der Server antwortet nicht' }), 8000);
+    socket.emit('beamer:pair', code, (ack: Ack) => {
+      clearTimeout(timer);
+      resolve(ack);
+    });
+  });
+}
+
 /** Rückmeldung des Beamers an den Server (Bildrate, Erklärung fertig). */
 export function beamerReport(event: 'beamer:stats' | 'beamer:explained', payload: unknown) {
   if (socket?.connected) socket.emit(event, payload);
@@ -170,10 +193,10 @@ export function sendUndo(): Promise<Ack> {
 }
 
 /** Hook: Seite verbindet sich beim Mounten. */
-export function useLiveConnection(slot: TokenSlot | null, view: string) {
+export function useLiveConnection(slot: TokenSlot | null, view: string, enabled = true) {
   useEffect(() => {
-    connectLive(slot, view);
-  }, [slot, view]);
+    if (enabled) connectLive(slot, view);
+  }, [slot, view, enabled]);
 }
 
 export function serverNow(): number {

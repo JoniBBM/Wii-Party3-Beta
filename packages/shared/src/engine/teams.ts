@@ -52,6 +52,10 @@ export function createTeam(tx: Tx, name?: string, color?: TeamColorKey): Team {
   return team;
 }
 
+/** Höchstzahl angemeldeter Spieler (ohne Spielleitung) – schützt vor Überflutung. */
+export const MAX_PLAYERS = 200;
+export const MAX_PLAYERS_PER_TEAM = 40;
+
 export function handleTeamCommand(tx: Tx, cmd: CommandOf<
   | 'registration.set'
   | 'player.register'
@@ -82,6 +86,9 @@ export function handleTeamCommand(tx: Tx, cmd: CommandOf<
       const ownTeam = actorTeamId(tx);
       if (!staff && !ownTeam && !s.registrationOpen) fail('Die Anmeldung ist gerade geschlossen', 'forbidden');
       const name = cmd.name.trim();
+      // Obergrenzen gegen Überflutung (zufällig oder absichtlich): insgesamt und je Team
+      if (!staff && s.players.length >= MAX_PLAYERS) fail(`Es sind schon ${MAX_PLAYERS} Spieler angemeldet`, 'forbidden');
+      if (!staff && ownTeam && s.players.filter((p) => p.teamId === ownTeam).length >= MAX_PLAYERS_PER_TEAM) fail('Euer Team ist voll', 'forbidden');
       if (s.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
         fail(`Der Name „${name}“ ist schon vergeben`);
       }
@@ -227,6 +234,8 @@ export function handleTeamCommand(tx: Tx, cmd: CommandOf<
     case 'team.setPosition': {
       const t = findTeam(s, cmd.teamId);
       const to = Math.max(0, Math.min(goalOf(s), cmd.position));
+      // eine offene Mutprobe dieses Teams gilt nicht mehr
+      if (s.phase.name === 'dice' && s.phase.dice.challenge?.teamId === t.id) s.phase.dice.challenge = null;
       if (t.inside) {
         // aus dem Vulkan-Inneren direkt aufs gewünschte Feld (grüner Warp)
         tx.effects.push({ type: 'inside', teamId: t.id, stage: 'exit', from: t.inside.step, to: t.inside.step, returnTo: to, shout: false });

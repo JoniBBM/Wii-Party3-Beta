@@ -28,6 +28,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const post = async (path, body, token) =>
   (await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) })).json();
 const { token } = await post('/api/auth/admin', { password: 'soak' });
+// Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
+const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
 const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
 await post('/api/games', { name: 'Dauertest', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
 const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
@@ -49,7 +51,7 @@ const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && pageErrors.push(m.text()));
 await page.addInitScript(() => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })));
-await page.goto(`${base}/beamer?debug`);
+await page.goto(`${base}/beamer?debug#bt=${beamerToken}`);
 await page.waitForFunction(() => window.__board, null, { timeout: 60000 });
 const mem = () => page.evaluate(() => ({ heap: Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1e6), geo: window.__board.renderer.info.memory.geometries, tex: window.__board.renderer.info.memory.textures }));
 const memStart = await mem();

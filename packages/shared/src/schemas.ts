@@ -292,3 +292,11 @@ export type Command = z.infer<typeof commandSchema>;
 export type CommandInput = z.input<typeof commandSchema>;
 export type CommandType = Command['type'];
 export type CommandOf<T extends CommandType> = Extract<Command, { type: T }>;
+
+/**
+ * Im Browser: zod ohne `new Function` prüfen lassen – die Sicherheitsrichtlinie (CSP) des
+ * Servers verbietet dynamisch erzeugten Code. Einmal beim Start der Weboberfläche aufrufen.
+ */
+export function zodForBrowser() {
+  z.config({ jitless: true });
+}

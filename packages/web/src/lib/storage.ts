@@ -2,7 +2,7 @@
  * Kleiner Wrapper um localStorage – kann in privaten Fenstern fehlen oder werfen.
  * Tokens liegen getrennt nach „Platz“, damit ein Gerät z. B. gleichzeitig Regie und Team testen kann.
  */
-export type TokenSlot = 'admin' | 'moderator' | 'member';
+export type TokenSlot = 'admin' | 'moderator' | 'member' | 'beamer';
 
 const KEY = (slot: TokenSlot) => `insel.token.${slot}`;
 

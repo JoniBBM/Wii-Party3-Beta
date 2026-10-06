@@ -50,6 +50,9 @@ class Run {
   }
 }
 
+/** gerade laufende Erklärung (es gibt nur einen Beamer je Seite) */
+let activeRun: Run | null = null;
+
 function firstField(state: GameState | null, type: FieldType, fallback: number) {
   const i = state?.config.board.fields.indexOf(type) ?? -1;
   return i > 0 ? i : fallback;
@@ -65,12 +68,27 @@ export function Explainer({ scene, state, explainer }: { scene: BoardScene | nul
   useEffect(() => {
     if (!explainer.running || !scene) return;
     const run = new Run();
+    // Neustart während einer laufenden Erklärung: Reste der alten sofort wegräumen
+    if (activeRun) {
+      activeRun.stopped = true;
+      scene.stunts.abortAll();
+      scene.pieces.abortAll();
+    }
+    activeRun = run;
+    // Spielablauf ruht: keine Kamera-, Ansichts- oder Figurenkorrekturen dazwischen
+    scene.director.setPaused(true);
+    scene.pieces.abortAll();
     void play(run, scene, () => stateRef.current, { setCard, setSubtitle, setStep })
       .then(() => beamerReport('beamer:explained', explainer.id))
       .catch((e: unknown) => {
         if (!(e instanceof Aborted)) console.warn('Erklärung abgebrochen', e);
       })
-      .finally(() => cleanup(scene, setCard, setSubtitle));
+      .finally(() => {
+        // eine neuere Erklärung hat übernommen – die räumt selbst auf
+        if (activeRun !== run) return;
+        activeRun = null;
+        cleanup(scene, setCard, setSubtitle);
+      });
     return () => {
       run.stopped = true;
       boardAudio.stopVoice();
@@ -210,17 +228,21 @@ function TapDemo() {
 function cleanup(scene: BoardScene, setCard: (c: Card | null) => void, setSubtitle: (s: string | null) => void) {
   setCard(null);
   setSubtitle(null);
+  const wasInside = scene.view === 'inside';
+  // laufende Vorführungen (UFO, Flugzeug, Bretter …) sofort wegräumen
+  scene.stunts.abortAll();
   scene.stunts.syncVine(null);
   scene.pieces.removeDemo(DEMO_A);
   scene.pieces.removeDemo(DEMO_B);
   scene.stunts.stageOff();
   scene.inside?.highlight(null);
+  void scene.dice.hide(0);
   scene.setView('island');
   scene.rig.endManual();
   scene.rig.set({ kind: 'overview', tour: true }, 0.8);
-  // Figuren wieder an ihre Plätze
-  const st = scene.state;
-  if (st) scene.setState(st);
+  if (wasInside) scene.rig.jump();
+  // Spielablauf übernimmt wieder: Figuren hart an ihre Plätze, Kamera aufs Geschehen
+  scene.director.setPaused(false);
 }
 
 interface Ui {
@@ -276,8 +298,34 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     ui.setStep(section);
     ui.setCard(c);
   };
-  const shot = (sh: { position: THREE.Vector3; lookAt: THREE.Vector3 }, stiff = 1) => rig.set({ kind: 'focus', position: sh.position, lookAt: sh.lookAt }, stiff);
-  const follow = (id: string, distance = 9, height = 6) => rig.set({ kind: 'follow', target: () => s.pieces.worldPos(id), distance, height }, 1.6);
+  type Shot = { position: THREE.Vector3; lookAt: THREE.Vector3 };
+  /** weit weg von der jetzigen Kamera? Dann Schwarzblende statt Flug quer über die Insel */
+  const far = (p: THREE.Vector3) => s.camera.position.distanceTo(p) > 22;
+  const cut = async (fn: () => void) => {
+    await s.fadeCut(fn);
+    run.check();
+  };
+  /** Feste Einstellung: nah = gleiten, weit = Schnitt mit Blende */
+  const go = async (sh: Shot, stiff = 1.4) => {
+    const set = () => rig.set({ kind: 'focus', position: sh.position, lookAt: sh.lookAt }, stiff);
+    if (far(sh.position)) await cut(set);
+    else set();
+  };
+  /** Figur verfolgen (nah = gleiten, weit = Schnitt) */
+  const goFollow = async (id: string, distance = 9, height = 6) => {
+    const set = () => rig.set({ kind: 'follow', target: () => s.pieces.worldPos(id), distance, height }, 1.6);
+    const at = s.pieces.worldPos(id);
+    if (at && s.camera.position.distanceTo(at) > distance + 16) await cut(set);
+    else set();
+  };
+  /** Überblick über die Insel */
+  const goOverview = async (tour = false) => {
+    const set = () => rig.set({ kind: 'overview', tour }, 0.9);
+    if (s.camera.position.y < 25) await cut(set);
+    else set();
+  };
+  /** Nahaufnahme eines Feldes mit freier Sicht */
+  const close = (id: string, field: number, dist = 8, height = 5) => rig.clearShot(s.pieces.slotOn(id, field), dist, height);
   const place = (id: string, field: number, mode: Parameters<typeof s.pieces.setMode>[1] = 'idle') => {
     s.pieces.setInside(id, null);
     s.pieces.release(id, field, mode, false);
@@ -308,7 +356,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   // 3) Teams und Figuren – zwei Vorführ-Figuren am Start
   s.pieces.addDemo(DEMO_A, { ...DEFAULT_FIGURE, hairStyle: 'spiky' }, 'blue', 'Die Papageien', 1);
   s.pieces.addDemo(DEMO_B, { ...DEFAULT_FIGURE, hairStyle: 'long', hairColor: 3 }, 'orange', 'Die Kokosnüsse', 1);
-  shot(rig.portraitShot(s.pieces.worldPos(DEMO_A) ?? new THREE.Vector3(), 6), 1.4);
+  await go(rig.portraitShot(s.pieces.worldPos(DEMO_A) ?? new THREE.Vector3(), 6), 1.4);
   next({
     icon: '👥',
     title: 'Teams',
@@ -326,7 +374,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   s.pieces.setMode(DEMO_B, 'idle');
 
   // 4) Ziel: der Vulkangipfel
-  shot(rig.volcanoShot(), 1);
+  await go(rig.volcanoShot(), 1);
   next({
     icon: '🌋',
     title: 'Ziel: der Gipfel',
@@ -338,7 +386,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   await beat('explain_03');
 
   // 5) Ablauf einer Runde
-  rig.set({ kind: 'overview' }, 0.9);
+  await goOverview();
   next({ icon: '🔁', title: 'Jede Runde', steps: ['Minispiel oder Frage', 'Die Besten: Bonuswürfel', 'Alle würfeln und laufen'] });
   await beat('explain_04');
 
@@ -361,7 +409,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   await beat('ex_minigames');
 
   // 7) Würfeln
-  follow(DEMO_A, 8, 5);
+  await goFollow(DEMO_A, 8, 5);
   next({ icon: '🎲', title: 'Würfeln', items: [{ icon: '👆', text: 'Würfel antippen' }, { icon: '📳', text: 'am Handy: schütteln' }] });
   await beat('ex_dice', async () => {
     await run.wait(2400);
@@ -380,12 +428,12 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   });
   // „Unterwegs warten Sonderfelder. Die Sprungfeder …“
   place(DEMO_A, Math.max(1, springField - 1));
-  follow(DEMO_A, 12, 7);
+  await goFollow(DEMO_A, 12, 7);
   await beat('ex_spring', async () => {
     await s.pieces.walk(DEMO_A, Math.max(1, springField - 1), springField);
     run.check();
     await run.wait(700);
-    follow(DEMO_A, 14, 8);
+    rig.set({ kind: 'follow', target: () => s.pieces.worldPos(DEMO_A), distance: 14, height: 8 }, 1.6);
     await s.stunts.spring(DEMO_A);
     run.check();
     await s.pieces.fly(DEMO_A, Math.min(goal - 2, springField + 6), { height: 6, duration: 1.7, spin: Math.PI * 2 });
@@ -394,7 +442,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   });
   // „Das Flugzeug bringt euch leider wieder zurück.“
   place(DEMO_B, planeField);
-  follow(DEMO_B, 14, 9);
+  await goFollow(DEMO_B, 14, 9);
   await beat('ex_plane', async () => {
     boardAudio.play('flugzeug', { volume: 0.7 });
     await s.stunts.plane(DEMO_B, Math.max(1, planeField - 5), '#f5a623');
@@ -402,13 +450,14 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   // „Das UFO tauscht euren Platz …“
   place(DEMO_A, swapField);
   const posB = s.pieces.positionOf(DEMO_B);
+  await goFollow(DEMO_A, 15, 9);
   rig.set({ kind: 'follow', target: () => s.stunts.ufoTarget?.clone().setY(s.stunts.ufoTarget.y - 3) ?? s.pieces.worldPos(DEMO_A), distance: 15, height: 9 }, 2.8);
   await beat('ex_ufo', async () => {
     await s.stunts.ufoSwap(DEMO_A, DEMO_B, swapField, posB);
   });
   // „Und im Käfig sitzt ihr fest …“
   place(DEMO_A, cageField);
-  shot(rig.fieldShot(cageField, 6, 3.5), 1.8);
+  await go(close(DEMO_A, cageField, 6, 3.5), 1.8);
   await beat('ex_cage', async () => {
     await run.wait(600);
     s.pieces.setMode(DEMO_A, 'stuck');
@@ -419,7 +468,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
 
   // 9) Minispiel-Feld und Vulkanfeld
   place(DEMO_A, gameField);
-  shot(rig.fieldShot(gameField, 8, 5), 1.4);
+  await go(close(DEMO_A, gameField, 8, 5), 1.4);
   next({
     icon: '🎮',
     title: 'Minispiel- & Vulkanfelder',
@@ -432,7 +481,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   boardAudio.play('pfiff', { volume: 0.7 });
   await beat('ex_gamefield');
   s.stunts.stageOff();
-  shot(rig.fieldShot(volcanoField, 9, 6, true), 1.6);
+  await go(rig.fieldShot(volcanoField, 9, 6, true), 1.6);
   await beat('ex_volcanofield', async () => {
     await run.wait(1700);
     s.stunts.geyser(volcanoField);
@@ -446,7 +495,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     items: (['vine', 'river', 'cave', 'skull', 'crater'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: FIELD_INFO[t].label, color: FIELD_INFO[t].color })),
   });
   place(DEMO_A, vineField);
-  shot(s.stunts.vineShot(), 1.4);
+  await go(s.stunts.vineShot(), 1.4);
   // „An der Liane kommt keiner vorbei: Ihr schwingt über den Bach …“
   await beat('ex_vine', async () => {
     await run.wait(1600);
@@ -455,12 +504,12 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     run.check();
     await run.wait(2200);
     const to = Math.min(goal - 1, vineField + 3);
-    shot(s.stunts.swingShot(s.pieces.slotOn(DEMO_A, to)), 1.6);
+    rig.set({ kind: 'focus', ...s.stunts.swingShot(s.pieces.slotOn(DEMO_A, to)) }, 1.6);
     await s.stunts.vineSwing(DEMO_A, to);
   });
   // „Fässer oder Kisten? Eins davon hält, das andere bricht. Wer reinfällt, schwimmt rüber …“
   place(DEMO_B, riverBank);
-  shot(s.stunts.riverShot(), 1.4);
+  await go(s.stunts.riverShot(), 1.4);
   await beat('ex_river', async () => {
     await run.wait(900);
     await s.stunts.riverPonder(DEMO_B);
@@ -470,7 +519,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   });
   // „Vor der Lavahöhle braucht ihr eine Drei oder mehr. Sonst geht’s ab ins Innere …“
   place(DEMO_A, caveField);
-  shot(rig.clearShot(s.pieces.slotOn(DEMO_A, caveField), 8, 5), 1.4);
+  await go(close(DEMO_A, caveField, 8, 5), 1.4);
   ui.setCard({ icon: '🦇', title: 'Lavahöhle', items: [{ icon: '🎲', text: `mind. ${caveNeed} würfeln` }, { icon: '🌋', text: 'sonst: ab ins Innere' }] });
   await beat('ex_cave', async () => {
     s.pieces.setMode(DEMO_A, 'shock');
@@ -482,43 +531,58 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     boardAudio.play('hoehle');
     await s.stunts.caveFall(DEMO_A);
   });
-  // „Genau wie auf den Totenkopf-Feldern. Da drin lauft ihr ein paar Straffelder …“
-  ui.setCard({ icon: '💀', title: 'Vulkan-Inneres', items: [{ icon: '💀', text: 'Totenkopf-Feld' }, { icon: '🔥', text: 'Strafweg über Lava' }, { icon: '✨', text: `genau aufs Feld ${shout}: sofort raus` }, { icon: '🏝️', text: 'zurück, wo man fiel' }] });
+  // „Genau wie auf den Totenkopf-Feldern. Da drin lauft ihr ein paar Straffelder über die Lava.
+  //  Wer genau das leuchtende Feld trifft, kommt früher raus.“
+  place(DEMO_B, skullField);
+  await go(close(DEMO_B, skullField, 7, 4.5), 1.8);
+  ui.setCard({ icon: '💀', title: 'Vulkan-Inneres', items: [{ icon: '💀', text: 'Totenkopf-Feld' }, { icon: '🔥', text: 'Strafweg über Lava' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: sofort raus` }] : [{ icon: '🏁', text: 'bis zum Ende laufen' }]), { icon: '🏝️', text: 'zurück, wo man fiel' }] });
   await beat('ex_skull', async () => {
-    place(DEMO_B, skullField);
-    shot(rig.clearShot(s.pieces.slotOn(DEMO_B, skullField), 7, 4.5), 2);
-    await run.wait(900);
+    await run.wait(500);
     await s.stunts.trapdoor(DEMO_B, skullField);
     run.check();
     if (!ins) {
       await s.stunts.warpOut(DEMO_B, skullField);
       return;
     }
-    s.setView('inside');
-    shot(ins.dropShot(), 3);
-    rig.jump();
+    // Schnitt ins Innere: Blick von vorn auf die erste Platte, Ausgangsfeld leuchtet
+    await cut(() => {
+      s.pieces.setInside(DEMO_B, 0);
+      const p = s.pieces.get(DEMO_B);
+      if (p) p.holder.visible = false;
+      s.setView('inside');
+      rig.set({ kind: 'focus', ...ins.plateShot(0) }, 3);
+      if (shout > 0) ins.highlight(shout, '#7dffa0');
+    });
+    boardAudio.play('whoosh-down');
     await s.pieces.insideDrop(DEMO_B, ins.dropPoint);
     run.check();
     boardAudio.play('lavaplatsch');
     ins.lavaBurst(s.pieces.worldPos(DEMO_B) ?? ins.dropPoint);
-    follow(DEMO_B, 9, 6);
-    if (shout > 0) ins.highlight(shout, '#7dffa0');
-    await s.pieces.insideWalk(DEMO_B, 0, Math.max(1, shout || 3), () => boardAudio.step(false));
+    s.rig.shake(0.15, 0.4);
+    await run.wait(350);
+    // von Platte zu Platte, die Kamera fährt mit
+    await s.pieces.insideWalk(DEMO_B, 0, Math.max(1, shout || 3), (st) => {
+      boardAudio.step(false);
+      rig.set({ kind: 'focus', ...ins.plateShot(st) }, 2.2);
+    });
     run.check();
+    await run.wait(300);
     boardAudio.play('warp');
     ins.warpFlash(s.pieces.worldPos(DEMO_B) ?? ins.portal);
     await s.pieces.insideVanish(DEMO_B);
     run.check();
-    ins.highlight(null);
-    s.pieces.setInside(DEMO_B, null);
-    s.setView('island');
-    shot(rig.clearShot(s.pieces.slotOn(DEMO_B, skullField), 8, 5), 3);
-    rig.jump();
+    // zurück auf die Insel, wo die Figur hineingefallen ist
+    await cut(() => {
+      ins.highlight(null);
+      s.pieces.setInside(DEMO_B, null);
+      s.setView('island');
+      rig.set({ kind: 'focus', ...close(DEMO_B, skullField, 8, 5) }, 3);
+    });
     await s.stunts.warpOut(DEMO_B, skullField);
   });
   // „Und wer am Kraterloch zu kurz würfelt, rutscht hinein …“
   place(DEMO_A, s.layout.craterField);
-  shot(rig.craterShot(), 1.4);
+  await go(rig.craterShot(), 1.4);
   ui.setCard({ icon: FIELD_INFO.crater.icon, title: 'Kraterloch', items: [{ icon: '🕳️', text: 'hineinrutschen' }, { icon: '🧗', text: 'Augen sammeln, rausklettern' }] });
   await beat('ex_crater', async () => {
     await run.wait(2200);
@@ -530,7 +594,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   });
 
   // 11) Vulkanausbruch
-  shot(rig.volcanoShot(), 1.1);
+  await go(rig.volcanoShot(), 1.1);
   next({ icon: '🌋', title: 'Achtung, Vulkan!', items: [{ icon: '🌡️', text: 'Druck steigt jede Runde' }, { icon: '💥', text: 'Ausbruch: alle zurück!' }] });
   await beat('ex_pressure', async () => {
     await run.wait(1500);
@@ -545,7 +609,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   });
 
   // 12) Schluss
-  rig.set({ kind: 'overview' }, 0.9);
+  await goOverview();
   next({ icon: '🎉', title: 'Viel Spaß!' });
   s.effects.confettiBurst(0, 14, 0, ['#ffd23f', '#ff6fb5', '#5fe0d8', '#ffffff'], 260, 1.4);
   boardAudio.play('applaus', { volume: 0.7, delay: 5 });

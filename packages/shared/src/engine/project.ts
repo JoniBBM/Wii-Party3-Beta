@@ -42,6 +42,11 @@ export function projectState(state: GameState, viewer: Session): GameState {
       t.id === ownTeamId ? { ...t, joinToken: '' } : { ...t, pin: '', joinToken: '' },
     ),
   };
+  // Nicht angemeldete Geräte (auch nicht freigegebene Beamer): keine Fotos, kein Spielverlauf
+  if (viewer.role === 'guest') {
+    s.players = state.players.map((p) => ({ ...p, photo: null }));
+    s.feed = [];
+  }
 
   if (state.phase.name === 'content') {
     const c = state.phase.content;
@@ -65,7 +70,7 @@ export function projectState(state: GameState, viewer: Session): GameState {
     const fg = state.phase.dice.fieldGame;
     s.phase = {
       ...state.phase,
-      dice: { ...state.phase.dice, fieldGame: { ...fg, item: { ...fg.item!, notes: '' } } },
+      dice: { ...state.phase.dice, fieldGame: { ...fg, item: stripItemSecrets(fg.item!) } },
     };
   }
   return s;

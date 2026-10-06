@@ -66,7 +66,7 @@ Wer an der Lavahöhle zu klein würfelt oder auf einem Totenkopf landet, fällt 
 
 Länge des Strafwegs und Lage des Ausgangsfelds lassen sich unter *Regeln → Vulkan-Inneres* einstellen (0 = ohne Ausgangsfeld).
 
-Die Regie kann ein Team jederzeit aus dem Krater holen (*Teams → Team antippen → Aus dem Krater holen*), genau wie aus einer Sperre.
+Die Regie kann ein Team jederzeit aus dem Krater oder aus dem Vulkan-Inneren holen (*Teams → Team antippen → Aus dem Krater holen* bzw. *Aus dem Vulkan holen*), genau wie aus einer Sperre.
 
 ## Was auf dem Beamer passiert
 

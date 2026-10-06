@@ -63,6 +63,9 @@ function advance(tx: Tx, team: Team, steps: number, reason: Extract<EffectInput,
   }
 }
 
+/** „1 Feld“ / „3 Felder“ */
+const felder = (n: number) => `${n} ${n === 1 ? 'Feld' : 'Felder'}`;
+
 /** Ufer vor dem Fluss (Pflichthalt) und erstes Feld am anderen Ufer. */
 export function riverSpan(fields: readonly FieldType[]): { bank: number; exit: number } | null {
   const start = fields.indexOf('river');
@@ -87,7 +90,7 @@ function startChallenge(tx: Tx, phase: DicePhase, team: Team, kind: ChallengeKin
   const rules = tx.s.config.rules;
   const position = team.position;
   phase.dice.challenge = { teamId: team.id, kind, position, remaining };
-  const rest = remaining > 0 ? ` (danach noch ${remaining} ${remaining === 1 ? 'Feld' : 'Felder'})` : '';
+  const rest = remaining > 0 ? ` (danach noch ${felder(remaining)})` : '';
   if (kind === 'vine') {
     tx.effects.push({ type: 'vine', teamId: team.id, position, stage: 'grab', roll: 0, sides: rules.vine.sides, remaining });
     feed(tx, '🌿', `${teamLabel(team)} hält an der Liane – jetzt würfeln, wie weit es über den Bach schwingt${rest}`, team.id);
@@ -183,6 +186,7 @@ export function erupt(tx: Tx) {
     t.position = to;
     t.blocked = null;
     t.crater = null;
+    if (s.phase.name === 'dice' && s.phase.dice.challenge?.teamId === t.id) s.phase.dice.challenge = null;
   }
   s.volcano.pressure = 0;
   s.volcano.eruptions += 1;
@@ -490,8 +494,8 @@ export function handleDiceCommand(
           const rest = c.climbed - c.need;
           tx.effects.push({ type: 'crater', teamId: team.id, position: team.position, result: 'out', roll: total, climbed: c.need, need: c.need });
           team.crater = null;
-          feed(tx, '🧗', rest ? `${teamLabel(team)} klettert aus dem Krater und läuft ${rest} Felder weiter` : `${teamLabel(team)} klettert aus dem Krater`, team.id);
-          outcome = rest ? `Aus dem Krater, ${rest} Felder` : 'Aus dem Krater geklettert';
+          feed(tx, '🧗', rest ? `${teamLabel(team)} klettert aus dem Krater und läuft ${felder(rest)} weiter` : `${teamLabel(team)} klettert aus dem Krater`, team.id);
+          outcome = rest ? `Aus dem Krater, ${felder(rest)}` : 'Aus dem Krater geklettert';
           if (rest > 0) result = walk(tx, phase, team, rest, 'dice');
         } else {
           tx.effects.push({ type: 'crater', teamId: team.id, position: team.position, result: 'climb', roll: total, climbed: c.climbed, need: c.need });
@@ -578,11 +582,28 @@ export function handleDiceCommand(
         const sides = rules.vine?.sides ?? 6;
         const roll = staff && cmd.value ? Math.min(cmd.value, sides) : randInt(tx.ctx.rng, 1, sides);
         tx.effects.push({ type: 'vine', teamId: team.id, position: team.position, stage: 'swing', roll, sides, remaining: c.remaining });
-        move(tx, team, c.position + roll, 'vine');
-        feed(tx, '🌿', `${teamLabel(team)} würfelt ${roll} und schwingt über den Bach bis Feld ${team.position}${c.remaining ? ` – jetzt noch ${c.remaining} Felder` : ''}`, team.id);
+        // Der Schwung reicht höchstens bis zur nächsten Mutprobe (z. B. Ufer vor dem Fluss) –
+        // was übrig ist, zählt zum restlichen Wurf
+        const goalField = goalOf(s);
+        let landing = Math.min(goalField, c.position + roll);
+        let rest = c.remaining;
+        for (let p = c.position + 1; p < landing; p++) {
+          if (challengeAt(s, p)) {
+            rest += landing - p;
+            landing = p;
+            break;
+          }
+        }
+        move(tx, team, landing, 'vine');
+        feed(tx, '🌿', `${teamLabel(team)} würfelt ${roll} und schwingt über den Bach bis Feld ${team.position}${rest ? ` – jetzt noch ${felder(rest)}` : ''}`, team.id);
         note = `Liane +${roll}`;
         tx.label = `Lianen-Wurf ${teamLabel(team)}: ${roll}`;
-        result = checkArrival(tx, team) ? 'finished' : walk(tx, phase, team, c.remaining, 'dice');
+        // Landet der Schwung genau an einer Mutprobe, beginnt sie (mit dem restlichen Wurf)
+        const next = challengeAt(s, landing);
+        if (next && landing > c.position) {
+          startChallenge(tx, phase, team, next, rest);
+          result = 'pending';
+        } else result = checkArrival(tx, team) ? 'finished' : walk(tx, phase, team, rest, 'dice');
       } else {
         const need = rules.cave.need;
         const roll = staff && cmd.value ? Math.min(cmd.value, 6) : randInt(tx.ctx.rng, 1, 6);
@@ -631,7 +652,7 @@ export function handleDiceCommand(
       if (fall) {
         feed(tx, '💦', `${teamLabel(team)} wählt die ${what} – die brechen ein! Platsch, ans andere Ufer schwimmen, der restliche Wurf verfällt`, team.id);
       } else {
-        feed(tx, '🛢️', `${teamLabel(team)} wählt die ${what} und kommt trocken rüber${c.remaining ? ` – noch ${c.remaining} Felder` : ''}`, team.id);
+        feed(tx, '🛢️', `${teamLabel(team)} wählt die ${what} und kommt trocken rüber${c.remaining ? ` – noch ${felder(c.remaining)}` : ''}`, team.id);
         result = checkArrival(tx, team) ? 'finished' : walk(tx, phase, team, c.remaining, 'dice');
       }
       const record = [...dice.rolls].reverse().find((r) => r.teamId === team.id);

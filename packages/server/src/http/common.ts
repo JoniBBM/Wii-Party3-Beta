@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { GameState, Role, Session } from '@insel/shared';
 import { bearer, verifyToken } from '../auth.ts';
 import { resolveSession } from '../live.ts';
+import { config } from '../config.ts';
 import type { GameRuntime } from '../runtime.ts';
 
 export class HttpError extends Error {
@@ -27,6 +28,14 @@ export function requireRole(req: FastifyRequest, runtime: GameRuntime, roles: Ro
 
 export const STAFF: Role[] = ['admin', 'moderator'];
 export const ADMIN: Role[] = ['admin'];
+
+/**
+ * Kommt die Anfrage (vermutlich) aus dem Internet? Internet-Betrieb (./start.sh online,
+ * PUBLIC_URL) oder über den Cloudflare-Tunnel. Ein gefälschter Header macht es nur strenger.
+ */
+export function fromInternet(req: FastifyRequest): boolean {
+  return config.online || req.headers['cf-connecting-ip'] !== undefined;
+}
 
 /** Client-IP. Weitergeleitete Header gelten nur von lokalen Proxys (siehe trustProxy in main.ts). */
 export function clientIp(req: FastifyRequest): string {

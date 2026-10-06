@@ -303,10 +303,16 @@ function PhotoStep({ onDone, station }: { onDone: () => void; station: { token: 
 
 export function JoinTeamLink() {
   useTheme(false);
-  const { code } = useParams();
+  const params = useParams();
+  // neuer QR-Code: Zugang hinter „#“ (geht nicht an Server-Protokolle); alte Links im Pfad gehen weiter
+  const code = new URLSearchParams(window.location.hash.slice(1)).get('c') ?? params.code ?? '';
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (!code) {
+      setError('Dieser Link ist unvollständig');
+      return;
+    }
     api<{ token: string; teamName: string }>('/api/auth/team-link', { body: { code } })
       .then((r) => {
         setToken('member', r.token);
@@ -333,11 +339,17 @@ export function JoinTeamLink() {
   );
 }
 
+/**
+ * Moderator-QR-Code: Zugang steht hinter „#“ (wird nicht an den Server geschickt und landet so
+ * in keinem Zugriffsprotokoll); alte Links mit dem Zugang im Pfad gehen weiterhin.
+ */
 export function JoinModeratorLink() {
   const { token } = useParams();
   const navigate = useNavigate();
   useEffect(() => {
-    if (token) setToken('moderator', token);
+    const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('t');
+    const t = fromHash ?? token;
+    if (t) setToken('moderator', t);
     navigate('/moderator', { replace: true });
   }, [token, navigate]);
   return null;

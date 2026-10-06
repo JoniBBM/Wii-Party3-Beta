@@ -88,7 +88,7 @@ export function SettingsPage() {
             loading={busy}
             onClick={async () => {
               const r = await run(() => api<{ token: string }>('/api/auth/moderator-link', { slot: 'admin', body: {} }));
-              if (r) setModLink(`${joinUrl}/join/m/${r.token}`);
+              if (r) setModLink(`${joinUrl}/join/m#t=${r.token}`);
             }}
           >
             Moderator-QR-Code erzeugen

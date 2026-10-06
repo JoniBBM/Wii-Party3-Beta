@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
-import { config } from './config.ts';
+import { config, security } from './config.ts';
 import { openDb } from './db.ts';
 import { authRoutes } from './http/auth-routes.ts';
 import { gameRoutes } from './http/game-routes.ts';
@@ -22,9 +22,40 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
   const app = Fastify({
     // Anfragen werden auf Info-Ebene protokolliert – im Betrieb nur Warnungen und Fehler
     logger: opts.quiet ? false : { level: process.env.LOG_LEVEL ?? 'warn' },
-    bodyLimit: 5 * 1024 * 1024,
-    // Nur lokalen Proxys vertrauen (Tunnel/Caddy im Docker-Netz) – sonst ließe sich die IP fälschen
-    trustProxy: ['127.0.0.1', '::1', '172.16.0.0/12'],
+    bodyLimit: 2 * 1024 * 1024,
+    // Weitergeleitete Adressen nur von lokalen Proxys glauben: Entwicklungs-Proxy (localhost) und
+    // Tunnel im Docker-Netz – aber nicht dem Docker-Gateway (.1), über das Geräte im WLAN kommen.
+    trustProxy: (address: string) => {
+      const a = address.replace(/^::ffff:/, '');
+      if (a === '127.0.0.1' || a === '::1') return !config.isProduction;
+      return /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(a) && !a.endsWith('.1');
+    },
+  });
+
+  // Sicherheits-Header für alle Antworten
+  const CSP = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "font-src 'self' data:",
+    "connect-src 'self' ws: wss: data: blob:",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+  app.addHook('onSend', async (req, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header('Permissions-Policy', 'geolocation=(), microphone=(), payment=(), usb=()');
+    reply.header('Cross-Origin-Opener-Policy', 'same-origin');
+    if (config.isProduction) reply.header('Content-Security-Policy', CSP);
+    if (req.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
+    return payload;
   });
 
   seedIfEmpty(database, (m) => app.log.warn(m));
@@ -38,8 +69,11 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
     root: config.mediaDir,
     prefix: '/media/',
     decorateReply: false,
-    maxAge: '7d',
-    immutable: true,
+    // Spielerfotos: nicht in fremden Zwischenspeichern ablegen, kein Verzeichnislisting
+    cacheControl: false,
+    setHeaders: (res) => void res.header('Cache-Control', 'private, max-age=3600'),
+    index: false,
+    list: false,
   });
 
   authRoutes(app, runtime);
@@ -74,11 +108,23 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
 
 const isMain = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('main.js');
 if (isMain) {
+  // Öffentlich erreichbar nur mit sicherem Passwort und nie ohne Passwörter
+  if (config.online && config.authDisabled) {
+    console.error('❌ AUTH_DISABLED=true ist im Internet-Betrieb nicht erlaubt. Bitte in .env auf false setzen.');
+    process.exit(1);
+  }
+  if (config.online && (security.weakAdminPassword || security.weakModeratorPassword)) {
+    console.error('❌ Das Regie- bzw. Moderator-Passwort ist zu schwach oder öffentlich bekannt (mind. 10 Zeichen, kein Standardpasswort).');
+    console.error('   Bitte in .env ein sicheres ADMIN_PASSWORD setzen – im Internet-Betrieb startet die Insel sonst nicht.');
+    process.exit(1);
+  }
   const server = await startServer();
   const auth = config.authDisabled ? ' (ACHTUNG: Passwörter deaktiviert)' : '';
   console.log(`\n🏝️  Insel der Abenteuer läuft auf http://localhost:${server.port}${auth}\n`);
   if (!config.adminPassword && !config.authDisabled) {
     console.warn('⚠️  Kein ADMIN_PASSWORD gesetzt – die Regie kann sich nicht anmelden. Siehe .env.example.');
+  } else if (security.weakAdminPassword) {
+    console.warn('⚠️  Das Regie-Passwort ist unsicher (zu kurz oder öffentlich bekannt). Bitte in .env ändern!');
   }
   for (const sig of ['SIGINT', 'SIGTERM'] as const) {
     process.on(sig, () => {

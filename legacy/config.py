@@ -5,7 +5,8 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env')) # Lädt .env, falls vorhanden
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or '***ENTFERNT***'
+    # Kein fest eingebauter Schlüssel: ohne SECRET_KEY wird bei jedem Start ein zufälliger erzeugt
+    SECRET_KEY = os.environ.get('SECRET_KEY') or __import__('secrets').token_hex(32)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'app.db') # Stellt sicher, dass app.db im Root-Verzeichnis des Projekts landet
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -16,8 +17,8 @@ class Config:
     SESSION_COOKIE_SECURE = False  # Für HTTP (Development)
     SESSION_COOKIE_SAMESITE = 'Lax'
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME') or 'admin'
-    # Geändertes Standard-Admin-Passwort
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') or '***ENTFERNT***' 
+    # Kein Standard-Passwort im Code: ADMIN_PASSWORD muss in der .env gesetzt werden
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
     MINIGAME_VIDEO_FOLDER = os.path.join(basedir, 'app', 'static', 'minigame_videos')
 
     # KONFIGURATION FÜR MINIGAME-ORDNER

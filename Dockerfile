@@ -33,8 +33,11 @@ COPY packages/server/package.json ./packages/server/
 COPY packages/server/seed ./packages/server/seed
 COPY --from=build /app/packages/server/dist ./packages/server/dist
 COPY --from=build /app/packages/web/dist ./packages/web/dist
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/insel-entrypoint
 VOLUME /data
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
   CMD node -e "fetch('http://localhost:'+(process.env.PORT||8080)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+# Server läuft als Benutzer „node“ (nicht root) – siehe docker/entrypoint.sh
+ENTRYPOINT ["insel-entrypoint"]
 CMD ["node", "packages/server/dist/main.js"]

@@ -133,6 +133,7 @@ export class BoardScene {
   private ro: ResizeObserver;
   private disposed = false;
   private captionListeners = new Set<(c: Caption | null) => void>();
+  private fadeListeners = new Set<(on: boolean) => void>();
   private lastState: GameState | null = null;
   /** Welche Welt gerade zu sehen ist (Insel oder Vulkan-Inneres) */
   view: 'island' | 'inside' = 'island';
@@ -241,7 +242,7 @@ export class BoardScene {
     this.water.setSun(this.sun.position, this.sun.color);
     this.scene.add(this.water.mesh);
     const hTex = heightTex0();
-    this.river = createRiver(hTex, { mist: true, creek: layout.creek });
+    this.river = createRiver(hTex, { mist: true, creek: layout.creek, basin: layout.fordBasin });
     this.scene.add(this.river.group);
 
     // Felder
@@ -430,6 +431,8 @@ export class BoardScene {
     if (v === 'inside' && !this.inside) return;
     if (v === this.view) return;
     this.view = v;
+    // freie Kamera (Maus/Fernsteuerung) gilt nur für die alte Welt
+    this.rig.endManual();
     if (v === 'inside') {
       const inside = this.inside!;
       this.rig.heightAt = (x, z) => inside.heightAt(x, z);
@@ -467,6 +470,29 @@ export class BoardScene {
     this.fpsFrames = 0;
     this.fpsSince = performance.now();
   }
+
+  /** Schwarzblende (für harte Schnitte, z. B. Insel ↔ Vulkan) – die Oberfläche zeichnet sie. */
+  onFade(fn: (on: boolean) => void): () => void {
+    this.fadeListeners.add(fn);
+    return () => void this.fadeListeners.delete(fn);
+  }
+
+  /** Kurz abblenden, umschalten (`cut`: Ansicht, Kamera …), wieder aufblenden. */
+  async fadeCut(cut: () => void, hold = 140) {
+    const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+    // überlappende Blenden (Regie + Spielerklärung) – erst aufblenden, wenn die letzte fertig ist
+    if (this.fades++ === 0) for (const fn of this.fadeListeners) fn(true);
+    try {
+      await wait(this.fadeListeners.size ? 280 : 0);
+      if (this.disposed) return;
+      cut();
+      this.rig.jump();
+      await wait(hold);
+    } finally {
+      if (--this.fades === 0 && !this.disposed) for (const fn of this.fadeListeners) fn(false);
+    }
+  }
+  private fades = 0;
 
   onCaption(fn: (c: Caption | null) => void) {
     this.captionListeners.add(fn);

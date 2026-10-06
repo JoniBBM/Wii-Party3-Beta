@@ -54,6 +54,11 @@ export function useTeamEffects(teamId: string | null) {
       timers.add(id);
     };
     const off = onEffects((effects) => {
+      // Rückgängig: angekündigte Hinweise („Platsch!“, „ins Vulkan-Innere“ …) verwerfen
+      if (effects.some((e) => e.type === 'undo')) {
+        for (const id of timers) clearTimeout(id);
+        timers.clear();
+      }
       let t = 0;
       for (const e of effects) {
         const at = t;

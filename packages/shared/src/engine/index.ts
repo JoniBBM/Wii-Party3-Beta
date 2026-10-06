@@ -96,6 +96,7 @@ function handleGameCommand(
           t.bonusDie = 0;
           t.blocked = null;
           t.crater = null;
+          t.inside = null;
         }
         for (const p of s.players) p.playCount = 0;
       }
@@ -114,6 +115,15 @@ function handleGameCommand(
       const goal = goalOf(s);
       for (const t of s.teams) {
         t.position = Math.min(t.position, goal);
+        // Vulkan-Inneres: Rückkehrfeld auf dem (evtl. kürzeren) Brett; abgeschaltet → sofort heraus
+        if (t.inside) {
+          t.inside.returnTo = Math.min(t.inside.returnTo, goal);
+          t.inside.step = Math.min(t.inside.step, s.config.rules.inside.length);
+          if (!s.config.rules.inside.enabled) {
+            t.position = t.inside.returnTo;
+            t.inside = null;
+          }
+        }
         // Krater verschoben oder abgeschaltet → Team ist nicht mehr gefangen
         if (t.crater && (s.config.board.fields[t.position] !== 'crater' || !s.config.rules.crater.enabled)) t.crater = null;
         // geänderte Augenzahl gilt auch für Teams, die schon im Krater sitzen

@@ -28,6 +28,8 @@ const check = (ok, label) => {
 };
 try {
   const { token } = await post('/api/auth/admin', { password: 'sh' });
+  // Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
+  const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
   const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
   await post('/api/games', { name: 'Show', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
   const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
@@ -46,7 +48,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   page.on('pageerror', (e) => errors.push('page: ' + e.message));
   page.on('console', (m) => m.type() === 'error' && !/favicon/.test(m.text()) && errors.push('console: ' + m.text()));
-  await page.goto(`${base}/beamer?debug`);
+  await page.goto(`${base}/beamer?debug#bt=${beamerToken}`);
   await page.waitForFunction(() => window.__board, null, { timeout: 60000 });
   await page.mouse.click(800, 450); // Ton freischalten (wie am echten Beamer)
   await sleep(2500);
@@ -135,7 +137,8 @@ try {
   if (want('erklaerung')) {
     await showCmd({ type: 'explain', action: 'start' });
     const t0 = Date.now();
-    const shots = [4, 16, 30, 58, 75, 92, 104, 116, 128, 140, 152, 164, 176];
+    // Zeitpunkte der Bilder (Sekunden), anpassbar: SHOTS=150,155,160 node e2e/show.mjs …
+    const shots = process.env.SHOTS ? process.env.SHOTS.split(',').map(Number) : [4, 16, 30, 58, 75, 92, 104, 116, 128, 140, 152, 164, 176];
     for (const s of shots) {
       const wait = t0 + s * 1000 - Date.now();
       if (wait > 0) await sleep(wait);

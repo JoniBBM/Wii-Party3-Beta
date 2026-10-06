@@ -57,6 +57,17 @@ try {
   const beamer = await beamerCtx.newPage();
   watch(beamer, 'beamer');
   await beamer.goto(`${base}/beamer`);
+  // Neuer Beamer ohne Zugang: zeigt einen Code, die Regie gibt ihn frei
+  await beamer.getByText('Beamer freigeben').waitFor();
+  await shot(beamer, 'beamer-kopplung');
+  const pairCode = (await beamer.locator('p.tabular-nums').first().textContent()).trim();
+  await regie.goto(`${base}/regie/beamer`);
+  await regie.locator('#beamer-pair').fill(pairCode);
+  await regie.getByRole('button', { name: 'Freigeben' }).click();
+  await regie.getByText('Beamer freigegeben').waitFor();
+  await beamer.getByText('Beamer freigeben').waitFor({ state: 'detached' });
+  await regie.goto(`${base}/regie`);
+  await regie.getByText('Anmeldung offen').waitFor();
 
   // Vier Handys melden sich an
   const names = ['Anna', 'Ben', 'Cem', 'Dana'];

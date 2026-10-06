@@ -20,7 +20,8 @@ import {
   type Session,
   type ShowState,
 } from '@insel/shared';
-import { teamKey, verifyToken } from './auth.ts';
+import { issueToken, staffKey, teamKey, verifyToken } from './auth.ts';
+import { config } from './config.ts';
 import { getSettings, setSettings, type DB } from './db.ts';
 import type { GameRuntime } from './runtime.ts';
 
@@ -34,15 +35,27 @@ export interface Ack {
 interface SocketData {
   session: Session;
   view: string;
+  /** Kopplungscode eines (noch) nicht freigegebenen Beamers */
+  pairCode?: string;
+  /** Mengenbremse je Verbindung */
+  tokens: number;
+  last: number;
+  ip: string;
 }
 
 type LiveSocket = Socket & { data: SocketData };
 
-/** Ist das Token (noch) zum aktiven Spiel gültig? Sonst Gast bzw. Beamer. */
+/**
+ * Ist das Token (noch) gültig? Regie, Moderator und Beamer hängen an den Passwörtern
+ * (staffKey), Teams und Spieler am aktiven Spiel. Sonst Gast – auch ein Beamer, der noch
+ * nicht in der Regie freigegeben wurde (außer wenn die Passwörter abgeschaltet sind).
+ */
 export function resolveSession(raw: Session | null, state: GameState | null, view: string): Session {
-  const fallback: Session = { role: view === 'beamer' ? 'beamer' : 'guest' };
+  const fallback: Session = { role: view === 'beamer' && config.authDisabled ? 'beamer' : 'guest' };
   if (!raw) return fallback;
-  if (raw.role === 'admin' || raw.role === 'moderator') return raw;
+  if (raw.role === 'admin' || raw.role === 'moderator' || raw.role === 'beamer') {
+    return config.authDisabled || raw.key === staffKey() ? raw : fallback;
+  }
   if (!state || raw.gameId !== state.id) return fallback;
   if (raw.role === 'team') {
     const team = state.teams.find((t) => t.id === raw.teamId);
@@ -72,13 +85,72 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
     serveClient: false,
     pingInterval: 10_000,
     pingTimeout: 8_000,
-    maxHttpBufferSize: 1e6,
+    // Befehle sind klein; Fotos laufen über HTTP
+    maxHttpBufferSize: 256_000,
   });
+
+  // ---------------------------------------------------------------------------
+  // Schutz vor Überflutung: Verbindungen je Adresse, Nachrichten je Verbindung
+  // ---------------------------------------------------------------------------
+  const MAX_CONN_PER_IP = 60;
+  const RATE = 12; // Nachrichten je Sekunde (Dauer)
+  const BURST = 40; // kurzfristig mehr erlaubt
+  const perIp = new Map<string, number>();
+  /** Echte Client-Adresse: hinter dem Tunnel (Docker-Netz, nicht das Gateway) zählt Cf-Connecting-Ip. */
+  function socketIp(socket: Socket): string {
+    const addr = socket.handshake.address.replace(/^::ffff:/, '');
+    const cf = socket.handshake.headers['cf-connecting-ip'];
+    const fromTunnel = /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(addr) && !addr.endsWith('.1');
+    return fromTunnel && typeof cf === 'string' ? cf : addr;
+  }
+  /** Darf diese Verbindung gerade noch etwas senden? (Token-Eimer) */
+  function allow(socket: LiveSocket, cost = 1): boolean {
+    const now = Date.now();
+    const d = socket.data;
+    d.tokens = Math.min(BURST, d.tokens + ((now - d.last) / 1000) * RATE);
+    d.last = now;
+    if (d.tokens < cost) return false;
+    d.tokens -= cost;
+    return true;
+  }
+  const BUSY: Ack = { ok: false, error: 'Zu viele Anfragen – bitte kurz warten', code: 'busy' };
+  io.use((socket, next) => {
+    const ip = socketIp(socket);
+    const n = perIp.get(ip) ?? 0;
+    if (n >= MAX_CONN_PER_IP) return next(new Error('Zu viele Verbindungen von dieser Adresse'));
+    perIp.set(ip, n + 1);
+    (socket as LiveSocket).data.ip = ip;
+    socket.on('disconnect', () => {
+      const c = (perIp.get(ip) ?? 1) - 1;
+      if (c <= 0) perIp.delete(ip);
+      else perIp.set(ip, c);
+    });
+    next();
+  });
+
+  /** Beamer koppeln: Code anzeigen, die Regie gibt ihn frei. */
+  const pairCodes = new Map<string, LiveSocket>();
+  function offerPairing(socket: LiveSocket) {
+    if (socket.data.view !== 'beamer' || sessionOf(socket).role === 'beamer' || isPrivileged(sessionOf(socket).role)) {
+      if (socket.data.pairCode) pairCodes.delete(socket.data.pairCode);
+      socket.data.pairCode = undefined;
+      return;
+    }
+    if (!socket.data.pairCode) {
+      let code = '';
+      do code = String(1000 + Math.floor(Math.random() * 9000));
+      while (pairCodes.has(code));
+      socket.data.pairCode = code;
+      pairCodes.set(code, socket);
+    }
+    socket.emit('beamer:pair', { code: socket.data.pairCode });
+  }
 
   const sessionOf = (socket: LiveSocket) => resolveSession(socket.data.session, runtime.state, socket.data.view);
 
   function viewKey(session: Session, state: GameState): string {
     if (isPrivileged(session.role)) return 'staff';
+    if (session.role === 'beamer') return 'beamer';
     if (session.role === 'team') return `team:${session.teamId}`;
     if (session.role === 'player') {
       const teamId = state.players.find((p) => p.id === session.playerId)?.teamId;
@@ -117,7 +189,7 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
     for (const socket of io.sockets.sockets.values() as Iterable<LiveSocket>) {
       const key = viewKey(sessionOf(socket), state);
       if (key.startsWith('team:')) out[key.slice(5)] = (out[key.slice(5)] ?? 0) + 1;
-      else if (key === 'public' && socket.data.view === 'beamer') out.beamer = (out.beamer ?? 0) + 1;
+      else if (key === 'beamer') out.beamer = (out.beamer ?? 0) + 1;
     }
     return out;
   }
@@ -176,21 +248,44 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
   io.on('connection', (rawSocket) => {
     const socket = rawSocket as LiveSocket;
     const auth = (socket.handshake.auth ?? {}) as { token?: string; view?: string };
-    socket.data.view = typeof auth.view === 'string' ? auth.view : 'guest';
+    socket.data.view = typeof auth.view === 'string' ? auth.view.slice(0, 20) : 'guest';
     socket.data.session = verifyToken(auth.token) ?? { role: 'guest' };
+    socket.data.tokens = BURST;
+    socket.data.last = Date.now();
 
     socket.emit('hello', { appName: getSettings(database).appName, serverNow: Date.now() });
     socket.emit('show', show);
     pushState(runtime.state, socket);
     pushPresence();
     if (isPrivileged(sessionOf(socket).role)) socket.emit('beamers', [...beamers.values()]);
+    offerPairing(socket);
     socket.on('disconnect', () => {
       pushPresence();
+      if (socket.data.pairCode) pairCodes.delete(socket.data.pairCode);
       if (beamers.delete(socket.id)) pushBeamers();
+    });
+
+    // Regie gibt einen Beamer über seinen Kopplungscode frei
+    socket.on('beamer:pair', (raw: unknown, ack?: (a: Ack) => void) => {
+      const reply = ack ?? (() => {});
+      if (!allow(socket, 2)) return reply(BUSY);
+      if (!isPrivileged(sessionOf(socket).role)) return reply({ ok: false, error: 'Nur die Spielleitung kann Beamer freigeben', code: 'forbidden' });
+      const code = typeof raw === 'string' ? raw.trim() : '';
+      const target = pairCodes.get(code);
+      if (!target) return reply({ ok: false, error: 'Diesen Code zeigt gerade kein Beamer', code: 'not_found' });
+      const token = issueToken({ role: 'beamer', key: staffKey() });
+      pairCodes.delete(code);
+      target.data.pairCode = undefined;
+      target.data.session = verifyToken(token) ?? { role: 'guest' };
+      target.emit('beamer:token', token);
+      pushState(runtime.state, target);
+      pushPresence();
+      reply({ ok: true });
     });
 
     socket.on('show', (raw: unknown, ack?: (a: Ack) => void) => {
       const reply = ack ?? (() => {});
+      if (!allow(socket)) return reply(BUSY);
       try {
         if (!isPrivileged(sessionOf(socket).role)) throw new EngineError('Nur die Spielleitung kann den Beamer steuern', 'forbidden');
         const cmd = showCommandSchema.parse(raw);
@@ -222,34 +317,45 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
     });
 
     // Beamer melden Bildrate, Grafikstufe und ob die Erklärung fertig ist
+    const isBeamer = () => socket.data.view === 'beamer' && sessionOf(socket).role === 'beamer';
     socket.on('beamer:stats', (raw: unknown) => {
-      if (socket.data.view !== 'beamer') return;
+      if (!allow(socket) || !isBeamer()) return;
       const r = statsSchema.safeParse(raw);
       if (!r.success) return;
       beamers.set(socket.id, { id: socket.id, ...r.data });
       pushBeamers();
     });
     socket.on('beamer:explained', (id: unknown) => {
-      if (socket.data.view !== 'beamer' || id !== show.explainer.id || !show.explainer.running) return;
+      if (!allow(socket) || !isBeamer() || id !== show.explainer.id || !show.explainer.running) return;
       show.explainer = { ...show.explainer, running: false };
       io.emit('show', show);
     });
 
-    socket.on('auth', (token: string, ack?: (a: Ack) => void) => {
-      socket.data.session = verifyToken(token) ?? { role: 'guest' };
-      pushState(runtime.state, socket);
-      pushPresence();
+    socket.on('auth', (token: unknown, ack?: (a: Ack) => void) => {
+      if (!allow(socket, 3)) return ack?.(BUSY);
+      const before = JSON.stringify(sessionOf(socket));
+      socket.data.session = verifyToken(typeof token === 'string' ? token : null) ?? { role: 'guest' };
+      // nur bei geänderter Sitzung neu senden (sonst ließe sich der Server mit kleinen Nachrichten fluten)
+      if (JSON.stringify(sessionOf(socket)) !== before) {
+        pushState(runtime.state, socket);
+        pushPresence();
+        if (isPrivileged(sessionOf(socket).role)) socket.emit('beamers', [...beamers.values()]);
+      }
+      offerPairing(socket);
       ack?.({ ok: true });
     });
 
     socket.on('cmd', (raw: unknown, ack?: (a: Ack) => void) => {
       const reply = ack ?? (() => {});
+      if (!allow(socket)) return reply(BUSY);
       try {
         const cmd = commandSchema.parse(raw);
         const session = sessionOf(socket);
         if (cmd.type === 'player.register' && session.role === 'guest') {
           throw new EngineError('Bitte über die Anmeldeseite mitspielen', 'forbidden');
         }
+        // Spieler anlegen kostet mehr (verhindert massenhaftes Anlegen)
+        if (cmd.type === 'player.register' && !isPrivileged(session.role) && !allow(socket, 8)) return reply(BUSY);
         const result = runtime.dispatch(cmd, actorFor(session));
         reply({ ok: true, meta: result.meta });
       } catch (err) {
@@ -259,6 +365,7 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
 
     socket.on('undo', (ack?: (a: Ack) => void) => {
       const reply = ack ?? (() => {});
+      if (!allow(socket)) return reply(BUSY);
       try {
         if (sessionOf(socket).role !== 'admin') throw new EngineError('Nur die Regie kann rückgängig machen', 'forbidden');
         const label = runtime.undo();
@@ -268,7 +375,9 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
       }
     });
 
-    socket.on('time', (ack?: (now: number) => void) => ack?.(Date.now()));
+    socket.on('time', (ack?: (now: number) => void) => {
+      if (allow(socket)) ack?.(Date.now());
+    });
   });
 
   return {

@@ -394,38 +394,42 @@ export class BoardAudio {
   private async syncAmbience() {
     if (!this.ctx) return;
     const ctx = this.ctx;
-    const want: Record<string, number> = this.ambiScene === 'inside' ? { vulkan: 1.1 } : { strand: 0.85, dschungel: 0.5 };
-    let islandReady = this.ambiScene === 'island';
+    const seq = ++this.ambiSeq;
+    const wantFor = (v: 'island' | 'inside'): Record<string, number> => (v === 'inside' ? { vulkan: 1.1 } : { strand: 0.85, dschungel: 0.5 });
+    // erst fehlende Schleifen laden (leise) …
+    for (const name of Object.keys(wantFor(this.ambiScene))) {
+      if (this.layers.has(name)) continue;
+      const sample = await this.load(`ambi-${name}`, `/assets/audio/ambience/${name}.mp3`, true);
+      if (!sample || !this.ctx || this.layers.has(name)) continue;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      g.connect(this.ambience);
+      const src = ctx.createBufferSource();
+      src.buffer = sample.buffer;
+      src.loop = true;
+      src.connect(g);
+      // jede Schicht an anderer Stelle beginnen
+      src.start(0, Math.random() * sample.buffer.duration);
+      this.layers.set(name, g);
+    }
+    // … dann für die Welt von *jetzt* einblenden: ein neuerer Wechsel stellt selbst ein
+    if (seq !== this.ambiSeq || !this.ctx) return;
+    const want = wantFor(this.ambiScene);
+    let islandReady = true;
     for (const name of ['strand', 'dschungel', 'vulkan']) {
       const target = want[name] ?? 0;
-      let g = this.layers.get(name);
-      if (!g && target > 0) {
-        const sample = await this.load(`ambi-${name}`, `/assets/audio/ambience/${name}.mp3`, true);
-        if (!sample || !this.ctx) {
-          if (name !== 'vulkan') islandReady = false;
-          continue;
-        }
-        g = this.layers.get(name);
-        if (!g) {
-          g = ctx.createGain();
-          g.gain.value = 0;
-          g.connect(this.ambience);
-          const src = ctx.createBufferSource();
-          src.buffer = sample.buffer;
-          src.loop = true;
-          src.connect(g);
-          // jede Schicht an anderer Stelle beginnen
-          src.start(0, Math.random() * sample.buffer.duration);
-          this.layers.set(name, g);
-        }
+      const g = this.layers.get(name);
+      if (!g) {
+        if (target > 0 && name !== 'vulkan') islandReady = false;
+        continue;
       }
-      if (!g) continue;
       const gain = (this.samples.get(`ambi-${name}`)?.gain ?? 1) * target;
       g.gain.setTargetAtTime(gain, ctx.currentTime, target > 0 ? 0.6 : 0.35);
     }
     // Ersatzgeräusch nur, wenn die Aufnahmen auf der Insel fehlen
     this.synth.gain.setTargetAtTime(this.ambiScene === 'island' && !islandReady ? 1 : 0, ctx.currentTime, 0.5);
   }
+  private ambiSeq = 0;
 
   /** Meeresrauschen: gefiltertes Rauschen mit langsamer Lautstärkewelle. */
   private startOcean() {

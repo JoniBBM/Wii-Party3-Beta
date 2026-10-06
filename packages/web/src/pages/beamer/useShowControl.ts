@@ -83,8 +83,12 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
     scene.rig.style = settings.camera;
     scene.director.reactions = settings.reactions;
   }, [scene, settings.commentary, settings.tags, settings.camera, settings.reactions]);
+  // Während der Spielerklärung: Kommentator still, Kamera gesperrt (Maus, Trackpad, Fernsteuerung)
   useEffect(() => {
-    if (scene) scene.commentator.paused = explainer.running;
+    if (!scene) return;
+    scene.commentator.paused = explainer.running;
+    if (explainer.running) scene.rig.endManual();
+    scene.rig.locked = explainer.running;
   }, [scene, explainer.running]);
 
   // Grafikstufe (fest oder automatisch)

@@ -16,7 +16,7 @@ import { PhotoPicker } from '../../ui/PhotoPicker.tsx';
 import { toast } from '../../ui/toast.tsx';
 
 export function teamJoinLink(base: string, team: Team) {
-  return `${base}/join/t/${team.id}.${team.joinToken}`;
+  return `${base}/join/t#c=${team.id}.${team.joinToken}`;
 }
 
 export function TeamsPage() {

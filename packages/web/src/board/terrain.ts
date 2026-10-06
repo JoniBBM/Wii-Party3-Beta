@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { GORGE, RIVER, RIVER_POOL, VOLCANO } from '@insel/shared';
 import { blobMask, coastDistance, CRATER, natural, TERRAIN_SIZE } from './ground.ts';
-import { riverLevelAt, type IslandLayout } from './layout.ts';
+import { basinWeight, riverLevelAt, type IslandLayout } from './layout.ts';
 import { fbm, lerp, noise2, smoothstep } from './noise.ts';
 import { patchTerrainMaterial } from './worldfx.ts';
 
@@ -87,6 +87,16 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
   const pathGrid = new SegmentGrid(layout.path, 3, 6);
   const riverGrid = new SegmentGrid(riverPts, 3, 7);
   const gorgeGrid = new SegmentGrid(GORGE, 3, 6);
+  const basin = layout.fordBasin;
+  /** Abstand zum Rand des Furtbeckens (negativ = im Becken) */
+  const basinDistance = (x: number, z: number) => {
+    if (!basin) return Infinity;
+    const dx = x - basin.x;
+    const dz = z - basin.z;
+    const u = Math.abs(dx * basin.along.x + dz * basin.along.z) - basin.halfAlong;
+    const v = Math.abs(dx * basin.across.x + dz * basin.across.z) - basin.halfAcross;
+    return Math.max(u, v);
+  };
   const creek = layout.creek;
   const creekGrid = creek.length > 1 ? new SegmentGrid(creek, 3, 4) : null;
   const half = TERRAIN_SIZE / 2;
@@ -180,6 +190,11 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
         const k = 1 - smoothstep(rv.w * 0.5, rv.w + 0.5, rv.d);
         h = Math.min(h, lerp(h, rv.level - depth, k));
       }
+      // Furtbecken: gleichmäßig tief, damit Fässer und Kisten ganz im Wasser stehen
+      if (basin) {
+        const k = basinWeight(basin, x, z, 0.55);
+        if (k > 0) h = Math.min(h, lerp(h, basin.y - 0.9 - noise2(x * 0.7, z * 0.7) * 0.12, k));
+      }
       // Bach hinter der Liane: schmales Bett mit flachen Ufern
       const ck = creekInfo(x, z);
       if (ck && !ck.first) {
@@ -226,7 +241,7 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
       const r = riverInfo(x, z);
       const c = creekInfo(x, z);
       const dPool = Math.hypot(x - pool.x, z - pool.z) - pool.w;
-      return Math.min(r ? r.d - r.w : Infinity, c ? c.d - c.w : Infinity, dPool);
+      return Math.min(r ? r.d - r.w : Infinity, c ? c.d - c.w : Infinity, dPool, basinDistance(x, z));
     },
     creekDistance(x, z) {
       const c = creekInfo(x, z);

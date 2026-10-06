@@ -24,7 +24,7 @@ export default function ModeratorApp() {
 function ModeratorShell({ dark, toggle }: { dark: boolean; toggle: (dark: boolean) => void }) {
   useLiveConnection('moderator', 'moderator');
   useLibrarySync('moderator');
-  useSystemSync();
+  useSystemSync('moderator');
   const { state, status, received, appName } = useLive();
   const [showRanking, setShowRanking] = useState(false);
   return (

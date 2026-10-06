@@ -343,7 +343,7 @@ with app_instance.app_context():
         print(f"  PlayerRegistration Tabelle: ✅ Erstellt")
         
         # Prüfe welcome_password Feld in Team Tabelle
-        test_team = Team(name="Test-Welcome-Team", welcome_password="ABC123")
+        test_team = Team(name="Test-Welcome-Team", welcome_password=__import__("secrets").token_hex(4).upper())
         test_team.set_password("test123")
         print(f"  Team.welcome_password Feld: ✅ Verfügbar")
         

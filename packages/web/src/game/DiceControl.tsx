@@ -42,7 +42,7 @@ function ChallengeControl({ state, dice }: { state: GameState; dice: DiceRound }
   const info = CHALLENGE_INFO[c.kind];
   const sides = c.kind === 'vine' ? (state.config.rules.vine?.sides ?? 6) : 6;
   const busyMs = Math.max(0, dice.busyUntil - now);
-  const rest = c.remaining > 0 ? ` Danach noch ${c.remaining} Felder.` : '';
+  const rest = c.remaining > 0 ? ` Danach noch ${c.remaining} ${c.remaining === 1 ? 'Feld' : 'Felder'}.` : '';
   const what =
     c.kind === 'vine'
       ? `hält an der Liane und würfelt, wie weit es schwingt (W${sides}).${rest}`

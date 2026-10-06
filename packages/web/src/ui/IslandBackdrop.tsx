@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 /** Heller Himmel-und-Meer-Hintergrund für Start-, Beitritts- und Handyseiten (rein CSS/SVG). */
-export function IslandBackdrop({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function IslandBackdrop({ children, className = '', island = true }: { children: ReactNode; className?: string; island?: boolean }) {
   return (
     <div className={`relative min-h-dvh overflow-hidden ${className}`} style={{ background: 'linear-gradient(180deg, #8fd8ff 0%, #c9efff 45%, #e9f9ff 62%, #7fd2e8 62.2%, #3fb4d6 100%)' }}>
       <svg className="pointer-events-none absolute inset-x-0 top-[8%] h-40 w-full opacity-90" viewBox="0 0 800 160" preserveAspectRatio="none" aria-hidden>
@@ -13,7 +13,7 @@ export function IslandBackdrop({ children, className = '' }: { children: ReactNo
           <ellipse cx="420" cy="30" rx="40" ry="12" opacity="0.7" />
         </g>
       </svg>
-      <svg className="pointer-events-none absolute bottom-[30%] left-1/2 h-[26vh] w-[140vw] max-w-[1400px] -translate-x-1/2 sm:bottom-[33%]" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMax meet" aria-hidden>
+      {island && <svg className="pointer-events-none absolute bottom-[30%] left-1/2 h-[26vh] w-[140vw] max-w-[1400px] -translate-x-1/2 sm:bottom-[33%]" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMax meet" aria-hidden>
         <path d="M120 200 Q300 120 420 70 Q470 30 500 22 Q530 30 580 70 Q700 120 880 200 Z" fill="#5fbf55" />
         <path d="M455 50 Q500 10 545 50 Q520 62 500 58 Q480 62 455 50Z" fill="#8a5a3a" />
         <path d="M60 200 Q500 150 940 200 Z" fill="#f4dc94" />
@@ -26,7 +26,7 @@ export function IslandBackdrop({ children, className = '' }: { children: ReactNo
           <ellipse cx="692" cy="84" rx="24" ry="8" transform="rotate(-25 692 84)" />
           <ellipse cx="748" cy="80" rx="26" ry="8" transform="rotate(20 748 80)" />
         </g>
-      </svg>
+      </svg>}
       <div className="relative z-10">{children}</div>
     </div>
   );

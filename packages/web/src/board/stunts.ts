@@ -420,18 +420,16 @@ export class Stunts {
     if (!ff.length) return;
     const fr = this.layout.fieldRadius;
     const top = this.layout.ford.raftY - 0.08;
-    // Kisten liegen flussaufwärts (zum Wasserfall hin), Fässer auf dem Weg
+    // Kisten liegen flussaufwärts (zum Wasserfall hin) im Furtbecken, Fässer auf dem Weg
+    const basin = this.layout.fordBasin;
     const a = RIVER[RIVER_FORD - 1]!;
     const b = RIVER[RIVER_FORD + 1]!;
-    const flow = new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
-    const f0 = this.layout.fields[ff[0]!]!;
-    const side0 = new THREE.Vector3(-Math.sin(f0.heading), 0, Math.cos(f0.heading));
-    const sgn = side0.dot(flow) > 0 ? -1 : 1;
-    const gap = fr * 2.3 + 0.5;
+    const flow = basin ? new THREE.Vector3(basin.along.x, 0, basin.along.z) : new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
+    const up = flow.clone().negate();
+    const gap = Math.min(fr * 2.3 + 0.5, (basin?.halfAlong ?? 6) - fr * 0.95 - 0.35);
     const rope = mat('#c9a66b', { rough: 1 });
     ff.forEach((i, k) => {
       const f = this.layout.fields[i]!;
-      const side = new THREE.Vector3(-Math.sin(f.heading), 0, Math.cos(f.heading));
       // Fass
       const barrel = bigBarrel(fr * 1.0, 1.7);
       barrel.position.set(f.x, top - 1.7, f.z);
@@ -441,12 +439,12 @@ export class Stunts {
       this.group.add(bHolder);
       this.lanes.barrels.push({ o: bHolder, top: new THREE.Vector3(f.x, top, f.z), ph: k * 1.7, hidden: 0, rise: 0 });
       // Kiste
-      const cx = f.x + side.x * sgn * gap;
-      const cz = f.z + side.z * sgn * gap;
+      const cx = f.x + up.x * gap;
+      const cz = f.z + up.z * gap;
       const crate = floatingCrate(fr * 1.75);
       crate.scale.y = 1.7 / (fr * 1.75);
       crate.position.set(cx, top - 0.85, cz);
-      crate.rotation.y = f.heading + 0.08 * (k % 2 ? 1 : -1);
+      crate.rotation.y = Math.atan2(flow.x, flow.z) + 0.08 * (k % 2 ? 1 : -1);
       const cHolder = new THREE.Group();
       cHolder.add(crate);
       this.group.add(cHolder);
@@ -456,9 +454,9 @@ export class Stunts {
     const span = this.fordSpan();
     const bank = this.layout.fields[span.bank]!;
     const exit = this.layout.fields[span.exit]!;
-    for (const off of [-sgn * (fr * 1.45), sgn * (gap + fr * 1.35)]) {
-      const pa = new THREE.Vector3(bank.x + side0.x * off, bank.y + 1.0, bank.z + side0.z * off);
-      const pb = new THREE.Vector3(exit.x + side0.x * off, exit.y + 1.0, exit.z + side0.z * off);
+    for (const off of [fr * 1.45, -(gap + fr * 1.35)]) {
+      const pa = new THREE.Vector3(bank.x + flow.x * off, bank.y + 1.0, bank.z + flow.z * off);
+      const pb = new THREE.Vector3(exit.x + flow.x * off, exit.y + 1.0, exit.z + flow.z * off);
       for (const q of [pa, pb]) this.group.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.5, 7), mat('#6b4630'), q.x, q.y - 0.7, q.z));
       const mid = pa.clone().lerp(pb, 0.5);
       mid.y -= 0.5;
@@ -467,8 +465,8 @@ export class Stunts {
     }
     // Wegweiser am Ufer: links Fässer, rechts Kisten
     const dir = new THREE.Vector3(Math.cos(bank.heading), 0, Math.sin(bank.heading));
-    const px = bank.x - dir.x * 0.4 + side0.x * -sgn * (fr + 0.7);
-    const pz = bank.z - dir.z * 0.4 + side0.z * -sgn * (fr + 0.7);
+    const px = bank.x - dir.x * 0.4 + flow.x * (fr + 0.7);
+    const pz = bank.z - dir.z * 0.4 + flow.z * (fr + 0.7);
     const py = this.field.height(px, pz);
     const post = new THREE.Group();
     post.position.set(px, py, pz);
@@ -503,8 +501,8 @@ export class Stunts {
       sign.rotation.y = yaw - Math.PI / 2;
       post.add(sign);
     };
-    const toBarrels = dir.clone().multiplyScalar(0.6).addScaledVector(side0, sgn * 0.15).normalize();
-    const toCrates = dir.clone().multiplyScalar(0.4).addScaledVector(side0, sgn * 0.9).normalize();
+    const toBarrels = dir.clone().multiplyScalar(0.6).addScaledVector(up, 0.15).normalize();
+    const toCrates = dir.clone().multiplyScalar(0.4).addScaledVector(up, 0.9).normalize();
     board('🛢️ Fässer', toBarrels, 1.75);
     board('📦 Kisten', toCrates, 1.3);
     this.group.add(post);
@@ -538,16 +536,22 @@ export class Stunts {
       const at = p.holder.position.clone();
       const look = (q: THREE.Vector3) => Math.atan2(q.x - at.x, q.z - at.z);
       p.rig.setMode('shrug');
+      // schnell gewählt → die Überquerung übernimmt die Figur (busy), Grübeln endet sofort
+      const taken = () => p.busy || this.pieces.get(teamId) !== p;
       for (const q of [b.top, c.top, b.top, c.top]) {
         const r0 = p.holder.rotation.y;
         const r1 = look(q);
         let d = (r1 - r0) % (Math.PI * 2);
         if (d > Math.PI) d -= Math.PI * 2;
         if (d < -Math.PI) d += Math.PI * 2;
-        await this.tweens.run(0.4, (t) => (p.holder.rotation.y = r0 + d * t), ease.inOut);
+        await this.tweens.run(0.4, (t) => {
+          if (!taken()) p.holder.rotation.y = r0 + d * t;
+        }, ease.inOut);
         this.guard(epoch);
+        if (taken()) return;
         await this.tweens.wait(250);
         this.guard(epoch);
+        if (taken()) return;
       }
       p.rig.setMode('idle');
     });

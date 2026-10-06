@@ -23,6 +23,8 @@ const errors = [];
 let shots = 0;
 try {
   const { token } = await post('/api/auth/admin', { password: 'cam' });
+  // Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
+  const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
   const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
   await post('/api/games', { name: 'Kamera', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
   const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
@@ -37,7 +39,7 @@ try {
   page.on('pageerror', (e) => errors.push('page: ' + e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
   await page.addInitScript(() => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })));
-  await page.goto(`${base}/beamer?debug`);
+  await page.goto(`${base}/beamer?debug#bt=${beamerToken}`);
   await page.waitForFunction(() => window.__board, null, { timeout: 60000 });
   await page.evaluate(() => Object.assign(window.__board.rig.stats, { frames: 0, minClearance: Infinity, occludedFrames: 0, maxTurnRate: 0, maxAccel: 0, spikes: [], lowFrames: 0 }));
   // Zwischendurch prüfen, ob das Motiv verdeckt ist → Foto

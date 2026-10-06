@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { RIVER, RIVER_LIP, RIVER_POOL } from '@insel/shared';
-import { riverLevelAt } from './layout.ts';
+import { riverLevelAt, type FordBasin } from './layout.ts';
 import { TERRAIN_SIZE } from './terrain.ts';
 import { fx, GLSL_FX, GLSL_NOISE } from './worldfx.ts';
 
@@ -366,7 +366,7 @@ export interface RiverFx {
   fallBase: THREE.Vector3;
 }
 
-export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; creek?: { x: number; y: number; z: number; w: number }[] }): RiverFx {
+export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; creek?: { x: number; y: number; z: number; w: number }[]; basin?: FordBasin | null }): RiverFx {
   const group = new THREE.Group();
   group.name = 'river';
   const material = new THREE.ShaderMaterial({
@@ -388,7 +388,27 @@ export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; cre
   // Oberlauf (Quelle → Kante) und Unterlauf (Becken → Mündung)
   const upper = sampleRiver(0, RIVER_LIP).filter((p) => p.y > 0);
   group.add(riverRibbon(upper, material));
-  group.add(riverRibbon(sampleRiver(RIVER_POOL, RIVER.length - 1).filter((p) => p.y > 0.14), material));
+  // Unterlauf; an der Furt gerade und breit (Becken für Fässer und Kisten)
+  const lower = sampleRiver(RIVER_POOL, RIVER.length - 1).filter((p) => p.y > 0.14);
+  const bn = opts.basin;
+  if (bn) {
+    for (const p of lower) {
+      const dx = p.x - bn.x;
+      const dz = p.z - bn.z;
+      const u = dx * bn.along.x + dz * bn.along.z;
+      const v = dx * bn.across.x + dz * bn.across.z;
+      const k = Math.max(0, Math.min(1, (bn.halfAlong + 2.2 - Math.abs(u)) / 2.2));
+      if (k <= 0) continue;
+      const e = k * k * (3 - 2 * k);
+      // Mittellinie auf die Beckenachse ziehen, Breite bis an den Beckenrand
+      p.x -= bn.across.x * v * e;
+      p.z -= bn.across.z * v * e;
+      p.w = p.w + (Math.max(p.w, bn.halfAcross - 0.45) - p.w) * e;
+      p.y = p.y + (bn.y - p.y) * e;
+      p.slope *= 1 - e * 0.8;
+    }
+  }
+  group.add(riverRibbon(lower, material));
   // Bach hinter der Liane (schmal, mit Gefälle → schnellere Strömung im Shader)
   const creek = opts.creek ?? [];
   if (creek.length > 2) {

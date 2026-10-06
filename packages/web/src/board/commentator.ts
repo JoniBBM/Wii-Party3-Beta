@@ -99,6 +99,12 @@ export class Commentator {
     this.turnRank = turnRank;
   }
 
+  private epoch = 0;
+  /** Angekündigte (verzögerte) Sprüche verwerfen – z. B. nach Rückgängig. */
+  cancel() {
+    this.epoch += 1;
+  }
+
   /** Spruch zu einem Anlass – vielleicht. Liefert true, wenn gesprochen wird. */
   comment(cat: VoiceCategory, opts: { force?: boolean; delay?: number } = {}): boolean {
     if (this.level === 'off' || this.paused || !this.audio.ready) return false;
@@ -121,7 +127,12 @@ export class Commentator {
     const id = this.pick(cat);
     if (!id) return false;
     this.lastAt = now + (opts.delay ?? 0);
-    const go = () => void this.audio.say(voiceUrl(id), { interrupt: urgent });
+    const epoch = this.epoch;
+    const go = () => {
+      // inzwischen pausiert (Spielerklärung), abgeschaltet oder rückgängig gemacht → schweigen
+      if (epoch !== this.epoch || this.paused || this.level === 'off') return;
+      void this.audio.say(voiceUrl(id), { interrupt: urgent });
+    };
     if (opts.delay) window.setTimeout(go, opts.delay);
     else go();
     return true;

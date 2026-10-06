@@ -9,11 +9,10 @@
 ## Starten
 
 ```bash
-cp .env.example .env    # einmalig; ADMIN_PASSWORD setzen!
-./start.sh              # im WLAN
+./start.sh              # im WLAN (legt beim ersten Mal .env mit zufälligem Regie-Passwort an)
 ./start.sh online       # zusätzlich übers Internet erreichbar
 ./start.sh logs         # Protokoll ansehen
-./start.sh beamer       # Beamer-Fenster als Kiosk (Vollbild, Ton ohne Klick; Chrome/Edge)
+./start.sh beamer       # Beamer-Fenster als Kiosk (Vollbild, Ton ohne Klick; gleich freigegeben)
 ./start.sh stop         # beenden
 ```
 
@@ -25,9 +24,9 @@ Ohne Skript geht es auch direkt mit `docker compose up -d --build` (dann ggf. `H
 
 | Variable | Bedeutung |
 |---|---|
-| `ADMIN_PASSWORD` | Passwort der Regie (Pflicht). |
+| `ADMIN_PASSWORD` | Passwort der Regie (Pflicht, mindestens 10 Zeichen – sonst kein Internet-Betrieb). |
 | `MODERATOR_PASSWORD` | Optionales eigenes Passwort für Moderatoren. Sonst Regie-Passwort oder QR-Link. |
-| `AUTH_DISABLED` | `true` = Regie/Moderator ohne Passwort (nur zum Testen!). |
+| `AUTH_DISABLED` | `true` = Regie/Moderator ohne Passwort (nur zum Testen im WLAN – übers Internet gesperrt). |
 | `HOST_PORT` | Port auf dem Rechner (Standard 8080). |
 | `HOST_IP` | WLAN-Adresse für QR-Codes (setzt `start.sh` automatisch). |
 | `PUBLIC_URL` | Feste öffentliche Adresse, wenn auf einem Server mit Domain betrieben. |
@@ -67,6 +66,18 @@ volumes:
 
 WebSockets werden von Caddy automatisch durchgereicht.
 
+## Sicherheit
+
+Die Insel ist für Gruppenabende gebaut, kann aber gefahrlos übers Internet laufen. Dafür sorgt:
+
+- **Passwörter:** Regie und Moderator brauchen ein Passwort mit mindestens 10 Zeichen, das nicht als Standardpasswort bekannt ist. Mit einem schwachen Passwort läuft die Insel nur im WLAN: `./start.sh online` und der Server selbst verweigern den Start, Anmeldungen über den Tunnel werden abgelehnt, und die Regie zeigt einen Warnhinweis. Passwort ändern = in `.env` eintragen und `./start.sh` – alle alten Regie-, Moderator- und Beamer-Zugänge werden damit ungültig.
+- **Beamer-Freigabe:** Ein neuer Beamer sieht nur die Insel. Fotos, Beitritts-Adressen und den Spielverlauf bekommt er erst nach der Freigabe. Am einfachsten öffnet man ihn mit `./start.sh beamer` oder per *Beamer öffnen* in der Regie auf demselben Rechner – dann ist er sofort freigegeben. Auf einem anderen Rechner zeigt er unten rechts einen **vierstelligen Code**: In der Regie unter *Beamer* eingeben, fertig. Die Freigabe gilt 30 Tage.
+- **Zugänge in QR-Codes** (Team, Moderator) stehen hinter `#` in der Adresse und landen so in keinem Server- oder Tunnel-Protokoll.
+- **Schutz vor Missbrauch:** begrenzte Anmeldeversuche je Gerät (bei Fehlversuchen wachsende Sperre), begrenzte Verbindungen und Nachrichten je Gerät, höchstens 200 Spieler (40 je Team), Fotos höchstens 8 MB und nur echte Bildformate.
+- **Datensparsam:** Gäste ohne Anmeldung sehen keine Fotos und keinen Verlauf; PINs, Passwörter und Lösungen gehen nie an Handys oder Beamer.
+- **Server:** Sicherheits-Header (CSP, kein Einbetten in fremde Seiten), Container ohne Root-Rechte mit schreibgeschütztem Dateisystem, Tunnel in fester Version.
+- **Kein KI-Dienst zur Laufzeit:** Sprecher und Musik sind fertige Dateien – Eingaben der Spieler (Namen, Antworten) werden nur angezeigt, nie als Anweisung ausgeführt. „Prompt Injection“ ist damit kein Thema.
+
 ## Daten & Backups
 
 Alles liegt im Ordner **`data/`** neben dem Projekt:
@@ -94,6 +105,9 @@ Alles liegt im Ordner **`data/`** neben dem Projekt:
 | Seite lädt nicht unter `localhost:8080` | `./start.sh logs` ansehen; anderer Dienst auf Port 8080? → `HOST_PORT` in `.env` ändern. |
 | Handys erreichen die Adresse nicht | Gleiches WLAN? Client-Isolation? Firewall des Macs (Systemeinstellungen → Netzwerk → Firewall: Docker erlauben)? Sonst `./start.sh online`. |
 | Regie-Login „Es ist kein ADMIN_PASSWORD gesetzt“ | `.env` anlegen/ergänzen und neu starten. |
+| `./start.sh online`: „Passwort zu kurz oder Standardpasswort“ | In `.env` ein `ADMIN_PASSWORD` mit mindestens 10 Zeichen setzen. |
+| Beamer zeigt unten rechts einen Code | Er ist noch nicht freigegeben: Regie → *Beamer* → Code eingeben (oder `./start.sh beamer`). |
+| Nach Passwortwechsel will alles neu angemeldet werden | Gewollt: Ein neues Passwort macht alte Zugänge ungültig. Beamer neu freigeben. |
 | Beamer zeigt „Die 3D-Insel konnte nicht geladen werden“ | Browser ohne WebGL 2 oder Hardwarebeschleunigung aus. Anderen Browser verwenden. |
 | Beamer ruckelt | Regie → *Beamer* → Grafik **Ausgewogen** oder **Sparsam** (bzw. **Automatisch**). |
 | Handy-Schütteln reagiert nicht | Browser geben Bewegungssensoren nur über HTTPS frei – im reinen WLAN-Betrieb (http) bleibt der Würfel-Knopf. Mit `./start.sh online` (https-Adresse) funktioniert auch das Schütteln. |

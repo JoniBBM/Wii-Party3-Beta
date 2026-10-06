@@ -18,14 +18,35 @@ services:
       HOST_IP: ${HOST_IP:-}
       HOST_PORT: ${HOST_PORT:-8080}
       TUNNEL_METRICS: http://tunnel:2000
+      # ./start.sh online setzt das: dann startet der Server nur mit sicherem Passwort
+      INSEL_ONLINE: ${INSEL_ONLINE:-false}
     volumes:
       - ./data:/data
+    # Härtung: kein Root im Betrieb, keine Zusatzrechte, unveränderliches Dateisystem
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # nur für den Start (Datenordner übernehmen, dann Rechte abgeben)
+      - CHOWN
+      - SETUID
+      - SETGID
 
   # Nur mit Profil „online“: öffentliche HTTPS-Adresse ohne Konto (trycloudflare.com)
   tunnel:
-    image: cloudflare/cloudflared:latest
+    # feste Version (bei Bedarf hier aktualisieren)
+    image: cloudflare/cloudflared:2026.10.0
     profiles: ["online"]
     restart: unless-stopped
     command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 --url http://insel:8080
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       - insel

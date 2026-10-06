@@ -27,6 +27,8 @@ interface Client {
   effects: Effect[];
   waitFor: (pred: (s: GameState) => boolean) => Promise<GameState>;
   cmd: (c: Record<string, unknown>) => Promise<{ ok: boolean; error?: string; meta?: Record<string, unknown> }>;
+  /** Kopplungscode, den ein noch nicht freigegebener Beamer anzeigt */
+  pairCode: () => string | null;
 }
 
 async function api<T = Record<string, unknown>>(path: string, opts: { method?: string; body?: unknown; token?: string } = {}) {
@@ -51,6 +53,9 @@ function client(token: string | null, view = 'guest'): Promise<Client> {
     const socket = connect(base, { auth: { token, view }, transports: ['websocket'], forceNew: true });
     sockets.push(socket);
     socket.on('effects', (list: Effect[]) => effects.push(...list));
+    let pairCode: string | null = null;
+    socket.on('beamer:pair', (p: { code: string }) => (pairCode = p.code));
+    socket.on('beamer:token', (t: string) => socket.emit('auth', t));
     let ready = false;
     socket.on('state', (payload: { state: GameState | null; session: Session }) => {
       state = payload.state;
@@ -78,6 +83,7 @@ function client(token: string | null, view = 'guest'): Promise<Client> {
           waiters.push({ pred, resolve: (s) => (clearTimeout(t), res(s)) });
         }),
       cmd: (cmd) => new Promise((res) => socket.emit('cmd', cmd, res)),
+      pairCode: () => pairCode,
     };
   });
 }
@@ -100,6 +106,19 @@ describe('Server', () => {
     expect((await api('/api/auth/admin', { body: { password: 'falsch' } })).status).toBe(401);
   });
 
+  it('Passwortregeln: schwache oder bekannte Passwörter erkennen; sicheres Passwort geht auch übers Internet', async () => {
+    const { isWeakPassword } = await import('./config.ts');
+    expect(isWeakPassword('kurz')).toBe(true);
+    expect(isWeakPassword('bitte-aendern')).toBe(true);
+    expect(isWeakPassword('Geheim-Lagerfeuer-42')).toBe(false);
+    const res = await fetch(`${base}/api/auth/admin`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7' },
+      body: JSON.stringify({ password: 'test-passwort' }),
+    });
+    expect(res.status).toBe(200);
+  });
+
   it('spielt einen kompletten Ablauf über WebSockets', async () => {
     const login = await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } });
     expect(login.status).toBe(200);
@@ -115,6 +134,16 @@ describe('Server', () => {
     const regie = await client(admin);
     const beamer = await client(null, 'beamer');
     expect(regie.session()?.role).toBe('admin');
+    // Ein unbekannter Beamer ist Gast (keine Fotos, kein Verlauf), bis die Regie ihn freigibt
+    expect(beamer.session()?.role).toBe('guest');
+    await new Promise((r) => setTimeout(r, 50));
+    const code = beamer.pairCode();
+    expect(code).toMatch(/^\d{4}$/);
+    const wrong = await new Promise<{ ok: boolean }>((res) => beamer.socket.emit('beamer:pair', code, res));
+    expect(wrong.ok).toBe(false); // ein Beamer kann sich nicht selbst freigeben
+    const paired = await new Promise<{ ok: boolean }>((res) => regie.socket.emit('beamer:pair', code, res));
+    expect(paired.ok).toBe(true);
+    for (let i = 0; i < 40 && beamer.session()?.role !== 'beamer'; i++) await new Promise((r) => setTimeout(r, 25));
     expect(beamer.session()?.role).toBe('beamer');
     expect(regie.state()?.status).toBe('lobby');
 
@@ -179,27 +208,38 @@ describe('Server', () => {
     await beamer.waitFor((s) => s.teams.find((t) => t.id === annaTeam)!.position > 0);
     expect(beamer.effects.some((e) => e.type === 'dice' && e.teamId === annaTeam)).toBe(true);
 
-    // Zufallswurf kann auf einem Minispiel-Feld oder der Liane landen – das erledigt die Regie hier
-    const afterRoll = await regie.waitFor((s) => s.phase.name === 'dice');
-    if (afterRoll.phase.name === 'dice' && afterRoll.phase.dice.fieldGame) {
-      expect((await regie.cmd({ type: 'fieldgame.cancel' })).ok).toBe(true);
-      await regie.waitFor((s) => s.phase.name === 'dice' && !s.phase.dice.fieldGame);
-    }
-    // … oder an einer Mutprobe (Liane, Wasserfall, Lavahöhle) halten
-    let pending = afterRoll.phase.name === 'dice' ? afterRoll.phase.dice.challenge : null;
-    while (pending) {
-      const res =
-        pending.kind === 'river'
-          ? await regie.cmd({ type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true })
-          : await regie.cmd({ type: 'challenge.roll', force: true, value: pending.kind === 'cave' ? 6 : 1 });
-      expect(res.ok).toBe(true);
-      const next = await regie.waitFor((s) => s.phase.name !== 'dice' || s.phase.dice.challenge?.kind !== pending!.kind || s.phase.dice.challenge.position !== pending!.position);
-      pending = next.phase.name === 'dice' ? next.phase.dice.challenge : null;
-    }
+    // Zufallswürfe können auf einem Minispiel-Feld oder an einer Mutprobe (Liane, Wasserfall,
+    // Lavahöhle) landen – das erledigt die Regie hier
+    const settle = async () => {
+      for (let i = 0; i < 12; i++) {
+        const st = regie.state();
+        if (!st || st.phase.name !== 'dice') return;
+        const d = st.phase.dice;
+        if (d.fieldGame) {
+          expect((await regie.cmd({ type: 'fieldgame.cancel' })).ok).toBe(true);
+        } else if (d.challenge) {
+          const c = d.challenge;
+          const res =
+            c.kind === 'river'
+              ? await regie.cmd({ type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true })
+              : await regie.cmd({ type: 'challenge.roll', force: true, value: c.kind === 'cave' ? 6 : 1 });
+          expect(res.ok).toBe(true);
+        } else return;
+        await new Promise((r) => setTimeout(r, 30));
+      }
+    };
+    await regie.waitFor((s) => s.phase.name === 'dice');
+    const afterRoll = regie.state()!;
+    const hadExtra = afterRoll.phase.name === 'dice' && (!!afterRoll.phase.dice.challenge || !!afterRoll.phase.dice.fieldGame);
+    await settle();
 
     // Animation läuft → zweites Team muss warten, Regie kann erzwingen
-    expect((await teamB.cmd({ type: 'dice.roll' })).error).toMatch(/Animation/);
-    expect((await regie.cmd({ type: 'dice.roll', force: true, main: 2 })).ok).toBe(true);
+    // (nach erledigter Mutprobe kann die Animation schon vorbei sein)
+    const early = await teamB.cmd({ type: 'dice.roll' });
+    if (!hadExtra) expect(early.error).toMatch(/Animation/);
+    if (!early.ok) expect((await regie.cmd({ type: 'dice.roll', force: true, main: 2 })).ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 30));
+    await settle();
     await regie.waitFor((s) => s.phase.name === 'round_end');
 
     // Rückgängig

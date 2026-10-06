@@ -58,8 +58,22 @@ export const config = {
   hostIp: env.HOST_IP ?? '',
   /** Metrics-Adresse des Cloudflare-Tunnels (Profil „online“). */
   tunnelMetrics: env.TUNNEL_METRICS ?? '',
+  /** Öffentlich erreichbar (./start.sh online setzt INSEL_ONLINE) – dann gelten strengere Regeln. */
+  online: bool(env.INSEL_ONLINE) || !!env.PUBLIC_URL,
   version: '2.0.0',
   isProduction: env.NODE_ENV === 'production',
 };
 
 mkdirSync(config.mediaDir, { recursive: true });
+
+/** Bekannte, öffentlich bekannte oder zu kurze Passwörter. */
+const WEAK = new Set(['bitte-aendern', 'admin', 'passwort', 'password', '12345678', '123456789', 'qwertz', 'insel', 'geheim']);
+export function isWeakPassword(pw: string): boolean {
+  return pw.length < 10 || WEAK.has(pw.toLowerCase());
+}
+
+/** Sicherheitslage für die Regie (Warnhinweis) und den Start. */
+export const security = {
+  weakAdminPassword: !config.authDisabled && isWeakPassword(config.adminPassword),
+  weakModeratorPassword: !config.authDisabled && !!config.moderatorPassword && isWeakPassword(config.moderatorPassword),
+};

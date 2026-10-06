@@ -34,6 +34,8 @@ const post = async (path, body, token) => {
   return r.json();
 };
 const { token } = await post('/api/auth/admin', { password: PASS });
+// Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
+const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
 const templates = await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json();
 const tpl = templates.templates.find((t) => t.name.startsWith('Standard'));
 await post('/api/games', { name: 'Beamer-Test', templateId: tpl.id }, token);
@@ -57,7 +59,7 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 await page.addInitScript(() => localStorage.setItem('insel.beamer', JSON.stringify({ quality: localStorage.getItem('q') ?? 'beauty', sound: false, music: false, ambience: false, tags: true })));
-await page.goto(`${base}/beamer`);
+await page.goto(`${base}/beamer#bt=${beamerToken}`);
 await page.waitForFunction(() => !document.body.innerText.includes('Lade Insel') && !document.body.innerText.includes('wird'), null, { timeout: 60000 }).catch(() => {});
 await sleep(1500);
 
