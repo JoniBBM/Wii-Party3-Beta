@@ -95,18 +95,22 @@ export class Director {
   }
 
   /**
-   * Richtige Welt zeigen: Vulkan-Inneres, wenn das Team dort ist, sonst die Insel –
-   * Wechsel mit kurzer Schwarzblende statt Kameraflug.
+   * Richtige Welt zeigen: Vulkan-Inneres, wenn das Team dort ist, sonst die Insel – mit weicher
+   * Überblendung (im Inneren zuerst der Überblick über den Lavasee, dann zur Platte des Teams).
    */
   private async viewFor(teamId: string | null): Promise<boolean> {
     const inside = !!teamId && this.s.pieces.isInside(teamId);
     const want = inside ? 'inside' : 'island';
     if (this.s.view === want) return false;
-    await this.s.fadeCut(() => {
-      this.s.setView(want);
-      if (inside && teamId) this.camFor(teamId, 3);
-      else this.s.rig.set({ kind: 'overview' }, 1);
+    const ins = this.s.inside;
+    await this.s.travel(want, {
+      fade: 700,
+      arrive: () => {
+        if (inside && ins) this.s.rig.set({ kind: 'focus', ...ins.overviewShot() }, 3);
+        else this.s.rig.set({ kind: 'overview' }, 1);
+      },
     });
+    if (inside && teamId) this.camFor(teamId, 1.6);
     return true;
   }
 
@@ -332,7 +336,8 @@ export class Director {
       }
       case 'cave': {
         const { name, color } = this.teamCaption(e.teamId);
-        s.rig.set({ kind: 'focus', ...s.rig.clearShot(s.pieces.worldPos(e.teamId) ?? s.pieces.slotOn(e.teamId, e.position), 8, 5) }, 2.2);
+        // von der Seeseite: Bergflanke mit der Höhle hinter der Figur statt neben der Kamera
+        s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 8.5, 5, true) }, 2.2);
         if (e.stage === 'stop') {
           this.say({ icon: '🦇', title: 'Mutprobe an der Lavahöhle!', sub: `${name} braucht mindestens eine ${e.need} – sonst geht’s ins Vulkan-Innere`, tone: 'team', color }, 3600);
           A.play('hoehle', { volume: 0.7 });
@@ -424,14 +429,19 @@ export class Director {
         const ins = s.inside;
         if (!ins) return;
         if (e.stage === 'enter') {
-          // Schwarzblende, dann fällt die Figur von oben auf die erste Platte
-          await s.fadeCut(() => {
-            s.pieces.setInside(e.teamId, 0);
-            s.pieces.get(e.teamId)!.holder.visible = false;
-            s.setView('inside');
-            s.rig.set({ kind: 'focus', ...ins.plateShot(0) }, 3);
+          // Kamera taucht in den Krater, Überblendung ins Innere (erst der ganze Lavasee),
+          // dann fällt die Figur von oben auf die erste Platte
+          await s.travel('inside', {
+            approach: true,
+            before: () => {
+              s.pieces.setInside(e.teamId, 0);
+              const p = s.pieces.get(e.teamId);
+              if (p) p.holder.visible = false;
+            },
+            arrive: () => s.rig.set({ kind: 'focus', ...ins.overviewShot() }, 3),
           });
           if (stale()) return;
+          s.rig.set({ kind: 'focus', ...ins.plateShot(0) }, 1.3);
           this.say({ icon: '🌋', title: 'Ab ins Vulkan-Innere!', sub: `${name} muss über die Lava-Inseln zum Ausgang`, tone: 'bad', color }, 3600);
           this.voice('insideEnter', { delay: 300 });
           A.play('whoosh-down');
@@ -475,11 +485,17 @@ export class Director {
         await s.pieces.insideVanish(e.teamId);
         if (stale()) return;
         ins.highlight(null);
-        await s.fadeCut(() => {
-          s.pieces.setInside(e.teamId, null);
-          s.setView('island');
-          s.rig.set({ kind: 'focus', ...s.rig.clearShot(s.pieces.slotOn(e.teamId, e.returnTo), 8, 5) }, 2.4);
+        // hinauf, Überblendung auf die Insel: über dem Krater auftauchen, dann zum Feld.
+        // Ziel erst auf der Insel berechnen (vorher liegt die Figur noch im Inneren)
+        const exit = s.islandReturn(e.teamId, e.returnTo);
+        await s.travel('island', {
+          approach: true,
+          before: () => s.pieces.setInside(e.teamId, null),
+          arrive: exit.arrive,
         });
+        if (stale()) return;
+        s.rig.set({ kind: 'focus', ...exit.target() }, 1.6);
+        if (exit.fromCrater()) await s.tweens.wait(800);
         if (stale()) return;
         await s.stunts.warpOut(e.teamId, e.returnTo);
         if (stale()) return;

@@ -31,9 +31,9 @@ export const DURATION = {
   riverCross: 2800,
   riverFall: 3400,
   caveStop: 1700,
-  insideEnter: 3600,
+  insideEnter: 4200,
   insideStep: 480,
-  insideExit: 3400,
+  insideExit: 4600,
 } as const;
 
 export function effectDuration(e: EffectInput): number {

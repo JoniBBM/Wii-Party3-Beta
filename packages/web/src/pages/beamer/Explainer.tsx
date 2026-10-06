@@ -184,6 +184,13 @@ export function Explainer({ scene, state, explainer }: { scene: BoardScene | nul
   );
 }
 
+/** Knopf B: wie die anderen bei 0,3 s erscheinen, ab 3,2 s zweimal angetippt (Zeitpunkte in Sekunden). */
+const B_TAP = (() => {
+  const at = [0, 0.3, 0.65, 3.2, 3.365, 3.53, 3.695, 3.97, 4.3];
+  const duration = at[at.length - 1]!;
+  return { scale: [0.7, 0.7, 1, 1, 0.9, 1, 0.9, 1.06, 1], times: at.map((t) => t / duration), duration };
+})();
+
 /** Antwortknöpfe wie auf dem Handy: B wird doppelt angetippt und ist sofort eingeloggt. */
 function TapDemo() {
   const opts = [
@@ -198,8 +205,13 @@ function TapDemo() {
         <motion.div
           key={o.k}
           initial={{ scale: 0.7, opacity: 0 }}
-          animate={o.k === 'B' ? { scale: [1, 0.9, 1, 0.9, 1.06, 1], opacity: 1 } : { scale: 1, opacity: 1 }}
-          transition={o.k === 'B' ? { delay: 3.2, duration: 1.1, times: [0, 0.15, 0.3, 0.45, 0.7, 1] } : { delay: 0.3, type: 'spring', stiffness: 300, damping: 18 }}
+          animate={o.k === 'B' ? { scale: B_TAP.scale, opacity: 1 } : { scale: 1, opacity: 1 }}
+          transition={
+            o.k === 'B'
+              ? // erscheint wie die anderen, wird dann zweimal angetippt
+                { scale: { duration: B_TAP.duration, times: B_TAP.times, ease: 'easeInOut' }, opacity: { delay: 0.3, duration: 0.25 } }
+              : { delay: 0.3, type: 'spring', stiffness: 300, damping: 18 }
+          }
           className="relative grid h-24 place-items-center rounded-3xl font-display text-6xl font-semibold text-white shadow-lifted"
           style={{ background: o.c }}
         >
@@ -519,7 +531,8 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   });
   // „Vor der Lavahöhle braucht ihr eine Drei oder mehr. Sonst geht’s ab ins Innere …“
   place(DEMO_A, caveField);
-  await go(close(DEMO_A, caveField, 8, 5), 1.4);
+  // von der Seeseite: die Bergflanke mit der Höhle liegt hinter der Figur, nicht neben der Kamera
+  await go(rig.fieldShot(caveField, 8.5, 5, true), 1.4);
   ui.setCard({ icon: '🦇', title: 'Lavahöhle', items: [{ icon: '🎲', text: `mind. ${caveNeed} würfeln` }, { icon: '🌋', text: 'sonst: ab ins Innere' }] });
   await beat('ex_cave', async () => {
     s.pieces.setMode(DEMO_A, 'shock');
@@ -544,15 +557,23 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
       await s.stunts.warpOut(DEMO_B, skullField);
       return;
     }
-    // Schnitt ins Innere: Blick von vorn auf die erste Platte, Ausgangsfeld leuchtet
-    await cut(() => {
-      s.pieces.setInside(DEMO_B, 0);
-      const p = s.pieces.get(DEMO_B);
-      if (p) p.holder.visible = false;
-      s.setView('inside');
-      rig.set({ kind: 'focus', ...ins.plateShot(0) }, 3);
-      if (shout > 0) ins.highlight(shout, '#7dffa0');
+    // In den Berg: Kamera taucht in den Krater, Überblendung ins Innere – erst der ganze
+    // Lavasee als eigener Ort, dann zur ersten Platte; das Ausgangsfeld leuchtet
+    await s.travel('inside', {
+      approach: true,
+      before: () => {
+        s.pieces.setInside(DEMO_B, 0);
+        const p = s.pieces.get(DEMO_B);
+        if (p) p.holder.visible = false;
+      },
+      arrive: () => {
+        rig.set({ kind: 'focus', ...ins.overviewShot() }, 3);
+        if (shout > 0) ins.highlight(shout, '#7dffa0');
+      },
     });
+    run.check();
+    await run.wait(700);
+    rig.set({ kind: 'focus', ...ins.plateShot(0) }, 1.3);
     boardAudio.play('whoosh-down');
     await s.pieces.insideDrop(DEMO_B, ins.dropPoint);
     run.check();
@@ -571,18 +592,25 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     ins.warpFlash(s.pieces.worldPos(DEMO_B) ?? ins.portal);
     await s.pieces.insideVanish(DEMO_B);
     run.check();
-    // zurück auf die Insel, wo die Figur hineingefallen ist
-    await cut(() => {
-      ins.highlight(null);
-      s.pieces.setInside(DEMO_B, null);
-      s.setView('island');
-      rig.set({ kind: 'focus', ...close(DEMO_B, skullField, 8, 5) }, 3);
+    // hinauf und zurück auf die Insel – über dem Krater auftauchen, dann zum Feld des Sturzes
+    const exit = s.islandReturn(DEMO_B, skullField);
+    await s.travel('island', {
+      approach: true,
+      before: () => {
+        ins.highlight(null);
+        s.pieces.setInside(DEMO_B, null);
+      },
+      arrive: exit.arrive,
     });
+    run.check();
+    rig.set({ kind: 'focus', ...exit.target() }, 1.6);
+    if (exit.fromCrater()) await run.wait(800);
     await s.stunts.warpOut(DEMO_B, skullField);
   });
   // „Und wer am Kraterloch zu kurz würfelt, rutscht hinein …“
   place(DEMO_A, s.layout.craterField);
-  await go(rig.craterShot(), 1.4);
+  // Schnitt statt Flug: der Weg dorthin führt sonst dicht über den Kraterrand an den Gipfelfeldern vorbei
+  await cut(() => rig.set({ kind: 'focus', ...rig.craterShot() }, 1.4));
   ui.setCard({ icon: FIELD_INFO.crater.icon, title: 'Kraterloch', items: [{ icon: '🕳️', text: 'hineinrutschen' }, { icon: '🧗', text: 'Augen sammeln, rausklettern' }] });
   await beat('ex_crater', async () => {
     await run.wait(2200);

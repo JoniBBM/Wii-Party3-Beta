@@ -110,14 +110,22 @@ export class BoardScene {
   private props: Props | null = null;
   private ambient: Ambient | null = null;
   private animals: AnimalWorld | null = null;
-  private composer: EffectComposer | null = null;
+  /** Nachbearbeitung je Ort (Insel, Vulkan-Inneres) – einmal gebaut, beim Wechsel nur umgeschaltet */
+  private composers = new Map<'island' | 'inside', EffectComposer>();
+  /** Standbild für weiche Überblendungen zwischen den Orten */
+  private dissolve: HTMLCanvasElement;
+  private snapWanted: (() => void) | null = null;
+  /** Vulkan-Inneres schon vorbereitet (Shader übersetzt)? */
+  private insideWarm = false;
+  private warmFrame = false;
+  private warmTimer = 0;
+  private traveling: Promise<void> = Promise.resolve();
   private grass: THREE.InstancedMesh | null = null;
   private terrain: THREE.Mesh | null = null;
   private terrainBase: THREE.Material | null = null;
   private terrainUltra: THREE.Material | null = null;
   private envBase: THREE.Texture | null = null;
   private envUltra: THREE.Texture | null = null;
-  private dof: DepthOfFieldEffect | null = null;
   private grassFull = 0;
   private frame = 0;
   private shadowEvery = 1;
@@ -172,6 +180,9 @@ export class BoardScene {
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.domElement.className = 'block size-full';
     container.appendChild(this.renderer.domElement);
+    this.dissolve = document.createElement('canvas');
+    Object.assign(this.dissolve.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', opacity: '0', display: 'none' });
+    container.appendChild(this.dissolve);
 
 
     this.ro = new ResizeObserver(() => this.resize());
@@ -335,11 +346,35 @@ export class BoardScene {
     this.loop();
   }
 
-  /** Nachbearbeitung je nach Stufe (neu aufgebaut beim Umschalten). */
-  private setupPost(p: Preset) {
-    this.composer?.dispose();
+  /** Nachbearbeitung neu aufbauen (andere Grafikstufe) – je Ort beim nächsten Bild. */
+  private setupPost(_p?: Preset) {
+    for (const c of this.composers.values()) c.dispose();
+    this.composers.clear();
+    // das Innere braucht danach wieder eine Vorbereitung
+    this.insideWarm = false;
+    this.scheduleWarm();
+  }
+
+  /** Nachbearbeitung des gerade gezeigten Orts (bei Bedarf gebaut). */
+  private get composer(): EffectComposer | null {
+    if (PERF.has('nopost')) return null;
+    const key = this.view === 'inside' && this.inside ? 'inside' : 'island';
+    return this.composerFor(key);
+  }
+
+  private composerFor(key: 'island' | 'inside'): EffectComposer | null {
+    if (PERF.has('nopost') || (key === 'inside' && !this.inside)) return null;
+    let c = this.composers.get(key);
+    if (!c) {
+      c = this.buildComposer(PRESETS[this.quality], key === 'inside' ? this.inside!.scene : this.scene);
+      c.setSize(this.container.clientWidth || 1, this.container.clientHeight || 1);
+      this.composers.set(key, c);
+    }
+    return c;
+  }
+
+  private buildComposer(p: Preset, world: THREE.Scene): EffectComposer {
     const composer = new EffectComposer(this.renderer, { frameBufferType: THREE.HalfFloatType, multisampling: PERF.has('msaa') ? 4 : 0 });
-    const world = this.viewScene;
     composer.addPass(new RenderPass(world, this.camera));
     if (p.ao && !PERF.has('noao'))
       try {
@@ -356,12 +391,10 @@ export class BoardScene {
     const effects: ConstructorParameters<typeof EffectPass>[1][] = [];
     if (p.bloom) effects.push(new BloomEffect({ luminanceThreshold: p.ultra ? 0.88 : 0.92, luminanceSmoothing: 0.2, intensity: p.ultra ? 1.05 : 0.9, mipmapBlur: true, radius: p.ultra ? 0.78 : 0.7, levels: p.ultra ? 9 : 8 }));
     if (p.tilt) effects.push(new TiltShiftEffect({ offset: 0.05, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: 1 }));
-    this.dof = null;
     if (p.ultra) {
       // echte Tiefenschärfe: scharf, wohin die Kamera schaut; Hintergrund weich
       const dof = new DepthOfFieldEffect(this.camera, { focusDistance: 20, focusRange: 16, bokehScale: 2.2, resolutionScale: 0.5 });
       dof.target = this.rig.focusPoint;
-      this.dof = dof;
       effects.push(dof);
     }
     effects.push(
@@ -372,7 +405,7 @@ export class BoardScene {
     );
     composer.addPass(new EffectPass(this.camera, ...effects));
     composer.addPass(new EffectPass(this.camera, new SMAAEffect()));
-    this.composer = composer;
+    return composer;
   }
 
   /** Ultra-Grafik an/aus: Gelände-Materialien, Wellen, schärferes Umgebungslicht (lädt beim ersten Mal). */
@@ -422,6 +455,7 @@ export class BoardScene {
       this.inside = new VolcanoInside({ length, shout, quality: this.quality });
       const inside = this.inside;
       this.pieces.inside = { root: inside.scene, spot: (st, i, n) => inside.spot(st, i, n), facing: (st) => inside.facing(st) };
+      this.scheduleWarm();
     } else if (key !== this.insideKey) this.inside.setPath(length, shout);
     this.insideKey = key;
   }
@@ -443,7 +477,6 @@ export class BoardScene {
       this.rig.setBlockers(this.islandBlockers);
       this.pieces.lineOfSight = this.islandSight;
     }
-    if (!PERF.has('nopost')) this.setupPost(PRESETS[this.quality]);
     this.renderer.shadowMap.needsUpdate = true;
     this.audio.setScene(v);
     this.onViewChange?.(v);
@@ -494,6 +527,148 @@ export class BoardScene {
   }
   private fades = 0;
 
+  // ---------------------------------------------------------------------------
+  // Vulkan-Inneres als eigener Ort: vorbereiten und weich hinein-/herausreisen
+  // ---------------------------------------------------------------------------
+
+  /** Das Innere bald im Hintergrund vorbereiten (Shader übersetzen), damit der Wechsel nicht hängt. */
+  private scheduleWarm() {
+    if (this.insideWarm || !this.inside || this.disposed) return;
+    window.clearTimeout(this.warmTimer);
+    this.warmTimer = window.setTimeout(() => void this.warmInside(), 1800);
+  }
+
+  private async warmInside() {
+    const ins = this.inside;
+    if (!ins || this.insideWarm || this.disposed) return;
+    this.insideWarm = true;
+    try {
+      // Materialien des Inneren und der Figuren (mit dessen Licht) parallel übersetzen
+      await this.renderer.compileAsync(ins.scene, this.camera);
+      await this.renderer.compileAsync(this.pieces.group, this.camera, ins.scene);
+    } catch (e) {
+      console.warn('Vulkan-Inneres konnte nicht vorbereitet werden', e);
+    }
+    if (!this.disposed) this.warmFrame = true;
+  }
+
+  /** Nächstes fertiges Bild als Standbild über die Bühne legen. */
+  private snapshot(): Promise<void> {
+    return new Promise((resolve) => {
+      this.snapWanted = () => {
+        const d = this.dissolve.style;
+        d.transition = 'none';
+        d.opacity = '1';
+        d.display = 'block';
+        resolve();
+      };
+    });
+  }
+
+  /** Blick in den Krater hinab (Kamera taucht in den Berg). */
+  craterDiveShot() {
+    const v = this.layout.volcano;
+    const cam = this.camera.position;
+    const out = Math.atan2(cam.z - v.z, cam.x - v.x);
+    return {
+      position: new THREE.Vector3(v.x + Math.cos(out) * 3.2, v.height + 3.2, v.z + Math.sin(out) * 3.2),
+      lookAt: new THREE.Vector3(v.x - Math.cos(out) * 0.6, v.height - 9, v.z - Math.sin(out) * 0.6),
+    };
+  }
+
+  /**
+   * Hoch über dem Krater, Blick hinaus zum Feld – so „kommt“ man aus dem Berg. Hoch genug, dass
+   * die Fahrt hinab zum Feld über den Kraterrand (und das Gipfelfeld) hinweg führt.
+   */
+  craterRiseShot(towards: THREE.Vector3) {
+    const v = this.layout.volcano;
+    const a = Math.atan2(towards.z - v.z, towards.x - v.x);
+    return {
+      position: new THREE.Vector3(v.x + Math.cos(a) * 3, v.height + 14, v.z + Math.sin(a) * 3),
+      lookAt: new THREE.Vector3(towards.x, towards.y + 1, towards.z),
+    };
+  }
+
+  /**
+   * Rückkehr aus dem Vulkan auf ein Inselfeld: `arrive` (für `travel`) setzt die Kamera hoch über
+   * den Krater – oder bei weit entfernten Feldern gleich ans Feld; `target` ist danach die
+   * Einstellung am Feld. Alles wird erst auf der Insel berechnet (Gelände, Platz der Figur).
+   */
+  islandReturn(teamId: string, field: number) {
+    let target: { position: THREE.Vector3; lookAt: THREE.Vector3 } | null = null;
+    let near = false;
+    const compute = () => {
+      const back = this.pieces.slotOn(teamId, field);
+      target = this.rig.clearShot(back, 8, 5);
+      near = Math.hypot(back.x - this.layout.volcano.x, back.z - this.layout.volcano.z) < 30;
+      return back;
+    };
+    return {
+      arrive: () => {
+        const back = compute();
+        this.rig.set({ kind: 'focus', ...(near ? this.craterRiseShot(back) : target!) }, 3);
+      },
+      target: () => {
+        if (!target) compute();
+        return target!;
+      },
+      fromCrater: () => near,
+    };
+  }
+
+  /**
+   * Reise zwischen Insel und Vulkan-Innerem – ohne Schwarzbild:
+   *  1. (optional) Kamera taucht in den Krater bzw. steigt im Inneren zum Ausgang hinauf,
+   *  2. Standbild des alten Orts, darunter wird umgeschaltet (`arrive` setzt die Kamera am neuen Ort),
+   *  3. das Standbild blendet weich aus, während die Kamera am neuen Ort schon weiterfährt.
+   * Gibt zurück, sobald der neue Ort sichtbar wird (die Überblendung läuft noch kurz weiter).
+   */
+  travel(to: 'island' | 'inside', opts: { approach?: boolean; before?: () => void; arrive?: () => void; fade?: number } = {}): Promise<void> {
+    const run = async () => {
+      if (to === 'inside' && !this.inside) return;
+      if (this.view === to) {
+        opts.before?.();
+        opts.arrive?.();
+        return;
+      }
+      const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+      if (opts.approach) {
+        if (to === 'inside') {
+          // in den Krater hinab
+          this.rig.set({ kind: 'focus', ...this.craterDiveShot() }, 2.6);
+        } else {
+          // im Inneren nach oben, dem Licht entgegen
+          const up = this.camera.position.clone().add(new THREE.Vector3(0, 7, 0));
+          const look = up.clone().add(new THREE.Vector3(0, 9, -2));
+          this.rig.set({ kind: 'focus', position: up, lookAt: look }, 2.4);
+        }
+        await wait(950);
+        if (this.disposed) return;
+      }
+      if (to === 'inside' && !this.insideWarm) await this.warmInside();
+      await this.snapshot();
+      if (this.disposed) return;
+      opts.before?.();
+      this.setView(to);
+      opts.arrive?.();
+      this.rig.jump();
+      // zwei Bilder am neuen Ort zeichnen lassen (Shader, Schatten), dann ausblenden
+      await nextFrame();
+      await nextFrame();
+      const d = this.dissolve.style;
+      const ms = opts.fade ?? 900;
+      d.transition = `opacity ${ms}ms ease-in-out`;
+      d.opacity = '0';
+      window.setTimeout(() => {
+        if (d.opacity === '0') d.display = 'none';
+      }, ms + 50);
+    };
+    // Reisen nacheinander (nie zwei Überblendungen zugleich)
+    const next = this.traveling.then(run, run);
+    this.traveling = next.catch(() => {});
+    return next;
+  }
+
   onCaption(fn: (c: Caption | null) => void) {
     this.captionListeners.add(fn);
     return () => this.captionListeners.delete(fn);
@@ -528,7 +703,7 @@ export class BoardScene {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.composer?.setSize(w, h);
+    for (const c of this.composers.values()) c.setSize(w, h);
     this.dice?.resize(w / h);
     this.effects.setScale(h * this.renderer.getPixelRatio());
     this.ambient?.setScale((h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
@@ -570,7 +745,16 @@ export class BoardScene {
       this.fpsFrames = 0;
       this.fpsSince = now;
     }
-    if (this.composer) this.composer.render(dt);
+    // Vulkan-Inneres einmal unsichtbar zeichnen (übersetzt die Nachbearbeitung vorab);
+    // das Inselbild darunter überschreibt es noch im selben Bild
+    if (this.warmFrame && this.view === 'island' && this.inside) {
+      this.warmFrame = false;
+      const c = this.composerFor('inside');
+      if (c) c.render(dt);
+      else this.renderer.render(this.inside.scene, this.camera);
+    }
+    const composer = this.composer;
+    if (composer) composer.render(dt);
     else this.renderer.render(this.viewScene, this.camera);
     // Namensschilder ohne Nachbearbeitung über der Insel (der Würfel liegt darüber)
     if (this.pieces.tags.visible) {
@@ -589,6 +773,16 @@ export class BoardScene {
       this.renderer.render(this.dice.scene, this.dice.camera);
       this.renderer.toneMapping = tm;
       this.renderer.autoClear = auto;
+    }
+    // Standbild für die Überblendung – noch im selben Bild, solange der Puffer gültig ist
+    if (this.snapWanted) {
+      const done = this.snapWanted;
+      this.snapWanted = null;
+      const src = this.renderer.domElement;
+      this.dissolve.width = src.width;
+      this.dissolve.height = src.height;
+      this.dissolve.getContext('2d')?.drawImage(src, 0, 0);
+      done();
     }
   };
 
@@ -641,7 +835,10 @@ export class BoardScene {
     this.detachManual?.();
     this.ceremony.stop();
     this.stunts.dispose();
-    this.composer?.dispose();
+    for (const c of this.composers.values()) c.dispose();
+    this.composers.clear();
+    window.clearTimeout(this.warmTimer);
+    this.dissolve.remove();
     this.inside?.dispose();
     this.water.dispose();
     this.effects.dispose();
