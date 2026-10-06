@@ -1,6 +1,6 @@
 /** Inhalt anlegen/bearbeiten – Formular je nach Art (Spiel, Auswahl, Freitext, Schätzen, Buzzer). */
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Mic, Plus, Trash2, Volume2 } from 'lucide-react';
 import {
   CONTENT_KIND_INFO,
   CONTENT_KINDS,
@@ -14,6 +14,7 @@ import {
   type ContentKind,
   type FieldGameMode,
   type PlayerCount,
+  spokenText,
 } from '@insel/shared';
 import { Button, Field, IconButton, Switch } from '../../ui/basics.tsx';
 import { Modal } from '../../ui/overlay.tsx';
@@ -28,6 +29,8 @@ interface Draft {
   timerSec: string;
   roundUse: boolean;
   fieldModes: FieldGameMode[];
+  /** „Audio erstellen“ (bzw. Aufnahme behalten) */
+  audio: boolean;
   question: string;
   options: string[];
   correctIndex: number;
@@ -48,6 +51,7 @@ function toDraft(item?: ContentItem | null, kind: ContentKind = 'choice'): Draft
     timerSec: item?.timerSec ? String(item.timerSec) : '',
     roundUse: item?.roundUse ?? true,
     fieldModes: item?.fieldModes ?? [],
+    audio: !!(item?.audioRequest || item?.audioUrl),
     question: '',
     options: ['', '', '', ''],
     correctIndex: 0,
@@ -81,6 +85,7 @@ function fromDraft(d: Draft): ContentItemInput {
     timerSec: d.timerSec ? Number(d.timerSec) : null,
     roundUse: d.roundUse,
     fieldModes: d.fieldModes,
+    audioRequest: d.kind !== 'game' && d.audio,
   };
   switch (d.kind) {
     case 'game':
@@ -272,6 +277,8 @@ export function ItemEditor({
           </Field>
         </div>
 
+        {isQ && <AudioOption item={item} draft={d} onChange={(v) => set('audio', v)} />}
+
         <Field label="Notiz für Regie & Moderator">
           <input className="field" value={d.notes} onChange={(e) => set('notes', e.target.value)} />
         </Field>
@@ -299,5 +306,36 @@ export function ItemEditor({
         )}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * „Audio erstellen“: Die Frage wird vertont (Sprecher des Kommentators) und auf dem Beamer
+ * vorgelesen, solange sie groß in der Mitte steht. Angehakt = Wunsch an die Technik; die fertige
+ * Aufnahme hängt danach an der Frage. Wird die Frage geändert, wird sie neu angefordert.
+ */
+function AudioOption({ item, draft, onChange }: { item: ContentItem | null; draft: Draft; onChange: (v: boolean) => void }) {
+  const text = spokenText(fromDraft(draft) as Parameters<typeof spokenText>[0]);
+  const has = !!item?.audioUrl;
+  const stale = has && text !== item?.audioText;
+  let status: string;
+  if (!draft.audio) status = has ? 'Die Aufnahme wird beim Speichern entfernt.' : 'Kein Vorlesen.';
+  else if (has && !stale) status = 'Aufnahme vorhanden – der Beamer liest die Frage vor.';
+  else if (stale) status = 'Frage geändert – die Aufnahme wird beim Speichern neu angefordert.';
+  else status = 'Angefordert – die Aufnahme wird erstellt und erscheint dann hier.';
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl bg-bg-2 p-3">
+      <label className="flex items-center gap-2 text-sm font-bold">
+        <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={draft.audio} onChange={(e) => onChange(e.target.checked)} />
+        <Mic className="size-4 text-accent" /> Audio erstellen (Frage auf dem Beamer vorlesen)
+      </label>
+      <p className="text-xs font-semibold text-muted">{status}</p>
+      {draft.audio && text && <p className="rounded-xl bg-surface px-3 py-2 text-xs text-ink-2">Vorlesetext: „{text}“</p>}
+      {has && !stale && item?.audioUrl && (
+        <Button size="sm" variant="ghost" icon={<Volume2 className="size-4" />} onClick={() => void new Audio(item.audioUrl!).play().catch(() => {})} className="self-start">
+          Probehören
+        </Button>
+      )}
+    </div>
   );
 }

@@ -229,9 +229,27 @@ function spawn(p: Prepared, sp: Species): Animal {
 
 // ---------------------------------------------------------------------------
 
+/** Tiere, über die der Kommentator reden darf – aber nur, wenn man sie gerade sieht. */
+export type SightKind = 'monkey' | 'dolphin' | 'whale' | 'turtle' | 'flamingo' | 'parrot' | 'crab' | 'gull' | 'frog';
+
 export interface AnimalWorld {
   group: THREE.Group;
   update: (t: number, dt: number, camera: THREE.Camera) => void;
+  /** Ist gerade ein Tier dieser Art gut im Bild (im Sichtfeld und nicht zu weit weg)? */
+  inView: (kind: SightKind) => boolean;
+}
+
+/** Bis zu welcher Entfernung ein Tier „zu sehen“ ist (große Tiere weiter). */
+const SIGHT_RANGE: Record<SightKind, number> = { monkey: 26, dolphin: 60, whale: 95, turtle: 28, flamingo: 32, parrot: 24, crab: 16, gull: 34, frog: 12 };
+
+function sightOf(a: Agent): SightKind | null {
+  if (a instanceof Monkey) return 'monkey';
+  if (a instanceof Flamingo) return 'flamingo';
+  if (a instanceof PerchBird || a instanceof FlyingBird) return a.kind === 'gull' ? 'gull' : 'parrot';
+  const sp = a.obj.userData.species as SpeciesName | undefined;
+  if (sp === 'dolphin' || sp === 'whale' || sp === 'crab' || sp === 'frog') return sp;
+  if (sp === 'turtle' || sp === 'tortoise') return 'turtle';
+  return null;
 }
 
 interface Ctx {
@@ -264,14 +282,17 @@ export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
     const p = prepared.get(n);
     if (!p) return null;
     const a = spawn(p, SPECIES[n]);
+    a.root.userData.species = n;
     group.add(a.root);
     return a;
   };
 
-  const agents: (Agent & { acc: number; slot: number })[] = [];
+  const agents: (Agent & { acc: number; slot: number; sight: SightKind | null })[] = [];
   const addAgent = (a: Agent) => {
-    agents.push({ obj: a.obj, radius: a.radius, update: a.update.bind(a), acc: 0, slot: agents.length % SLOW_EVERY });
+    agents.push({ obj: a.obj, radius: a.radius, update: a.update.bind(a), acc: 0, slot: agents.length % SLOW_EVERY, sight: sightOf(a) });
   };
+  /** wann zuletzt ein Tier je Art gut im Bild war (performance.now) */
+  const seen = new Map<SightKind, number>();
   /** Modell-Tier als Agent: eigene Bewegung + Animation */
   const animal = (a: Animal | null, radius: number, fn: (t: number, dt: number) => void) => {
     if (!a) return;
@@ -289,6 +310,7 @@ export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
 
   const world: AnimalWorld = {
     group,
+    inView: (kind) => performance.now() - (seen.get(kind) ?? -1e9) < 900,
     update: (() => {
       const frustum = new THREE.Frustum();
       const pv = new THREE.Matrix4();
@@ -306,6 +328,10 @@ export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
           sphere.center.copy(pos);
           sphere.radius = a.radius;
           const vis = pos.distanceToSquared(actx.cam) < NEAR * NEAR || frustum.intersectsSphere(sphere);
+          if (a.sight && vis && frustum.containsPoint(pos)) {
+            const r = SIGHT_RANGE[a.sight];
+            if (pos.distanceToSquared(actx.cam) < r * r) seen.set(a.sight, performance.now());
+          }
           if (!vis && (frame + a.slot) % SLOW_EVERY !== 0) continue;
           actx.visible = vis;
           a.update(t, Math.min(0.25, a.acc), actx);

@@ -213,7 +213,6 @@ export const VOICE_LINES = {
     ['chat_1', 'Ich sag’s euch, so ein Inselleben ist schon was Feines. Außer der Vulkan. Der ist schlecht gelaunt.'],
     ['chat_2', '[curious] Wer liegt eigentlich vorne? [chuckles] Ach ja, ich seh’s ja.'],
     ['chat_3', 'Ich mach hier übrigens alles ehrenamtlich. Für Kokosnüsse.'],
-    ['chat_4', '[whispers] Psst. Ich glaube, der Affe da hinten schummelt.'],
     ['chat_5', 'Wisst ihr, was das Beste an dieser Insel ist? Kein WLAN-Passwort. Ach nee, Moment …'],
     ['chat_6', 'Bleibt dran, Leute. Hier passiert gleich wieder was. Wahrscheinlich.'],
     ['chat_7', '[sighs] Ein Kommentator hat’s schon schwer. Immer reden, nie würfeln.'],
@@ -230,6 +229,18 @@ export const VOICE_LINES = {
     ['think_2', '[whispers] Ich weiß die Antwort. Aber ich sag nix.'],
     ['think_3', 'Nicht beim Nachbarn abschreiben! [chuckles] Okay, ein bisschen vielleicht.'],
   ],
+  // Tiere: nur, wenn sie gerade wirklich im Bild sind (siehe Commentator.sight)
+  seeMonkey: [['chat_4', '[whispers] Psst. Ich glaube, der Affe da hinten schummelt.']],
+  seeDolphin: [],
+  seeWhale: [],
+  seeTurtle: [],
+  seeFlamingo: [],
+  seeParrot: [],
+  seeCrab: [],
+  seeGull: [],
+  seeFrog: [],
+  // bodenlose Witze (ab „viel“, beim Quatschkopf öfter)
+  joke: [],
   // nur „Quatschkopf“: Lästern und dumme Sprüche
   leader: [
     ['lead_1', '[mischievously] Na, da vorne? Hochmut kommt vor dem Fall. Oder vor dem Vulkan.'],

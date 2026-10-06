@@ -5,6 +5,7 @@
  * nichts passiert; der Quatschkopf lästert dazu über Führende und Letzte und reißt dumme Witze.
  */
 import type { CommentaryLevel } from '@insel/shared';
+import type { SightKind } from './animals.ts';
 import type { BoardAudio } from './audio.ts';
 import { VOICE_LINES, voiceUrl, type VoiceCategory } from './voice-lines.ts';
 
@@ -67,6 +68,19 @@ const CRAZY = new Set<VoiceCategory>(['leader', 'last', 'dumb', 'mockBad', 'mock
 const BAD = new Set<VoiceCategory>(['sad', 'angry', 'shock', 'riverFall', 'cave', 'craterFall', 'plane', 'finalFail', 'wrong', 'one', 'skull']);
 const GOOD = new Set<VoiceCategory>(['super', 'happy', 'six', 'spring', 'right', 'riverSafe', 'cavePass']);
 
+/** Tier-Sprüche je Art – nur, wenn das Tier gerade im Bild ist. */
+const SIGHTS: [SightKind, VoiceCategory][] = [
+  ['monkey', 'seeMonkey'],
+  ['dolphin', 'seeDolphin'],
+  ['whale', 'seeWhale'],
+  ['turtle', 'seeTurtle'],
+  ['flamingo', 'seeFlamingo'],
+  ['parrot', 'seeParrot'],
+  ['crab', 'seeCrab'],
+  ['gull', 'seeGull'],
+  ['frog', 'seeFrog'],
+];
+
 /** Wichtige Momente dürfen eine laufende Ansage unterbrechen. */
 const URGENT = new Set<VoiceCategory>(['victory', 'eruption']);
 
@@ -79,6 +93,9 @@ export class Commentator {
   level: CommentaryLevel = 'some';
   /** z. B. während der Spielerklärung: kein Kommentar */
   paused = false;
+  /** Ist ein Tier dieser Art gerade im Bild? (von der Szene gesetzt) */
+  sight: ((kind: SightKind) => boolean) | null = null;
+  private sightAt = new Map<SightKind, number>();
   private recent = new Map<VoiceCategory, string[]>();
   private lastAt = 0;
   private context: TalkContext = 'off';
@@ -150,15 +167,30 @@ export class Commentator {
     const quiet = crazy ? 9000 : 15000;
     if (now - this.lastAt < quiet + Math.random() * 4000) return;
     if (now - this.contextSince < (ctx === 'waiting' ? 7000 : 5000)) return;
+    // Tier im Bild? Dann gern darüber reden (je Art höchstens alle 90 s)
+    const animals = SIGHTS.filter(([k, cat]) => VOICE_LINES[cat].length > 0 && now - (this.sightAt.get(k) ?? -1e9) > 90_000 && this.sight?.(k));
+    if (animals.length && Math.random() < 0.6) {
+      const [k, cat] = pickOne(animals);
+      const id = this.pick(cat);
+      if (id) {
+        this.sightAt.set(k, now);
+        this.lastAt = now;
+        void this.audio.say(voiceUrl(id));
+        return;
+      }
+    }
     let cats: VoiceCategory[];
     if (ctx === 'waiting') {
-      cats = ['waiting', 'chat'];
+      cats = ['waiting', 'waiting', 'chat', 'joke'];
       if (crazy) {
-        cats.push('dumb', 'dumb');
+        cats.push('dumb', 'joke', 'joke');
         if (this.turnRank) cats.push(this.turnRank, this.turnRank);
       }
-    } else if (ctx === 'thinking') cats = crazy ? ['thinking', 'thinking', 'dumb'] : ['thinking', 'thinking', 'chat'];
-    else cats = crazy ? ['chat', 'dumb', 'dumb', 'leader', 'last'] : ['chat'];
+    } else if (ctx === 'thinking') cats = crazy ? ['thinking', 'thinking', 'dumb', 'joke'] : ['thinking', 'thinking', 'chat'];
+    else cats = crazy ? ['chat', 'dumb', 'joke', 'joke', 'leader', 'last'] : ['chat', 'chat', 'joke'];
+    // nur Kategorien mit Sprüchen
+    cats = cats.filter((c) => VOICE_LINES[c].length > 0);
+    if (!cats.length) return;
     const cat = pickOne(cats);
     const id = this.pick(cat);
     if (!id) return;

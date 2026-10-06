@@ -15,6 +15,11 @@ interface Piece {
   teamId: string;
   rig: FigureRig;
   holder: THREE.Group;
+  /** Zwischen Halter und Figur: Ausweich-Versatz gegen Zusammenstöße (Welt-x/z in `off`) */
+  body: THREE.Group;
+  /** halbe Breite der Figur am Boden (für den Mindestabstand) */
+  radius: number;
+  off: THREE.Vector2;
   /** angezeigte Feldposition */
   position: number;
   busy: boolean;
@@ -49,7 +54,7 @@ export class Pieces {
   /** Vulkan-Inneres (eigene Szene), gesetzt von scene.ts */
   inside: {
     root: THREE.Object3D;
-    spot: (step: number, slot?: number, count?: number) => THREE.Vector3;
+    spot: (step: number, slot?: number, count?: number, gap?: number) => THREE.Vector3;
     facing: (step: number) => number;
   } | null = null;
 
@@ -93,23 +98,28 @@ export class Pieces {
       const key = `${t.color}|${JSON.stringify(t.figure)}`;
       let p = this.pieces.get(t.id);
       if (p && p.key !== key) {
-        p.holder.remove(p.rig.root);
+        p.body.remove(p.rig.root);
         p.rig.dispose();
         p.rig = createFigure(t.figure, t.color);
         p.rig.root.scale.setScalar(SCALE);
-        p.holder.add(p.rig.root);
+        p.body.add(p.rig.root);
+        p.radius = footprint(p.rig);
         p.key = key;
+        this.gap = 0;
       }
       if (!p) {
         const holder = new THREE.Group();
+        const body = new THREE.Group();
+        holder.add(body);
         const rig = createFigure(t.figure, t.color);
         rig.root.scale.setScalar(SCALE);
-        holder.add(rig.root);
+        body.add(rig.root);
         const cage = buildCage();
         cage.visible = false;
-        holder.add(cage);
+        body.add(cage);
         this.group.add(holder);
-        p = { teamId: t.id, rig, holder, position: t.position, busy: false, key, tagY: rig.height * SCALE + 0.35, tagHidden: false, cage };
+        p = { teamId: t.id, rig, holder, body, radius: footprint(rig), off: new THREE.Vector2(), position: t.position, busy: false, key, tagY: rig.height * SCALE + 0.35, tagHidden: false, cage };
+        this.gap = 0;
         this.pieces.set(t.id, p);
         p.cage.visible = !!t.blocked;
         p.rig.setMode(t.blocked ? 'stuck' : 'idle');
@@ -123,16 +133,19 @@ export class Pieces {
   addDemo(id: string, figure: FigureConfig, color: TeamColorKey, name: string, field: number) {
     this.removeDemo(id);
     const holder = new THREE.Group();
+    const body = new THREE.Group();
+    holder.add(body);
     const rig = createFigure(figure, color);
     rig.root.scale.setScalar(SCALE);
-    holder.add(rig.root);
+    body.add(rig.root);
     const c = teamColor(color);
     this.tags.set(id, name, c.hex, c.dark);
     const cage = buildCage();
     cage.visible = false;
-    holder.add(cage);
+    body.add(cage);
     this.group.add(holder);
-    const p: Piece = { teamId: id, rig, holder, position: field, busy: false, key: 'demo', tagY: rig.height * SCALE + 0.35, tagHidden: false, cage };
+    const p: Piece = { teamId: id, rig, holder, body, radius: footprint(rig), off: new THREE.Vector2(), position: field, busy: false, key: 'demo', tagY: rig.height * SCALE + 0.35, tagHidden: false, cage };
+    this.gap = 0;
     this.pieces.set(id, p);
     this.demos.add(id);
     holder.position.copy(this.slotFor(id, field));
@@ -195,7 +208,7 @@ export class Pieces {
     if (step !== undefined && this.inside) {
       const mates = [...this.insideSteps.entries()].filter(([id, s]) => s === step && (id === teamId || !this.pieces.get(id)?.busy)).map(([id]) => id);
       mates.sort((a, b) => this.teams.findIndex((t) => t.id === a) - this.teams.findIndex((t) => t.id === b));
-      return this.inside.spot(step, Math.max(0, mates.indexOf(teamId)), mates.length);
+      return this.inside.spot(step, Math.max(0, mates.indexOf(teamId)), mates.length, this.spacing());
     }
     const inCrater = this.crater.get(teamId);
     if (inCrater !== undefined) return this.craterSpot(teamId, inCrater);
@@ -206,11 +219,13 @@ export class Pieces {
     const k = here.length;
     const i = here.indexOf(teamId);
     const R = this.fields.radiusOf(field);
+    const D = this.spacing();
     let ox = 0;
     let oz = 0;
-    if (k === 2) ox = (i === 0 ? -1 : 1) * R * 0.38;
+    if (k === 2) ox = (i === 0 ? -1 : 1) * Math.max(R * 0.38, D * 0.55);
     else if (k > 2) {
-      const ring = Math.min(R * 0.62, 0.32 + k * 0.09);
+      // Kreis so groß, dass Nachbarn sich nicht berühren (viele Teams: bis über den Feldrand)
+      const ring = Math.max(Math.min(R * 0.62, 0.32 + k * 0.09), D / (2 * Math.sin(Math.PI / k)));
       const a = (i / k) * Math.PI * 2 + Math.PI / 2;
       ox = Math.cos(a) * ring;
       oz = Math.sin(a) * ring;
@@ -751,7 +766,7 @@ export class Pieces {
     if (!this.tags.visible) return;
     const check = this.tagTick++ % 4 === 0;
     for (const p of this.pieces.values()) {
-      p.holder.getWorldPosition(this.tagPos);
+      p.body.getWorldPosition(this.tagPos);
       this.ndc.copy(this.tagPos).project(camera);
       const onScreen = this.ndc.z < 1 && Math.abs(this.ndc.x) < 0.98 && this.ndc.y < 0.95 && this.ndc.y > -1.05;
       this.tagPos.y += p.tagY;
@@ -766,6 +781,80 @@ export class Pieces {
 
   update(t: number, dt: number) {
     for (const p of this.pieces.values()) p.rig.update(t, dt);
+    this.separate(dt);
+  }
+
+  /** Mindestabstand zweier Figuren-Mitten auf einem Feld (breiteste Figur zählt). */
+  private gap = 0;
+  private spacing(): number {
+    if (!this.gap) {
+      let r = 0.3;
+      for (const p of this.pieces.values()) r = Math.max(r, p.radius);
+      this.gap = 2 * r + 0.1;
+    }
+    return this.gap;
+  }
+
+  /**
+   * Kollisionsschutz: Figuren, die sich zu nahe kommen (vorbeilaufen, Nachbarfeld, Landung),
+   * weichen weich zur Seite aus. Laufende/fliegende Figuren (busy) werden nicht geschoben –
+   * die stehenden machen Platz. Versetzt wird nur der Körper, nicht die Feldposition.
+   */
+  private separate(dt: number) {
+    const list: Piece[] = [];
+    for (const p of this.pieces.values()) {
+      if (p.holder.visible && p.holder.parent && this.isShown(p) && !this.crater.has(p.teamId)) list.push(p);
+      else p.off.multiplyScalar(Math.exp(-dt * 8));
+    }
+    const n = list.length;
+    const want = list.map(() => new THREE.Vector2());
+    for (let iter = 0; iter < 3 && n > 1; iter++) {
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const a = list[i]!;
+          const b = list[j]!;
+          if (a.holder.parent !== b.holder.parent) continue;
+          // übereinander (Flug, Sprung) zählt nicht
+          if (Math.abs(a.holder.position.y - b.holder.position.y) > 1.4) continue;
+          const wa = a.busy ? 0 : 1;
+          const wb = b.busy ? 0 : 1;
+          if (wa + wb === 0) continue;
+          const D = a.radius + b.radius + 0.06;
+          let dx = a.holder.position.x + want[i]!.x - (b.holder.position.x + want[j]!.x);
+          let dz = a.holder.position.z + want[i]!.y - (b.holder.position.z + want[j]!.y);
+          const d = Math.hypot(dx, dz);
+          if (d >= D) continue;
+          if (d < 1e-4) {
+            const ang = i * 2.39 + j * 1.13;
+            dx = Math.cos(ang);
+            dz = Math.sin(ang);
+          } else {
+            dx /= d;
+            dz /= d;
+          }
+          const push = D - d;
+          want[i]!.x += (dx * push * wa) / (wa + wb);
+          want[i]!.y += (dz * push * wa) / (wa + wb);
+          want[j]!.x -= (dx * push * wb) / (wa + wb);
+          want[j]!.y -= (dz * push * wb) / (wa + wb);
+        }
+      }
+    }
+    const k = 1 - Math.exp(-dt * 9);
+    for (let i = 0; i < n; i++) {
+      const p = list[i]!;
+      const w = want[i]!;
+      if (w.length() > 1.1) w.setLength(1.1);
+      p.off.x += (w.x - p.off.x) * k;
+      p.off.y += (w.y - p.off.y) * k;
+    }
+    // Welt-Versatz in die (gedrehte) Halter-Ebene umrechnen
+    for (const p of this.pieces.values()) {
+      const r = p.holder.rotation.y;
+      const c = Math.cos(r);
+      const s = Math.sin(r);
+      p.body.position.set(p.off.x * c - p.off.y * s, 0, p.off.x * s + p.off.y * c);
+    }
   }
 }
 
@@ -795,4 +884,11 @@ function buildCage(): THREE.Group {
     g.add(m);
   }
   return g;
+}
+
+/** Halbe Breite einer Figur am Boden (Arme leicht eingerechnet). */
+function footprint(rig: FigureRig): number {
+  const box = new THREE.Box3().setFromObject(rig.root);
+  const w = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+  return Math.min(0.5, Math.max(0.22, (w / 2) * 0.8));
 }

@@ -39,6 +39,8 @@ const itemBase = {
   timerSec: z.number().int().min(5).max(3600).nullable().default(null),
   roundUse: z.boolean().default(true),
   fieldModes: z.array(z.enum(FIELD_GAME_MODES)).default([]),
+  /** „Audio erstellen“: Sprachaufnahme der Frage gewünscht */
+  audioRequest: z.boolean().default(false),
 };
 
 export const contentItemInputSchema = z.discriminatedUnion('kind', [

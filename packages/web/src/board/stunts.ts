@@ -610,27 +610,61 @@ export class Stunts {
           this.guard(epoch);
           this.audio.splash(1);
           this.effects.splash(b.x, water, b.z, true);
-          // ans andere Ufer schwimmen, die Strömung zieht ein Stück mit
+          // ans andere Ufer schwimmen, die Strömung zieht ein Stück mit – aber nur im Wasser:
+          // bis zur Uferkante schwimmen, dann über das Gelände hinaus aufs Feld klettern
           g.rig.setMode('swim');
           const exit = this.pieces.slotOn(teamId, exitField);
-          const shore = exit.clone().lerp(b, 0.25).setY(water - 0.5);
+          const swimY = water - 0.5;
+          const wet = (x: number, z: number) => this.field.height(x, z) < water - 0.15;
+          let edgeT = 1;
+          for (let f = 0.04; f <= 1.0001; f += 0.04) {
+            const q = b.clone().lerp(exit, f);
+            if (!wet(q.x, q.z)) {
+              edgeT = Math.max(0, f - 0.04);
+              break;
+            }
+          }
+          const shore = b.clone().lerp(exit, edgeT).setY(swimY);
           const flow = new THREE.Vector3(RIVER[RIVER_FORD + 1]!.x - RIVER[RIVER_FORD]!.x, 0, RIVER[RIVER_FORD + 1]!.z - RIVER[RIVER_FORD]!.z).normalize();
-          const mid = b.clone().lerp(shore, 0.5).addScaledVector(flow, 1.2);
-          const curve = new THREE.CatmullRomCurve3([b, mid, shore]);
-          await this.tweens.run(1.5, (t) => {
+          const midAt = (k: number) => b.clone().lerp(shore, 0.5).addScaledVector(flow, k).setY(swimY);
+          let bend = 1.2;
+          while (bend > 0 && !wet(midAt(bend).x, midAt(bend).z)) bend -= 0.3;
+          const mid = midAt(Math.max(0, bend));
+          const curve = new THREE.CatmullRomCurve3([b.clone().setY(swimY), mid, shore]);
+          await this.tweens.run(Math.min(1.8, Math.max(0.9, curve.getLength() / 2.2)), (t) => {
             const q = curve.getPointAt(t);
             g.holder.position.set(q.x, q.y + Math.sin(t * 20) * 0.05, q.z);
             const tan = curve.getTangentAt(t);
             g.holder.rotation.y = Math.atan2(tan.x, tan.z) + Math.sin(t * 10) * 0.25;
           }, ease.inOut);
           this.guard(epoch);
-          g.rig.setMode('jump');
+          // herausklettern: immer auf (nie in) dem Ufer, am Ende auf dem Feld
+          g.rig.setMode('climb');
           const s0 = g.holder.position.clone();
-          await this.tweens.run(0.6, (t) => {
-            g.holder.position.lerpVectors(s0, exit, t);
-            g.holder.position.y += Math.sin(t * Math.PI) * 1.1;
-          }, ease.inOut);
+          const yaw = Math.atan2(exit.x - s0.x, exit.z - s0.z);
+          const ry0 = g.holder.rotation.y;
+          let dr = (yaw - ry0) % (Math.PI * 2);
+          if (dr > Math.PI) dr -= Math.PI * 2;
+          if (dr < -Math.PI) dr += Math.PI * 2;
+          const dist = Math.hypot(exit.x - s0.x, exit.z - s0.z);
+          let walking = false;
+          await this.tweens.run(Math.min(1.6, Math.max(0.7, dist / 1.7)), (t) => {
+            const x = s0.x + (exit.x - s0.x) * t;
+            const z = s0.z + (exit.z - s0.z) * t;
+            const ground = this.field.height(x, z) + 0.02;
+            // aus dem Wasser heraus auf den Boden, zum Schluss auf die Feldscheibe
+            const rise = Math.min(1, t / 0.18);
+            const base = Math.max(swimY, swimY + (ground - swimY) * rise);
+            const onField = THREE.MathUtils.smoothstep(t, 0.7, 1);
+            g.holder.position.set(x, Math.max(base, base + (exit.y - base) * onField), z);
+            g.holder.rotation.y = ry0 + dr * Math.min(1, t * 3);
+            if (!walking && t > 0.3) {
+              walking = true;
+              g.rig.setMode('walk');
+            }
+          }, ease.linear);
           this.guard(epoch);
+          g.holder.position.copy(exit);
           this.effects.dust(exit.x, exit.y, exit.z, new THREE.Color('#9cc7d8'), 10);
           this.pieces.release(teamId, exitField, 'sad');
           return;

@@ -1,4 +1,5 @@
 /** Große Beamer-Einblendungen je nach Spielphase. */
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   CONTENT_KIND_INFO,
@@ -13,6 +14,7 @@ import {
 } from '@insel/shared';
 import { FigureAvatar } from '../../figure/FigurePreview.tsx';
 import { useJoinUrl } from '../../lib/system.ts';
+import { useSpotlight } from '../../lib/spotlight.ts';
 import { Avatar, BonusDieBadge, Countdown, QrCode } from '../../ui/game.tsx';
 import { placeLabel } from '../../game/bits.tsx';
 
@@ -165,8 +167,101 @@ function Faces({ state, drawn }: { state: GameState; drawn: Record<string, strin
   );
 }
 
+// Ausflug zur Tafel: Ziel kommt erst beim Ausblenden (über `custom` von AnimatePresence)
+const SPOT_VARIANTS = {
+  enter: { scale: 0.55, opacity: 0, x: 0, y: 40 },
+  show: { scale: 1, opacity: 1, x: 0, y: 0, transition: { type: 'spring' as const, stiffness: 220, damping: 22 } },
+  fly: (f: { x: number; y: number; scale: number }) => ({
+    x: f.x,
+    y: f.y,
+    scale: f.scale,
+    opacity: [1, 1, 0],
+    transition: { duration: 0.85, ease: [0.45, 0, 0.2, 1] as const, opacity: { duration: 0.85, times: [0, 0.75, 1] } },
+  }),
+};
+
+/** Große Frage in der Mitte (nach dem Öffnen), wandert dann in die Tafel oben links. */
+export function QuestionSpotlight({ state }: { state: GameState }) {
+  const p = state.phase;
+  const content = p.name === 'content' ? p.content : null;
+  const item = content?.item;
+  const question = item && 'question' in item ? item.question : null;
+  const key = content && item && question && content.stage === 'open' ? item.id : null;
+  const spot = useSpotlight((s) => s.id);
+  const holdMs = useSpotlight((s) => s.holdMs);
+  const seen = useRef(new Set<string>());
+  const card = useRef<HTMLDivElement>(null);
+  const [fly, setFly] = useState<{ x: number; y: number; scale: number }>({ x: -600, y: -300, scale: 0.4 });
+
+  // neue Frage geöffnet → groß zeigen (jede Frage nur einmal)
+  useEffect(() => {
+    if (!key || !question || seen.current.has(key)) return;
+    seen.current.add(key);
+    useSpotlight.setState({ id: key });
+  }, [key, question]);
+  // nach der Lesezeit (oder Sprachaufnahme) an den Platz in der Tafel fliegen
+  useEffect(() => {
+    if (!spot || !question) return;
+    const ms = holdMs ?? Math.min(9000, Math.max(3800, 1800 + question.length * 42));
+    const t = window.setTimeout(() => {
+      const target = useSpotlight.getState().target;
+      const r = card.current?.getBoundingClientRect();
+      if (target && r && r.width > 0) {
+        setFly({
+          x: target.left + target.width / 2 - (r.left + r.width / 2),
+          y: target.top + target.height / 2 - (r.top + r.height / 2),
+          scale: Math.max(0.2, Math.min(1, target.width / r.width)),
+        });
+      }
+      useSpotlight.setState({ id: null });
+    }, ms);
+    return () => window.clearTimeout(t);
+  }, [spot, question, holdMs]);
+  // Frage geschlossen, bevor sie geflogen ist → sofort weg
+  useEffect(() => {
+    if (spot && spot !== key) useSpotlight.setState({ id: null });
+  }, [spot, key]);
+
+  const info = item ? CONTENT_KIND_INFO[item.kind] : null;
+  return (
+    <AnimatePresence custom={fly}>
+      {spot && spot === key && question && info && (
+        <motion.div key={spot} className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-[8vw]">
+          {/* leichte Abdunklung, damit nur die Frage zählt */}
+          <motion.div
+            className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(10,30,50,0.42),rgba(10,30,50,0.18))]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.35 } }}
+            exit={{ opacity: 0, transition: { duration: 0.5 } }}
+          />
+          <motion.div
+            ref={card}
+            custom={fly}
+            variants={SPOT_VARIANTS}
+            initial="enter"
+            animate="show"
+            exit="fly"
+            className="relative max-w-[78rem] rounded-[2.6rem] bg-white/95 px-14 py-11 text-center shadow-lifted ring-1 ring-white/60"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-1.5 font-display text-2xl font-semibold text-white">
+              {info.icon} {info.label}
+            </span>
+            <p className="mt-6 font-display text-[3.6rem] leading-[1.12] font-semibold text-balance text-ink">{question}</p>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function ContentPanel({ state, content }: { state: GameState; content: ActiveContent }) {
   const item = content.item;
+  const spot = useSpotlight((s) => s.id) === item.id;
+  const qRef = useRef<HTMLParagraphElement>(null);
+  // Platz der Frage in der Tafel merken (Ziel des Flugs aus der Bildmitte)
+  useLayoutEffect(() => {
+    if (qRef.current) useSpotlight.setState({ target: qRef.current.getBoundingClientRect() });
+  });
   const info = CONTENT_KIND_INFO[item.kind];
   const revealed = content.stage === 'revealed';
   const showQuestion = 'question' in item && content.stage !== 'intro';
@@ -183,7 +278,17 @@ function ContentPanel({ state, content }: { state: GameState; content: ActiveCon
         {content.timer && content.stage !== 'revealed' && <Countdown timer={content.timer} size="lg" />}
       </div>
 
-      {showQuestion && <p className="text-4xl leading-snug font-bold text-ink">{(item as { question: string }).question}</p>}
+      {showQuestion && (
+        <motion.p
+          ref={qRef}
+          initial={false}
+          animate={{ opacity: spot ? 0 : 1 }}
+          transition={{ duration: 0.35, delay: spot ? 0 : 0.55 }}
+          className="text-4xl leading-snug font-bold text-ink"
+        >
+          {(item as { question: string }).question}
+        </motion.p>
+      )}
       {showQuestion && item.kind === 'estimate' && item.unit && !revealed && <p className="text-2xl font-bold text-ink-2">Antwort in: {item.unit}</p>}
       {!showQuestion && 'question' in item && <p className="text-3xl font-bold text-ink-2">Gleich kommt die Frage …</p>}
       {item.kind === 'game' && item.description && <p className="text-2xl leading-relaxed font-semibold whitespace-pre-line text-ink-2">{item.description}</p>}

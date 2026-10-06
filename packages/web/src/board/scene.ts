@@ -334,6 +334,8 @@ export class BoardScene {
     this.scene.add(this.ceremony.group);
     this.detachManual = attachManualCamera(this.renderer.domElement, this.rig);
     this.dice = new DiceOverlay(this.tweens);
+    // Kommentator redet nur über Tiere, die gerade wirklich zu sehen sind
+    this.commentator.sight = (k) => this.view === 'island' && !!this.animals?.inView(k);
     this.director = new Director(this, (c) => {
       for (const fn of this.captionListeners) fn(c);
     });
@@ -454,7 +456,7 @@ export class BoardScene {
     if (!this.inside) {
       this.inside = new VolcanoInside({ length, shout, quality: this.quality });
       const inside = this.inside;
-      this.pieces.inside = { root: inside.scene, spot: (st, i, n) => inside.spot(st, i, n), facing: (st) => inside.facing(st) };
+      this.pieces.inside = { root: inside.scene, spot: (st, i, n, g) => inside.spot(st, i, n, g), facing: (st) => inside.facing(st) };
       this.scheduleWarm();
     } else if (key !== this.insideKey) this.inside.setPath(length, shout);
     this.insideKey = key;

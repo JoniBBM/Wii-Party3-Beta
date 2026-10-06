@@ -8,6 +8,7 @@ Beim ersten Start sind bereits vorhanden:
 - **Partyspiele (Beispiel)** – Bewegungs- und Geschicklichkeitsspiele mit Material
 - **Feld-Minispiele (Beispiel)** – kurze Duelle und „allein gegen alle“-Spiele
 - **Default (Import)**, **Teenie 2025 (Import)**, **Feld-Minispiele (Import)** – aus der alten Version übernommen
+- **Wissensmix** – 100 geprüfte Fragen in fünf Sammlungen (*Tiere & Natur*, *Welt & Länder*, *Körper & Wissenschaft*, *Kurioses & Rekorde*, *Alltag, Sport & Erfindungen*). Bestehende Installationen bekommen sie beim nächsten Start einmalig dazu; wer eine Sammlung löscht, bekommt sie nicht wieder.
 
 ## Inhaltsarten
 
@@ -24,6 +25,7 @@ Für alle Arten gibt es außerdem:
 - **Countdown** in Sekunden (leer = ohne). Läuft er ab, werden die Antworten automatisch geschlossen.
 - **Notiz für Regie & Moderator** – erscheint nur bei der Spielleitung (z. B. „Beide Antworten zählen“).
 - **In normalen Runden spielbar** / **Als Feld-Minispiel nutzbar** (*allein gegen alle* und/oder *Duell*) – nur bei Spielen.
+- **Audio erstellen** – nur bei Fragen: Die Frage (bei Auswahlfragen samt Antworten A, B, C …) wird mit der Stimme des Kommentators aufgenommen und auf dem Beamer vorgelesen, solange sie groß in der Mitte steht. Das Häkchen ist ein Wunsch an die Technik; die Liste der Wünsche gibt `npm run audio -- list` aus (siehe [Entwicklung](entwicklung.md)). In der Bibliothek zeigt ein Abzeichen den Stand (🎙️ angefordert, 🔊 vorhanden), im Editor kann man probehören. Ändert sich die Frage, wird die Aufnahme automatisch neu angefordert.
 
 ## Feld-Minispiele
 

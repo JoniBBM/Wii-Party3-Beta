@@ -146,6 +146,7 @@ export function LibraryPage() {
                     {i.fieldModes.length > 0 && <Badge tone="accent">Feldspiel</Badge>}
                     {!i.roundUse && <Badge>nicht in Runden</Badge>}
                     {i.timerSec && <Badge>{i.timerSec}s</Badge>}
+                    {i.audioUrl ? <Badge tone="good">🔊 Audio</Badge> : i.audioRequest ? <Badge tone="warn">🎙️ Audio angefordert</Badge> : null}
                     <IconButton
                       label="Duplizieren"
                       className="size-8 opacity-0 group-hover:opacity-100"

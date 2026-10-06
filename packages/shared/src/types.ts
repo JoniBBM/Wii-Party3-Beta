@@ -33,6 +33,12 @@ export interface ContentItemBase {
   roundUse: boolean;
   /** Feld-Minispiel-Modi, leer = kein Feld-Minispiel. */
   fieldModes: FieldGameMode[];
+  /** Spielleitung wünscht eine Sprachaufnahme der Frage („Audio erstellen“). */
+  audioRequest?: boolean;
+  /** Sprachaufnahme der Frage (vom Server gesetzt) – der Beamer liest sie vor. */
+  audioUrl?: string | null;
+  /** Text, der aufgenommen wurde (ändert sich die Frage, gilt die Aufnahme nicht mehr). */
+  audioText?: string | null;
   createdAt: number;
   updatedAt: number;
 }

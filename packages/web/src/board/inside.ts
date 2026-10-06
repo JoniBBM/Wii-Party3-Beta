@@ -1624,16 +1624,17 @@ export class VolcanoInside {
     return s.z < 0 ? s.negate() : s;
   }
 
-  spot(step: number, slot = 0, count = 1): THREE.Vector3 {
+  spot(step: number, slot = 0, count = 1, gap = 0): THREE.Vector3 {
     const i = clamp(Math.round(step), 0, this.length);
     const pl = this.plates[i]!;
     const R = pl.radius;
     const k = Math.max(1, count);
     let ox = 0;
     let oz = 0;
-    if (k === 2) ox = (slot === 0 ? -1 : 1) * R * 0.38;
+    if (k === 2) ox = (slot === 0 ? -1 : 1) * Math.max(R * 0.38, gap * 0.55);
     else if (k > 2) {
-      const ring = Math.min(R * 0.6, 0.32 + k * 0.09);
+      // so weit auseinander, dass sich Nachbarn nicht berühren (höchstens bis an den Plattenrand)
+      const ring = Math.min(R * 0.86, Math.max(Math.min(R * 0.6, 0.32 + k * 0.09), gap / (2 * Math.sin(Math.PI / k))));
       const a = (slot / k) * Math.PI * 2 + Math.PI / 2;
       ox = Math.cos(a) * ring;
       oz = Math.sin(a) * ring;

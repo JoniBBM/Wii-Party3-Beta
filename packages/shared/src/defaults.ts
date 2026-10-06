@@ -125,6 +125,7 @@ export function buildItem(
     timerSec: input.timerSec ?? null,
     roundUse: input.roundUse ?? true,
     fieldModes: input.fieldModes ?? [],
+    audioRequest: input.audioRequest ?? false,
     createdAt: meta.createdAt ?? meta.now,
     updatedAt: meta.now,
   };
@@ -146,4 +147,17 @@ export function buildItem(
     case 'buzzer':
       return { ...base, kind: 'buzzer', question: input.question, answer: input.answer ?? '' };
   }
+}
+
+/**
+ * Was die Sprachaufnahme einer Frage vorliest: die Frage, bei Auswahlfragen dazu die Antworten
+ * („A: …“). Ändert sich dieser Text, passt eine vorhandene Aufnahme nicht mehr.
+ */
+export function spokenText(item: Pick<ContentItem, 'kind'> & { question?: string; options?: string[] }): string | null {
+  if (item.kind === 'game' || !item.question) return null;
+  const q = item.question.trim();
+  if (item.kind !== 'choice' || !item.options?.length) return q;
+  const tf = item.options.length === 2 && /^wahr$/i.test(item.options[0]!.trim()) && /^falsch$/i.test(item.options[1]!.trim());
+  if (tf) return /wahr oder falsch/i.test(q) ? q : `Wahr oder falsch? ${q}`;
+  return `${q} ${item.options.map((o, i) => `${String.fromCharCode(65 + i)}: ${o.trim()}.`).join(' ')}`;
 }

@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { FIELD_INFO, standings, teamById, teamColor, TEAM_COLORS, type Effect, type GameState, type Mood } from '@insel/shared';
 import type { VoiceCategory } from './voice-lines.ts';
 import type { BoardScene } from './scene.ts';
+import { setSpotlightHold } from '../lib/spotlight.ts';
 
 export interface Caption {
   id: number;
@@ -804,10 +805,23 @@ export class Director {
       }
       case 'content':
         if (e.stage === 'intro') {
+          setSpotlightHold(null);
           A.play('frage');
           const cat: VoiceCategory = e.kind === 'estimate' ? 'estimate' : e.kind === 'buzzer' ? 'buzzer' : e.kind === 'game' ? 'game' : 'question';
           this.voice(cat, { delay: 900 });
-        } else if (e.stage === 'open') A.play('jingle-start', { volume: 0.7 });
+        } else if (e.stage === 'open') {
+          A.play('jingle-start', { volume: 0.7 });
+          // Frage mit Sprachaufnahme: vorlesen, solange sie groß in der Bildmitte steht
+          const st = this.state;
+          const url = st?.phase.name === 'content' ? st.phase.content.item.audioUrl : null;
+          if (url) {
+            void A.prepare(url).then((dur) => {
+              if (stale()) return;
+              setSpotlightHold(dur > 0 ? dur * 1000 + 900 : null);
+              window.setTimeout(() => !stale() && void A.say(url, { interrupt: true }), 450);
+            });
+          }
+        }
         else if (e.stage === 'revealed') A.play('trommelwirbel', { volume: 0.7 });
         else if (e.stage === 'closed') A.play('bong', { volume: 0.6 });
         return;

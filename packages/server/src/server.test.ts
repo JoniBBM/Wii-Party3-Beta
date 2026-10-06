@@ -284,6 +284,52 @@ describe('Server', () => {
     expect((await api('/api/games/..%2F..', { method: 'DELETE', token: admin })).status).toBe(400);
   });
 
+  it('„Audio erstellen“: Wunsch, Liste, Aufnahme hochladen, bei geänderter Frage neu anfordern', async () => {
+    const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
+    const { data: lib } = await api<{ collections: { id: string }[] }>('/api/library', { token: admin });
+    const cid = lib.collections[0]!.id;
+    const created = await api<{ id: string; audioRequest: boolean }>(`/api/library/collections/${cid}/items`, {
+      token: admin,
+      body: { kind: 'choice', title: 'Audiotest', question: 'Welche Farbe hat der Himmel?', options: ['Blau', 'Grün'], correctIndex: 0, audioRequest: true },
+    });
+    expect(created.data.audioRequest).toBe(true);
+    const id = created.data.id;
+    const list = await api<{ items: { id: string; text: string }[] }>('/api/library/audio-requests', { token: admin });
+    expect(list.data.items.find((i) => i.id === id)?.text).toBe('Welche Farbe hat der Himmel? A: Blau. B: Grün.');
+    // nur Admin; keine Fremdformate
+    expect((await api('/api/library/audio-requests')).status).toBe(401);
+    const upload = async (bytes: Uint8Array) => {
+      const form = new FormData();
+      form.append('file', new Blob([bytes]), 'frage.mp3');
+      const res = await fetch(`${base}/api/library/items/${id}/audio`, { method: 'POST', body: form, headers: { authorization: `Bearer ${admin}` } });
+      return { status: res.status, data: (await res.json()) as { audioUrl?: string; audioRequest?: boolean } };
+    };
+    expect((await upload(new TextEncoder().encode('<svg>kein Audio</svg>'))).status).toBe(400);
+    const mp3 = new Uint8Array(64);
+    mp3.set([0x49, 0x44, 0x33]); // „ID3“
+    const up = await upload(mp3);
+    expect(up.status).toBe(200);
+    expect(up.data.audioUrl).toMatch(/^\/media\/audio\/[a-z0-9]+-[0-9a-f]+\.mp3$/);
+    expect(up.data.audioRequest).toBe(false);
+    expect((await fetch(base + up.data.audioUrl!)).status).toBe(200);
+    expect((await api<{ items: { id: string }[] }>('/api/library/audio-requests', { token: admin })).data.items.some((i) => i.id === id)).toBe(false);
+    // gleicher Text → Aufnahme bleibt; geänderte Frage → neu angefordert, alte Datei weg
+    const keep = await api<{ audioUrl: string | null }>(`/api/library/items/${id}`, {
+      method: 'PUT',
+      token: admin,
+      body: { kind: 'choice', title: 'Audiotest neu', question: 'Welche Farbe hat der Himmel?', options: ['Blau', 'Grün'], correctIndex: 0, audioRequest: true },
+    });
+    expect(keep.data.audioUrl).toBe(up.data.audioUrl);
+    const changed = await api<{ audioUrl: string | null; audioRequest: boolean }>(`/api/library/items/${id}`, {
+      method: 'PUT',
+      token: admin,
+      body: { kind: 'choice', title: 'Audiotest neu', question: 'Welche Farbe hat das Meer?', options: ['Blau', 'Grün'], correctIndex: 0, audioRequest: true },
+    });
+    expect(changed.data.audioUrl).toBeNull();
+    expect(changed.data.audioRequest).toBe(true);
+    expect((await fetch(base + up.data.audioUrl!)).status).toBe(404);
+  });
+
   it('liefert Systeminfos mit Beitrittsadressen', async () => {
     const { data } = await api<{ appName: string; joinUrls: unknown[] }>('/api/system/info');
     expect(data.appName).toBe('Insel der Abenteuer');

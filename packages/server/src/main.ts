@@ -15,7 +15,7 @@ import { mediaRoutes } from './http/media-routes.ts';
 import { systemRoutes } from './http/system-routes.ts';
 import { createLive } from './live.ts';
 import { GameRuntime } from './runtime.ts';
-import { seedIfEmpty } from './seed.ts';
+import { seedExtras, seedIfEmpty } from './seed.ts';
 
 export async function startServer(opts: { port?: number; dbFile?: string; quiet?: boolean } = {}) {
   const database = openDb(opts.dbFile);
@@ -59,6 +59,7 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
   });
 
   seedIfEmpty(database, (m) => app.log.warn(m));
+  seedExtras(database, (m) => app.log.warn(m));
   const runtime = new GameRuntime(database);
   runtime.boot();
 
