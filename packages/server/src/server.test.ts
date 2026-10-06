@@ -284,6 +284,36 @@ describe('Server', () => {
     expect((await api('/api/games/..%2F..', { method: 'DELETE', token: admin })).status).toBe(400);
   });
 
+  it('Neue PIN macht auch gebundene Spieler-Tokens (become-player) ungültig', async () => {
+    const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
+    const { data: tpl } = await api<{ templates: { id: string }[] }>('/api/templates', { token: admin });
+    await api('/api/games', { token: admin, body: { name: 'Bindung', templateId: tpl.templates[0]!.id } });
+    const regie = await client(admin);
+    const p = await api<{ playerId: string }>('/api/auth/register', { body: { name: 'Cara' } });
+    await api('/api/auth/register', { body: { name: 'Dani' } });
+    await regie.cmd({ type: 'teams.auto', count: 2 });
+    const state = await regie.waitFor((s) => s.teams.length === 2);
+    const team = state.teams.find((t) => state.players.find((pl) => pl.id === p.data.playerId)?.teamId === t.id)!;
+    const teamTok = (await api<{ token: string }>('/api/auth/pin', { body: { pin: team.pin } })).data.token;
+    // Team-Gerät wird zu Spieler Cara → gebundener Spieler-Token
+    const playerTok = (await api<{ token: string }>('/api/auth/become-player', { token: teamTok, body: { playerId: p.data.playerId } })).data.token;
+    expect((await api<{ session: { role: string } }>('/api/auth/me', { token: playerTok })).data.session.role).toBe('player');
+    // Neue PIN → der gebundene Spieler-Token gilt nicht mehr
+    await regie.cmd({ type: 'team.regeneratePin', teamId: team.id });
+    expect((await api<{ session: { role: string } }>('/api/auth/me', { token: playerTok })).data.session.role).toBe('guest');
+  });
+
+  it('globale Anmeldebremse zählt Fehlversuche, nicht korrekte Logins', async () => {
+    const { globalAttemptsExhausted, spendAttempt } = await import('./auth.ts');
+    const scope = `test-${Math.random()}`;
+    expect(globalAttemptsExhausted(scope, 25)).toBe(false);
+    for (let i = 0; i < 25; i++) spendAttempt(scope, 25);
+    // nach 25 Fehlversuchen ist der Eimer leer → gebremst
+    expect(globalAttemptsExhausted(scope, 25)).toBe(true);
+    // ein anderer Anlass ist davon unberührt (ein korrekter Login „kostet“ nie)
+    expect(globalAttemptsExhausted(`${scope}-korrekt`, 25)).toBe(false);
+  });
+
   it('„Audio erstellen“: Wunsch, Liste, Aufnahme hochladen, bei geänderter Frage neu anfordern', async () => {
     const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
     const { data: lib } = await api<{ collections: { id: string }[] }>('/api/library', { token: admin });

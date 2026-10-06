@@ -32,19 +32,22 @@ function playerCount(v: unknown): PlayerCount {
   return '1';
 }
 
+/** Sichere Zeichenkette aus beliebigem Import-Wert (Zahlen/Objekte würden sonst .trim() werfen). */
+const S = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
 export function convertLegacyItem(m: LegacyItem): ContentItemInput | null {
-  const title = (m.name ?? m.title ?? '').trim();
+  const title = (S(m.name) || S(m.title)).trim();
   if (!title) return null;
-  const description = (m.description ?? m.instructions ?? '').trim();
+  const description = (S(m.description) || S(m.instructions)).trim();
   if (m.type === 'question') {
-    const question = (m.question_text ?? title).trim();
+    const question = (S(m.question_text) || title).trim();
     if (m.question_type === 'multiple_choice' && Array.isArray(m.options) && m.options.length >= 2) {
       return {
         kind: 'choice',
         title,
         description,
         question,
-        options: m.options.map(String),
+        options: m.options.map(S),
         correctIndex: Math.max(0, Math.min(Number(m.correct_option ?? 0), m.options.length - 1)),
         playerCount: 'all',
       };
@@ -54,7 +57,7 @@ export function convertLegacyItem(m: LegacyItem): ContentItemInput | null {
       title,
       description,
       question,
-      answers: [String(m.correct_text ?? '').trim() || '?'],
+      answers: [S(m.correct_text).trim() || '?'],
       playerCount: 'all',
     };
   }
@@ -62,28 +65,28 @@ export function convertLegacyItem(m: LegacyItem): ContentItemInput | null {
     kind: 'game',
     title,
     description,
-    materials: (m.materials ?? '').trim(),
+    materials: S(m.materials).trim(),
     playerCount: playerCount(m.player_count),
   };
 }
 
 export function convertLegacyFolder(folder: LegacyFolder) {
   return {
-    name: folder.folder_info?.name?.trim() || 'Import',
-    description: folder.folder_info?.description?.trim() ?? '',
+    name: S(folder.folder_info?.name).trim() || 'Import',
+    description: S(folder.folder_info?.description).trim(),
     items: (folder.minigames ?? []).map(convertLegacyItem).filter((x): x is ContentItemInput => x !== null),
   };
 }
 
 /** Feld-Minispiel aus team_vs_all / team_vs_team. */
 export function convertLegacyFieldGame(m: LegacyItem, mode: 'vs_all' | 'duel'): ContentItemInput | null {
-  const title = (m.title ?? m.name ?? '').trim();
+  const title = (S(m.title) || S(m.name)).trim();
   if (!title) return null;
   return {
     kind: 'game',
     title,
-    description: (m.instructions ?? m.description ?? '').trim(),
-    materials: (m.materials ?? '').trim() === 'Keine' ? '' : (m.materials ?? '').trim(),
+    description: (S(m.instructions) || S(m.description)).trim(),
+    materials: S(m.materials).trim() === 'Keine' ? '' : S(m.materials).trim(),
     playerCount: playerCount(m.player_count),
     roundUse: false,
     fieldModes: [mode],

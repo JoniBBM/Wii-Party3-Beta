@@ -174,13 +174,23 @@ export function handleTeamCommand(tx: Tx, cmd: CommandOf<
       const staff = isStaff(tx.actor);
       const t = staff ? findTeam(s, cmd.teamId) : findTeam(s, actorTeamId(tx));
       if (!staff && cmd.teamId && cmd.teamId !== t.id) fail('Nur das eigene Team', 'forbidden');
-      if (cmd.name !== undefined) t.name = cmd.name.trim() || t.name;
+      let changed = false;
+      if (cmd.name !== undefined && cmd.name.trim() && cmd.name.trim() !== t.name) {
+        t.name = cmd.name.trim();
+        changed = true;
+      }
       if (cmd.color !== undefined && cmd.color !== t.color) {
         if (!staff && s.status !== 'lobby') fail('Die Farbe kann nur vor Spielbeginn geändert werden', 'forbidden');
         if (s.teams.some((x) => x.id !== t.id && x.color === cmd.color)) fail('Diese Farbe ist schon vergeben');
         t.color = cmd.color;
+        changed = true;
       }
-      if (cmd.figure !== undefined) t.figure = cmd.figure;
+      if (cmd.figure !== undefined && JSON.stringify(cmd.figure) !== JSON.stringify(t.figure)) {
+        t.figure = cmd.figure;
+        changed = true;
+      }
+      // nichts geändert → kein Speichern/Senden (verhindert Last durch leere Befehle)
+      if (!changed) tx.meta.noop = true;
       tx.label = `${teamLabel(t)} geändert`;
       return;
     }

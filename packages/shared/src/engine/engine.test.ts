@@ -838,3 +838,59 @@ describe('Reaktionen nach dem Zug', () => {
     expect(r.effects.map((e) => e.type)).toEqual(['dice', 'move', 'turn']);
   });
 });
+
+describe('Sicherheit: Sichten und keine Leerlast', () => {
+  it('Gast bekommt keine Fotos/Verlauf, ein teamloser Spieler schon (getrennte Sichten)', () => {
+    const h = harness().setup();
+    const a = h.team(0);
+    h.mutate((s) => {
+      s.players[0]!.photo = '/media/g/foto-abc.webp';
+      s.feed = [{ id: 1, at: 1, icon: '🎲', text: 'Ein Zug', teamId: a.id }];
+    });
+    const guest = projectState(h.s, { role: 'guest' });
+    expect(guest.players.every((p) => p.photo === null)).toBe(true);
+    expect(guest.feed).toEqual([]);
+    // ein (noch) teamloser Spieler ist kein Gast – er darf Fotos/Verlauf sehen
+    const player = projectState(h.s, { role: 'player', playerId: 'nicht-vorhanden' });
+    expect(player.players.some((p) => p.photo === '/media/g/foto-abc.webp')).toBe(true);
+    expect(player.feed.length).toBe(1);
+  });
+
+  it('Moderator sieht keine PINs und keine Beitritts-Tokens', () => {
+    const h = harness().setup();
+    const mod = projectState(h.s, { role: 'moderator' });
+    expect(mod.teams.every((t) => t.pin === '' && t.joinToken === '')).toBe(true);
+    // Regie (admin) sieht sie weiterhin
+    const admin = projectState(h.s, { role: 'admin' });
+    expect(admin.teams.every((t) => t.pin && t.joinToken)).toBe(true);
+  });
+
+  it('Fremde Antworten verraten vor der Auflösung auch den Zeitpunkt nicht', () => {
+    const h = harness().setup();
+    const [a, b] = [h.team(0), h.team(1)];
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q1' });
+    h.run({ type: 'content.open' });
+    h.run({ type: 'answer.submit', value: 0 }, { role: 'team', teamId: b.id });
+    const asA = projectState(h.s, { role: 'team', teamId: a.id });
+    if (asA.phase.name !== 'content') throw new Error('phase');
+    const foreign = asA.phase.content.answers[b.id]!;
+    expect(foreign.value).toBe('');
+    expect(foreign.at).toBe(0);
+    expect(foreign.overridden).toBe(false);
+  });
+
+  it('Leeres team.update und doppelter Buzzer ändern nichts (keine Speicher-/Sendelast)', () => {
+    const h = harness().setup();
+    const a = h.team(0);
+    // team.update ohne echte Änderung
+    expect(h.run({ type: 'team.update', teamId: a.id }).meta.noop).toBe(true);
+    expect(h.run({ type: 'team.update', teamId: a.id, name: a.name }).meta.noop).toBe(true);
+    // echte Änderung ist kein No-op
+    expect(h.run({ type: 'team.update', teamId: a.id, name: 'Neuer Name' }).meta.noop).toBeFalsy();
+    // doppelter Buzzer
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q4' });
+    h.run({ type: 'content.open' });
+    expect(h.run({ type: 'buzz' }, { role: 'team', teamId: a.id }).meta.noop).toBeFalsy();
+    expect(h.run({ type: 'buzz' }, { role: 'team', teamId: a.id }).meta.noop).toBe(true);
+  });
+});

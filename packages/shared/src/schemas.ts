@@ -38,7 +38,7 @@ const itemBase = {
   playerCount: z.enum(PLAYER_COUNTS).default('1'),
   timerSec: z.number().int().min(5).max(3600).nullable().default(null),
   roundUse: z.boolean().default(true),
-  fieldModes: z.array(z.enum(FIELD_GAME_MODES)).default([]),
+  fieldModes: z.array(z.enum(FIELD_GAME_MODES)).max(2).default([]),
   /** „Audio erstellen“: Sprachaufnahme der Frage gewünscht */
   audioRequest: z.boolean().default(false),
 };
@@ -56,7 +56,7 @@ export const contentItemInputSchema = z.discriminatedUnion('kind', [
     kind: z.literal('text'),
     ...itemBase,
     question: shortText(1000).min(1, 'Frage fehlt'),
-    answers: z.array(shortText(300).min(1)).min(1, 'Mindestens eine richtige Antwort'),
+    answers: z.array(shortText(300).min(1)).min(1, 'Mindestens eine richtige Antwort').max(30),
   }),
   z.object({
     kind: z.literal('estimate'),
@@ -100,7 +100,7 @@ export const rulesSchema = z.object({
   barrier: barrierConditionSchema,
   barrierMaxAttempts: z.number().int().min(0).max(20),
   fieldGame: z.object({
-    modes: z.array(z.enum(FIELD_GAME_MODES)).min(1),
+    modes: z.array(z.enum(FIELD_GAME_MODES)).min(1).max(2),
     rewardWin: z.number().int().min(0).max(30),
     penaltyLoss: z.number().int().min(0).max(30),
   }),

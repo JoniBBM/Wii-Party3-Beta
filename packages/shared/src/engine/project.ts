@@ -28,7 +28,12 @@ export function isPrivileged(role: Session['role']): boolean {
 }
 
 export function projectState(state: GameState, viewer: Session): GameState {
-  if (isPrivileged(viewer.role)) return state;
+  if (viewer.role === 'admin') return state;
+  // Moderator sieht alles außer den Beitritts-Geheimnissen: ein (evtl. weitergegebener)
+  // Moderator-Link soll keine Team-Tokens erzeugen können.
+  if (viewer.role === 'moderator') {
+    return { ...state, teams: state.teams.map((t) => ({ ...t, pin: '', joinToken: '' })) };
+  }
   const ownTeamId =
     viewer.role === 'team'
       ? (viewer.teamId ?? null)
@@ -56,7 +61,9 @@ export function projectState(state: GameState, viewer: Session): GameState {
       answers[teamId] =
         revealed || teamId === ownTeamId
           ? a
-          : { ...a, value: '', correct: null, byPlayerId: null };
+          : // fremde Teams vor der Auflösung: nur „hat geantwortet“, sonst nichts (auch nicht
+            // der Zeitpunkt oder ob die Regie schon vorbewertet hat)
+            { value: '', at: 0, byPlayerId: null, correct: null, overridden: false };
     }
     s.phase = {
       name: 'content',

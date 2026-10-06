@@ -449,7 +449,10 @@ export function handleContentCommand(
       if (c.item.kind !== 'buzzer') fail('Das ist keine Buzzer-Frage');
       if (c.stage !== 'open') fail('Der Buzzer ist nicht aktiv');
       const team = resolveTeamFor(tx, cmd.teamId);
-      if (c.buzzQueue.some((b) => b.teamId === team.id)) return; // doppelt gedrückt – egal
+      if (c.buzzQueue.some((b) => b.teamId === team.id)) {
+        tx.meta.noop = true; // doppelt gedrückt – nichts speichern/senden
+        return;
+      }
       if (c.buzzJudged[team.id] === false) fail('Euer Team hat schon falsch geantwortet');
       const waiting = c.buzzQueue.some((b) => c.buzzJudged[b.teamId] === undefined);
       c.buzzQueue.push({ teamId: team.id, at: now });

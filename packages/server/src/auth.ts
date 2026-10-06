@@ -146,6 +146,30 @@ export function noteFailure(scope: string, ip: string, perIp = 10, windowMs = 60
   bucket(`${scope}:*`, windowMs).count += 1;
 }
 
+/**
+ * Globaler Fehlversuch-Eimer je Anlass (z. B. falsche PIN). Fängt verteiltes Raten ab, selbst
+ * wenn alle Geräte dieselbe Adresse haben (Docker/WLAN) oder ein Angreifer online die IP wechselt.
+ * Nur Fehlversuche zählen (`spendAttempt`), richtige Logins nie – ein korrektes Passwort/eine
+ * korrekte PIN wird also nie gesperrt, höchstens während eines laufenden Angriffs kurz verzögert.
+ */
+const globalBuckets = new Map<string, { tokens: number; last: number }>();
+export function globalAttemptsExhausted(scope: string, perMinute: number): boolean {
+  const now = Date.now();
+  let b = globalBuckets.get(scope);
+  if (!b) {
+    b = { tokens: perMinute, last: now };
+    globalBuckets.set(scope, b);
+  }
+  b.tokens = Math.min(perMinute, b.tokens + ((now - b.last) / 60_000) * perMinute);
+  b.last = now;
+  return b.tokens < 1;
+}
+export function spendAttempt(scope: string, perMinute: number) {
+  const b = globalBuckets.get(scope) ?? { tokens: perMinute, last: Date.now() };
+  b.tokens = Math.max(0, b.tokens - 1);
+  globalBuckets.set(scope, b);
+}
+
 /** Einfache Mengenbremse (z. B. Anmeldungen), großzügig bemessen. */
 const counters = new Map<string, { count: number; since: number }>();
 export function rateLimited(key: string, max: number, windowMs = 60_000): boolean {

@@ -97,6 +97,9 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
     const before = this.state;
     if (!before) throw new EngineError('Es ist kein Spiel aktiv. Bitte in der Regie ein Spiel anlegen.', 'not_found');
     const result = applyCommand(before, cmd, actor, this.context(before));
+    // „Nichts geändert“ (z. B. leeres team.update, doppelter Buzzer): nicht speichern, nicht
+    // senden, nicht protokollieren – so lässt sich der Server damit nicht fluten.
+    if (result.meta.noop) return { ok: true, meta: result.meta };
     this.state = result.state;
 
     const fromTeam = actor.role === 'team' || actor.role === 'player' || actor.role === 'guest';

@@ -61,7 +61,17 @@ export function resolveSession(raw: Session | null, state: GameState | null, vie
     const team = state.teams.find((t) => t.id === raw.teamId);
     return team && raw.key === teamKey(team.joinToken) ? raw : fallback;
   }
-  if (raw.role === 'player') return state.players.some((p) => p.id === raw.playerId) ? raw : fallback;
+  if (raw.role === 'player') {
+    const player = state.players.find((p) => p.id === raw.playerId);
+    if (!player) return fallback;
+    // An ein Team gebundener Spieler-Token (become-player): nach „Neue PIN“ (joinToken wechselt)
+    // ungültig. Lobby-Token ohne Bindung (key null) bleiben gültig.
+    if (raw.key) {
+      const team = state.teams.find((t) => t.id === player.teamId);
+      if (!team || raw.key !== teamKey(team.joinToken)) return fallback;
+    }
+    return raw;
+  }
   return fallback;
 }
 
@@ -92,7 +102,10 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
   // ---------------------------------------------------------------------------
   // Schutz vor Überflutung: Verbindungen je Adresse, Nachrichten je Verbindung
   // ---------------------------------------------------------------------------
-  const MAX_CONN_PER_IP = 60;
+  // Verbindungsgrenze je Adresse: online (echte IP je Gerät, cf-connecting-ip) streng; im WLAN
+  // kommen alle Geräte über dieselbe Docker-Gateway-Adresse – dort großzügig für eine ganze Party.
+  const MAX_CONN_PER_DEVICE = 12;
+  const MAX_CONN_SHARED = 500;
   const RATE = 12; // Nachrichten je Sekunde (Dauer)
   const BURST = 40; // kurzfristig mehr erlaubt
   const perIp = new Map<string, number>();
@@ -102,6 +115,10 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
     const cf = socket.handshake.headers['cf-connecting-ip'];
     const fromTunnel = /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(addr) && !addr.endsWith('.1');
     return fromTunnel && typeof cf === 'string' ? cf : addr;
+  }
+  /** Lässt sich das Gerät von anderen unterscheiden? Nur online (echte IP je Gerät). */
+  function distinctDevice(socket: Socket): boolean {
+    return config.online || typeof socket.handshake.headers['cf-connecting-ip'] === 'string';
   }
   /** Darf diese Verbindung gerade noch etwas senden? (Token-Eimer) */
   function allow(socket: LiveSocket, cost = 1): boolean {
@@ -116,8 +133,9 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
   const BUSY: Ack = { ok: false, error: 'Zu viele Anfragen – bitte kurz warten', code: 'busy' };
   io.use((socket, next) => {
     const ip = socketIp(socket);
+    const cap = distinctDevice(socket) ? MAX_CONN_PER_DEVICE : MAX_CONN_SHARED;
     const n = perIp.get(ip) ?? 0;
-    if (n >= MAX_CONN_PER_IP) return next(new Error('Zu viele Verbindungen von dieser Adresse'));
+    if (n >= cap) return next(new Error('Zu viele Verbindungen von dieser Adresse'));
     perIp.set(ip, n + 1);
     (socket as LiveSocket).data.ip = ip;
     socket.on('disconnect', () => {
@@ -137,9 +155,15 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
       return;
     }
     if (!socket.data.pairCode) {
+      // begrenzte Zahl von Versuchen: viele offene Beamer sollen den Server nicht blockieren
       let code = '';
-      do code = String(1000 + Math.floor(Math.random() * 9000));
-      while (pairCodes.has(code));
+      for (let i = 0; i < 30 && (!code || pairCodes.has(code)); i++) code = String(1000 + Math.floor(Math.random() * 9000));
+      if (pairCodes.has(code) || pairCodes.size >= 2000) {
+        // kein freier Code / zu viele wartende Beamer: keiner wird vergeben (die Regie-Freigabe
+        // per „Beamer öffnen“/Link funktioniert weiterhin)
+        socket.emit('beamer:pair', { code: null });
+        return;
+      }
       socket.data.pairCode = code;
       pairCodes.set(code, socket);
     }
@@ -149,14 +173,14 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
   const sessionOf = (socket: LiveSocket) => resolveSession(socket.data.session, runtime.state, socket.data.view);
 
   function viewKey(session: Session, state: GameState): string {
-    if (isPrivileged(session.role)) return 'staff';
+    // Je Rolle ein eigener Schlüssel: Regie und Moderator sehen Unterschiedliches, und ein Gast
+    // darf nicht die (foto-/verlaufshaltige) Sicht eines teamlosen Spielers aus dem Cache bekommen.
+    if (session.role === 'admin') return 'admin';
+    if (session.role === 'moderator') return 'moderator';
     if (session.role === 'beamer') return 'beamer';
-    if (session.role === 'team') return `team:${session.teamId}`;
-    if (session.role === 'player') {
-      const teamId = state.players.find((p) => p.id === session.playerId)?.teamId;
-      return teamId ? `team:${teamId}` : 'public';
-    }
-    return 'public';
+    const teamId = session.role === 'team' ? session.teamId : session.role === 'player' ? state.players.find((p) => p.id === session.playerId)?.teamId : null;
+    if (teamId) return `team:${teamId}`;
+    return session.role; // teamloser Spieler ('player') vs. Gast ('guest') – getrennt
   }
 
   function pushState(state: GameState | null, only?: LiveSocket) {

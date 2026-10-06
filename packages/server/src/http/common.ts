@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { GameState, Role, Session } from '@insel/shared';
-import { bearer, verifyToken } from '../auth.ts';
+import { bearer, globalAttemptsExhausted, noteFailure, spendAttempt, tooManyFailures, verifyToken } from '../auth.ts';
 import { resolveSession } from '../live.ts';
 import { config } from '../config.ts';
 import type { GameRuntime } from '../runtime.ts';
@@ -40,6 +40,23 @@ export function fromInternet(req: FastifyRequest): boolean {
 /** Client-IP. Weitergeleitete Header gelten nur von lokalen Proxys (siehe trustProxy in main.ts). */
 export function clientIp(req: FastifyRequest): string {
   return req.ip;
+}
+
+/**
+ * Anmeldeversuche bremsen – zweischichtig:
+ *  - immer ein globaler Fehlversuch-Eimer (`perMinute`): fängt verteiltes Raten ab, auch wenn
+ *    alle Geräte im WLAN dieselbe Adresse haben oder online die IP gewechselt wird. Nur
+ *    Fehlversuche zählen, ein richtiges Passwort/eine richtige PIN wird nie gesperrt.
+ *  - zusätzlich übers Internet (echte IP je Gerät) die bisherige Sperre je Adresse (`perIp`).
+ *    Im WLAN entfällt sie, damit ein paar Tippfehler nicht den ganzen Saal aussperren.
+ */
+export function loginThrottled(scope: string, req: FastifyRequest, perMinute: number, perIp: number): boolean {
+  if (globalAttemptsExhausted(scope, perMinute)) return true;
+  return fromInternet(req) && tooManyFailures(scope, clientIp(req), perIp);
+}
+export function noteLoginFailure(scope: string, req: FastifyRequest, perMinute: number, perIp: number) {
+  spendAttempt(scope, perMinute);
+  if (fromInternet(req)) noteFailure(scope, clientIp(req), perIp);
 }
 
 export function sendJsonFile(reply: FastifyReply, filename: string, data: unknown) {
