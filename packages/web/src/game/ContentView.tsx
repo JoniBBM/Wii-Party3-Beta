@@ -3,7 +3,7 @@ import { CheckCircle2, Clock, Package, StickyNote, Users } from 'lucide-react';
 import { PLAYER_COUNT_LABEL, type ContentItem } from '@insel/shared';
 import { KindBadge } from '../ui/game.tsx';
 
-export function ContentView({ item, large, showSolution = true }: { item: ContentItem; large?: boolean; showSolution?: boolean }) {
+export function ContentView({ item, large, showSolution = true, hideNotes }: { item: ContentItem; large?: boolean; showSolution?: boolean; hideNotes?: boolean }) {
   const text = large ? 'text-xl leading-relaxed' : 'text-base';
   return (
     <div className="flex flex-col gap-3">
@@ -66,7 +66,7 @@ export function ContentView({ item, large, showSolution = true }: { item: Conten
           </span>
         </p>
       )}
-      {showSolution && item.notes && (
+      {showSolution && item.notes && !hideNotes && (
         <p className="flex items-start gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm">
           <StickyNote className="mt-0.5 size-4 shrink-0 text-warn" />
           <span>{item.notes}</span>

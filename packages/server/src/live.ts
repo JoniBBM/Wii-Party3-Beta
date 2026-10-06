@@ -294,7 +294,7 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
           io.emit('show:test', cmd.what);
           return reply({ ok: true });
         }
-        if (cmd.type === 'reload' || cmd.type === 'camera') {
+        if (cmd.type === 'reload' || cmd.type === 'camera' || cmd.type === 'speak') {
           io.emit('show:cmd', cmd);
           return reply({ ok: true });
         }

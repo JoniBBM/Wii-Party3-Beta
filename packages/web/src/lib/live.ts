@@ -49,9 +49,10 @@ export const useLive = create<LiveStore>(() => ({
   pairCode: null,
 }));
 
-const cmdListeners = new Set<(cmd: CameraCommand | { type: 'reload' }) => void>();
-/** Einmalige Fernbefehle der Regie an den Beamer (Kamera, Neu laden). */
-export function onShowCommand(fn: (cmd: CameraCommand | { type: 'reload' }) => void): () => void {
+type BeamerCommand = CameraCommand | { type: 'reload' } | { type: 'speak' };
+const cmdListeners = new Set<(cmd: BeamerCommand) => void>();
+/** Einmalige Fernbefehle der Regie an den Beamer (Kamera, Neu laden, Frage vorlesen). */
+export function onShowCommand(fn: (cmd: BeamerCommand) => void): () => void {
   cmdListeners.add(fn);
   return () => cmdListeners.delete(fn);
 }
@@ -112,7 +113,7 @@ export function connectLive(slot: TokenSlot | null, view: string) {
   s.on('show:test', (what: 'sound' | 'voice' | 'music') => {
     for (const fn of testListeners) fn(what);
   });
-  s.on('show:cmd', (cmd: CameraCommand | { type: 'reload' }) => {
+  s.on('show:cmd', (cmd: BeamerCommand) => {
     for (const fn of cmdListeners) fn(cmd);
   });
   s.on('beamers', (beamers: BeamerStats[]) => useLive.setState({ beamers }));

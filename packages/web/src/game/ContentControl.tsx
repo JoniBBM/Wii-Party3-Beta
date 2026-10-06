@@ -1,8 +1,9 @@
 /** Steuerung eines laufenden Inhalts: Start, Countdown, Antworten, Buzzer, Platzierung, Auflösung. */
 import { useEffect, useState } from 'react';
-import { Check, Eye, Flag, Lock, Pause, Play, RotateCcw, Square, Timer as TimerIcon, Trophy, X } from 'lucide-react';
+import { Check, Eye, Flag, Lock, Megaphone, Pause, Play, RotateCcw, Square, Timer as TimerIcon, Trophy, Volume2, X } from 'lucide-react';
 import { isQuestion, type ActiveContent, type GameState, type RankEntry } from '@insel/shared';
 import { useCommand, useServerNow } from '../lib/hooks.ts';
+import { sendShow } from '../lib/live.ts';
 import { Button } from '../ui/basics.tsx';
 import { Countdown, TeamChip } from '../ui/game.tsx';
 import { confirm } from '../ui/overlay.tsx';
@@ -19,7 +20,9 @@ export function ContentControl({ state, content, large }: { state: GameState; co
     <div className="flex flex-col gap-5">
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
-          <ContentView item={content.item} large={large} />
+          {stage === 'revealed' && content.item.notes && <ReadAloud text={content.item.notes} large={large} />}
+          <ContentView item={content.item} large={large} hideNotes={stage === 'revealed'} />
+          {content.item.audioUrl && <QuestionAudio />}
           {Object.keys(content.drawn).length > 0 && (
             <div>
               <p className="label">Ausgeloste Spieler</p>
@@ -365,6 +368,41 @@ function RankingPreview({ state, ranking }: { state: GameState; ranking: RankEnt
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Nach dem Auflösen: Erklärung groß zum Vorlesen (aus der Notiz des Inhalts). */
+function ReadAloud({ text, large }: { text: string; large?: boolean }) {
+  return (
+    <div className="rounded-3xl border-2 border-accent/40 bg-accent-soft px-4 py-3">
+      <p className="flex items-center gap-2 text-xs font-extrabold tracking-wide text-accent uppercase">
+        <Megaphone className="size-4" /> Zum Vorlesen
+      </p>
+      <p className={`mt-1 font-bold leading-snug text-ink ${large ? 'text-2xl' : 'text-lg'}`}>{text}</p>
+    </div>
+  );
+}
+
+/** Frage mit Sprachaufnahme: der Beamer liest vor – auf Wunsch nochmal. */
+function QuestionAudio() {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-bg-2 px-3 py-2">
+      <Volume2 className="size-5 text-accent" />
+      <span className="min-w-0 flex-1 text-sm font-bold text-ink-2">Der Beamer liest diese Frage vor.</span>
+      <Button
+        size="sm"
+        variant="soft"
+        loading={busy}
+        onClick={async () => {
+          setBusy(true);
+          await sendShow({ type: 'speak' });
+          setBusy(false);
+        }}
+      >
+        Nochmal vorlesen
+      </Button>
     </div>
   );
 }

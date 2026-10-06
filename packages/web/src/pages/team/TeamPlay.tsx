@@ -1,7 +1,7 @@
 /** Hauptansicht am Handy – je nach Phase: warten, antworten, buzzern, würfeln, Ergebnis. */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle2, Send, XCircle } from 'lucide-react';
+import { CheckCircle2, Send } from 'lucide-react';
 import {
   CONTENT_KIND_INFO,
   standings,
@@ -270,29 +270,62 @@ function Reveal({ content, teamId }: { content: ActiveContent; teamId: string })
   const a = content.answers[teamId];
   const correct = item.kind === 'buzzer' ? content.buzzJudged[teamId] === true : a?.correct === true;
   const rank = content.ranking?.find((r) => r.teamId === teamId)?.rank;
-  let solution = '';
-  if (item.kind === 'choice') solution = `${String.fromCharCode(65 + item.correctIndex)}: ${item.options[item.correctIndex] ?? ''}`;
-  if (item.kind === 'text') solution = item.answers.join(' / ');
-  if (item.kind === 'estimate') solution = `${Number(item.target).toLocaleString('de-DE')} ${item.unit}`;
-  if (item.kind === 'buzzer') solution = item.answer;
   const isEstimate = item.kind === 'estimate';
+  const won = isEstimate ? rank === 1 : correct;
+  // eigene Antwort und Lösung lesbar machen
+  const letter = (i: number) => String.fromCharCode(65 + i);
+  let solution = '';
+  let solLetter: number | null = null;
+  if (item.kind === 'choice') {
+    solution = item.options[item.correctIndex] ?? '';
+    solLetter = item.correctIndex;
+  }
+  if (item.kind === 'text') solution = item.answers.join(' / ');
+  if (item.kind === 'estimate') solution = `${Number(item.target).toLocaleString('de-DE')} ${item.unit}`.trim();
+  if (item.kind === 'buzzer') solution = item.answer;
+  let mine: string | null = null;
+  if (a && a.value !== '') {
+    if (item.kind === 'choice') mine = `${letter(Number(a.value))}: ${item.options[Number(a.value)] ?? ''}`;
+    else if (isEstimate) mine = `${Number(a.value).toLocaleString('de-DE')} ${item.kind === 'estimate' ? item.unit : ''}`.trim();
+    else mine = String(a.value);
+  }
+  const headline = isEstimate ? (rank === 1 ? 'Am nächsten dran!' : `Platz ${rank ?? '–'}`) : correct ? 'Richtig!' : a || item.kind === 'buzzer' ? 'Leider falsch' : 'Keine Antwort';
+  // kurzes Rütteln: Jubel bzw. Enttäuschung
+  useEffect(() => {
+    try {
+      // nur nach einem Tippen erlaubt (sonst meldet der Browser einen Fehler)
+      if (navigator.userActivation?.hasBeenActive !== false) navigator.vibrate?.(won ? [70, 50, 70, 50, 140] : [320]);
+    } catch {
+      /* nicht unterstützt */
+    }
+  }, [won]);
   return (
-    <Card className="flex flex-col items-center gap-3 p-6 text-center">
-      {isEstimate ? (
-        <span className="text-6xl">{rank === 1 ? '🎯' : '📏'}</span>
-      ) : correct ? (
-        <CheckCircle2 className="size-16 text-good" />
-      ) : (
-        <XCircle className="size-16 text-bad" />
-      )}
-      <p className="font-display text-2xl font-semibold">{isEstimate ? (rank === 1 ? 'Am nächsten dran!' : `Platz ${rank ?? '–'}`) : correct ? 'Richtig! 🎉' : a || item.kind === 'buzzer' ? 'Leider falsch' : 'Keine Antwort'}</p>
+    <div className="flex flex-col gap-3">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+        className={`flex flex-col items-center gap-2 rounded-[28px] px-6 py-7 text-center text-white shadow-lifted ${won ? 'bg-good' : isEstimate ? 'bg-accent' : 'bg-bad'}`}
+      >
+        <span className="text-6xl">{isEstimate ? (rank === 1 ? '🎯' : '📏') : correct ? '🎉' : a || item.kind === 'buzzer' ? '😬' : '🤷'}</span>
+        <p className="font-display text-4xl font-semibold">{headline}</p>
+        {isEstimate && mine && <p className="text-base font-bold text-white/90">Eure Schätzung: {mine}</p>}
+      </motion.div>
       {solution && (
-        <p className="rounded-2xl bg-good-soft px-4 py-2 font-bold">
-          Lösung: {solution}
-        </p>
+        <Card className="flex flex-col gap-2 p-5">
+          <p className="text-xs font-extrabold tracking-wide text-good uppercase">Richtige Antwort</p>
+          <div className="flex items-center gap-3">
+            {solLetter !== null && (
+              <span className="grid size-12 shrink-0 place-items-center rounded-full font-display text-2xl font-semibold text-white" style={{ background: OPTION_COLORS[solLetter % OPTION_COLORS.length] }}>
+                {letter(solLetter)}
+              </span>
+            )}
+            <p className="font-display text-2xl leading-tight font-semibold">{solution}</p>
+          </div>
+          {!won && !isEstimate && mine && <p className="text-sm font-bold text-muted">Eure Antwort: {mine}</p>}
+        </Card>
       )}
-      {isEstimate && a && <p className="text-sm text-muted">Eure Schätzung: {Number(a.value).toLocaleString('de-DE')}</p>}
-    </Card>
+    </div>
   );
 }
 

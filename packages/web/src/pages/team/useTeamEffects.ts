@@ -11,7 +11,7 @@ export const useTeamFx = create<{ lastDice: DiceEffect | null; turnPing: number 
 
 function vibrate(pattern: number | number[]) {
   try {
-    navigator.vibrate?.(pattern);
+    if (navigator.userActivation?.hasBeenActive !== false) navigator.vibrate?.(pattern);
   } catch {
     /* nicht unterstützt */
   }

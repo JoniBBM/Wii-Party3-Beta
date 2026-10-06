@@ -125,7 +125,7 @@ try {
   await regie.getByRole('button', { name: 'Auflösen' }).waitFor();
   await shot(beamer, 'beamer-frage');
   await regie.getByRole('button', { name: 'Auflösen' }).click();
-  await phones[0].getByText('Richtig').waitFor();
+  await phones[0].getByText('Richtig!', { exact: true }).waitFor();
   await shot(phones[0], 'handy-richtig');
   await shot(regie, 'regie-aufgeloest');
   await regie.getByRole('button', { name: 'Ergebnis zeigen' }).click();

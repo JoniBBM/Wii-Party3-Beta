@@ -181,6 +181,13 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
           window.location.reload();
           return;
         }
+        if (cmd.type === 'speak') {
+          // Frage nochmal vorlesen (nur mit Sprachaufnahme)
+          const st = useLive.getState().state;
+          const url = st?.phase.name === 'content' ? st.phase.content.item.audioUrl : null;
+          if (url) void boardAudio.say(url, { interrupt: true });
+          return;
+        }
         if (!scene) return;
         const rig = scene.rig;
         const HOLD = 60;

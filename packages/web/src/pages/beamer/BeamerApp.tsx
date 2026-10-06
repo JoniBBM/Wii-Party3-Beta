@@ -17,7 +17,7 @@ import { useTheme } from '../../lib/theme.ts';
 import { BoardCanvas } from './BoardCanvas.tsx';
 import { Explainer } from './Explainer.tsx';
 import { BeamerStatus, CaptionBanner, Ranking, TopBar } from './Hud.tsx';
-import { DiceBanner, PhaseOverlay, QuestionSpotlight, VictoryBanner } from './Overlays.tsx';
+import { DiceBanner, PhaseOverlay, QuestionSpotlight, RevealSpotlight, VictoryBanner } from './Overlays.tsx';
 import { PhotoBubbles } from './PhotoBubbles.tsx';
 import { useShowControl } from './useShowControl.ts';
 
@@ -120,6 +120,7 @@ export default function BeamerApp() {
         )}
         {state && !explaining && <PhaseOverlay state={state} />}
         {state && !explaining && <QuestionSpotlight state={state} />}
+        {state && !explaining && <RevealSpotlight state={state} />}
         {state && !explaining && <DiceBanner state={state} />}
         {state && !explaining && <VictoryBanner state={state} />}
         {!state && !explaining && (

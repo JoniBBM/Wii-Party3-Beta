@@ -254,6 +254,119 @@ export function QuestionSpotlight({ state }: { state: GameState }) {
   );
 }
 
+/** Was als richtig gilt – für die große Auflösung. */
+function solutionOf(item: ActiveContent['item']): { letter?: string; color?: string; text: string; also?: string } | null {
+  switch (item.kind) {
+    case 'choice':
+      return { letter: String.fromCharCode(65 + item.correctIndex), color: OPTION_COLORS[item.correctIndex % OPTION_COLORS.length], text: item.options[item.correctIndex] ?? '' };
+    case 'text':
+      return { text: item.answers[0] ?? '', also: item.answers.length > 1 ? item.answers.slice(1, 4).join(' · ') : undefined };
+    case 'estimate':
+      return { text: `${Number(item.target).toLocaleString('de-DE')}${item.unit ? ` ${item.unit}` : ''}` };
+    case 'buzzer':
+      return item.answer ? { text: item.answer } : null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Auflösung groß in der Bildmitte: die richtige Antwort und wer richtig lag (bei Schätzfragen:
+ * wer am nächsten dran war). Nach ein paar Sekunden wieder weg – die Tafel zeigt die Lösung weiter.
+ */
+export function RevealSpotlight({ state }: { state: GameState }) {
+  const p = state.phase;
+  const content = p.name === 'content' ? p.content : null;
+  const item = content?.item;
+  const key = content && item && item.kind !== 'game' && content.stage === 'revealed' ? item.id : null;
+  const [shown, setShown] = useState<string | null>(null);
+  const seen = useRef(new Set<string>());
+  useEffect(() => {
+    if (!key || seen.current.has(key)) return;
+    seen.current.add(key);
+    setShown(key);
+  }, [key]);
+  useEffect(() => {
+    if (!shown) return;
+    if (shown !== key) {
+      setShown(null);
+      return;
+    }
+    const t = window.setTimeout(() => setShown(null), 5800);
+    return () => window.clearTimeout(t);
+  }, [shown, key]);
+
+  const sol = item ? solutionOf(item) : null;
+  const visible = !!(shown && shown === key && content && item && sol);
+  let right: GameState['teams'] = [];
+  let note = '';
+  if (visible && content && item) {
+    if (item.kind === 'estimate') {
+      const best = (content.ranking ?? []).filter((r) => r.rank === 1).map((r) => teamById(state, r.teamId)).filter((t): t is GameState['teams'][number] => !!t);
+      right = best;
+      const a = best[0] ? content.answers[best[0].id] : undefined;
+      note = best.length ? `Am nächsten dran${a ? ` mit ${Number(a.value).toLocaleString('de-DE')}` : ''}` : 'Keine Schätzung abgegeben';
+    } else if (item.kind === 'buzzer') {
+      right = state.teams.filter((t) => content.buzzJudged[t.id] === true);
+      note = right.length ? 'Richtig beantwortet' : 'Niemand hatte die Lösung';
+    } else {
+      right = state.teams.filter((t) => content.answers[t.id]?.correct === true);
+      const answered = state.teams.filter((t) => content.answers[t.id]).length;
+      note = right.length === 0 ? (answered ? 'Diesmal lag kein Team richtig 😅' : 'Keine Antworten') : right.length === state.teams.length ? 'Alle Teams lagen richtig! 🎉' : 'Richtig lagen';
+    }
+  }
+  return (
+    <AnimatePresence>
+      {visible && sol && (
+        <motion.div key={`reveal-${shown}`} className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-[8vw]">
+          <motion.div
+            className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(10,40,25,0.42),rgba(10,30,20,0.16))]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.35 } }}
+            exit={{ opacity: 0, transition: { duration: 0.5 } }}
+          />
+          <motion.div
+            initial={{ scale: 0.6, opacity: 0, y: 30 }}
+            animate={{ scale: 1, opacity: 1, y: 0, transition: { type: 'spring', stiffness: 240, damping: 20 } }}
+            exit={{ scale: 0.9, opacity: 0, y: -20, transition: { duration: 0.45 } }}
+            className="relative flex max-w-[80rem] flex-col items-center gap-6 rounded-[2.6rem] bg-white/95 px-14 py-10 text-center shadow-lifted ring-4 ring-good/60"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full bg-good px-6 py-2 font-display text-3xl font-semibold text-white">✅ Richtig ist</span>
+            <div className="flex items-center gap-6">
+              {sol.letter && (
+                <span className="grid size-28 shrink-0 place-items-center rounded-full font-display text-7xl font-semibold text-white shadow-lifted" style={{ background: sol.color }}>
+                  {sol.letter}
+                </span>
+              )}
+              <p className="font-display text-[4.6rem] leading-[1.05] font-semibold text-balance text-ink">{sol.text}</p>
+            </div>
+            {sol.also && <p className="text-2xl font-bold text-ink-2">Auch richtig: {sol.also}</p>}
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-2xl font-bold text-ink-2">{note}</p>
+              {right.length > 0 && (
+                <div className="flex max-w-[70rem] flex-wrap justify-center gap-3">
+                  {right.map((t) => (
+                    <motion.span
+                      key={t.id}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.5, type: 'spring', stiffness: 400, damping: 18 }}
+                      className="inline-flex items-center gap-2 rounded-full px-5 py-2 font-display text-3xl font-semibold text-white shadow"
+                      style={{ background: teamColor(t.color).hex }}
+                    >
+                      {t.name}
+                    </motion.span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function ContentPanel({ state, content }: { state: GameState; content: ActiveContent }) {
   const item = content.item;
   const spot = useSpotlight((s) => s.id) === item.id;

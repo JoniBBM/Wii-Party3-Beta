@@ -1,10 +1,11 @@
 /** Moderator: Vorlese- und Steueransicht fürs Handy/Tablet der Person auf der Bühne. */
 import { useState } from 'react';
-import { ChevronDown, Moon, Sun } from 'lucide-react';
+import { ChevronDown, Moon, SunMedium, Sun } from 'lucide-react';
 import { useLibrarySync } from '../../lib/library.ts';
 import { useLive, useLiveConnection } from '../../lib/live.ts';
 import { useSystemSync } from '../../lib/system.ts';
 import { useTheme } from '../../lib/theme.ts';
+import { useWakeLock } from '../../lib/wakeLock.ts';
 import { EmptyState, IconButton, Spinner } from '../../ui/basics.tsx';
 import { ConnectionDot } from '../../ui/game.tsx';
 import { StaffGate } from '../../game/StaffLogin.tsx';
@@ -27,6 +28,8 @@ function ModeratorShell({ dark, toggle }: { dark: boolean; toggle: (dark: boolea
   useSystemSync('moderator');
   const { state, status, received, appName } = useLive();
   const [showRanking, setShowRanking] = useState(false);
+  // Bildschirm bleibt an, solange ein Spiel läuft (sonst geht das Handy auf der Bühne aus)
+  const awake = useWakeLock(!!state && state.status !== 'finished');
   return (
     <div className="min-h-dvh bg-bg">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-surface/90 px-4 py-2.5 backdrop-blur">
@@ -35,6 +38,11 @@ function ModeratorShell({ dark, toggle }: { dark: boolean; toggle: (dark: boolea
           <p className="truncate font-display text-lg font-semibold leading-tight">{state?.config.name ?? appName}</p>
           <ConnectionDot status={status} />
         </div>
+        {awake && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-good-soft px-2 py-1 text-xs font-bold text-good" title="Der Bildschirm geht während des Spiels nicht aus">
+            <SunMedium className="size-3.5" /> bleibt an
+          </span>
+        )}
         <IconButton label="Design wechseln" onClick={() => toggle(dark)}>
           {dark ? <Sun className="size-5" /> : <Moon className="size-5" />}
         </IconButton>

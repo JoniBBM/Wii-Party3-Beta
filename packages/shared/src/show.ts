@@ -159,6 +159,8 @@ export const showCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('test'), what: z.enum(['sound', 'voice', 'music']) }),
   /** Beamer-Seite neu laden. */
   z.object({ type: z.literal('reload') }),
+  /** Aktuelle Frage nochmal vorlesen (Sprachaufnahme der Frage). */
+  z.object({ type: z.literal('speak') }),
   /** Kamera fernsteuern: feste Einstellung, Schubsen (drehen/zoomen/schieben) oder zurück zur Automatik. */
   z.object({
     type: z.literal('camera'),
