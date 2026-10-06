@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 
 if [ "${1:-}" = "beamer" ]; then
   PORT=$(grep -E '^HOST_PORT=' .env 2>/dev/null | cut -d= -f2 || true)
-  URL="${2:-http://localhost:${PORT:-8080}/beamer}"
+  URL="${2:-http://localhost:${PORT:-9534}/beamer}"
   # Beamer gleich freigeben: Zugang im laufenden Container erzeugen (das Passwort bleibt dort).
   # Klappt das nicht (z. B. anderer Rechner), zeigt der Beamer einen Code für die Regie.
   if [ -z "${2:-}" ] && [ -n "$(docker compose ps -q --status running insel 2>/dev/null)" ]; then
@@ -101,7 +101,7 @@ if [ -z "$HOST_IP" ] && command -v hostname >/dev/null 2>&1; then
 fi
 export HOST_IP
 PORT=$(grep -E '^HOST_PORT=' .env 2>/dev/null | cut -d= -f2 || true)
-export HOST_PORT=${PORT:-8080}
+export HOST_PORT=${PORT:-9534}
 
 # (kein Array: die Bash 3.2 von macOS kennt leere Arrays mit `set -u` nicht)
 PROFILE=""

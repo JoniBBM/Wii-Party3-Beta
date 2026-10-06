@@ -27,7 +27,7 @@ Ohne Skript geht es auch direkt mit `docker compose up -d --build` (dann ggf. `H
 | `ADMIN_PASSWORD` | Passwort der Regie (Pflicht, mindestens 10 Zeichen – sonst kein Internet-Betrieb). |
 | `MODERATOR_PASSWORD` | Optionales eigenes Passwort für Moderatoren. Sonst Regie-Passwort oder QR-Link. |
 | `AUTH_DISABLED` | `true` = Regie/Moderator ohne Passwort (nur zum Testen im WLAN – übers Internet gesperrt). |
-| `HOST_PORT` | Port auf dem Rechner (Standard 8080). |
+| `HOST_PORT` | Port auf dem Rechner (Standard 9534; im Container intern 8080). |
 | `HOST_IP` | WLAN-Adresse für QR-Codes (setzt `start.sh` automatisch). |
 | `PUBLIC_URL` | Feste öffentliche Adresse, wenn auf einem Server mit Domain betrieben. |
 | `APP_SECRET` | Schlüssel für Sitzungen. Leer = wird automatisch in `data/.secret` erzeugt. |
@@ -35,11 +35,11 @@ Ohne Skript geht es auch direkt mit `docker compose up -d --build` (dann ggf. `H
 
 ## Netzwerk: Wie kommen die Handys aufs Spiel?
 
-**Im WLAN (Standard):** Laptop und Handys im selben WLAN. Die Beitritts-Adresse lautet z. B. `http://192.168.178.20:8080`. Sie steckt in allen QR-Codes.
+**Im WLAN (Standard):** Laptop und Handys im selben WLAN. Die Beitritts-Adresse lautet z. B. `http://192.168.178.20:9534`. Sie steckt in allen QR-Codes.
 
 - Gäste-WLANs blockieren oft Verbindungen zwischen Geräten („Client-Isolation“). Dann einen eigenen Router/Hotspot verwenden oder den Online-Modus nutzen.
 - Ein Handy-Hotspot des Laptops funktioniert ebenfalls.
-- Hinweis: Der Port **5000** ist auf macOS vom AirPlay-Empfänger belegt – deshalb verwendet das Spiel 8080.
+- Hinweis: Der Port **5000** ist auf macOS vom AirPlay-Empfänger belegt – deshalb verwendet das Spiel 9534.
 
 **Online (`./start.sh online`):** Zusätzlich startet ein kostenloser **Cloudflare Quick Tunnel** (kein Konto nötig). Er erzeugt eine zufällige Adresse wie `https://abc-def.trycloudflare.com`, die in *Einstellungen → Beitritts-Adresse* erscheint und dort ausgewählt werden kann. Vorteile: Handys brauchen kein WLAN, und durch HTTPS gibt es keine Browser-Warnungen. Die Adresse ändert sich bei jedem Start.
 
@@ -102,7 +102,7 @@ Alles liegt im Ordner **`data/`** neben dem Projekt:
 | Problem | Ursache / Lösung |
 |---|---|
 | `./start.sh`: „Docker läuft nicht“ | Docker Desktop starten. |
-| Seite lädt nicht unter `localhost:8080` | `./start.sh logs` ansehen; anderer Dienst auf Port 8080? → `HOST_PORT` in `.env` ändern. |
+| Seite lädt nicht unter `localhost:9534` | `./start.sh logs` ansehen; anderer Dienst auf Port 9534? → `HOST_PORT` in `.env` ändern. |
 | Handys erreichen die Adresse nicht | Gleiches WLAN? Client-Isolation? Firewall des Macs (Systemeinstellungen → Netzwerk → Firewall: Docker erlauben)? Sonst `./start.sh online`. |
 | Regie-Login „Es ist kein ADMIN_PASSWORD gesetzt“ | `.env` anlegen/ergänzen und neu starten. |
 | `./start.sh online`: „Passwort zu kurz oder Standardpasswort“ | In `.env` ein `ADMIN_PASSWORD` mit mindestens 10 Zeichen setzen. |

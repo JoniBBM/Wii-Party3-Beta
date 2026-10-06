@@ -7,7 +7,7 @@ services:
     container_name: insel
     restart: unless-stopped
     ports:
-      - "${HOST_PORT:-8080}:8080"
+      - "${HOST_PORT:-9534}:8080"
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Bitte ADMIN_PASSWORD in der Datei .env setzen}
       MODERATOR_PASSWORD: ${MODERATOR_PASSWORD:-}
@@ -16,7 +16,7 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       # Vom Startskript gesetzt, damit QR-Codes die WLAN-Adresse des Rechners enthalten
       HOST_IP: ${HOST_IP:-}
-      HOST_PORT: ${HOST_PORT:-8080}
+      HOST_PORT: ${HOST_PORT:-9534}
       TUNNEL_METRICS: http://tunnel:2000
       # ./start.sh online setzt das: dann startet der Server nur mit sicherem Passwort
       INSEL_ONLINE: ${INSEL_ONLINE:-false}

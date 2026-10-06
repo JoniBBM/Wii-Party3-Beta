@@ -53,8 +53,8 @@ cp .env.example .env        # dann ADMIN_PASSWORD in .env setzen
 
 Danach:
 
-1. **Regie** öffnen (`http://localhost:8080/regie`) und ein Spiel anlegen.
-2. **Beamer** öffnen: `./start.sh beamer` (Kiosk mit Vollbild und Ton) oder `http://localhost:8080/beamer` und einmal hineinklicken – dort erscheint der QR-Code zum Mitspielen.
+1. **Regie** öffnen (`http://localhost:9534/regie`) und ein Spiel anlegen.
+2. **Beamer** öffnen: `./start.sh beamer` (Kiosk mit Vollbild und Ton) oder `http://localhost:9534/beamer` und einmal hineinklicken – dort erscheint der QR-Code zum Mitspielen.
 3. Handys scannen den QR-Code (gleiches WLAN), Teams bilden, **Spiel starten**.
 
 Für Zugriff übers Internet (z. B. Handys mit mobilen Daten): `./start.sh online` – siehe [Betrieb](docs/betrieb.md).
