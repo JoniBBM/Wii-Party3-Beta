@@ -14,6 +14,7 @@ import { libraryRoutes } from './http/library-routes.ts';
 import { mediaRoutes } from './http/media-routes.ts';
 import { systemRoutes } from './http/system-routes.ts';
 import { createLive } from './live.ts';
+import { isTrustedProxy, trustWarning } from './net.ts';
 import { GameRuntime } from './runtime.ts';
 import { seedExtras, seedIfEmpty } from './seed.ts';
 
@@ -23,13 +24,9 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
     // Anfragen werden auf Info-Ebene protokolliert – im Betrieb nur Warnungen und Fehler
     logger: opts.quiet ? false : { level: process.env.LOG_LEVEL ?? 'warn' },
     bodyLimit: 2 * 1024 * 1024,
-    // Weitergeleitete Adressen nur von lokalen Proxys glauben: Entwicklungs-Proxy (localhost) und
-    // Tunnel im Docker-Netz – aber nicht dem Docker-Gateway (.1), über das Geräte im WLAN kommen.
-    trustProxy: (address: string) => {
-      const a = address.replace(/^::ffff:/, '');
-      if (a === '127.0.0.1' || a === '::1') return !config.isProduction;
-      return /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(a) && !a.endsWith('.1');
-    },
+    // Weitergeleitete Adressen nur von eigenen Proxys glauben (Tunnel/Proxy im Docker-Netz, TRUST_PROXY)
+    // – nicht dem Docker-Gateway (.1), über das Geräte im WLAN und direkte Port-Zugriffe kommen.
+    trustProxy: (address: string) => isTrustedProxy(address),
   });
 
   // Sicherheits-Header für alle Antworten
@@ -127,6 +124,8 @@ if (isMain) {
   } else if (security.weakAdminPassword) {
     console.warn('⚠️  Das Regie-Passwort ist unsicher (zu kurz oder öffentlich bekannt). Bitte in .env ändern!');
   }
+  const trust = trustWarning();
+  if (trust) console.warn(trust);
   for (const sig of ['SIGINT', 'SIGTERM'] as const) {
     process.on(sig, () => {
       void server.close().finally(() => process.exit(0));

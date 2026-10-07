@@ -24,7 +24,7 @@ Testteams, alte Spielstände und Ereignisse wurden bewusst **nicht** übernommen
 | Spielfeld | Verteilung teils zufällig, konnte sich mitten im Spiel ändern | deterministisch, im Editor sichtbar und änderbar |
 | 3D-Insel | stufige „Torte“, keine Anzeige, Teamfarben unsichtbar | Insel mit Strand, Dschungel, Fluss, Klippen, Vulkan; HUD; Würfel; Effekte |
 | Figuren | Charakter-Dateien fehlten (404) | Mii-artige Figuren mit Editor, Teamfarbe auf dem Shirt |
-| Team-Login | Teamname + Klartext-Passwort (öffentlich abrufbar) | QR-Code oder 4-stellige PIN, signierte Tokens |
+| Team-Login | Teamname + Klartext-Passwort (öffentlich abrufbar) | QR-Code oder 6-stellige PIN, signierte Tokens |
 | Moderation | nur lesen, Lösungen öffentlich abrufbar | Moderator kann steuern; Lösungen nur für Regie/Moderator |
 | Fehler korrigieren | – | Rückgängig (40 Schritte), Position/Bonus korrigieren |
 | Inhalte | Ordner-JSON + Datenbank gemischt | Bibliothek in der Datenbank, Import/Export |

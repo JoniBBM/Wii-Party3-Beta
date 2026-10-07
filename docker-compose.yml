@@ -7,7 +7,9 @@ services:
     container_name: insel
     restart: unless-stopped
     ports:
-      - "${HOST_PORT:-9534}:8080"
+      # Standard: nur auf diesem Rechner erreichbar (sicher auf Servern – Docker umgeht sonst die
+      # Firewall). ./start.sh setzt für den WLAN-Betrieb HOST_BIND=0.0.0.0, damit Handys rankommen.
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-9534}:8080"
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Bitte ADMIN_PASSWORD in der Datei .env setzen}
       MODERATOR_PASSWORD: ${MODERATOR_PASSWORD:-}
@@ -17,6 +19,9 @@ services:
       # Vom Startskript gesetzt, damit QR-Codes die WLAN-Adresse des Rechners enthalten
       HOST_IP: ${HOST_IP:-}
       HOST_PORT: ${HOST_PORT:-9534}
+      HOST_BIND: ${HOST_BIND:-127.0.0.1}
+      # Eigener cloudflared direkt auf dem Server (nicht im Docker-Netz): siehe docs/betrieb.md
+      TRUST_PROXY: ${TRUST_PROXY:-}
       TUNNEL_METRICS: http://tunnel:2000
       # ./start.sh online setzt das: dann startet der Server nur mit sicherem Passwort
       INSEL_ONLINE: ${INSEL_ONLINE:-false}
@@ -35,6 +40,14 @@ services:
       - CHOWN
       - SETUID
       - SETGID
+    # Auf einem geteilten Server (z. B. neben Nextcloud): Speicher, Prozesse und Protokolle begrenzen
+    mem_limit: 1g
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Nur mit Profil „online“: öffentliche HTTPS-Adresse ohne Konto (trycloudflare.com)
   tunnel:
@@ -48,5 +61,12 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    mem_limit: 256m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       - insel

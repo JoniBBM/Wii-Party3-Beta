@@ -158,7 +158,7 @@ function PadButton({ label, onPress, children }: { label: string; onPress: () =>
 }
 
 /**
- * Neuen Beamer freigeben: Ein Beamer ohne Zugang zeigt einen vierstelligen Code – erst nach
+ * Neuen Beamer freigeben: Ein Beamer ohne Zugang zeigt einen sechsstelligen Code – erst nach
  * der Freigabe sieht er Fotos, Beitritts-Adressen und Spielverlauf.
  */
 function PairBeamer() {
@@ -166,7 +166,7 @@ function PairBeamer() {
   const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!/^\d{4}$/.test(code)) return;
+    if (!/^\d{6}$/.test(code)) return;
     setBusy(true);
     const r = await pairBeamer(code);
     setBusy(false);
@@ -182,14 +182,14 @@ function PairBeamer() {
       </label>
       <input
         id="beamer-pair"
-        className="field h-10 w-28 text-center font-mono text-lg tracking-[0.3em]"
+        className="field h-10 w-36 text-center font-mono text-lg tracking-[0.25em]"
         inputMode="numeric"
         autoComplete="off"
-        placeholder="0000"
+        placeholder="000000"
         value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
       />
-      <Button type="submit" size="sm" variant="primary" loading={busy} disabled={code.length !== 4}>
+      <Button type="submit" size="sm" variant="primary" loading={busy} disabled={code.length !== 6}>
         Freigeben
       </Button>
     </form>

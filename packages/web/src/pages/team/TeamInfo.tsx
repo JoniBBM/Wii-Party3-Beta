@@ -88,7 +88,7 @@ export function TeamInfo({ state, me }: { state: GameState; me: Me }) {
         <p className="text-sm text-ink-2">
           Auf der Startseite „Mitspielen“ → „Team-PIN“ und diese PIN eingeben:
         </p>
-        <p className="mt-2 text-center font-mono text-4xl font-bold tracking-[0.35em]">{team.pin || '••••'}</p>
+        <p className="mt-2 text-center font-mono text-4xl font-bold tracking-[0.25em]">{team.pin || '••••••'}</p>
       </Card>
 
       <Card className="p-4">

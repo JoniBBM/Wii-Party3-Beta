@@ -50,7 +50,9 @@ export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
   }
 
   app.post('/api/media/photo', async (req) => {
-    if (rateLimited(`photo:${clientIp(req)}`, 30)) throw new HttpError(429, 'Zu viele Fotos – bitte kurz warten');
+    // je Adresse großzügig: hinter dem WLAN der Location laden alle Gäste über eine Adresse hoch
+    // (je Spieler gilt unten eine enge Grenze, die Bildverarbeitung ist ohnehin auf 2 gleichzeitig begrenzt)
+    if (rateLimited(`photo:${clientIp(req)}`, 120)) throw new HttpError(429, 'Zu viele Fotos – bitte kurz warten');
     const file = await req.file({ limits: { fileSize: MAX_BYTES, files: 1, fields: 4 } });
     if (!file) throw new HttpError(400, 'Kein Foto empfangen');
     const fields = file.fields as Record<string, { value?: string } | undefined>;

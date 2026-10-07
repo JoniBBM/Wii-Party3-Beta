@@ -60,6 +60,14 @@ export const config = {
   tunnelMetrics: env.TUNNEL_METRICS ?? '',
   /** Öffentlich erreichbar (./start.sh online setzt INSEL_ONLINE) – dann gelten strengere Regeln. */
   online: bool(env.INSEL_ONLINE) || !!env.PUBLIC_URL,
+  /**
+   * Zusätzliche vertrauenswürdige Vorschaltserver (IP-Adressen oder IPv4-Bereiche, kommagetrennt),
+   * z. B. ein cloudflared direkt auf dem Server: TRUST_PROXY=172.16.0.0/12. Nur von dort werden
+   * Cf-Connecting-Ip / X-Forwarded-For geglaubt.
+   */
+  trustProxy: env.TRUST_PROXY ?? '',
+  /** Adresse, an die Docker den Port bindet (HOST_BIND aus .env; nur für Warnhinweise). */
+  hostBind: env.HOST_BIND ?? '',
   version: '2.0.0',
   isProduction: env.NODE_ENV === 'production',
 };

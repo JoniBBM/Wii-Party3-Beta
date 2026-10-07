@@ -66,7 +66,8 @@ if [ ! -f .env ]; then
 fi
 
 # Wert aus .env lesen (ohne Anführungszeichen)
-envval() { grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- | sed -e 's/^["'"'"']//' -e 's/["'"'"']$//'; }
+# (fehlt der Eintrag, kommt ein leerer Wert – kein Abbruch durch set -e/pipefail)
+envval() { { grep -E "^$1=" .env 2>/dev/null || true; } | tail -1 | cut -d= -f2- | sed -e 's/^["'"'"']//' -e 's/["'"'"']$//'; }
 
 if [ "${1:-}" = "online" ]; then
   # Übers Internet nur mit sicherem Passwort und nie ohne Anmeldung
@@ -102,6 +103,10 @@ fi
 export HOST_IP
 PORT=$(grep -E '^HOST_PORT=' .env 2>/dev/null | cut -d= -f2 || true)
 export HOST_PORT=${PORT:-9534}
+# Party-Laptop: Port fürs WLAN öffnen, damit Handys rankommen. Auf einem Server in .env
+# HOST_BIND=127.0.0.1 eintragen – dann bleibt er nur lokal (Zugriff nur über den Tunnel).
+BIND="$(envval HOST_BIND)"
+export HOST_BIND=${BIND:-0.0.0.0}
 
 # (kein Array: die Bash 3.2 von macOS kennt leere Arrays mit `set -u` nicht)
 PROFILE=""

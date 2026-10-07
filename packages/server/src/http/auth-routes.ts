@@ -5,7 +5,31 @@ import { EngineError, teamColor } from '@insel/shared';
 import { checkPassword, issueToken, rateLimited, staffKey, teamKey } from '../auth.ts';
 import { config, security } from '../config.ts';
 import type { GameRuntime } from '../runtime.ts';
-import { clientIp, fromInternet, HttpError, loginThrottled, noteLoginFailure, requireRole, sessionOf, ADMIN } from './common.ts';
+import {
+  clientIp,
+  fromInternet,
+  HttpError,
+  loginThrottled,
+  noteLoginFailure,
+  noteLoginSuccess,
+  requireRole,
+  sessionOf,
+  ADMIN,
+  type LoginLimits,
+} from './common.ts';
+
+/**
+ * Grenzen für Fehlversuche. Passwörter sind lang (mind. 10 Zeichen) – da reicht die Minute.
+ * Team-PINs sind kurz: zusätzlich höchstens 100 Fehlversuche je Stunde für alle zusammen.
+ * Team-Codes aus dem QR-Code sind unerratbar (144 Bit) – kein globaler Eimer, sonst könnte jemand
+ * mit Unsinn-Codes alle QR-Beitritte blockieren.
+ */
+const LIMITS = {
+  admin: { perMinute: 15, perIp: 8 },
+  mod: { perMinute: 15, perIp: 8 },
+  pin: { perMinute: 20, perHour: 100, perIp: 10 },
+  link: { perMinute: 30, perIp: 20, global: false },
+} satisfies Record<string, LoginLimits>;
 
 const INSECURE_ONLINE = 'Anmeldung übers Internet gesperrt: Das Passwort ist zu schwach oder öffentlich bekannt. Bitte in .env ein sicheres Passwort setzen (mindestens 10 Zeichen) und neu starten.';
 
@@ -14,29 +38,31 @@ export function authRoutes(app: FastifyInstance, runtime: GameRuntime) {
     const body = z.object({ password: z.string().max(200).default('') }).parse(req.body ?? {});
     // übers Internet nur mit sicherem Passwort (auch wenn jemand den Tunnel von Hand startet)
     if (fromInternet(req) && (config.authDisabled || security.weakAdminPassword)) throw new HttpError(403, INSECURE_ONLINE);
-    if (loginThrottled('admin', req, 15, 8)) throw new HttpError(429, 'Zu viele Fehlversuche – bitte etwas warten');
+    if (loginThrottled('admin', req, LIMITS.admin)) throw new HttpError(429, 'Zu viele Fehlversuche – bitte etwas warten');
     if (!config.authDisabled) {
       if (!config.adminPassword) throw new HttpError(500, 'Es ist kein ADMIN_PASSWORD gesetzt (siehe .env)');
       if (!checkPassword(body.password, config.adminPassword)) {
-        noteLoginFailure('admin', req, 15, 8);
+        noteLoginFailure('admin', req, LIMITS.admin);
         throw new HttpError(401, 'Falsches Passwort');
       }
     }
+    noteLoginSuccess(req);
     return { token: issueToken({ role: 'admin', key: staffKey() }) };
   });
 
   app.post('/api/auth/moderator', async (req) => {
     const body = z.object({ password: z.string().max(200).default('') }).parse(req.body ?? {});
     if (fromInternet(req) && (config.authDisabled || security.weakAdminPassword || security.weakModeratorPassword)) throw new HttpError(403, INSECURE_ONLINE);
-    if (loginThrottled('mod', req, 15, 8)) throw new HttpError(429, 'Zu viele Fehlversuche – bitte etwas warten');
+    if (loginThrottled('mod', req, LIMITS.mod)) throw new HttpError(429, 'Zu viele Fehlversuche – bitte etwas warten');
     const ok =
       config.authDisabled ||
       (config.moderatorPassword && checkPassword(body.password, config.moderatorPassword)) ||
       (config.adminPassword && checkPassword(body.password, config.adminPassword));
     if (!ok) {
-      noteLoginFailure('mod', req, 15, 8);
+      noteLoginFailure('mod', req, LIMITS.mod);
       throw new HttpError(401, 'Falsches Passwort');
     }
+    noteLoginSuccess(req);
     return { token: issueToken({ role: 'moderator', key: staffKey() }) };
   });
 
@@ -53,29 +79,33 @@ export function authRoutes(app: FastifyInstance, runtime: GameRuntime) {
   });
 
   app.post('/api/auth/pin', async (req) => {
-    const body = z.object({ pin: z.string().trim().regex(/^\d{4}$/, 'Die PIN hat 4 Ziffern') }).parse(req.body);
-    // 25 falsche PINs/min bremsen das Raten (auch bei IP-Wechsel) – richtige PINs nie
-    if (loginThrottled('pin', req, 25, 10)) throw new HttpError(429, 'Zu viele falsche PINs – bitte etwas warten');
+    // neue PINs haben 6 Ziffern, ältere Spielstände noch 4
+    const body = z.object({ pin: z.string().trim().regex(/^(\d{4}|\d{6})$/, 'Die PIN hat 6 Ziffern') }).parse(req.body);
+    if (loginThrottled('pin', req, LIMITS.pin)) {
+      throw new HttpError(429, 'Gerade zu viele falsche PINs – bitte etwas warten oder den QR-Code des Teams scannen');
+    }
     const state = runtime.state;
     const team = state?.teams.find((t) => t.pin === body.pin);
     if (!state || !team) {
-      noteLoginFailure('pin', req, 25, 10);
+      noteLoginFailure('pin', req, LIMITS.pin);
       throw new HttpError(404, 'Diese PIN gibt es nicht');
     }
+    noteLoginSuccess(req);
     return { token: issueToken({ role: 'team', gameId: state.id, teamId: team.id, key: teamKey(team.joinToken) }), teamName: team.name };
   });
 
   /** Beitritt per Team-QR-Code: /join/t#c=<teamId>.<joinToken> (ältere Codes: /join/t/<…>) */
   app.post('/api/auth/team-link', async (req) => {
     const body = z.object({ code: z.string().max(200) }).parse(req.body);
-    if (loginThrottled('link', req, 30, 20)) throw new HttpError(429, 'Zu viele ungültige Codes – bitte etwas warten');
+    if (loginThrottled('link', req, LIMITS.link)) throw new HttpError(429, 'Zu viele ungültige Codes – bitte etwas warten');
     const [teamId, secret] = body.code.split('.');
     const state = runtime.state;
     const team = state?.teams.find((t) => t.id === teamId);
     if (!state || !team || !secret || !checkPassword(secret, team.joinToken)) {
-      noteLoginFailure('link', req, 30, 20);
+      noteLoginFailure('link', req, LIMITS.link);
       throw new HttpError(404, 'Dieser Team-Code ist nicht (mehr) gültig');
     }
+    noteLoginSuccess(req);
     return { token: issueToken({ role: 'team', gameId: state.id, teamId: team.id, key: teamKey(team.joinToken) }), teamName: team.name };
   });
 

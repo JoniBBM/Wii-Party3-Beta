@@ -3,6 +3,7 @@
  * gefiltert auf das, was seine Rolle sehen darf – plus die Effekte für Animationen.
  */
 import type { Server as HttpServer } from 'node:http';
+import { randomInt } from 'node:crypto';
 import { Server, type Socket } from 'socket.io';
 import { z } from 'zod';
 import {
@@ -22,6 +23,7 @@ import {
 } from '@insel/shared';
 import { issueToken, staffKey, teamKey, verifyToken } from './auth.ts';
 import { config } from './config.ts';
+import { clientAddress, ipKey } from './net.ts';
 import { getSettings, setSettings, type DB } from './db.ts';
 import type { GameRuntime } from './runtime.ts';
 
@@ -102,23 +104,19 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
   // ---------------------------------------------------------------------------
   // Schutz vor Überflutung: Verbindungen je Adresse, Nachrichten je Verbindung
   // ---------------------------------------------------------------------------
-  // Verbindungsgrenze je Adresse: online (echte IP je Gerät, cf-connecting-ip) streng; im WLAN
-  // kommen alle Geräte über dieselbe Docker-Gateway-Adresse – dort großzügig für eine ganze Party.
-  const MAX_CONN_PER_DEVICE = 12;
-  const MAX_CONN_SHARED = 500;
+  // Verbindungsgrenzen: je Absenderadresse großzügig – im WLAN (Docker-Gateway) und hinter dem
+  // Internetanschluss der Location kommen alle Gäste über eine Adresse (höchstens 200 Spieler).
+  // Insgesamt begrenzt gegen Überflutung. Regie, Moderator und freigegebene Beamer zählen nicht
+  // mit: Die Spielleitung kommt immer rein, auch wenn jemand den Server zuschüttet.
+  const MAX_CONN_PER_ADDRESS = 400;
+  const MAX_CONN_TOTAL = 3000;
   const RATE = 12; // Nachrichten je Sekunde (Dauer)
   const BURST = 40; // kurzfristig mehr erlaubt
   const perIp = new Map<string, number>();
-  /** Echte Client-Adresse: hinter dem Tunnel (Docker-Netz, nicht das Gateway) zählt Cf-Connecting-Ip. */
+  let totalConn = 0;
+  /** Absender (echte Adresse nur über den eigenen Tunnel/Proxy, siehe net.ts), IPv6 je /64. */
   function socketIp(socket: Socket): string {
-    const addr = socket.handshake.address.replace(/^::ffff:/, '');
-    const cf = socket.handshake.headers['cf-connecting-ip'];
-    const fromTunnel = /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(addr) && !addr.endsWith('.1');
-    return fromTunnel && typeof cf === 'string' ? cf : addr;
-  }
-  /** Lässt sich das Gerät von anderen unterscheiden? Nur online (echte IP je Gerät). */
-  function distinctDevice(socket: Socket): boolean {
-    return config.online || typeof socket.handshake.headers['cf-connecting-ip'] === 'string';
+    return ipKey(clientAddress(socket.handshake.address, socket.handshake.headers).ip);
   }
   /** Darf diese Verbindung gerade noch etwas senden? (Token-Eimer) */
   function allow(socket: LiveSocket, cost = 1): boolean {
@@ -133,12 +131,16 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
   const BUSY: Ack = { ok: false, error: 'Zu viele Anfragen – bitte kurz warten', code: 'busy' };
   io.use((socket, next) => {
     const ip = socketIp(socket);
-    const cap = distinctDevice(socket) ? MAX_CONN_PER_DEVICE : MAX_CONN_SHARED;
-    const n = perIp.get(ip) ?? 0;
-    if (n >= cap) return next(new Error('Zu viele Verbindungen von dieser Adresse'));
-    perIp.set(ip, n + 1);
     (socket as LiveSocket).data.ip = ip;
+    const auth = (socket.handshake.auth ?? {}) as { token?: unknown };
+    const role = resolveSession(verifyToken(typeof auth.token === 'string' ? auth.token : null), runtime.state, 'guest').role;
+    if (isPrivileged(role) || role === 'beamer') return next();
+    const n = perIp.get(ip) ?? 0;
+    if (n >= MAX_CONN_PER_ADDRESS || totalConn >= MAX_CONN_TOTAL) return next(new Error('Zu viele Verbindungen – bitte gleich noch einmal versuchen'));
+    perIp.set(ip, n + 1);
+    totalConn++;
     socket.on('disconnect', () => {
+      totalConn--;
       const c = (perIp.get(ip) ?? 1) - 1;
       if (c <= 0) perIp.delete(ip);
       else perIp.set(ip, c);
@@ -155,10 +157,11 @@ export function createLive(httpServer: HttpServer, runtime: GameRuntime, databas
       return;
     }
     if (!socket.data.pairCode) {
-      // begrenzte Zahl von Versuchen: viele offene Beamer sollen den Server nicht blockieren
+      // 6 Ziffern aus dem Zufallsgenerator für Schlüssel; höchstens 300 wartende Beamer. So trifft
+      // ein Tippfehler in der Regie praktisch nie den Beamer eines Fremden (< 0,04 %).
       let code = '';
-      for (let i = 0; i < 30 && (!code || pairCodes.has(code)); i++) code = String(1000 + Math.floor(Math.random() * 9000));
-      if (pairCodes.has(code) || pairCodes.size >= 2000) {
+      for (let i = 0; i < 30 && (!code || pairCodes.has(code)); i++) code = String(randomInt(100_000, 1_000_000));
+      if (pairCodes.has(code) || pairCodes.size >= 300) {
         // kein freier Code / zu viele wartende Beamer: keiner wird vergeben (die Regie-Freigabe
         // per „Beamer öffnen“/Link funktioniert weiterhin)
         socket.emit('beamer:pair', { code: null });

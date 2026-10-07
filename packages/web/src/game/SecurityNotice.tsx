@@ -11,6 +11,10 @@ interface Security {
   weakModeratorPassword: boolean;
   authDisabled: boolean;
   online: boolean;
+  /** über Cloudflare, aber der Tunnel wird nicht als eigener Proxy erkannt */
+  unknownClients?: boolean;
+  /** TRUST_PROXY gesetzt, Port aber nicht nur lokal gebunden */
+  trustUnsafe?: boolean;
 }
 
 const HIDE_KEY = 'insel.security.hidden';
@@ -32,6 +36,13 @@ export function SecurityNotice() {
   if (sec.authDisabled) problems.push('Die Anmeldung ist abgeschaltet (AUTH_DISABLED) – jeder im Netz kann die Regie bedienen.');
   if (sec.weakAdminPassword) problems.push('Das Regie-Passwort ist zu kurz oder allgemein bekannt.');
   if (sec.weakModeratorPassword) problems.push('Das Moderator-Passwort ist zu kurz oder allgemein bekannt.');
+  const passwordProblems = problems.length > 0;
+  if (sec.unknownClients) {
+    problems.push(
+      'Die Insel erkennt die Geräte hinter dem Cloudflare-Tunnel nicht einzeln – Sperren gegen Rateversuche greifen nur insgesamt. Lösung: cloudflared ins Netz „insel-tunnel“ hängen oder TRUST_PROXY setzen (docs/betrieb.md, Abschnitt „Eigener Server“).',
+    );
+  }
+  if (sec.trustUnsafe) problems.push('TRUST_PROXY ist gesetzt, aber der Port ist von außen erreichbar. Bitte HOST_BIND=127.0.0.1 in .env eintragen.');
   if (!problems.length) return null;
   const hide = () => {
     setHidden(true);
@@ -51,7 +62,7 @@ export function SecurityNotice() {
             <li key={p}>{p}</li>
           ))}
         </ul>
-        <p className="mt-1 text-ink-2">
+        <p className={passwordProblems ? 'mt-1 text-ink-2' : 'hidden'}>
           In der Datei <code>.env</code> ein langes Passwort setzen (mindestens 10 Zeichen) und mit <code>./start.sh</code> neu starten. Im eigenen WLAN geht es so weiter, übers Internet
           (<code>./start.sh online</code>) startet der Server erst danach.
         </p>

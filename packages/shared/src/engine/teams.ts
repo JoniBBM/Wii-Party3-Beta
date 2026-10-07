@@ -15,7 +15,8 @@ function freeColors(tx: Tx): TeamColorKey[] {
 function newPin(tx: Tx): string {
   const taken = new Set(tx.s.teams.map((t) => t.pin));
   for (let i = 0; i < 1000; i++) {
-    const pin = String(randInt(tx.ctx.rng, 1000, 9999));
+    // 6 Ziffern: übers Internet sonst in einem langen Abend erratbar (ältere Spiele: 4 Ziffern)
+    const pin = String(randInt(tx.ctx.rng, 100_000, 999_999));
     if (!taken.has(pin)) return pin;
   }
   fail('Keine freie PIN gefunden');

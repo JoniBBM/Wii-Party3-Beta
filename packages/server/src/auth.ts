@@ -152,22 +152,56 @@ export function noteFailure(scope: string, ip: string, perIp = 10, windowMs = 60
  * Nur Fehlversuche zählen (`spendAttempt`), richtige Logins nie – ein korrektes Passwort/eine
  * korrekte PIN wird also nie gesperrt, höchstens während eines laufenden Angriffs kurz verzögert.
  */
-const globalBuckets = new Map<string, { tokens: number; last: number }>();
-export function globalAttemptsExhausted(scope: string, perMinute: number): boolean {
-  const now = Date.now();
-  let b = globalBuckets.get(scope);
-  if (!b) {
-    b = { tokens: perMinute, last: now };
-    globalBuckets.set(scope, b);
-  }
-  b.tokens = Math.min(perMinute, b.tokens + ((now - b.last) / 60_000) * perMinute);
-  b.last = now;
-  return b.tokens < 1;
+export interface AttemptLimits {
+  /** Fehlversuche je Minute (kurzer Stoß) */
+  perMinute: number;
+  /** zusätzlich je Stunde (Dauer) – macht langes Durchprobieren aussichtslos */
+  perHour?: number;
 }
-export function spendAttempt(scope: string, perMinute: number) {
-  const b = globalBuckets.get(scope) ?? { tokens: perMinute, last: Date.now() };
-  b.tokens = Math.max(0, b.tokens - 1);
-  globalBuckets.set(scope, b);
+const globalBuckets = new Map<string, { tokens: number; last: number }>();
+function refill(key: string, size: number, periodMs: number) {
+  const now = Date.now();
+  let b = globalBuckets.get(key);
+  if (!b) {
+    b = { tokens: size, last: now };
+    globalBuckets.set(key, b);
+  }
+  b.tokens = Math.min(size, b.tokens + ((now - b.last) / periodMs) * size);
+  b.last = now;
+  return b;
+}
+const asLimits = (l: number | AttemptLimits): AttemptLimits => (typeof l === 'number' ? { perMinute: l } : l);
+export function globalAttemptsExhausted(scope: string, limits: number | AttemptLimits): boolean {
+  const { perMinute, perHour } = asLimits(limits);
+  if (refill(`${scope}:m`, perMinute, 60_000).tokens < 1) return true;
+  return perHour !== undefined && refill(`${scope}:h`, perHour, 3_600_000).tokens < 1;
+}
+export function spendAttempt(scope: string, limits: number | AttemptLimits) {
+  const { perMinute, perHour } = asLimits(limits);
+  const m = refill(`${scope}:m`, perMinute, 60_000);
+  m.tokens = Math.max(0, m.tokens - 1);
+  if (perHour !== undefined) {
+    const h = refill(`${scope}:h`, perHour, 3_600_000);
+    h.tokens = Math.max(0, h.tokens - 1);
+  }
+}
+
+/**
+ * Bewährte Adressen: Von hier hat sich schon jemand richtig angemeldet (PIN, Team-Code,
+ * Passwort). Hinter einem gemeinsamen Internetanschluss (WLAN der Location, Mobilfunk-NAT)
+ * kommen viele Gäste über eine Adresse – deren Tippfehler sollen nicht alle aussperren.
+ * Für bewährte Adressen gilt deshalb nur noch der globale Eimer, nicht die Sperre je Adresse.
+ */
+const goodAddresses = new Map<string, number>();
+const GOOD_FOR = 12 * 60 * 60_000;
+export function noteGoodAddress(key: string) {
+  const now = Date.now();
+  if (goodAddresses.size > 5000) for (const [k, until] of goodAddresses) if (until < now) goodAddresses.delete(k);
+  if (goodAddresses.size > 5000) goodAddresses.clear();
+  goodAddresses.set(key, now + GOOD_FOR);
+}
+export function isGoodAddress(key: string): boolean {
+  return (goodAddresses.get(key) ?? 0) > Date.now();
 }
 
 /** Einfache Mengenbremse (z. B. Anmeldungen), großzügig bemessen. */
@@ -176,6 +210,7 @@ export function rateLimited(key: string, max: number, windowMs = 60_000): boolea
   const now = Date.now();
   const a = counters.get(key);
   if (!a || now - a.since > windowMs) {
+    if (counters.size > 5000) for (const [k, v] of counters) if (now - v.since > windowMs) counters.delete(k);
     if (counters.size > 5000) counters.clear();
     counters.set(key, { count: 1, since: now });
     return false;

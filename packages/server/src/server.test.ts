@@ -138,7 +138,7 @@ describe('Server', () => {
     expect(beamer.session()?.role).toBe('guest');
     await new Promise((r) => setTimeout(r, 50));
     const code = beamer.pairCode();
-    expect(code).toMatch(/^\d{4}$/);
+    expect(code).toMatch(/^\d{6}$/);
     const wrong = await new Promise<{ ok: boolean }>((res) => beamer.socket.emit('beamer:pair', code, res));
     expect(wrong.ok).toBe(false); // ein Beamer kann sich nicht selbst freigeben
     const paired = await new Promise<{ ok: boolean }>((res) => regie.socket.emit('beamer:pair', code, res));
@@ -163,7 +163,7 @@ describe('Server', () => {
     const s1 = await anna.waitFor((s) => s.teams.length === 2);
     const annaTeam = s1.players.find((p) => p.name === 'Anna')!.teamId!;
     // Anna sieht nur die PIN ihres eigenen Teams
-    expect(s1.teams.find((t) => t.id === annaTeam)!.pin).toMatch(/^\d{4}$/);
+    expect(s1.teams.find((t) => t.id === annaTeam)!.pin).toMatch(/^\d{6}$/);
     expect(s1.teams.filter((t) => t.id !== annaTeam).every((t) => t.pin === '')).toBe(true);
 
     // Team-Gerät tritt per PIN bei

@@ -18,7 +18,7 @@
 
 `start.sh` erkennt die WLAN-Adresse des Rechners automatisch und gibt sie an den Server weiter, damit die QR-Codes die richtige Adresse enthalten. Danach öffnet sich die Regie.
 
-Ohne Skript geht es auch direkt mit `docker compose up -d --build` (dann ggf. `HOST_IP` in `.env` setzen).
+Ohne Skript geht es auch direkt mit `docker compose up -d --build` – dann ist der Port aber nur auf dem Rechner selbst erreichbar. Für Handys im WLAN `HOST_BIND=0.0.0.0` (und ggf. `HOST_IP`) in `.env` setzen; `./start.sh` macht das automatisch.
 
 ## Einstellungen (`.env`)
 
@@ -28,6 +28,8 @@ Ohne Skript geht es auch direkt mit `docker compose up -d --build` (dann ggf. `H
 | `MODERATOR_PASSWORD` | Optionales eigenes Passwort für Moderatoren. Sonst Regie-Passwort oder QR-Link. |
 | `AUTH_DISABLED` | `true` = Regie/Moderator ohne Passwort (nur zum Testen im WLAN – übers Internet gesperrt). |
 | `HOST_PORT` | Port auf dem Rechner (Standard 9534; im Container intern 8080). |
+| `HOST_BIND` | Wer den Port erreicht: `127.0.0.1` = nur dieser Rechner (Standard ohne Skript, richtig für Server), `0.0.0.0` = auch das WLAN (setzt `./start.sh`, wenn nichts eingetragen ist). |
+| `TRUST_PROXY` | Nur wenn cloudflared direkt auf dem Server läuft: `172.16.0.0/12` (siehe *Eigener Server*). Sonst leer lassen. |
 | `HOST_IP` | WLAN-Adresse für QR-Codes (setzt `start.sh` automatisch). |
 | `PUBLIC_URL` | Feste öffentliche Adresse, wenn auf einem Server mit Domain betrieben. |
 | `APP_SECRET` | Schlüssel für Sitzungen. Leer = wird automatisch in `data/.secret` erzeugt. |
@@ -45,9 +47,63 @@ Ohne Skript geht es auch direkt mit `docker compose up -d --build` (dann ggf. `H
 
 **Eigene Adresse:** Unter *Einstellungen → Beitritts-Adresse* kann jede Adresse fest eingetragen werden.
 
-## Betrieb auf einem Server (optional)
+## Eigener Server mit Cloudflare-Tunnel (z. B. neben Nextcloud)
 
-Dasselbe Image läuft auch auf einem Linux-Server. Für HTTPS mit eigener Domain eignet sich z. B. Caddy als Vorschaltserver:
+Ziel: Die Insel ist **nur über den Tunnel** erreichbar, kommt selbst nicht ins Internet und teilt kein Netz und keinen Ordner mit anderen Diensten.
+
+**1. Aktualisieren und `.env` anlegen** (auf dem Server, im Projektordner):
+
+```bash
+git pull
+```
+
+```ini
+# .env auf dem Server
+ADMIN_PASSWORD=…        # lang und zufällig, z. B. Ausgabe von: openssl rand -base64 24
+PUBLIC_URL=https://party.example.org
+HOST_BIND=127.0.0.1
+```
+
+Mit `PUBLIC_URL` gelten die Regeln für den Internet-Betrieb: Die Insel startet nur mit sicherem Passwort, und die QR-Codes enthalten die Domain.
+
+**2a. cloudflared läuft als Docker-Container (empfohlen).** Die Insel bekommt keinen Port am Server und hängt nur im internen Netz `insel-tunnel`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --build
+```
+
+Dann cloudflared **zusätzlich** in dieses Netz hängen (in der compose-Datei von cloudflared; bisherige Netze behalten, sonst verliert der Tunnel seine Verbindung):
+
+```yaml
+services:
+  cloudflared:
+    networks: [default, insel-tunnel]   # bisherige Netze + insel-tunnel
+networks:
+  insel-tunnel:
+    external: true
+```
+
+In Cloudflare (*Zero Trust → Networks → Tunnels → Public Hostname*) die Domain auf **`http://insel:8080`** zeigen lassen. Nextcloud & Co. **nicht** in `insel-tunnel` hängen.
+
+**2b. cloudflared läuft direkt auf dem Server** (Systemdienst): In `.env` zusätzlich `TRUST_PROXY=172.16.0.0/12` eintragen, mit `docker compose up -d --build` starten und die Domain auf **`http://127.0.0.1:9534`** zeigen lassen. Ohne `TRUST_PROXY` sähen alle Gäste gleich aus (es greifen dann nur die globalen Bremsen).
+
+**3. Prüfen:**
+- `ss -tlnp | grep 9534` auf dem Server: bei 2a nichts, bei 2b nur `127.0.0.1:9534` – nie `0.0.0.0:9534`.
+- Aus einem anderen Netz (z. B. Handy ohne WLAN) `http://<Server-IP>:9534` aufrufen: darf **nicht** laden.
+- Regie über die Domain öffnen: Es darf kein gelber Sicherheitshinweis erscheinen (er meldet schwache Passwörter und einen nicht erkannten Tunnel).
+
+**4. Empfohlen: Cloudflare Access vor die Regie.** Unter *Zero Trust → Access → Applications* eine *Self-hosted*-Anwendung mit **einer** Anwendung und drei Pfaden anlegen: `party.example.org/regie`, `party.example.org/api/auth/admin` und `party.example.org/api/auth/moderator`. Regel: nur deine E-Mail-Adresse(n). Dann kommt ohne deinen Cloudflare-Login niemand auch nur bis zur Passwortabfrage. Teams, Spieler, Beamer und Moderator-QR-Links bleiben frei; Moderatoren mit Passwort-Login brauchen dann ebenfalls einen Zugang.
+
+**Was die Insel dabei zusätzlich absichert:**
+- Container ohne Root, schreibgeschützt, ohne Zusatzrechte, höchstens 1 GB Speicher und 256 Prozesse, Protokolle rotieren (max. 30 MB). Ein Ansturm auf die Insel kann Nextcloud weder ausbremsen noch die Platte füllen.
+- Daten liegen nur in `./data` der Insel. Niemals den Docker-Socket oder Ordner anderer Dienste einhängen.
+- Echte Absender-Adressen werden nur vom eigenen Tunnel übernommen – direkt am Port gefälschte Header zählen nicht.
+
+**Am Spielabend:** Wenn alle drin sind, in der Regie die **Anmeldung schließen** (danach geht es nur noch mit Team-PIN/QR). Nach dem Abend die Fotos löschen; wer mag, stoppt die Insel ganz (`docker compose -f docker-compose.yml -f docker-compose.server.yml down`).
+
+### Ohne Tunnel: eigener Proxy (Caddy)
+
+Statt des Tunnels geht auch ein Vorschaltserver mit eigenem Zertifikat, z. B. Caddy im selben Docker-Netz:
 
 ```yaml
 # docker-compose.override.yml
@@ -64,19 +120,21 @@ volumes:
   caddy-data:
 ```
 
-WebSockets werden von Caddy automatisch durchgereicht.
+WebSockets werden von Caddy automatisch durchgereicht; die echten Absender kommen über `X-Forwarded-For`.
 
 ## Sicherheit
 
 Die Insel ist für Gruppenabende gebaut, kann aber gefahrlos übers Internet laufen. Dafür sorgt:
 
 - **Passwörter:** Regie und Moderator brauchen ein Passwort mit mindestens 10 Zeichen, das nicht als Standardpasswort bekannt ist. Mit einem schwachen Passwort läuft die Insel nur im WLAN: `./start.sh online` und der Server selbst verweigern den Start, Anmeldungen über den Tunnel werden abgelehnt, und die Regie zeigt einen Warnhinweis. Passwort ändern = in `.env` eintragen und `./start.sh` – alle alten Regie-, Moderator- und Beamer-Zugänge werden damit ungültig.
-- **Beamer-Freigabe:** Ein neuer Beamer sieht nur die Insel. Fotos, Beitritts-Adressen und den Spielverlauf bekommt er erst nach der Freigabe. Am einfachsten öffnet man ihn mit `./start.sh beamer` oder per *Beamer öffnen* in der Regie auf demselben Rechner – dann ist er sofort freigegeben. Auf einem anderen Rechner zeigt er unten rechts einen **vierstelligen Code**: In der Regie unter *Beamer* eingeben, fertig. Die Freigabe gilt 30 Tage.
+- **Beamer-Freigabe:** Ein neuer Beamer sieht nur die Insel. Fotos, Beitritts-Adressen und den Spielverlauf bekommt er erst nach der Freigabe. Am einfachsten öffnet man ihn mit `./start.sh beamer` oder per *Beamer öffnen* in der Regie auf demselben Rechner – dann ist er sofort freigegeben. Auf einem anderen Rechner zeigt er unten rechts einen **sechsstelligen Code**: In der Regie unter *Beamer* eingeben, fertig. Die Freigabe gilt 30 Tage.
 - **Zugänge in QR-Codes** (Team, Moderator) stehen hinter `#` in der Adresse und landen so in keinem Server- oder Tunnel-Protokoll.
-- **Schutz vor Missbrauch:** Falsche PINs und Passwörter werden doppelt gebremst – ein globaler Zähler kappt verteiltes Raten (auch bei IP-Wechsel) und zählt nur Fehlversuche, sodass ein richtiges Passwort nie gesperrt wird; übers Internet kommt die bisherige Sperre je Adresse dazu. Im WLAN (wo alle Geräte über eine Adresse kommen) sperrt ein Tippfehler daher nicht mehr den ganzen Saal aus. Dazu: begrenzte Nachrichten je Verbindung, Verbindungen je Gerät (im WLAN großzügig für die ganze Party), höchstens 200 Spieler (40 je Team), Fotos höchstens 8 MB und nur echte Bildformate; leere oder doppelte Befehle lösen keine Last aus.
+- **Team-PINs mit 6 Ziffern** (ältere Spiele behalten ihre 4-stelligen, „Neue PIN“ vergibt 6). Der Team-QR-Code enthält einen unerratbaren Schlüssel.
+- **Schutz vor Raten:** Falsche PINs und Passwörter werden doppelt gebremst. Ein globaler Zähler kappt verteiltes Raten, auch bei IP-Wechsel (PINs: höchstens 20 Fehlversuche je Minute und 100 je Stunde – damit bleibt eine 6-stellige PIN einen ganzen Abend lang praktisch unerratbar). Dazu kommt eine Sperre je Adresse, aber nur, wo die Insel echte Adressen kennt (über den eigenen Tunnel) und solange von dort noch niemand richtig angemeldet wurde. So sperren ein paar Tippfehler weder den Saal im WLAN noch alle Gäste hinter dem gemeinsamen Internetanschluss der Location aus. IPv6-Adressen zählen je Anschluss (/64). Falsche QR-Codes zählen nicht global, damit niemand mit Unsinn-Codes die Beitritte aller blockieren kann.
+- **Schutz vor Überflutung:** begrenzte Nachrichten je Verbindung; bis 400 Verbindungen je Adresse (eine ganze Party hinter einem Anschluss) und 3000 insgesamt – Regie, Moderator und freigegebene Beamer kommen immer rein. Höchstens 200 Spieler (40 je Team), Fotos höchstens 8 MB und nur echte Bildformate (höchstens zwei gleichzeitig in Bearbeitung); leere oder doppelte Befehle lösen keine Last aus.
 - **Zugänge, die ihre Gültigkeit verlieren:** „Neue PIN“ (Regie → *Teams*) macht alle Geräte dieses Teams ungültig – auch Spieler-Zugänge, die über ein Team-Gerät erzeugt wurden. Nützlich, wenn ein fremdes Gerät in einem Team auftaucht.
 - **Datensparsam:** Gäste ohne Anmeldung sehen keine Fotos und keinen Verlauf; PINs, Passwörter und Lösungen gehen nie an Handys oder Beamer. Der Moderator sieht Lösungen, aber keine Team-PINs oder Beitritts-Codes. Vor der Auflösung bleiben fremde Antworten vollständig verborgen (auch der Zeitpunkt).
-- **Server:** Sicherheits-Header (CSP, kein Einbetten in fremde Seiten), Container ohne Root-Rechte mit schreibgeschütztem Dateisystem, Tunnel in fester Version.
+- **Server:** Sicherheits-Header (CSP, kein Einbetten in fremde Seiten), Container ohne Root-Rechte mit schreibgeschütztem Dateisystem und Grenzen für Speicher, Prozesse und Protokolle, Tunnel in fester Version. Ohne `./start.sh` ist der Port nur auf dem Rechner selbst offen.
 - **Kein KI-Dienst zur Laufzeit:** Sprecher und Musik sind fertige Dateien – Eingaben der Spieler (Namen, Antworten) werden nur angezeigt, nie als Anweisung ausgeführt. „Prompt Injection“ ist damit kein Thema.
 
 ## Daten & Backups
@@ -104,10 +162,10 @@ Alles liegt im Ordner **`data/`** neben dem Projekt:
 |---|---|
 | `./start.sh`: „Docker läuft nicht“ | Docker Desktop starten. |
 | Seite lädt nicht unter `localhost:9534` | `./start.sh logs` ansehen; anderer Dienst auf Port 9534? → `HOST_PORT` in `.env` ändern. |
-| Handys erreichen die Adresse nicht | Gleiches WLAN? Client-Isolation? Firewall des Macs (Systemeinstellungen → Netzwerk → Firewall: Docker erlauben)? Sonst `./start.sh online`. |
+| Handys erreichen die Adresse nicht | Ohne `./start.sh` gestartet? Dann `HOST_BIND=0.0.0.0` in `.env`. Gleiches WLAN? Client-Isolation? Firewall des Macs (Systemeinstellungen → Netzwerk → Firewall: Docker erlauben)? Sonst `./start.sh online`. |
 | Regie-Login „Es ist kein ADMIN_PASSWORD gesetzt“ | `.env` anlegen/ergänzen und neu starten. |
 | `./start.sh online`: „Passwort zu kurz oder Standardpasswort“ | In `.env` ein `ADMIN_PASSWORD` mit mindestens 10 Zeichen setzen. |
-| Beamer zeigt unten rechts einen Code | Er ist noch nicht freigegeben: Regie → *Beamer* → Code eingeben (oder `./start.sh beamer`). |
+| Beamer zeigt unten rechts einen Code | Er ist noch nicht freigegeben (6 Ziffern): Regie → *Beamer* → Code eingeben (oder `./start.sh beamer`). |
 | Nach Passwortwechsel will alles neu angemeldet werden | Gewollt: Ein neues Passwort macht alte Zugänge ungültig. Beamer neu freigeben. |
 | Beamer zeigt „Die 3D-Insel konnte nicht geladen werden“ | Browser ohne WebGL 2 oder Hardwarebeschleunigung aus. Anderen Browser verwenden. |
 | Beamer ruckelt | Regie → *Beamer* → Grafik **Ausgewogen** oder **Sparsam** (bzw. **Automatisch**). |

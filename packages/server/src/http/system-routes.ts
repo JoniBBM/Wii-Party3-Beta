@@ -8,7 +8,8 @@ import * as db from '../db.ts';
 import type { Live } from '../live.ts';
 import type { GameRuntime } from '../runtime.ts';
 import { isPrivileged } from '@insel/shared';
-import { ADMIN, requireRole, sessionOf, STAFF } from './common.ts';
+import { ADMIN, client, requireRole, sessionOf, STAFF } from './common.ts';
+import { trustWarning } from '../net.ts';
 
 const inDocker = existsSync('/.dockerenv');
 
@@ -86,7 +87,10 @@ export function systemRoutes(app: FastifyInstance, runtime: GameRuntime, databas
   /** Sicherheitslage für die Regie (Warnhinweis bei schwachem Passwort o. Ä.). */
   app.get('/api/system/security', async (req) => {
     requireRole(req, runtime, STAFF);
-    return { ...security, authDisabled: config.authDisabled, online: config.online };
+    // Kommt die Anfrage über Cloudflare, ohne dass der Tunnel als eigener Proxy erkannt wird?
+    // Dann sehen alle Gäste gleich aus (nur globale Bremsen) – Hinweis auf TRUST_PROXY.
+    const unknownClients = req.headers['cf-connecting-ip'] !== undefined && !client(req).distinct;
+    return { ...security, authDisabled: config.authDisabled, online: config.online, unknownClients, trustUnsafe: trustWarning() !== null };
   });
 
   app.put('/api/system/settings', async (req) => {

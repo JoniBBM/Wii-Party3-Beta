@@ -1,0 +1,24 @@
+# Betrieb auf einem eigenen Server hinter einem Cloudflare-Tunnel, dessen cloudflared als
+# Docker-Container läuft (z. B. neben Nextcloud). Start:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --build
+#
+# Die Insel hängt dann NUR im internen Netz „insel-tunnel“:
+#   - kein Port am Server (nur über den Tunnel erreichbar, nicht an Cloudflare vorbei),
+#   - kein Internetzugang aus dem Container heraus,
+#   - kein gemeinsames Netz mit Nextcloud oder anderen Diensten.
+# cloudflared wird zusätzlich in dieses Netz gehängt (siehe docs/betrieb.md) und leitet
+# https://party.example.org → http://insel:8080 weiter.
+services:
+  insel:
+    ports: !reset []
+    networks:
+      - tunnel
+    environment:
+      # strenge Regeln wie im Internet-Betrieb (startet nur mit sicherem Passwort)
+      INSEL_ONLINE: "true"
+
+networks:
+  tunnel:
+    name: insel-tunnel
+    internal: true

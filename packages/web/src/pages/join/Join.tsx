@@ -221,7 +221,7 @@ function PinForm({ onDone, hint }: { onDone: () => void; hint: boolean }) {
   const input = useRef<HTMLInputElement>(null);
 
   const submit = async (value = pin) => {
-    if (value.length !== 4) return;
+    if (value.length !== 4 && value.length !== 6) return;
     setBusy(true);
     try {
       const r = await api<{ token: string; teamName: string }>('/api/auth/pin', { body: { pin: value } });
@@ -242,23 +242,23 @@ function PinForm({ onDone, hint }: { onDone: () => void; hint: boolean }) {
     <div className="flex flex-col items-center gap-4">
       {hint && <p className="text-center text-sm font-semibold text-ink-2">Die Anmeldung ist geschlossen. Tritt mit der PIN deines Teams bei.</p>}
       <label className="w-full">
-        <span className="label text-center">Team-PIN (4 Ziffern)</span>
+        <span className="label text-center">Team-PIN (6 Ziffern)</span>
         <input
           ref={input}
-          className="field h-20 text-center font-display text-5xl tracking-[0.5em]"
+          className="field h-20 text-center font-display text-5xl tracking-[0.3em]"
           inputMode="numeric"
           pattern="\d*"
-          maxLength={4}
+          maxLength={6}
           value={pin}
           autoFocus
           onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+            const v = e.target.value.replace(/\D/g, '').slice(0, 6);
             setPin(v);
-            if (v.length === 4) void submit(v);
+            if (v.length === 6) void submit(v);
           }}
         />
       </label>
-      <Button variant="primary" size="lg" block loading={busy} disabled={pin.length !== 4} onClick={() => void submit()}>
+      <Button variant="primary" size="lg" block loading={busy} disabled={pin.length !== 4 && pin.length !== 6} onClick={() => void submit()}>
         Beitreten
       </Button>
     </div>
