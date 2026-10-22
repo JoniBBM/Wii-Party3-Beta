@@ -40,6 +40,8 @@ interface SocketData {
   raw: Session | null;
   /** das Token selbst (um bei einem Passwortwechsel das eigene Gerät zu erkennen) */
   token: string | null;
+  /** Konto (Spielleiter/Admin), das über diese Verbindung online ist – für die Anzeige „online“ */
+  accountId: string | null;
   view: string;
   /** Spielcode, mit dem ein Gast beitreten will */
   code: string | null;
@@ -156,6 +158,39 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
     if (raw.role === 'beamer') return raw.key !== beamerKey(database, raw.userId ?? null);
     if (raw.role === 'moderator') return !!raw.gameId && !!hub.get(raw.gameId) && effectiveSession(database, hub, raw, raw.gameId, socket.data.view).role !== 'moderator';
     return false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Wer ist online? Zählt offene Verbindungen je Konto (Regie, Moderator-Ansicht mit Konto) und
+  // meldet Änderungen gebündelt an die Konten-Seite der Admins. Kostet nur beim Verbinden/Trennen.
+  // ---------------------------------------------------------------------------
+  const online = new Map<string, number>();
+  const lastSeen = new Map<string, number>();
+  let accountsTimer: NodeJS.Timeout | null = null;
+  const accountsPayload = () => ({ online: Object.fromEntries(online), lastSeen: Object.fromEntries(lastSeen) });
+  function pushAccounts() {
+    if (accountsTimer) return;
+    accountsTimer = setTimeout(() => {
+      accountsTimer = null;
+      const payload = accountsPayload();
+      for (const socket of sockets()) if (accountOf(database, socket.data.raw)?.isAdmin) socket.emit('accounts', payload);
+    }, 300);
+  }
+  /** Konto dieser Verbindung neu bestimmen (nach Anmelden, Abmelden, Trennen). */
+  function trackAccount(socket: LiveSocket, gone = false) {
+    const next = gone ? null : (accountOf(database, socket.data.raw)?.userId ?? null);
+    const before = socket.data.accountId ?? null;
+    if (next === before) return;
+    if (before) {
+      const n = (online.get(before) ?? 1) - 1;
+      if (n <= 0) {
+        online.delete(before);
+        lastSeen.set(before, Date.now());
+      } else online.set(before, n);
+    }
+    if (next) online.set(next, (online.get(next) ?? 0) + 1);
+    socket.data.accountId = next;
+    pushAccounts();
   }
 
   /** Angemeldetes Konto (Regie) – auch ohne gewähltes Spiel. */
@@ -325,9 +360,14 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
     socket.data.tokens = BURST;
     socket.data.last = Date.now();
 
+    socket.data.accountId = null;
+
     socket.emit('hello', { appName: getSettings(database).appName, serverNow: Date.now() });
     attach(socket, true);
+    trackAccount(socket);
+    if (accountOf(database, socket.data.raw)?.isAdmin) socket.emit('accounts', accountsPayload());
     socket.on('disconnect', () => {
+      trackAccount(socket, true);
       pushPresence(socket.data.gameId);
       if (socket.data.pairCode) pairCodes.delete(socket.data.pairCode);
       if (beamers.delete(socket.id)) pushBeamers(socket.data.gameId);
@@ -424,7 +464,11 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       const gameBefore = socket.data.gameId;
       attach(socket);
       // nur bei geänderter Sitzung neu senden (sonst ließe sich der Server mit kleinen Nachrichten fluten)
-      if (socket.data.gameId === gameBefore && JSON.stringify(sessionOf(socket)) !== before) attach(socket, true);
+      if (socket.data.gameId === gameBefore && JSON.stringify(sessionOf(socket)) !== before) {
+        attach(socket, true);
+        if (accountOf(database, socket.data.raw)?.isAdmin) socket.emit('accounts', accountsPayload());
+      }
+      trackAccount(socket);
       ack?.({ ok: true });
     });
 
@@ -493,10 +537,14 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
           socket.emit('session:ended');
         }
         attach(socket, true);
+        trackAccount(socket);
       }
     },
+    /** Für die Konten-Seite: offene Verbindungen je Konto und wann es zuletzt online war. */
+    accounts: accountsPayload,
     close() {
       for (const t of [...beamerTimers.values(), ...presenceTimers.values()]) clearTimeout(t);
+      if (accountsTimer) clearTimeout(accountsTimer);
       return io.close();
     },
   };

@@ -34,6 +34,8 @@ interface LiveStore {
   beamers: BeamerStats[];
   /** Noch nicht freigegebener Beamer: Code, den die Regie eingibt */
   pairCode: string | null;
+  /** Nur Admins: offene Verbindungen je Konto und wann es zuletzt online war (null = noch nichts empfangen) */
+  accounts: { online: Record<string, number>; lastSeen: Record<string, number> } | null;
 }
 
 export const useLive = create<LiveStore>(() => ({
@@ -48,6 +50,7 @@ export const useLive = create<LiveStore>(() => ({
   show: { settings: DEFAULT_SHOW, explainer: { running: false, id: 0, startedAt: 0 } },
   beamers: [],
   pairCode: null,
+  accounts: null,
 }));
 
 type BeamerCommand = CameraCommand | { type: 'reload' } | { type: 'speak' };
@@ -119,6 +122,7 @@ export function connectLive(slot: TokenSlot | null, view: string, code: string |
     for (const fn of cmdListeners) fn(cmd);
   });
   s.on('beamers', (beamers: BeamerStats[]) => useLive.setState({ beamers }));
+  s.on('accounts', (accounts: LiveStore['accounts']) => useLive.setState({ accounts }));
   // Beamer-Kopplung: Code anzeigen, bis die Regie ihn freigibt – dann Zugang merken
   s.on('beamer:pair', (p: { code?: string }) => useLive.setState({ pairCode: typeof p?.code === 'string' ? p.code : null }));
   s.on('beamer:token', (token: unknown) => {

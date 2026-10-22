@@ -511,6 +511,40 @@ describe('Spielleiter-Konten und mehrere Spiele', () => {
     expect((await api(`/api/library/collections/${own.id}`, { method: 'PUT', token: admin, body: { name: 'Utes Fragen (geprüft)', description: '' } })).status).toBe(200);
   });
 
+  it('Admin sieht live, welche Spielleiter gerade online sind', async () => {
+    const admin = await adminToken();
+    const ben = await leader(admin, 'ben@example.org', 'Ben');
+    type Accounts = { online: Record<string, number>; lastSeen: Record<string, number> };
+    const regie = await client(admin);
+    let latest: Accounts | null = null;
+    regie.socket.on('accounts', (a: Accounts) => (latest = a));
+    const until = async (pred: (a: Accounts) => boolean) => {
+      for (let i = 0; i < 60 && !(latest && pred(latest)); i++) await new Promise((r) => setTimeout(r, 25));
+      return latest!;
+    };
+    type Users = { users: { id: string; online: number; lastSeenAt: number | null }[] };
+    expect((await api<Users>('/api/users', { token: admin })).data.users.find((u) => u.id === ben.id)?.online).toBe(0);
+
+    // Ben öffnet die Regie auf zwei Geräten
+    const laptop = await client(ben.token);
+    const phone = await client(ben.token);
+    expect((await until((a) => a.online[ben.id] === 2)).online[ben.id]).toBe(2);
+    expect((await api<Users>('/api/users', { token: admin })).data.users.find((u) => u.id === ben.id)?.online).toBe(2);
+    // Spielleiter selbst bekommen diese Liste nicht
+    let leaked = false;
+    laptop.socket.on('accounts', () => (leaked = true));
+
+    // beide Fenster zu → offline, „zuletzt online“ gesetzt
+    laptop.socket.close();
+    phone.socket.close();
+    const after = await until((a) => !a.online[ben.id]);
+    expect(after.online[ben.id]).toBeUndefined();
+    expect(after.lastSeen[ben.id]).toBeGreaterThan(Date.now() - 5000);
+    expect(leaked).toBe(false);
+    // nur Admins dürfen die Liste abrufen
+    expect((await api('/api/users', { token: ben.token })).status).toBe(403);
+  });
+
   it('„Überall abmelden“ wirkt sofort auf offene Regie-Fenster; eigener Passwortwechsel behält dieses Gerät', async () => {
     const admin = await adminToken();
     const eva = await leader(admin, 'eva@example.org', 'Eva');

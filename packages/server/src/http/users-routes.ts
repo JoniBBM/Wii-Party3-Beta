@@ -23,8 +23,15 @@ export function usersRoutes(app: FastifyInstance, ctx: Ctx) {
     requireAccount(req, ctx, { admin: true });
     const games = db.listGames(database);
     const smtp = db.getSettings(database).smtp;
+    const { online, lastSeen } = live.accounts();
     return {
-      users: db.listUsers(database).map((u) => ({ ...toAccount(u), games: games.filter((g) => g.ownerId === u.id).length })),
+      users: db.listUsers(database).map((u) => ({
+        ...toAccount(u),
+        games: games.filter((g) => g.ownerId === u.id).length,
+        // offene Regie-Fenster/Geräte gerade jetzt; zuletzt gesehen (seit dem Serverstart)
+        online: online[u.id] ?? 0,
+        lastSeenAt: lastSeen[u.id] ?? null,
+      })),
       mailReady: !!smtp,
     };
   });

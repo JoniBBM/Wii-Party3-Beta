@@ -45,7 +45,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 
 Auf einem Server können mehrere Spielleiter gleichzeitig eigene Spiele leiten:
 
-- **Admin** (Passwort aus `.env`, oder ein Konto mit Admin-Rolle): lädt unter *Konten* Spielleiter per E-Mail ein, sperrt Konten, schickt Links zum Passwort-Zurücksetzen, sieht und verwaltet **alle Spiele** (*Spiele → Spiele der Spielleiter*) und stellt unter *Einstellungen* Namen, Beitritts-Adresse und **E-Mail-Versand (SMTP)** ein.
+- **Admin** (Passwort aus `.env`, oder ein Konto mit Admin-Rolle): lädt unter *Konten* Spielleiter per E-Mail ein, sieht live, wer gerade online ist (grüner Punkt, sonst „zuletzt online vor …“), sperrt Konten, meldet sie überall ab, schickt Links zum Passwort-Zurücksetzen, sieht und verwaltet **alle Spiele** (*Spiele → Spiele der Spielleiter*) und stellt unter *Einstellungen* Namen, Beitritts-Adresse und **E-Mail-Versand (SMTP)** ein.
 - **Spielleiter**: bekommen eine Einladungsmail, legen über den Link ihr Passwort fest und sehen nur **ihre eigenen Spiele**. „Passwort vergessen?“ steht auf der Anmeldeseite.
 - **Mehrere Spiele gleichzeitig:** Jedes Spiel hat seinen eigenen Spielcode; Handys landen über den QR-Code bzw. den Code im richtigen Spiel. Unter *Spiele* lässt sich ein Spiel **wählen** (Regie und eigene Beamer zeigen es), **schließen** (niemand kommt mehr hinein, der Spielstand bleibt) oder löschen.
 - **Beamer** gehören dem Konto, das sie freigegeben hat, und zeigen immer dessen gewähltes Spiel – einmal koppeln reicht für alle künftigen Abende.

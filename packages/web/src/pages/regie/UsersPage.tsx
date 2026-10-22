@@ -10,13 +10,17 @@ import type { Account } from '@insel/shared';
 import { useAccount } from '../../lib/account.ts';
 import { api } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
-import { onServerChanged } from '../../lib/live.ts';
+import { onServerChanged, useLive } from '../../lib/live.ts';
 import { Badge, Button, Card, CardHeader, EmptyState, Field, IconButton } from '../../ui/basics.tsx';
 import { confirm, Modal } from '../../ui/overlay.tsx';
 import { toast } from '../../ui/toast.tsx';
 
 interface Row extends Account {
   games: number;
+  /** offene Regie-Fenster/Geräte gerade jetzt */
+  online: number;
+  /** zuletzt online (seit dem Serverstart bekannt) */
+  lastSeenAt: number | null;
 }
 
 interface Delivery {
@@ -33,6 +37,27 @@ const STATUS: Record<Account['status'], { label: string; tone: 'good' | 'warn' |
 
 const when = (t: number | null) => (t ? new Date(t).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : 'noch nie');
 
+/** „gerade eben“, „vor 5 Min.“, „vor 3 Std.“ … (ab einer Woche mit Datum) */
+function ago(t: number): string {
+  const min = Math.floor((Date.now() - t) / 60_000);
+  if (min < 1) return 'gerade eben';
+  if (min < 60) return `vor ${min} Min.`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `vor ${h} Std.`;
+  const d = Math.floor(h / 24);
+  return d < 7 ? `vor ${d} ${d === 1 ? 'Tag' : 'Tagen'}` : `am ${when(t)}`;
+}
+
+/** Grüner Punkt = gerade online (Regie offen), grau = offline. */
+function OnlineDot({ on }: { on: boolean }) {
+  return (
+    <span className="relative inline-flex size-2.5 shrink-0" title={on ? 'online' : 'offline'} aria-label={on ? 'online' : 'offline'}>
+      {on && <span className="absolute inset-0 animate-ping rounded-full bg-good opacity-60" />}
+      <span className={`relative size-2.5 rounded-full ${on ? 'bg-good' : 'bg-muted/40'}`} />
+    </span>
+  );
+}
+
 export function UsersPage() {
   const me = useAccount((s) => s.account);
   const [rows, setRows] = useState<Row[]>([]);
@@ -41,6 +66,17 @@ export function UsersPage() {
   const [editing, setEditing] = useState<Row | null>(null);
   const [delivery, setDelivery] = useState<{ user: Row | Account; purpose: 'invite' | 'reset'; result: Delivery } | null>(null);
   const { busy, run } = useAsync();
+  // live: wer ist gerade online (kommt über die Regie-Verbindung, sonst Stand vom Laden)
+  const live = useLive((s) => s.accounts);
+  const devices = (u: Row) => (live ? (live.online[u.id] ?? 0) : u.online);
+  const seen = (u: Row) => (live ? (live.lastSeen[u.id] ?? u.lastSeenAt) : u.lastSeenAt);
+  const onlineCount = rows.filter((u) => devices(u) > 0).length;
+  // „vor 5 Min.“ aktuell halten
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     const r = await api<{ users: Row[]; mailReady: boolean }>('/api/users', { slot: 'admin' });
@@ -79,6 +115,7 @@ export function UsersPage() {
       <Card>
         <CardHeader
           title="Spielleiter und Admins"
+          actions={onlineCount > 0 ? <Badge tone="good">{onlineCount} online</Badge> : undefined}
           sub="Spielleiter legen eigene Spiele und Sammlungen an und sehen nur ihre eigenen Spiele. Admins verwalten alles. Du selbst meldest dich als Haupt-Admin mit dem Passwort aus der Datei .env an."
         />
         {rows.length === 0 ? (
@@ -91,13 +128,23 @@ export function UsersPage() {
               <li key={u.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2 font-bold">
+                    <OnlineDot on={devices(u) > 0} />
                     <span className="truncate">{u.name}</span>
                     {u.role === 'admin' && <Badge tone="accent">Admin</Badge>}
                     <Badge tone={STATUS[u.status].tone}>{STATUS[u.status].label}</Badge>
                     {u.id === me?.id && <Badge>du</Badge>}
                   </p>
                   <p className="truncate text-xs text-muted">
-                    {u.email} · {u.games} {u.games === 1 ? 'Spiel' : 'Spiele'} · zuletzt angemeldet {when(u.lastLoginAt)}
+                    {devices(u) > 0 ? (
+                      <span className="font-bold text-good">online{devices(u) > 1 ? ` · ${devices(u)} Geräte` : ''}</span>
+                    ) : seen(u) ? (
+                      `offline · zuletzt online ${ago(seen(u)!)}`
+                    ) : (
+                      `offline · zuletzt angemeldet ${when(u.lastLoginAt)}`
+                    )}
+                  </p>
+                  <p className="truncate text-xs text-muted">
+                    {u.email} · {u.games} {u.games === 1 ? 'Spiel' : 'Spiele'}
                   </p>
                 </div>
                 {u.status !== 'disabled' && (
