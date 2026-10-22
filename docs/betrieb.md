@@ -124,7 +124,7 @@ WebSockets werden von Caddy automatisch durchgereicht; die echten Absender komme
 
 ## Konten, Einladungen und E-Mail
 
-Der **Haupt-Admin** meldet sich mit `ADMIN_PASSWORD` aus `.env` an (Knopf *Admin-Passwort* auf der Anmeldeseite). Unter *Konten* lädt er Spielleiter ein:
+Der **Haupt-Admin** meldet sich mit `ADMIN_PASSWORD` aus `.env` an: auf der Anmeldeseite das Feld *E-Mail* leer lassen, nur das Passwort eingeben – dafür braucht es keinen E-Mail-Versand. Unter *Konten* lädt er Spielleiter ein:
 
 1. Name und E-Mail eintragen, Rolle wählen (*Spielleiter* oder *Admin*).
 2. Ist der E-Mail-Versand eingerichtet, kommt eine Einladung mit Link (7 Tage gültig, nur einmal benutzbar). Sonst zeigt die Regie den Link zum Weitergeben an.

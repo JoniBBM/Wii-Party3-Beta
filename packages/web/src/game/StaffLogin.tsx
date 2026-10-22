@@ -95,7 +95,7 @@ function useSubmit() {
 }
 
 function RegieLogin({ onDone }: { onDone: (token: string) => Promise<void> }) {
-  const [mode, setMode] = useState<'account' | 'admin' | 'forgot' | 'sent'>('account');
+  const [mode, setMode] = useState<'login' | 'forgot' | 'sent'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { busy, error, submit, setError } = useSubmit();
@@ -109,7 +109,7 @@ function RegieLogin({ onDone }: { onDone: (token: string) => Promise<void> }) {
     return (
       <div className="flex flex-col gap-4">
         <Head title="E-Mail unterwegs" icon={<Mail className="size-7" />} hint="Wenn es zu dieser Adresse ein Konto gibt, kommt gleich eine E-Mail mit einem Link zum Zurücksetzen (gültig 1 Stunde). Bitte auch im Spam-Ordner nachsehen." />
-        <Button variant="soft" block onClick={() => switchTo('account')}>
+        <Button variant="soft" block onClick={() => switchTo('login')}>
           Zurück zur Anmeldung
         </Button>
       </div>
@@ -128,20 +128,25 @@ function RegieLogin({ onDone }: { onDone: (token: string) => Promise<void> }) {
           });
         }}
       >
-        <Head title="Passwort vergessen" icon={<Mail className="size-7" />} hint="Gib die E-Mail-Adresse deines Kontos ein – du bekommst einen Link, um ein neues Passwort festzulegen." />
+        <Head
+          title="Passwort vergessen"
+          icon={<Mail className="size-7" />}
+          hint="Gib die E-Mail-Adresse deines Kontos ein – du bekommst einen Link, um ein neues Passwort festzulegen. (Das Admin-Passwort steht in der Datei .env auf dem Server.)"
+        />
         <input className="field h-12" type="email" autoComplete="email" placeholder="E-Mail" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         {error && <p className="text-sm font-bold text-bad">{error}</p>}
         <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!email.includes('@')}>
           Link schicken
         </Button>
-        <button type="button" className="text-sm font-bold text-accent" onClick={() => switchTo('account')}>
+        <button type="button" className="text-sm font-bold text-accent" onClick={() => switchTo('login')}>
           Zurück zur Anmeldung
         </button>
       </form>
     );
   }
 
-  const admin = mode === 'admin';
+  // Ein Formular für alle: mit E-Mail = Spielleiter-Konto, ohne E-Mail = Admin-Passwort aus .env
+  const admin = email.trim() === '';
   return (
     <form
       className="flex flex-col gap-4"
@@ -150,13 +155,13 @@ function RegieLogin({ onDone }: { onDone: (token: string) => Promise<void> }) {
         void submit(async () => {
           const r = admin
             ? await api<{ token: string }>('/api/auth/admin', { body: { password } })
-            : await api<{ token: string }>('/api/auth/login', { body: { email, password } });
+            : await api<{ token: string }>('/api/auth/login', { body: { email: email.trim(), password } });
           await onDone(r.token);
         });
       }}
     >
-      <Head title={admin ? 'Admin' : 'Regie'} hint={admin ? 'Mit dem Admin-Passwort aus der Datei .env' : 'Anmeldung für Spielleiterinnen und Spielleiter'} />
-      {!admin && <input className="field h-12" type="email" autoComplete="username" placeholder="E-Mail" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />}
+      <Head title="Regie" hint="Spielleiter mit E-Mail und Passwort. Admin: E-Mail leer lassen und das Admin-Passwort eingeben." />
+      <input className="field h-12" type="email" autoComplete="username" placeholder="E-Mail (Admin: leer lassen)" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
       <input
         className="field h-12"
         type="password"
@@ -164,28 +169,14 @@ function RegieLogin({ onDone }: { onDone: (token: string) => Promise<void> }) {
         placeholder={admin ? 'Admin-Passwort' : 'Passwort'}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        autoFocus={admin}
       />
       {error && <p className="text-sm font-bold text-bad">{error}</p>}
       <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!password || (!admin && !email.includes('@'))}>
-        Anmelden
+        {admin ? 'Als Admin anmelden' : 'Anmelden'}
       </Button>
-      <div className="flex flex-wrap justify-between gap-2 text-sm font-bold">
-        {admin ? (
-          <button type="button" className="text-accent" onClick={() => switchTo('account')}>
-            Mit E-Mail anmelden
-          </button>
-        ) : (
-          <>
-            <button type="button" className="text-accent" onClick={() => switchTo('forgot')}>
-              Passwort vergessen?
-            </button>
-            <button type="button" className="text-muted hover:text-ink" onClick={() => switchTo('admin')}>
-              Admin-Passwort
-            </button>
-          </>
-        )}
-      </div>
+      <button type="button" className="self-start text-sm font-bold text-accent" onClick={() => switchTo('forgot')}>
+        Passwort vergessen?
+      </button>
     </form>
   );
 }
