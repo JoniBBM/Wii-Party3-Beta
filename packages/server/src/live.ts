@@ -38,6 +38,8 @@ export interface Ack {
 interface SocketData {
   /** Angaben aus dem Token (ungeprüft – geprüft wird bei jeder Verwendung) */
   raw: Session | null;
+  /** das Token selbst (um bei einem Passwortwechsel das eigene Gerät zu erkennen) */
+  token: string | null;
   view: string;
   /** Spielcode, mit dem ein Gast beitreten will */
   code: string | null;
@@ -146,6 +148,16 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
   /** Rolle des Geräts in seinem Spiel. */
   const sessionOf = (socket: LiveSocket) => effectiveSession(database, hub, socket.data.raw, socket.data.gameId, socket.data.view);
   const isStaffSocket = (socket: LiveSocket) => isGameStaff(sessionOf(socket));
+  /** Gilt der Zugang (Regie, Beamer, Moderator) nicht mehr? Ein geschlossenes Spiel zählt nicht als Abmeldung. */
+  function sessionEnded(socket: LiveSocket): boolean {
+    const raw = socket.data.raw;
+    if (!raw) return false;
+    if (raw.role === 'leader' || (raw.role === 'admin' && !raw.userId)) return !accountOf(database, raw);
+    if (raw.role === 'beamer') return raw.key !== beamerKey(database, raw.userId ?? null);
+    if (raw.role === 'moderator') return !!raw.gameId && !!hub.get(raw.gameId) && effectiveSession(database, hub, raw, raw.gameId, socket.data.view).role !== 'moderator';
+    return false;
+  }
+
   /** Angemeldetes Konto (Regie) – auch ohne gewähltes Spiel. */
   const hasAccount = (socket: LiveSocket) => !!accountOf(database, socket.data.raw);
 
@@ -307,6 +319,7 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
     const auth = (socket.handshake.auth ?? {}) as { token?: string; view?: string; code?: unknown };
     socket.data.view = typeof auth.view === 'string' ? auth.view.slice(0, 20) : 'guest';
     socket.data.raw = verifyToken(auth.token);
+    socket.data.token = typeof auth.token === 'string' ? auth.token : null;
     socket.data.code = checkCode(auth.code);
     socket.data.gameId = null;
     socket.data.tokens = BURST;
@@ -338,6 +351,7 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       pairCodes.delete(code);
       target.data.pairCode = undefined;
       target.data.raw = verifyToken(token);
+      target.data.token = token;
       target.emit('beamer:token', token);
       attach(target, true);
       reply({ ok: true });
@@ -406,6 +420,7 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       if (!allow(socket, 3)) return ack?.(BUSY);
       const before = JSON.stringify(sessionOf(socket));
       socket.data.raw = verifyToken(typeof token === 'string' ? token : null);
+      socket.data.token = typeof token === 'string' ? token : null;
       const gameBefore = socket.data.gameId;
       attach(socket);
       // nur bei geänderter Sitzung neu senden (sonst ließe sich der Server mit kleinen Nachrichten fluten)
@@ -460,9 +475,25 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       }
       if (event === 'settings') io.emit('hello', { appName: getSettings(database).appName, serverNow: Date.now() });
     },
-    /** Anmeldungen eines Kontos haben sich geändert (gesperrt, Passwort neu): Geräte neu zuordnen. */
-    refreshAccounts() {
-      for (const socket of sockets()) attach(socket, true);
+    /**
+     * Anmeldungen haben sich geändert (abgemeldet, gesperrt, Passwort neu, Konto gelöscht): Geräte,
+     * deren Zugang nicht mehr gilt, bekommen sofort „session:ended“ und landen wieder bei der
+     * Anmeldung bzw. Beamer-Kopplung. `renew`: das Gerät, das selbst das Passwort geändert hat,
+     * bekommt stattdessen seinen neuen Zugang.
+     */
+    refreshAccounts(renew?: { from: string; to: string }) {
+      for (const socket of sockets()) {
+        if (renew && socket.data.token === renew.from) {
+          socket.data.raw = verifyToken(renew.to);
+          socket.data.token = renew.to;
+          socket.emit('session:token', renew.to);
+        } else if (sessionEnded(socket)) {
+          socket.data.raw = null;
+          socket.data.token = null;
+          socket.emit('session:ended');
+        }
+        attach(socket, true);
+      }
     },
     close() {
       for (const t of [...beamerTimers.values(), ...presenceTimers.values()]) clearTimeout(t);

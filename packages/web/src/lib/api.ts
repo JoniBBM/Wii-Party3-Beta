@@ -1,4 +1,5 @@
 /** REST-Aufrufe mit Token und deutschen Fehlermeldungen. */
+import { endSession } from './session.ts';
 import { getToken, type TokenSlot } from './storage.ts';
 
 export class ApiError extends Error {
@@ -37,6 +38,8 @@ export async function api<T = unknown>(
     data = null;
   }
   if (!res.ok) {
+    // Regie/Moderator mit Zugang, aber „Bitte anmelden“: Anmeldung ist erloschen → zur Anmeldung
+    if (res.status === 401 && token && (opts.slot === 'admin' || opts.slot === 'moderator')) endSession(opts.slot);
     const msg = (data as { error?: string } | null)?.error ?? `Fehler ${res.status}`;
     throw new ApiError(res.status, msg);
   }

@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { EngineError, teamColor } from '@insel/shared';
 import { accountOf } from '../access.ts';
-import { checkPassword, issueToken, rateLimited, staffKey, teamKey } from '../auth.ts';
+import { bearer, checkPassword, issueToken, rateLimited, staffKey, teamKey } from '../auth.ts';
 import { config, security } from '../config.ts';
 import * as db from '../db.ts';
 import { beamerKey, checkLink, gameStaffKey, hashPassword, passwordProblem, setPasswordWithLink, toAccount, userKey, verifyPassword } from '../users.ts';
@@ -157,14 +157,17 @@ export function authRoutes(app: FastifyInstance, ctx: Ctx) {
     const user = db.getUser(database, acc.userId)!;
     if (!(await verifyPassword(body.current, user.password))) {
       noteLoginFailure('login', req, LIMITS.login);
-      throw new HttpError(401, 'Das bisherige Passwort stimmt nicht');
+      // 400 statt 401: 401 heißt für die Oberfläche „Anmeldung erloschen“
+      throw new HttpError(400, 'Das bisherige Passwort stimmt nicht');
     }
     const problem = passwordProblem(body.next);
     if (problem) throw new HttpError(400, problem);
     db.updateUser(database, user.id, { password: await hashPassword(body.next), keyVersion: user.keyVersion + 1, updatedAt: Date.now() });
-    ctx.live.refreshAccounts();
     const fresh = db.getUser(database, user.id)!;
-    return { token: issueToken({ role: 'leader', userId: fresh.id, key: userKey(fresh) }) };
+    const token = issueToken({ role: 'leader', userId: fresh.id, key: userKey(fresh) });
+    // andere Geräte sofort abmelden, dieses (gleiches Token) bekommt den neuen Zugang
+    ctx.live.refreshAccounts({ from: bearer(req.headers.authorization) ?? '', to: token });
+    return { token };
   });
 
   // -------------------------------------------------------------------------

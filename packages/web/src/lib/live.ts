@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { create } from 'zustand';
 import { DEFAULT_SHOW, type BeamerStats, type CameraCommand, type CommandInput, type Effect, type GameState, type Session, type ShowCommand, type ShowState } from '@insel/shared';
+import { endSession } from './session.ts';
 import { getToken, setToken, type TokenSlot } from './storage.ts';
 
 export interface Ack {
@@ -125,6 +126,20 @@ export function connectLive(slot: TokenSlot | null, view: string, code: string |
     setToken('beamer', token);
     useLive.setState({ pairCode: null });
     reauth();
+  });
+  // Zugang von außen beendet (überall abgemeldet, gesperrt …) bzw. erneuert (eigener Passwortwechsel)
+  // (auch für spätere automatische Neuverbindungen den Zugang im Handshake mitziehen)
+  const auth = s.auth as { token: string | null };
+  s.on('session:ended', () => {
+    auth.token = null;
+    if (current) current.token = null;
+    if (current?.slot) endSession(current.slot);
+  });
+  s.on('session:token', (token: unknown) => {
+    if (typeof token !== 'string' || !current?.slot) return;
+    auth.token = token;
+    current.token = token;
+    setToken(current.slot, token);
   });
   s.on('changed', (what: string) => {
     for (const fn of changeListeners) fn(what);

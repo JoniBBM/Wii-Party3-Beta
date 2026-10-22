@@ -511,6 +511,47 @@ describe('Spielleiter-Konten und mehrere Spiele', () => {
     expect((await api(`/api/library/collections/${own.id}`, { method: 'PUT', token: admin, body: { name: 'Utes Fragen (geprüft)', description: '' } })).status).toBe(200);
   });
 
+  it('„Überall abmelden“ wirkt sofort auf offene Regie-Fenster; eigener Passwortwechsel behält dieses Gerät', async () => {
+    const admin = await adminToken();
+    const eva = await leader(admin, 'eva@example.org', 'Eva');
+    const ended = (c: Client) => new Promise<boolean>((res) => {
+      const t = setTimeout(() => res(false), 1500);
+      c.socket.once('session:ended', () => (clearTimeout(t), res(true)));
+    });
+    // zwei Geräte von Eva (zwei Anmeldungen)
+    const laptop = await client(eva.token);
+    const phoneToken = (await api<{ token: string }>('/api/auth/login', { body: { email: 'eva@example.org', password: 'Lagerfeuer-und-Sterne-7' } })).data.token;
+    const phone = await client(phoneToken);
+    const oldBeamer = await client((await api<{ token: string }>('/api/auth/beamer-link', { token: eva.token, body: {} })).data.token, 'beamer');
+    expect(oldBeamer.session()?.role).toBe('beamer');
+    const oldBeamerOut = ended(oldBeamer);
+
+    // Eva ändert ihr Passwort am Laptop: Laptop bekommt den neuen Zugang, das Handy fliegt raus
+    const renewed = new Promise<string>((res) => laptop.socket.once('session:token', res));
+    const phoneOut = ended(phone);
+    const changed = await api<{ token: string }>('/api/account/password', { token: eva.token, body: { current: 'Lagerfeuer-und-Sterne-7', next: 'Neues-Eva-Passwort-1' } });
+    expect(changed.status).toBe(200);
+    expect(await renewed).toBe(changed.data.token);
+    expect(await phoneOut).toBe(true);
+    expect(await oldBeamerOut).toBe(true); // Beamer hängen am Zugang des Kontos
+    const beamer = await client((await api<{ token: string }>('/api/auth/beamer-link', { token: changed.data.token, body: {} })).data.token, 'beamer');
+    expect(beamer.session()?.role).toBe('beamer');
+    // falsches bisheriges Passwort ist 400 (401 hieße „abgemeldet“)
+    expect((await api('/api/account/password', { token: changed.data.token, body: { current: 'falsch-falsch-falsch', next: 'Noch-ein-Passwort-2' } })).status).toBe(400);
+
+    // Admin: „Überall abmelden“ → Laptop und Beamer bekommen sofort Bescheid
+    const laptopOut = ended(laptop);
+    const beamerOut = ended(beamer);
+    const t0 = Date.now();
+    expect((await api(`/api/users/${eva.id}/logout`, { token: admin, body: {} })).status).toBe(200);
+    expect(await laptopOut).toBe(true);
+    expect(await beamerOut).toBe(true);
+    expect(Date.now() - t0).toBeLessThan(1000);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(laptop.session()?.role).toBe('guest');
+    expect((await api('/api/games', { token: changed.data.token })).status).toBe(401);
+  });
+
   it('Passwort vergessen (Link geht an die feste Adresse), Sperren und Passwortwechsel melden ab', async () => {
     const admin = await adminToken();
     const kim = await leader(admin, 'kim@example.org', 'Kim');

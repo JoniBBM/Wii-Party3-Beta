@@ -7,7 +7,9 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { KeyRound, Mail } from 'lucide-react';
-import { loadMe } from '../lib/account.ts';
+import { loadMe, useAccount } from '../lib/account.ts';
+import { onSessionEnded } from '../lib/session.ts';
+import { toast } from '../ui/toast.tsx';
 import { api, type SystemInfo } from '../lib/api.ts';
 import { getToken, setToken, type TokenSlot } from '../lib/storage.ts';
 import { Button, Card, Spinner } from '../ui/basics.tsx';
@@ -17,6 +19,20 @@ type Kind = 'regie' | 'moderator';
 export function StaffGate({ kind, children }: { kind: Kind; children: ReactNode }) {
   const slot: TokenSlot = kind === 'regie' ? 'admin' : 'moderator';
   const [status, setStatus] = useState<'checking' | 'login' | 'ok'>('checking');
+
+  // Von außen abgemeldet (überall abmelden, gesperrt, Passwort geändert): sofort zur Anmeldung
+  useEffect(
+    () =>
+      onSessionEnded((ended) => {
+        if (ended !== slot) return;
+        if (slot === 'admin') useAccount.setState({ account: null });
+        setStatus((s) => {
+          if (s === 'ok') toast.info('Du wurdest abgemeldet');
+          return 'login';
+        });
+      }),
+    [slot],
+  );
 
   useEffect(() => {
     (async () => {
@@ -145,8 +161,9 @@ function RegieLogin({ onDone }: { onDone: (token: string) => Promise<void> }) {
     );
   }
 
-  // Ein Formular für alle: mit E-Mail = Spielleiter-Konto, ohne E-Mail = Admin-Passwort aus .env
-  const admin = email.trim() === '';
+  // Ein Formular für alle: Benutzername „admin“ = Admin-Passwort aus .env, sonst E-Mail eines Kontos
+  const admin = email.trim().toLowerCase() === 'admin';
+  const ready = !!password && (admin || email.includes('@'));
   return (
     <form
       className="flex flex-col gap-4"
@@ -160,19 +177,25 @@ function RegieLogin({ onDone }: { onDone: (token: string) => Promise<void> }) {
         });
       }}
     >
-      <Head title="Regie" hint="Spielleiter mit E-Mail und Passwort. Admin: E-Mail leer lassen und das Admin-Passwort eingeben." />
-      <input className="field h-12" type="email" autoComplete="username" placeholder="E-Mail (Admin: leer lassen)" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+      <Head title="Regie" hint="Anmeldung für die Spielleitung" />
+      {/* Text statt E-Mail-Feld: „admin“ ist keine E-Mail-Adresse und würde sonst vom Browser abgelehnt */}
       <input
         className="field h-12"
-        type="password"
-        autoComplete="current-password"
-        placeholder={admin ? 'Admin-Passwort' : 'Passwort'}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        type="text"
+        inputMode="email"
+        autoComplete="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="Benutzername oder E-Mail"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        autoFocus
       />
+      <input className="field h-12" type="password" autoComplete="current-password" placeholder="Passwort" value={password} onChange={(e) => setPassword(e.target.value)} />
       {error && <p className="text-sm font-bold text-bad">{error}</p>}
-      <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!password || (!admin && !email.includes('@'))}>
-        {admin ? 'Als Admin anmelden' : 'Anmelden'}
+      <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!ready}>
+        Anmelden
       </Button>
       <button type="button" className="self-start text-sm font-bold text-accent" onClick={() => switchTo('forgot')}>
         Passwort vergessen?

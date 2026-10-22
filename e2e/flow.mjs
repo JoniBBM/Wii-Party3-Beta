@@ -46,9 +46,10 @@ try {
   const regie = await regieCtx.newPage();
   watch(regie, 'regie');
   await regie.goto(`${base}/regie`);
-  // Admin: E-Mail leer lassen, nur das Passwort aus .env
-  await regie.getByPlaceholder('Admin-Passwort').fill(PASS);
-  await regie.getByRole('button', { name: 'Als Admin anmelden' }).click();
+  // Admin: Benutzername „admin“ und das Passwort aus .env
+  await regie.getByPlaceholder('Benutzername oder E-Mail').fill('admin');
+  await regie.getByPlaceholder('Passwort', { exact: true }).fill(PASS);
+  await regie.getByRole('button', { name: 'Anmelden', exact: true }).click();
   await regie.getByRole('button', { name: 'Spiel anlegen' }).click();
   await regie.getByText('Anmeldung offen').waitFor();
   await shot(regie, 'regie-lobby-leer');
