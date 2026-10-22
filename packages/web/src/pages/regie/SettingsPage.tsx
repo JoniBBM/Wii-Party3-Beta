@@ -1,6 +1,10 @@
-/** Einstellungen: Name, Beitritts-Adresse, Moderator-Link, Datenschutz, Darstellung. */
+/**
+ * Einstellungen: eigenes Konto, Moderator-Link, Datenschutz, Darstellung – und für Admins Name,
+ * Beitritts-Adresse und E-Mail-Versand (gelten für alle Spiele auf dem Server).
+ */
 import { useState } from 'react';
 import { Globe, ImageOff, Link2, Mic, Moon, Save, Sun, Wifi } from 'lucide-react';
+import { useAccount } from '../../lib/account.ts';
 import { api } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
 import { useLive } from '../../lib/live.ts';
@@ -9,10 +13,12 @@ import { useTheme } from '../../lib/theme.ts';
 import { Button, Card, CardHeader, Segmented } from '../../ui/basics.tsx';
 import { QrCode } from '../../ui/game.tsx';
 import { confirm, Modal } from '../../ui/overlay.tsx';
+import { AccountCard, SmtpCard } from './AccountCards.tsx';
 
 export function SettingsPage() {
   const info = useSystem((s) => s.info);
   const state = useLive((s) => s.state);
+  const admin = useAccount((s) => !!s.account?.isAdmin);
   const joinUrl = useJoinUrl();
   const [appName, setAppName] = useState(info?.appName ?? '');
   const [custom, setCustom] = useState('');
@@ -27,57 +33,76 @@ export function SettingsPage() {
     <div className="flex max-w-3xl flex-col gap-5">
       <h1 className="text-2xl font-semibold">Einstellungen</h1>
 
-      <Card>
-        <CardHeader title="Name des Spiels" sub="Erscheint auf Beamer, Startseite und Handys." />
-        <div className="flex gap-2 p-5">
-          <input className="field" value={appName || info?.appName || ''} onChange={(e) => setAppName(e.target.value)} maxLength={60} />
-          <Button variant="primary" icon={<Save className="size-4" />} loading={busy} disabled={!appName.trim()} onClick={() => saveSettings({ appName: appName.trim() })}>
-            Speichern
-          </Button>
-        </div>
-      </Card>
+      <AccountCard />
+
+      {admin && (
+        <Card>
+          <CardHeader title="Name des Spiels" sub="Erscheint auf Beamer, Startseite und Handys – für alle Spiele auf diesem Server." />
+          <div className="flex gap-2 p-5">
+            <input className="field" value={appName || info?.appName || ''} onChange={(e) => setAppName(e.target.value)} maxLength={60} />
+            <Button variant="primary" icon={<Save className="size-4" />} loading={busy} disabled={!appName.trim()} onClick={() => saveSettings({ appName: appName.trim() })}>
+              Speichern
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card>
-        <CardHeader title="Beitritts-Adresse" sub="Diese Adresse steckt in allen QR-Codes. Die Handys müssen sie erreichen können." icon={<Wifi className="size-5" />} />
+        <CardHeader
+          title="Beitritts-Adresse"
+          sub={admin ? 'Diese Adresse steckt in allen QR-Codes. Die Handys müssen sie erreichen können.' : 'Diese Adresse steckt in allen QR-Codes (stellt der Admin ein).'}
+          icon={<Wifi className="size-5" />}
+        />
         <div className="flex flex-col gap-3 p-5">
           <div className="flex items-center gap-4 rounded-2xl bg-bg-2 p-3">
-            <QrCode value={`${joinUrl}/join`} size={96} />
+            <QrCode value={state ? `${joinUrl}/join/${state.code}` : `${joinUrl}/join`} size={96} />
             <div className="min-w-0">
               <p className="text-xs font-extrabold uppercase tracking-wide text-muted">Aktuell</p>
               <p className="break-all font-mono text-lg font-bold">{joinUrl}</p>
+              {state && (
+                <p className="text-sm text-muted">
+                  Spielcode <span className="font-mono font-bold tracking-widest text-ink">{state.code}</span>
+                </p>
+              )}
             </div>
           </div>
-          <ul className="flex flex-col gap-1.5">
-            {(info?.joinUrls ?? []).map((u) => (
-              <li key={u.url} className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2">
-                {u.kind === 'tunnel' || u.kind === 'public' ? <Globe className="size-4 text-accent" /> : <Wifi className="size-4 text-muted" />}
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-bold text-muted">{u.label}</span>
-                  <span className="block truncate font-mono text-sm">{u.url}</span>
-                </span>
-                {u.url !== joinUrl && (
-                  <Button size="sm" onClick={() => saveSettings({ joinUrl: u.url })}>
-                    Verwenden
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-          <div className="flex gap-2">
-            <input className="field" placeholder="Eigene Adresse, z. B. https://insel.example.org" value={custom} onChange={(e) => setCustom(e.target.value)} />
-            <Button disabled={!custom.trim()} onClick={() => saveSettings({ joinUrl: custom.trim() })}>
-              Setzen
-            </Button>
-          </div>
-          <Button variant="ghost" size="sm" className="self-start" onClick={() => saveSettings({ joinUrl: '' })}>
-            Automatisch wählen
-          </Button>
-          <p className="text-sm text-muted">
-            Für Zugriff übers Internet (Handys ohne WLAN, Kamera ohne Warnungen) den Tunnel starten: <code className="rounded bg-bg-2 px-1.5">./start.sh online</code> – die
-            Tunnel-Adresse erscheint dann hier automatisch.
-          </p>
+          {admin && (
+            <>
+              <ul className="flex flex-col gap-1.5">
+                {(info?.joinUrls ?? []).map((u) => (
+                  <li key={u.url} className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2">
+                    {u.kind === 'tunnel' || u.kind === 'public' ? <Globe className="size-4 text-accent" /> : <Wifi className="size-4 text-muted" />}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-muted">{u.label}</span>
+                      <span className="block truncate font-mono text-sm">{u.url}</span>
+                    </span>
+                    {u.url !== joinUrl && (
+                      <Button size="sm" onClick={() => saveSettings({ joinUrl: u.url })}>
+                        Verwenden
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2">
+                <input className="field" placeholder="Eigene Adresse, z. B. https://insel.example.org" value={custom} onChange={(e) => setCustom(e.target.value)} />
+                <Button disabled={!custom.trim()} onClick={() => saveSettings({ joinUrl: custom.trim() })}>
+                  Setzen
+                </Button>
+              </div>
+              <Button variant="ghost" size="sm" className="self-start" onClick={() => saveSettings({ joinUrl: '' })}>
+                Automatisch wählen
+              </Button>
+              <p className="text-sm text-muted">
+                Für Zugriff übers Internet (Handys ohne WLAN, Kamera ohne Warnungen) den Tunnel starten: <code className="rounded bg-bg-2 px-1.5">./start.sh online</code> – die
+                Tunnel-Adresse erscheint dann hier automatisch.
+              </p>
+            </>
+          )}
         </div>
       </Card>
+
+      {admin && <SmtpCard />}
 
       <Card>
         <CardHeader title="Moderator verbinden" sub="Für die Person, die vorliest: QR-Code mit dem Handy scannen – kein Passwort nötig. 24 Stunden gültig." icon={<Mic className="size-5" />} />
@@ -86,6 +111,7 @@ export function SettingsPage() {
             variant="primary"
             icon={<Link2 className="size-4" />}
             loading={busy}
+            disabled={!state}
             onClick={async () => {
               const r = await run(() => api<{ token: string }>('/api/auth/moderator-link', { slot: 'admin', body: {} }));
               if (r) setModLink(`${joinUrl}/join/m#t=${r.token}`);
@@ -97,7 +123,7 @@ export function SettingsPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Datenschutz" sub="Fotos werden nur auf diesem Rechner gespeichert und nie exportiert." icon={<ImageOff className="size-5" />} />
+        <CardHeader title="Datenschutz" sub="Fotos werden nur auf diesem Server gespeichert und nie exportiert." icon={<ImageOff className="size-5" />} />
         <div className="p-5">
           <Button
             variant="bad"
@@ -126,7 +152,7 @@ export function SettingsPage() {
               { value: 'system', label: 'System' },
             ]}
           />
-          <p className="mt-3 text-sm text-muted">Die Grafikqualität des Beamers stellst du direkt auf dem Beamer ein (Taste Q oder Zahnrad).</p>
+          <p className="mt-3 text-sm text-muted">Grafik, Ton und Kamera des Beamers stellst du unter „Beamer“ ein.</p>
         </div>
       </Card>
 

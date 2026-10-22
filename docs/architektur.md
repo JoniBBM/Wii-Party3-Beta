@@ -57,24 +57,28 @@ Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte,
 
 | Datei | Aufgabe |
 |---|---|
-| `main.ts` | Start: DB, Seed, Runtime, Fastify, Socket.IO, statische Auslieferung der Weboberfläche |
-| `runtime.ts` | Aktives Spiel im Speicher, Befehle ausführen, speichern, **Rückgängig** (40 Schritte), Countdown-Timer |
-| `live.ts` | Socket.IO: Sitzung prüfen, Befehle annehmen, Zustand je Rolle senden, Geräte-Anwesenheit, **Beamer-Show** (Einstellungen der Regie speichern und an alle Beamer senden, Rückmeldungen der Beamer an die Regie) |
+| `main.ts` | Start: DB, Seed, Spiele-Hub, Fastify, Socket.IO, statische Auslieferung der Weboberfläche |
+| `hub.ts` | **Mehrere Spiele gleichzeitig:** geöffnete Spiele (je eine `GameRuntime`), Besitzer, Spielcode, Beamer-Einstellungen je Spiel, „gewähltes Spiel“ je Konto |
+| `runtime.ts` | Ein Spiel im Speicher, Befehle ausführen, speichern, **Rückgängig** (40 Schritte), Countdown-Timer |
+| `access.ts` | Wer darf was: geprüftes Konto, zu welchem Spiel ein Gerät gehört, Rolle im Spiel (Konto → `admin` für eigene Spiele) – gemeinsam für HTTP und Socket.IO |
+| `users.ts`, `mail.ts` | Konten (scrypt-Passwörter, Schlüssel je Konto, Einladungs-/Zurücksetzen-Links), E-Mail über SMTP (nodemailer) |
+| `live.ts` | Socket.IO: ein Raum je Spiel (`g:<id>`), Sitzung prüfen, Befehle annehmen, Zustand je Rolle senden, Geräte-Anwesenheit, **Beamer-Show** je Spiel |
 | `db.ts` | SQLite-Schema (Migrationen über `user_version`) und Zugriffe |
 | `auth.ts` | Signierte Tokens (HMAC), Passwortprüfung (zeitkonstant), Bremse gegen Raten (je Adresse wachsende Sperre) |
 | `http/*` | REST: Login, Bibliothek, Spiele & Vorlagen, Fotos, System |
 | `seed.ts` | Erster Start: Beispiel- und Import-Inhalte, Standard-Vorlagen |
 | `legacy.ts`, `tools/import-legacy.ts` | Übernahme der alten Inhalte |
 
-**Datenhaltung:** Bibliothek (`collections`, `items`) und `templates` sind normale Tabellen. Ein Spiel wird als JSON-Snapshot in `games.state` gespeichert (nach jeder Änderung); `game_log` protokolliert alle Befehle.
+**Datenhaltung:** Bibliothek (`collections`, `items`) und `templates` sind normale Tabellen, mit `owner_id` (Konto; `NULL` = Admin) und bei Sammlungen `published`. Ein Spiel wird als JSON-Snapshot in `games.state` gespeichert (nach jeder Änderung) – dazu `owner_id`, `code` (Spielcode), `open` (geöffnet) und `show` (Beamer-Einstellungen). `users`/`user_tokens` halten Konten und Link-Hashes; `game_log` protokolliert alle Befehle.
 
-**Sitzungen:** Geräte erhalten ein Token (`admin`, `moderator`, `beamer`, `team`, `player`) und speichern es im `localStorage`. Team- und Spieler-Tokens gelten nur für das Spiel, in dem sie ausgestellt wurden. Tokens der Spielleitung und der Beamer tragen `key = staffKey()` (HMAC über die Passwörter) – ein neues Passwort macht sie alle ungültig.
+**Sitzungen:** Geräte erhalten ein Token (`admin`, `leader`, `moderator`, `beamer`, `team`, `player`) und speichern es im `localStorage`. Der Haupt-Admin hat `key = staffKey()` (HMAC über die Passwörter aus `.env`), Konten (`leader`, Feld `u`) einen Schlüssel aus Konto-ID, Schlüsselversion und Passwort-Hash. Beamer gehören einem Konto (`u`) und zeigen dessen gewähltes Spiel; Moderator-, Team- und Spieler-Tokens gelten nur für ihr Spiel (`g`). Gäste bringen den Spielcode im Socket-Handshake mit (`auth.code`).
 
 **Sicherheitsmodell:**
 
 - *Rollen:* `guest` sieht nur die Insel (ohne Fotos, Verlauf, Beitritts-Adressen); `beamer` zusätzlich alles, was der Beamer zeigt; Teams/Spieler ihren Teil; Regie/Moderator alles. Gefiltert wird zentral in `projectState` (Engine), Lösungen und PINs gehen nie an Handys oder Beamer.
 - *Beamer-Kopplung:* Ein Beamer ohne Token bekommt `beamer:pair {code}`; die Regie schickt `beamer:pair` mit dem Code, der Server stellt ein Beamer-Token aus (`beamer:token`), der Beamer meldet sich neu an. Alternativ `/beamer#bt=…` (Token von `/api/auth/beamer-link`, z. B. durch `./start.sh beamer`).
-- *Begrenzungen:* je Adresse höchstens 60 Verbindungen, je Verbindung ein Token-Eimer (12/s, Spitze 40; Anmelden eines Spielers kostet 8), Nachrichten bis 256 kB, Spieler-Anmeldung 60/min je Adresse, Fotos 8 MB mit Formatprüfung und Pixelgrenze, Bildverarbeitung höchstens zwei gleichzeitig.
+- *Begrenzungen:* je Adresse höchstens 400 Verbindungen und 3000 insgesamt (Konten und freigegebene Beamer ausgenommen), je Verbindung ein Token-Eimer (12/s, Spitze 40; Anmelden eines Spielers kostet 8), Nachrichten bis 256 kB, Spieler-Anmeldung 180/min je Adresse, Fotos 8 MB mit Formatprüfung und Pixelgrenze, Bildverarbeitung höchstens zwei gleichzeitig. Fehlversuche (Passwort, PIN, Spielcode, Links) bremst ein globaler Eimer plus eine Sperre je echter Adresse (siehe `net.ts`, `http/common.ts`).
+- *Konten:* Spielleiter steuern nur eigene Spiele (`canManage`), sehen nur veröffentlichte und eigene Sammlungen; Schreibzugriffe prüfen das Konto, Moderatoren lesen die Bibliothek mit den Rechten des Spielbesitzers.
 - *Internet:* `INSEL_ONLINE`/`PUBLIC_URL` → Start nur mit sicherem Passwort und Anmeldung; Logins über den Cloudflare-Tunnel (`cf-connecting-ip`) werden bei schwachem Passwort immer abgelehnt. Weitergeleitete Adressen gelten nur von lokalen Proxys (`trustProxy`, nicht vom Docker-Gateway).
 - *Auslieferung:* CSP (`script-src 'self'`, deshalb zod im Browser mit `jitless`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`; Fotos unter `/media` ohne Verzeichnislisten.
 - *Kein Sprachmodell zur Laufzeit* – Eingaben werden nur angezeigt, nie ausgeführt.

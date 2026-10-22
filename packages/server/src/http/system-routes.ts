@@ -3,13 +3,12 @@ import { existsSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { accountOf } from '../access.ts';
 import { config, security } from '../config.ts';
 import * as db from '../db.ts';
-import type { Live } from '../live.ts';
-import type { GameRuntime } from '../runtime.ts';
-import { isPrivileged } from '@insel/shared';
-import { ADMIN, client, requireRole, sessionOf, STAFF } from './common.ts';
+import { buttonMail, mailError, sendMail } from '../mail.ts';
 import { trustWarning } from '../net.ts';
+import { client, gameSession, HttpError, rawSession, requestGame, requireAccount, type Ctx } from './common.ts';
 
 const inDocker = existsSync('/.dockerenv');
 
@@ -64,14 +63,28 @@ export async function joinUrls(req: FastifyRequest, database: db.DB): Promise<Jo
   return urls;
 }
 
-export function systemRoutes(app: FastifyInstance, runtime: GameRuntime, database: db.DB, live: Live) {
+const smtpInput = z.object({
+  host: z.string().trim().min(1, 'Bitte den Mailserver angeben').max(200),
+  port: z.number().int().min(1).max(65535),
+  security: z.enum(['tls', 'starttls', 'none']),
+  user: z.string().trim().max(200).default(''),
+  /** leer = bisheriges Passwort behalten */
+  password: z.string().max(500).default(''),
+  fromAddress: z.string().trim().email('Bitte eine gültige Absenderadresse').max(200),
+  fromName: z.string().trim().max(100).default(''),
+});
+
+export function systemRoutes(app: FastifyInstance, ctx: Ctx) {
+  const { database, hub, live } = ctx;
+
   app.get('/api/health', async () => ({ ok: true, version: config.version }));
 
   app.get('/api/system/info', async (req) => {
     const settings = db.getSettings(database);
-    // Netzwerkadressen und Spiel-ID nur für Spielleitung und freigegebene Beamer (QR-Code)
-    const role = sessionOf(req, runtime.state).role;
-    const trusted = isPrivileged(role) || role === 'beamer';
+    // Netzwerkadressen und Spiel-ID nur für Spielleitung, Moderatoren und freigegebene Beamer (QR-Code)
+    const gameId = requestGame(req, ctx);
+    const session = gameSession(req, ctx, gameId);
+    const trusted = !!accountOf(database, rawSession(req)) || session.role === 'moderator' || session.role === 'beamer';
     const urls = trusted ? await joinUrls(req, database) : [];
     return {
       appName: settings.appName,
@@ -79,14 +92,15 @@ export function systemRoutes(app: FastifyInstance, runtime: GameRuntime, databas
       authDisabled: config.authDisabled,
       joinUrls: urls,
       joinUrl: urls[0]?.url ?? null,
-      activeGameId: trusted ? (runtime.state?.id ?? null) : null,
+      activeGameId: trusted ? gameId : null,
       serverNow: Date.now(),
     };
   });
 
-  /** Sicherheitslage für die Regie (Warnhinweis bei schwachem Passwort o. Ä.). */
+  /** Sicherheitslage für die Regie (Warnhinweis bei schwachem Passwort o. Ä.) – nur für Admins. */
   app.get('/api/system/security', async (req) => {
-    requireRole(req, runtime, STAFF);
+    const acc = requireAccount(req, ctx);
+    if (!acc.isAdmin) return { weakAdminPassword: false, weakModeratorPassword: false, authDisabled: false, online: config.online, unknownClients: false, trustUnsafe: false };
     // Kommt die Anfrage über Cloudflare, ohne dass der Tunnel als eigener Proxy erkannt wird?
     // Dann sehen alle Gäste gleich aus (nur globale Bremsen) – Hinweis auf TRUST_PROXY.
     const unknownClients = req.headers['cf-connecting-ip'] !== undefined && !client(req).distinct;
@@ -94,7 +108,7 @@ export function systemRoutes(app: FastifyInstance, runtime: GameRuntime, databas
   });
 
   app.put('/api/system/settings', async (req) => {
-    requireRole(req, runtime, ADMIN);
+    requireAccount(req, ctx, { admin: true });
     const body = z
       .object({
         appName: z.string().trim().min(1).max(60).optional(),
@@ -103,6 +117,64 @@ export function systemRoutes(app: FastifyInstance, runtime: GameRuntime, databas
       .parse(req.body);
     db.setSettings(database, body);
     live.notifyStaff('settings');
-    return db.getSettings(database);
+    const s = db.getSettings(database);
+    return { appName: s.appName, joinUrl: s.joinUrl };
+  });
+
+  // -------------------------------------------------------------------------
+  // E-Mail (SMTP) – das Passwort verlässt den Server nie wieder
+  // -------------------------------------------------------------------------
+
+  app.get('/api/system/smtp', async (req) => {
+    requireAccount(req, ctx, { admin: true });
+    const smtp = db.getSettings(database).smtp;
+    return {
+      smtp: smtp ? { ...smtp, password: '' } : null,
+      hasPassword: !!smtp?.password,
+      // Links in E-Mails brauchen eine feste Adresse (sonst ließen sie sich umbiegen)
+      linkBase: config.publicUrl || db.getSettings(database).joinUrl || null,
+    };
+  });
+
+  app.put('/api/system/smtp', async (req) => {
+    requireAccount(req, ctx, { admin: true });
+    const body = z.object({ smtp: smtpInput.nullable() }).parse(req.body);
+    const before = db.getSettings(database).smtp;
+    const smtp = body.smtp ? { ...body.smtp, password: body.smtp.password || before?.password || '' } : null;
+    db.setSettings(database, { smtp });
+    return { ok: true, configured: !!smtp };
+  });
+
+  /** Testmail an eine Adresse (prüft die Einstellungen). */
+  app.post('/api/system/smtp/test', async (req) => {
+    const acc = requireAccount(req, ctx, { admin: true });
+    const body = z.object({ to: z.string().trim().email('Bitte eine gültige E-Mail-Adresse') }).parse(req.body);
+    const settings = db.getSettings(database);
+    if (!settings.smtp) throw new HttpError(400, 'Bitte zuerst den Mailserver eintragen und speichern');
+    const base = config.publicUrl || settings.joinUrl || `http://${req.headers.host ?? 'localhost'}`;
+    try {
+      await sendMail(
+        settings.smtp,
+        buttonMail({
+          to: body.to,
+          appName: settings.appName,
+          subject: `Testmail – ${settings.appName}`,
+          lines: [`Hallo ${acc.name},`, 'der E-Mail-Versand funktioniert. Einladungen und Links zum Zurücksetzen von Passwörtern kommen jetzt an.'],
+          button: 'Zur Regie',
+          url: `${base.replace(/\/$/, '')}/regie`,
+          footer: 'Diese E-Mail wurde aus den Einstellungen der Regie verschickt.',
+        }),
+      );
+    } catch (err) {
+      throw new HttpError(502, mailError(err));
+    }
+    return { ok: true };
+  });
+
+  /** Überblick für Admins: Konten, Spiele, geöffnete Spiele. */
+  app.get('/api/system/overview', async (req) => {
+    requireAccount(req, ctx, { admin: true });
+    const games = db.listGames(database);
+    return { users: db.listUsers(database).length, games: games.length, openGames: hub.openIds().length, mailReady: !!db.getSettings(database).smtp };
   });
 }

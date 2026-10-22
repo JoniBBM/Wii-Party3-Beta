@@ -1,12 +1,12 @@
 /**
- * Laufzeit des aktiven Spiels: hält den Zustand im Speicher, führt Befehle über die Engine
- * aus, speichert jede Änderung, verwaltet Rückgängig-Schritte und den Countdown.
+ * Laufzeit eines geöffneten Spiels: hält den Zustand im Speicher, führt Befehle über die Engine
+ * aus, speichert jede Änderung, verwaltet Rückgängig-Schritte und den Countdown. Mehrere Spiele
+ * laufen nebeneinander (siehe hub.ts).
  */
 import { randomInt } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import {
   applyCommand,
-  createGame,
   EngineError,
   NON_UNDOABLE,
   NON_UNDOABLE_FROM_TEAMS,
@@ -17,7 +17,6 @@ import {
   type Effect,
   type EffectInput,
   type EngineContext,
-  type GameConfig,
   type GameState,
   type Rng,
 } from '@insel/shared';
@@ -34,42 +33,25 @@ export interface DispatchResult {
 }
 
 export interface RuntimeEvents {
-  state: [GameState | null];
+  state: [GameState];
   effects: [Effect[]];
 }
 
 export class GameRuntime extends EventEmitter<RuntimeEvents> {
-  state: GameState | null = null;
+  state: GameState;
   private undoStack: { state: GameState; label: string }[] = [];
   private effectSeq = 0;
   private timer: NodeJS.Timeout | null = null;
   /** Aus der Beamer-Show: Reaktionen nach jedem Zug (verlängert die Animationszeit). */
   reactions = true;
 
-  constructor(private readonly database: db.DB) {
+  constructor(
+    private readonly database: db.DB,
+    state: GameState,
+  ) {
     super();
-  }
-
-  /** Aktives Spiel aus den Einstellungen laden (beim Start). */
-  boot() {
-    const { activeGameId } = db.getSettings(this.database);
-    if (activeGameId) this.activate(activeGameId);
-  }
-
-  activate(gameId: string | null) {
-    this.clearTimer();
-    this.undoStack = [];
-    this.state = gameId ? (db.getGame(this.database, gameId) ?? null) : null;
-    db.setSettings(this.database, { activeGameId: this.state?.id ?? null });
+    this.state = state;
     this.scheduleTimer();
-    this.emit('state', this.state);
-  }
-
-  createGame(config: GameConfig): GameState {
-    const state = createGame({ id: newId(), config, now: Date.now() });
-    db.saveGame(this.database, state);
-    this.activate(state.id);
-    return state;
   }
 
   get undoLabel(): string | null {
@@ -95,7 +77,6 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
 
   dispatch(cmd: Command, actor: Actor): DispatchResult {
     const before = this.state;
-    if (!before) throw new EngineError('Es ist kein Spiel aktiv. Bitte in der Regie ein Spiel anlegen.', 'not_found');
     const result = applyCommand(before, cmd, actor, this.context(before));
     // „Nichts geändert“ (z. B. leeres team.update, doppelter Buzzer): nicht speichern, nicht
     // senden, nicht protokollieren – so lässt sich der Server damit nicht fluten.
@@ -128,7 +109,7 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
 
   undo(): string {
     const entry = this.undoStack.pop();
-    if (!entry || !this.state) throw new EngineError('Es gibt nichts rückgängig zu machen');
+    if (!entry) throw new EngineError('Es gibt nichts rückgängig zu machen');
     const restored = structuredClone(entry.state);
     // Ein inzwischen abgelaufener Countdown würde sofort wieder schließen → anhalten
     if (restored.phase.name === 'content') {
@@ -156,7 +137,6 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
 
   /** Zustand ohne Befehl ändern (z. B. Foto-Aufräumen). Nicht rückgängig machbar. */
   mutate(fn: (s: GameState) => void) {
-    if (!this.state) return;
     const next = structuredClone(this.state);
     fn(next);
     next.rev = this.state.rev + 1;
@@ -180,7 +160,7 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
   private scheduleTimer() {
     this.clearTimer();
     const s = this.state;
-    if (!s || s.phase.name !== 'content') return;
+    if (s.phase.name !== 'content') return;
     const c = s.phase.content;
     if (!c.timer || c.timer.startedAt === null || c.stage !== 'open') return;
     const remaining = timerRemaining(c.timer, Date.now());

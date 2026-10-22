@@ -44,13 +44,13 @@ async function api<T = Record<string, unknown>>(path: string, opts: { method?: s
   return { status: res.status, data };
 }
 
-function client(token: string | null, view = 'guest'): Promise<Client> {
+function client(token: string | null, view = 'guest', code?: string): Promise<Client> {
   return new Promise((resolve) => {
     let state: GameState | null = null;
     let session: Session | null = null;
     const waiters: { pred: (s: GameState) => boolean; resolve: (s: GameState) => void }[] = [];
     const effects: Effect[] = [];
-    const socket = connect(base, { auth: { token, view }, transports: ['websocket'], forceNew: true });
+    const socket = connect(base, { auth: { token, view, code }, transports: ['websocket'], forceNew: true });
     sockets.push(socket);
     socket.on('effects', (list: Effect[]) => effects.push(...list));
     let pairCode: string | null = null;
@@ -128,8 +128,10 @@ describe('Server', () => {
     expect(lib.collections.length).toBeGreaterThan(2);
     const { data: tpl } = await api<{ templates: { id: string; name: string }[] }>('/api/templates', { token: admin });
     const standard = tpl.templates.find((t) => t.name.startsWith('Standard'))!;
-    const created = await api<{ id: string }>('/api/games', { token: admin, body: { name: 'Testabend', templateId: standard.id } });
+    const created = await api<{ id: string; code: string }>('/api/games', { token: admin, body: { name: 'Testabend', templateId: standard.id } });
     expect(created.status).toBe(200);
+    expect(created.data.code).toMatch(/^[A-Z2-9]{4}$/);
+    const code = created.data.code;
 
     const regie = await client(admin);
     const beamer = await client(null, 'beamer');
@@ -137,11 +139,11 @@ describe('Server', () => {
     // Ein unbekannter Beamer ist Gast (keine Fotos, kein Verlauf), bis die Regie ihn freigibt
     expect(beamer.session()?.role).toBe('guest');
     await new Promise((r) => setTimeout(r, 50));
-    const code = beamer.pairCode();
-    expect(code).toMatch(/^\d{6}$/);
-    const wrong = await new Promise<{ ok: boolean }>((res) => beamer.socket.emit('beamer:pair', code, res));
+    const pairCode = beamer.pairCode();
+    expect(pairCode).toMatch(/^\d{6}$/);
+    const wrong = await new Promise<{ ok: boolean }>((res) => beamer.socket.emit('beamer:pair', pairCode, res));
     expect(wrong.ok).toBe(false); // ein Beamer kann sich nicht selbst freigeben
-    const paired = await new Promise<{ ok: boolean }>((res) => regie.socket.emit('beamer:pair', code, res));
+    const paired = await new Promise<{ ok: boolean }>((res) => regie.socket.emit('beamer:pair', pairCode, res));
     expect(paired.ok).toBe(true);
     for (let i = 0; i < 40 && beamer.session()?.role !== 'beamer'; i++) await new Promise((r) => setTimeout(r, 25));
     expect(beamer.session()?.role).toBe('beamer');
@@ -150,11 +152,14 @@ describe('Server', () => {
     // Vier Spieler melden sich an
     const players: { token: string }[] = [];
     for (const name of ['Anna', 'Ben', 'Cem', 'Dana']) {
-      const r = await api<{ token: string }>('/api/auth/register', { body: { name } });
+      const r = await api<{ token: string }>('/api/auth/register', { body: { name, code } });
       expect(r.status).toBe(200);
       players.push(r.data);
     }
-    expect((await api('/api/auth/register', { body: { name: 'anna' } })).status).toBe(400);
+    expect((await api('/api/auth/register', { body: { name: 'anna', code } })).status).toBe(400);
+    // ohne gültigen Spielcode kein Beitritt
+    expect((await api('/api/auth/register', { body: { name: 'Eve' } })).status).toBe(404);
+    expect((await api('/api/auth/register', { body: { name: 'Eve', code: 'ZZZZ' } })).status).toBe(404);
 
     const anna = await client(players[0]!.token);
     expect(anna.session()?.role).toBe('player');
@@ -168,7 +173,8 @@ describe('Server', () => {
 
     // Team-Gerät tritt per PIN bei
     const pin = regie.state()!.teams.find((t) => t.id !== annaTeam)!.pin;
-    const join = await api<{ token: string }>('/api/auth/pin', { body: { pin } });
+    expect((await api('/api/auth/pin', { body: { pin } })).status).toBe(400); // Spielcode fehlt
+    const join = await api<{ token: string }>('/api/auth/pin', { body: { pin, code } });
     expect(join.status).toBe(200);
     const teamB = await client(join.data.token);
     expect(teamB.session()?.role).toBe('team');
@@ -252,17 +258,17 @@ describe('Server', () => {
   it('schließt die im Review gefundenen Lücken', async () => {
     const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
     const { data: tpl } = await api<{ templates: { id: string; name: string }[] }>('/api/templates', { token: admin });
-    await api('/api/games', { token: admin, body: { name: 'Review', templateId: tpl.templates[0]!.id } });
+    const { code } = (await api<{ code: string }>('/api/games', { token: admin, body: { name: 'Review', templateId: tpl.templates[0]!.id } })).data;
     const regie = await client(admin);
-    const a = (await api<{ token: string }>('/api/auth/register', { body: { name: 'Ada' } })).data.token;
-    const b = await api<{ token: string; playerId: string }>('/api/auth/register', { body: { name: 'Bob' } });
+    const a = (await api<{ token: string }>('/api/auth/register', { body: { name: 'Ada', code } })).data.token;
+    const b = await api<{ token: string; playerId: string }>('/api/auth/register', { body: { name: 'Bob', code } });
     // 1) Ohne Team keine fremde Identität übernehmen
     expect((await api('/api/auth/become-player', { token: a, body: { playerId: b.data.playerId } })).status).toBe(404);
 
     // 6) Neue PIN sperrt alte Team-Geräte aus
     await regie.cmd({ type: 'teams.auto', count: 2 });
     const team = (await regie.waitFor((s) => s.teams.length === 2)).teams[0]!;
-    const joined = (await api<{ token: string }>('/api/auth/pin', { body: { pin: team.pin } })).data.token;
+    const joined = (await api<{ token: string }>('/api/auth/pin', { body: { pin: team.pin, code } })).data.token;
     const device = await client(joined);
     expect(device.session()?.role).toBe('team');
     await regie.cmd({ type: 'team.regeneratePin', teamId: team.id });
@@ -287,14 +293,14 @@ describe('Server', () => {
   it('Neue PIN macht auch gebundene Spieler-Tokens (become-player) ungültig', async () => {
     const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
     const { data: tpl } = await api<{ templates: { id: string }[] }>('/api/templates', { token: admin });
-    await api('/api/games', { token: admin, body: { name: 'Bindung', templateId: tpl.templates[0]!.id } });
+    const { code } = (await api<{ code: string }>('/api/games', { token: admin, body: { name: 'Bindung', templateId: tpl.templates[0]!.id } })).data;
     const regie = await client(admin);
-    const p = await api<{ playerId: string }>('/api/auth/register', { body: { name: 'Cara' } });
-    await api('/api/auth/register', { body: { name: 'Dani' } });
+    const p = await api<{ playerId: string }>('/api/auth/register', { body: { name: 'Cara', code } });
+    await api('/api/auth/register', { body: { name: 'Dani', code } });
     await regie.cmd({ type: 'teams.auto', count: 2 });
     const state = await regie.waitFor((s) => s.teams.length === 2);
     const team = state.teams.find((t) => state.players.find((pl) => pl.id === p.data.playerId)?.teamId === t.id)!;
-    const teamTok = (await api<{ token: string }>('/api/auth/pin', { body: { pin: team.pin } })).data.token;
+    const teamTok = (await api<{ token: string }>('/api/auth/pin', { body: { pin: team.pin, code } })).data.token;
     // Team-Gerät wird zu Spieler Cara → gebundener Spieler-Token
     const playerTok = (await api<{ token: string }>('/api/auth/become-player', { token: teamTok, body: { playerId: p.data.playerId } })).data.token;
     expect((await api<{ session: { role: string } }>('/api/auth/me', { token: playerTok })).data.session.role).toBe('player');
@@ -364,5 +370,198 @@ describe('Server', () => {
     const { data } = await api<{ appName: string; joinUrls: unknown[] }>('/api/system/info');
     expect(data.appName).toBe('Insel der Abenteuer');
     expect(Array.isArray(data.joinUrls)).toBe(true);
+  });
+});
+
+describe('Spielleiter-Konten und mehrere Spiele', () => {
+  const adminToken = async () => (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
+  const tokenFromLink = (link: string) => new URL(link).hash.replace(/^#t=/, '');
+
+  /** Konto anlegen (ohne SMTP: Link kommt zurück), Passwort setzen, einloggen. */
+  async function leader(admin: string, email: string, name: string) {
+    const inv = await api<{ account: { id: string; status: string }; link: string; mailed: boolean }>('/api/users', { token: admin, body: { email, name } });
+    expect(inv.status).toBe(200);
+    expect(inv.data.account.status).toBe('invited');
+    expect(inv.data.link).toContain('/konto#t=');
+    const t = tokenFromLink(inv.data.link);
+    expect((await api<{ purpose: string }>('/api/auth/link-info', { body: { token: t } })).data.purpose).toBe('invite');
+    expect((await api('/api/auth/set-password', { body: { token: t, password: 'kurz' } })).status).toBe(400);
+    const set = await api<{ token: string }>('/api/auth/set-password', { body: { token: t, password: 'Lagerfeuer-und-Sterne-7' } });
+    expect(set.status).toBe(200);
+    // Link gilt nur einmal
+    expect((await api('/api/auth/set-password', { body: { token: t, password: 'Lagerfeuer-und-Sterne-8' } })).status).toBe(400);
+    const login = await api<{ token: string }>('/api/auth/login', { body: { email, password: 'Lagerfeuer-und-Sterne-7' } });
+    expect(login.status).toBe(200);
+    return { id: inv.data.account.id, token: login.data.token };
+  }
+
+  it('Admin lädt Spielleiter ein; nur Admins verwalten Konten', async () => {
+    const admin = await adminToken();
+    const lea = await leader(admin, 'lea@example.org', 'Lea');
+    // ohne SMTP: keine Mail, der Admin bekommt den Link zum Weitergeben
+    const third = await api<{ mailed: boolean; link: string }>('/api/users', { token: admin, body: { email: 'ohne-mail@example.org', name: 'Ohne Mail' } });
+    expect(third.data).toMatchObject({ mailed: false });
+    expect(third.data.link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/konto#t=/);
+    expect((await api('/api/users', { token: lea.token })).status).toBe(403);
+    expect((await api('/api/users', { token: admin, body: { email: 'LEA@example.org', name: 'Doppelt' } })).status).toBe(409);
+    expect((await api('/api/auth/login', { body: { email: 'lea@example.org', password: 'falsches-passwort-123' } })).status).toBe(401);
+    const me = await api<{ account: { name: string; isAdmin: boolean } }>('/api/auth/me', { token: lea.token });
+    expect(me.data.account).toMatchObject({ name: 'Lea', isAdmin: false });
+  });
+
+  it('zwei Spiele laufen getrennt; Spielleiter sehen und steuern nur ihre eigenen', async () => {
+    const admin = await adminToken();
+    const max = await leader(admin, 'max@example.org', 'Max');
+    const tim = await leader(admin, 'tim@example.org', 'Tim');
+    const gMax = (await api<{ id: string; code: string }>('/api/games', { token: max.token, body: { name: 'Max-Abend' } })).data;
+    const gTim = (await api<{ id: string; code: string }>('/api/games', { token: tim.token, body: { name: 'Tim-Abend' } })).data;
+    expect(gMax.code).not.toBe(gTim.code);
+
+    // Liste: Max sieht nur sein Spiel, der Admin alle
+    const listMax = (await api<{ games: { id: string }[] }>('/api/games', { token: max.token })).data.games.map((g) => g.id);
+    expect(listMax).toEqual([gMax.id]);
+    const listAdmin = (await api<{ games: { id: string; ownerName: string }[] }>('/api/games', { token: admin })).data.games;
+    expect(listAdmin.find((g) => g.id === gTim.id)?.ownerName).toBe('Tim');
+
+    // Fremdes Spiel: weder wählen noch löschen noch exportieren
+    expect((await api(`/api/games/${gTim.id}/select`, { token: max.token, body: {} })).status).toBe(403);
+    expect((await api(`/api/games/${gTim.id}`, { method: 'DELETE', token: max.token })).status).toBe(403);
+    expect((await api(`/api/games/${gTim.id}/export`, { token: max.token })).status).toBe(403);
+
+    // Regie von Max hängt an seinem Spiel und ist dort „admin“
+    const regieMax = await client(max.token);
+    expect(regieMax.session()).toMatchObject({ role: 'admin', gameId: gMax.id });
+    const regieTim = await client(tim.token);
+    expect(regieTim.state()?.id).toBe(gTim.id);
+
+    // Spieler mit Code von Tims Spiel landen nur dort
+    const p = await api<{ token: string }>('/api/auth/register', { body: { name: 'Gina', code: gTim.code } });
+    expect(p.status).toBe(200);
+    await regieTim.waitFor((s) => s.players.some((x) => x.name === 'Gina'));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(regieMax.state()?.players.some((x) => x.name === 'Gina')).toBe(false);
+    // Befehle wirken nur im eigenen Spiel
+    expect((await regieMax.cmd({ type: 'teams.auto', count: 2 })).ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(regieTim.state()?.teams.length).toBe(0);
+
+    // Gast mit Spielcode sieht Tims Spiel, ohne Code nichts
+    const guest = await client(null, 'join', gTim.code);
+    expect(guest.state()?.id).toBe(gTim.id);
+    expect(guest.session()?.role).toBe('guest');
+    const nobody = await client(null, 'join', 'QQQQ');
+    expect(nobody.state()).toBeNull();
+    expect((await api('/api/join/check', { body: { code: gTim.code } })).status).toBe(200);
+    expect((await api('/api/join/check', { body: { code: 'QQQQ' } })).status).toBe(404);
+
+    // Der Admin darf jedes Spiel wählen
+    expect((await api(`/api/games/${gTim.id}/select`, { token: admin, body: {} })).status).toBe(200);
+
+    // Moderator-Link von Tim gilt nur für Tims Spiel
+    const mod = (await api<{ token: string }>('/api/auth/moderator-link', { token: tim.token, body: {} })).data.token;
+    const moderator = await client(mod, 'moderator');
+    expect(moderator.session()).toMatchObject({ role: 'moderator', gameId: gTim.id });
+
+    // Beamer von Tim folgt Tims gewähltem Spiel
+    const bt = (await api<{ token: string }>('/api/auth/beamer-link', { token: tim.token, body: {} })).data.token;
+    const beamer = await client(bt, 'beamer');
+    expect(beamer.state()?.id).toBe(gTim.id);
+    const second = (await api<{ id: string }>('/api/games', { token: tim.token, body: { name: 'Tim-Zweitspiel' } })).data;
+    await beamer.waitFor((s) => s.id === second.id);
+
+    // Spiel schließen: Gäste verlieren es
+    expect((await api(`/api/games/${gTim.id}/close`, { token: tim.token, body: {} })).status).toBe(200);
+    for (let i = 0; i < 40 && guest.state() !== null; i++) await new Promise((r) => setTimeout(r, 25));
+    expect(guest.state()).toBeNull();
+  });
+
+  it('Bibliothek: eigene, veröffentlichte und gemeinsame Sammlungen', async () => {
+    const admin = await adminToken();
+    const ute = await leader(admin, 'ute@example.org', 'Ute');
+    const ole = await leader(admin, 'ole@example.org', 'Ole');
+    type Lib = { collections: { id: string; name: string; editable: boolean; published: boolean; ownerName: string }[] };
+    const shared = (await api<Lib>('/api/library', { token: ute.token })).data.collections;
+    expect(shared.length).toBeGreaterThan(2); // Beispiele des Admins sind gemeinsam
+    expect(shared.every((c) => !c.editable && c.published)).toBe(true);
+    expect((await api(`/api/library/collections/${shared[0]!.id}`, { method: 'PUT', token: ute.token, body: { name: 'Gekapert', description: '' } })).status).toBe(403);
+
+    // eigene Sammlung: privat, bis sie veröffentlicht wird
+    const own = (await api<{ id: string }>('/api/library/collections', { token: ute.token, body: { name: 'Utes Fragen', description: '' } })).data;
+    const item = await api<{ id: string }>(`/api/library/collections/${own.id}/items`, {
+      token: ute.token,
+      body: { kind: 'choice', title: 'Utes Frage', question: 'Wie heißt Ute?', options: ['Ute', 'Ole'], correctIndex: 0 },
+    });
+    expect(item.status).toBe(200);
+    const seen = async (token: string) => (await api<Lib>('/api/library', { token })).data.collections.some((c) => c.id === own.id);
+    expect(await seen(ole.token)).toBe(false);
+    expect(await seen(admin)).toBe(true);
+    expect((await api<{ items: { id: string }[] }>('/api/library/items', { token: ole.token })).data.items.some((i) => i.id === item.data.id)).toBe(false);
+    // fremde private Inhalte: „gibt es nicht“ (verrät nicht einmal, dass es sie gibt)
+    expect((await api(`/api/library/items/${item.data.id}`, { method: 'DELETE', token: ole.token })).status).toBe(404);
+
+    // veröffentlichen → Ole sieht sie, darf sie aber nicht ändern; als Kopie übernehmen geht
+    expect((await api(`/api/library/collections/${own.id}/published`, { method: 'PUT', token: ute.token, body: { published: true } })).status).toBe(200);
+    expect(await seen(ole.token)).toBe(true);
+    expect((await api(`/api/library/collections/${own.id}/published`, { method: 'PUT', token: ole.token, body: { published: false } })).status).toBe(403);
+    expect((await api(`/api/library/items/${item.data.id}`, { method: 'DELETE', token: ole.token })).status).toBe(403);
+    const copy = await api<{ id: string; editable: boolean; ownerName: string; itemCount: number }>(`/api/library/collections/${own.id}/copy`, { token: ole.token, body: {} });
+    expect(copy.data).toMatchObject({ editable: true, ownerName: 'Ole', itemCount: 1 });
+
+    // Admin pflegt alles
+    expect((await api(`/api/library/collections/${own.id}`, { method: 'PUT', token: admin, body: { name: 'Utes Fragen (geprüft)', description: '' } })).status).toBe(200);
+  });
+
+  it('Passwort vergessen (Link geht an die feste Adresse), Sperren und Passwortwechsel melden ab', async () => {
+    const admin = await adminToken();
+    const kim = await leader(admin, 'kim@example.org', 'Kim');
+    const { setMailSenderForTests } = await import('./mail.ts');
+    const sent: { to: string; subject: string; text: string }[] = [];
+    setMailSenderForTests(async (_smtp, mail) => void sent.push(mail));
+    try {
+      // SMTP eintragen; das Passwort kommt nie zurück
+      const smtp = { host: 'mail.example.org', port: 587, security: 'starttls', user: 'insel', password: 'smtp-geheim-123', fromAddress: 'insel@example.org', fromName: 'Insel' };
+      expect((await api('/api/system/smtp', { method: 'PUT', token: kim.token, body: { smtp } })).status).toBe(403);
+      expect((await api('/api/system/smtp', { method: 'PUT', token: admin, body: { smtp } })).status).toBe(200);
+      const read = await api<{ smtp: { password: string }; hasPassword: boolean }>('/api/system/smtp', { token: admin });
+      expect(read.data.smtp.password).toBe('');
+      expect(read.data.hasPassword).toBe(true);
+      expect((await api('/api/system/smtp/test', { token: admin, body: { to: 'admin@example.org' } })).status).toBe(200);
+
+      // ohne feste Adresse keine Mail (sonst ließe sich der Link über den Host-Header umbiegen)
+      sent.length = 0;
+      await api('/api/auth/forgot', { body: { email: 'kim@example.org' } });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(sent.length).toBe(0);
+      await api('/api/system/settings', { method: 'PUT', token: admin, body: { joinUrl: 'https://party.example.org' } });
+      // unbekannte Adresse: gleiche Antwort, keine Mail
+      expect((await api('/api/auth/forgot', { body: { email: 'niemand@example.org' } })).status).toBe(200);
+      // je Konto höchstens ein Link alle 2 Minuten – Kims Versuch zählte schon, deshalb ein zweites Konto
+      const pia = await leader(admin, 'pia@example.org', 'Pia');
+      expect((await api('/api/auth/forgot', { body: { email: 'pia@example.org' } })).status).toBe(200);
+      const isReset = (m: { to: string; subject: string }) => m.to === 'pia@example.org' && m.subject.startsWith('Passwort zurücksetzen');
+      for (let i = 0; i < 40 && !sent.some(isReset); i++) await new Promise((r) => setTimeout(r, 25));
+      const mail = sent.find(isReset)!;
+      expect(mail.text).toMatch(/https:\/\/party\.example\.org\/konto#t=/);
+      expect(sent.some((m) => m.to === 'niemand@example.org')).toBe(false);
+      const t = /#t=([A-Za-z0-9_-]+)/.exec(mail.text)![1]!;
+      const reset = await api<{ token: string }>('/api/auth/set-password', { body: { token: t, password: 'Neues-Passwort-fuer-Pia' } });
+      expect(reset.status).toBe(200);
+      // alte Anmeldung von Pia gilt nicht mehr, die neue schon
+      expect((await api<{ account: unknown }>('/api/auth/me', { token: pia.token })).data.account).toBeNull();
+      expect((await api<{ account: { name: string } }>('/api/auth/me', { token: reset.data.token })).data.account?.name).toBe('Pia');
+
+      // Sperren: sofort abgemeldet, Login geht nicht
+      expect((await api(`/api/users/${kim.id}`, { method: 'PUT', token: admin, body: { disabled: true } })).status).toBe(200);
+      expect((await api<{ account: unknown }>('/api/auth/me', { token: kim.token })).data.account).toBeNull();
+      expect((await api('/api/auth/login', { body: { email: 'kim@example.org', password: 'Lagerfeuer-und-Sterne-7' } })).status).toBe(401);
+
+      // eigenes Passwort ändern → neuer Zugang, alter ungültig
+      const neu = await api<{ token: string }>('/api/account/password', { token: reset.data.token, body: { current: 'Neues-Passwort-fuer-Pia', next: 'Noch-ein-neues-Passwort' } });
+      expect(neu.status).toBe(200);
+      expect((await api<{ account: unknown }>('/api/auth/me', { token: reset.data.token })).data.account).toBeNull();
+    } finally {
+      setMailSenderForTests(null);
+      await api('/api/system/settings', { method: 'PUT', token: admin, body: { joinUrl: '' } });
+    }
   });
 });

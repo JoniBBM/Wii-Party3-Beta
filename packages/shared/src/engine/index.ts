@@ -26,9 +26,10 @@ export interface EngineResult {
   label: string;
 }
 
-export function createGame(params: { id: string; config: GameConfig; now: number }): GameState {
+export function createGame(params: { id: string; config: GameConfig; now: number; code?: string }): GameState {
   return {
     id: params.id,
+    code: params.code ?? '',
     rev: 1,
     status: 'lobby',
     config: clone(params.config),

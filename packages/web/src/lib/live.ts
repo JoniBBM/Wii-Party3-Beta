@@ -73,7 +73,7 @@ export function onEffects(fn: EffectListener): () => void {
 }
 
 let socket: Socket | null = null;
-let current: { slot: TokenSlot | null; view: string; token: string | null } | null = null;
+let current: { slot: TokenSlot | null; view: string; token: string | null; code: string | null } | null = null;
 const changeListeners = new Set<(what: string) => void>();
 
 export function onServerChanged(fn: (what: string) => void): () => void {
@@ -81,13 +81,14 @@ export function onServerChanged(fn: (what: string) => void): () => void {
   return () => changeListeners.delete(fn);
 }
 
-export function connectLive(slot: TokenSlot | null, view: string) {
+/** Verbinden; `code` = Spielcode für Geräte ohne Anmeldung (Beitrittsseite). */
+export function connectLive(slot: TokenSlot | null, view: string, code: string | null = null) {
   const token = slot ? getToken(slot) : null;
-  if (socket && current && current.slot === slot && current.view === view && current.token === token) return;
+  if (socket && current && current.slot === slot && current.view === view && current.token === token && current.code === code) return;
   socket?.close();
-  current = { slot, view, token };
+  current = { slot, view, token, code };
   useLive.setState({ status: 'connecting', received: false, pairCode: null });
-  const s = io({ path: '/socket.io', auth: { token, view }, transports: ['websocket', 'polling'], reconnectionDelayMax: 4000 });
+  const s = io({ path: '/socket.io', auth: { token, view, code }, transports: ['websocket', 'polling'], reconnectionDelayMax: 4000 });
   socket = s;
   s.on('connect', () => useLive.setState({ status: 'online' }));
   s.on('disconnect', () => useLive.setState({ status: 'offline' }));
@@ -133,9 +134,9 @@ export function connectLive(slot: TokenSlot | null, view: string) {
 /** Nach Login/Logout: neues Token an die bestehende Verbindung geben. */
 export function reauth() {
   if (!current) return;
-  const { slot, view } = current;
+  const { slot, view, code } = current;
   current = null;
-  connectLive(slot, view);
+  connectLive(slot, view, code);
 }
 
 export function sendCommand(cmd: CommandInput): Promise<Ack> {
@@ -193,11 +194,11 @@ export function sendUndo(): Promise<Ack> {
   });
 }
 
-/** Hook: Seite verbindet sich beim Mounten. */
-export function useLiveConnection(slot: TokenSlot | null, view: string, enabled = true) {
+/** Hook: Seite verbindet sich beim Mounten (mit Spielcode, falls ohne Anmeldung beigetreten wird). */
+export function useLiveConnection(slot: TokenSlot | null, view: string, enabled = true, code: string | null = null) {
   useEffect(() => {
-    if (enabled) connectLive(slot, view);
-  }, [slot, view, enabled]);
+    if (enabled) connectLive(slot, view, code);
+  }, [slot, view, enabled, code]);
 }
 
 export function serverNow(): number {

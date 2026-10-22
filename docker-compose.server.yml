@@ -18,6 +18,9 @@ services:
       # strenge Regeln wie im Internet-Betrieb (startet nur mit sicherem Passwort)
       INSEL_ONLINE: "true"
 
+# E-Mail-Versand (Einladungen, „Passwort vergessen“) braucht Internet. Dafür bei „insel“ unter
+# networks zusätzlich „- mail“ eintragen und hier ein Netz „mail: {}“ ergänzen (normales Netz
+# mit Internetzugang; Nextcloud & Co. nicht dort einhängen).
 networks:
   tunnel:
     name: insel-tunnel

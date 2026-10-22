@@ -173,7 +173,9 @@ function TeamCard({ state, team }: { state: GameState; team: Team }) {
       <Modal open={qr} onClose={() => setQr(false)} title={<TeamChip team={team} size="lg" />} size="sm">
         <div className="flex flex-col items-center gap-3 text-center">
           <QrCode value={teamJoinLink(joinUrl, team)} size={240} />
-          <p className="text-sm text-muted">Scannen, um diesem Team beizutreten – oder unter {joinUrl}/join die PIN eingeben:</p>
+          <p className="text-sm text-muted">
+            Scannen, um diesem Team beizutreten – oder unter {joinUrl}/join den Spielcode <b className="font-mono">{state.code}</b> und dann die PIN eingeben:
+          </p>
           <p className="font-mono text-4xl font-bold tracking-[0.3em]">{team.pin}</p>
         </div>
       </Modal>
@@ -314,7 +316,9 @@ function PrintSheet({ state, onClose }: { state: GameState; onClose: () => void 
           <div key={t.id} className="flex break-inside-avoid flex-col items-center gap-2 rounded-3xl border-4 p-5 text-center" style={{ borderColor: TEAM_COLORS.find((c) => c.key === t.color)!.hex }}>
             <p className="font-display text-3xl font-semibold">{t.name}</p>
             <QrCode value={teamJoinLink(joinUrl, t)} size={220} />
-            <p className="text-sm">Scannen oder auf {joinUrl}/join die PIN eingeben</p>
+            <p className="text-sm">
+              Scannen – oder auf {joinUrl}/join den Spielcode <b className="font-mono">{state.code}</b> und die PIN eingeben
+            </p>
             <p className="font-mono text-4xl font-bold tracking-[0.3em]">{t.pin}</p>
           </div>
         ))}

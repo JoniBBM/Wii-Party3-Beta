@@ -122,6 +122,20 @@ volumes:
 
 WebSockets werden von Caddy automatisch durchgereicht; die echten Absender kommen über `X-Forwarded-For`.
 
+## Konten, Einladungen und E-Mail
+
+Der **Haupt-Admin** meldet sich mit `ADMIN_PASSWORD` aus `.env` an (Knopf *Admin-Passwort* auf der Anmeldeseite). Unter *Konten* lädt er Spielleiter ein:
+
+1. Name und E-Mail eintragen, Rolle wählen (*Spielleiter* oder *Admin*).
+2. Ist der E-Mail-Versand eingerichtet, kommt eine Einladung mit Link (7 Tage gültig, nur einmal benutzbar). Sonst zeigt die Regie den Link zum Weitergeben an.
+3. Über den Link legt die Person ihr Passwort fest (mindestens 10 Zeichen) und ist gleich angemeldet.
+
+**E-Mail-Versand einrichten:** *Einstellungen → E-Mail-Versand* – Mailserver, Port, Verschlüsselung (meist STARTTLS auf 587 oder SSL/TLS auf 465), Benutzer, Passwort und Absender eintragen, speichern, **Testmail** schicken. Das SMTP-Passwort liegt nur in der Datenbank auf dem Server und wird nie wieder an den Browser geschickt.
+
+Wichtig: Links in E-Mails brauchen eine **feste Adresse** – `PUBLIC_URL` in `.env` oder die *Beitritts-Adresse* in den Einstellungen. Ohne sie verschickt „Passwort vergessen“ keine Mails (sonst ließe sich der Link über eine gefälschte Server-Adresse auf eine fremde Seite umbiegen).
+
+In `docker-compose.server.yml` (Variante 2a) hat die Insel absichtlich **keinen Internetzugang** – für den E-Mail-Versand dort zusätzlich ein Netz mit Internet anhängen (siehe Kommentar in der Datei) oder Variante 2b nehmen.
+
 ## Sicherheit
 
 Die Insel ist für Gruppenabende gebaut, kann aber gefahrlos übers Internet laufen. Dafür sorgt:
@@ -133,6 +147,8 @@ Die Insel ist für Gruppenabende gebaut, kann aber gefahrlos übers Internet lau
 - **Schutz vor Raten:** Falsche PINs und Passwörter werden doppelt gebremst. Ein globaler Zähler kappt verteiltes Raten, auch bei IP-Wechsel (PINs: höchstens 20 Fehlversuche je Minute und 100 je Stunde – damit bleibt eine 6-stellige PIN einen ganzen Abend lang praktisch unerratbar). Dazu kommt eine Sperre je Adresse, aber nur, wo die Insel echte Adressen kennt (über den eigenen Tunnel) und solange von dort noch niemand richtig angemeldet wurde. So sperren ein paar Tippfehler weder den Saal im WLAN noch alle Gäste hinter dem gemeinsamen Internetanschluss der Location aus. IPv6-Adressen zählen je Anschluss (/64). Falsche QR-Codes zählen nicht global, damit niemand mit Unsinn-Codes die Beitritte aller blockieren kann.
 - **Schutz vor Überflutung:** begrenzte Nachrichten je Verbindung; bis 400 Verbindungen je Adresse (eine ganze Party hinter einem Anschluss) und 3000 insgesamt – Regie, Moderator und freigegebene Beamer kommen immer rein. Höchstens 200 Spieler (40 je Team), Fotos höchstens 8 MB und nur echte Bildformate (höchstens zwei gleichzeitig in Bearbeitung); leere oder doppelte Befehle lösen keine Last aus.
 - **Zugänge, die ihre Gültigkeit verlieren:** „Neue PIN“ (Regie → *Teams*) macht alle Geräte dieses Teams ungültig – auch Spieler-Zugänge, die über ein Team-Gerät erzeugt wurden. Nützlich, wenn ein fremdes Gerät in einem Team auftaucht.
+- **Konten:** Passwörter der Spielleiter werden mit scrypt gespeichert. Einladungs- und Zurücksetzen-Links sind lang, zufällig, nur einmal gültig und laufen ab (7 Tage bzw. 1 Stunde); gespeichert wird nur ihr Hash. Neues Passwort, Sperren oder „Überall abmelden“ macht sofort alle Anmeldungen des Kontos ungültig – auch seine Beamer und Moderator-Links. „Passwort vergessen“ verrät nicht, ob es eine E-Mail-Adresse gibt. Spielleiter sehen und steuern nur ihre eigenen Spiele; fremde private Sammlungen sind für sie unsichtbar.
+- **Spielcodes:** Ohne Code (oder Team-QR-Code) kommt niemand in ein Spiel. Falsche Codes werden gebremst wie falsche PINs.
 - **Datensparsam:** Gäste ohne Anmeldung sehen keine Fotos und keinen Verlauf; PINs, Passwörter und Lösungen gehen nie an Handys oder Beamer. Der Moderator sieht Lösungen, aber keine Team-PINs oder Beitritts-Codes. Vor der Auflösung bleiben fremde Antworten vollständig verborgen (auch der Zeitpunkt).
 - **Server:** Sicherheits-Header (CSP, kein Einbetten in fremde Seiten), Container ohne Root-Rechte mit schreibgeschütztem Dateisystem und Grenzen für Speicher, Prozesse und Protokolle, Tunnel in fester Version. Ohne `./start.sh` ist der Port nur auf dem Rechner selbst offen.
 - **Kein KI-Dienst zur Laufzeit:** Sprecher und Musik sind fertige Dateien – Eingaben der Spieler (Namen, Antworten) werden nur angezeigt, nie als Anweisung ausgeführt. „Prompt Injection“ ist damit kein Thema.

@@ -112,6 +112,7 @@ export function ItemEditor({
   onClose,
   onSave,
   busy,
+  readOnly = false,
 }: {
   open: boolean;
   item: ContentItem | null;
@@ -119,6 +120,8 @@ export function ItemEditor({
   onClose: () => void;
   onSave: (input: ContentItemInput) => void;
   busy?: boolean;
+  /** Inhalt aus einer fremden (gemeinsamen) Sammlung: nur ansehen */
+  readOnly?: boolean;
 }) {
   const [d, setD] = useState<Draft>(() => toDraft(item, defaultKind));
   const [error, setError] = useState<string | null>(null);
@@ -139,21 +142,30 @@ export function ItemEditor({
     <Modal
       open={open}
       onClose={onClose}
-      title={item ? 'Inhalt bearbeiten' : 'Neuer Inhalt'}
+      title={readOnly ? 'Inhalt ansehen' : item ? 'Inhalt bearbeiten' : 'Neuer Inhalt'}
       size="lg"
       footer={
-        <>
-          {error && <p className="mr-auto self-center text-sm font-bold text-bad">{error}</p>}
-          <Button variant="ghost" onClick={onClose}>
-            Abbrechen
-          </Button>
-          <Button variant="primary" loading={busy} onClick={submit}>
-            Speichern
-          </Button>
-        </>
+        readOnly ? (
+          <>
+            <p className="mr-auto self-center text-sm text-muted">Gehört jemand anderem – zum Ändern die Sammlung als eigene Kopie übernehmen.</p>
+            <Button variant="primary" onClick={onClose}>
+              Schließen
+            </Button>
+          </>
+        ) : (
+          <>
+            {error && <p className="mr-auto self-center text-sm font-bold text-bad">{error}</p>}
+            <Button variant="ghost" onClick={onClose}>
+              Abbrechen
+            </Button>
+            <Button variant="primary" loading={busy} onClick={submit}>
+              Speichern
+            </Button>
+          </>
+        )
       }
     >
-      <div className="flex flex-col gap-4">
+      <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4">
         {!item && (
           <div className="flex flex-wrap gap-2">
             {CONTENT_KINDS.map((k) => (
@@ -304,7 +316,7 @@ export function ItemEditor({
             </div>
           </div>
         )}
-      </div>
+      </fieldset>
     </Modal>
   );
 }

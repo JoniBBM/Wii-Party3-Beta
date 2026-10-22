@@ -11,6 +11,8 @@ interface TokenPayload {
   g?: string | null;
   t?: string | null;
   p?: string | null;
+  /** Konto (Spielleiter) bzw. beim Beamer: Besitzer, dessen Spiel er zeigt */
+  u?: string | null;
   k?: string | null;
   iat: number;
   exp: number;
@@ -32,6 +34,7 @@ export function staffKey(): string {
 const DAY = 24 * 60 * 60 * 1000;
 const LIFETIME: Partial<Record<Role, number>> = {
   admin: 3 * DAY,
+  leader: 7 * DAY,
   moderator: 2 * DAY,
   beamer: 30 * DAY,
   team: 3 * DAY,
@@ -51,6 +54,7 @@ export function issueToken(session: Session, lifetimeMs?: number): string {
     g: session.gameId ?? null,
     t: session.teamId ?? null,
     p: session.playerId ?? null,
+    u: session.userId ?? null,
     k: session.key ?? null,
     iat: now,
     exp: now + (lifetimeMs ?? LIFETIME[session.role] ?? DAY),
@@ -69,7 +73,7 @@ export function verifyToken(token: string | undefined | null): Session | null {
   try {
     const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as TokenPayload;
     if (typeof p.exp !== 'number' || p.exp < Date.now()) return null;
-    return { role: p.r, gameId: p.g ?? null, teamId: p.t ?? null, playerId: p.p ?? null, key: p.k ?? null };
+    return { role: p.r, gameId: p.g ?? null, teamId: p.t ?? null, playerId: p.p ?? null, userId: p.u ?? null, key: p.k ?? null };
   } catch {
     return null;
   }

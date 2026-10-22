@@ -78,6 +78,14 @@ export interface Collection {
   name: string;
   description: string;
   itemCount?: number;
+  /** Besitzer (Spielleiter-Konto); null = Admin */
+  ownerId?: string | null;
+  /** Name des Besitzers (für die Anzeige) */
+  ownerName?: string;
+  /** Für alle Spielleiter sichtbar („gemeinsam“) */
+  published?: boolean;
+  /** Darf der Betrachter sie bearbeiten? (vom Server je Konto gesetzt) */
+  editable?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -191,6 +199,10 @@ export interface Template {
   name: string;
   description: string;
   config: GameConfig;
+  /** Besitzer (Spielleiter-Konto); null = Admin (für alle sichtbar) */
+  ownerId?: string | null;
+  /** Darf der Betrachter sie ändern/löschen? (vom Server je Konto gesetzt) */
+  editable?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -394,6 +406,8 @@ export interface FeedEntry {
 
 export interface GameState {
   id: string;
+  /** Spielcode zum Beitreten (z. B. „KX7P“) – steckt in allen QR-Codes */
+  code: string;
   rev: number;
   status: 'lobby' | 'running' | 'finished';
   config: GameConfig;
@@ -464,7 +478,11 @@ export type Effect = EffectInput & { id: number; at: number };
 // Rollen & Akteure
 // ---------------------------------------------------------------------------
 
-export type Role = 'admin' | 'moderator' | 'beamer' | 'team' | 'player' | 'guest';
+/**
+ * Rollen im Spiel. `leader` = angemeldetes Spielleiter-Konto ohne gewähltes Spiel; für sein
+ * eigenes Spiel wird es wie `admin` behandelt (die Engine kennt nur admin/moderator/…).
+ */
+export type Role = 'admin' | 'leader' | 'moderator' | 'beamer' | 'team' | 'player' | 'guest';
 
 export interface Actor {
   role: Role;
@@ -479,6 +497,20 @@ export interface Session {
   gameId?: string | null;
   teamId?: string | null;
   playerId?: string | null;
+  /** Konto (Spielleiter/Admin) bzw. beim Beamer: Konto, dessen Spiel er zeigt (null = Haupt-Admin). */
+  userId?: string | null;
   /** Team-Geräte: Fingerabdruck des Team-Schlüssels (neue PIN sperrt alte Geräte aus). */
   key?: string | null;
+}
+
+/** Konto für Spielleiter und weitere Admins (der Haupt-Admin meldet sich mit ADMIN_PASSWORD an). */
+export interface Account {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'leader';
+  /** eingeladen (noch kein Passwort), aktiv oder gesperrt */
+  status: 'invited' | 'active' | 'disabled';
+  createdAt: number;
+  lastLoginAt: number | null;
 }

@@ -60,6 +60,7 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
 /** Gespeicherten Spielstand aus einer älteren Version ergänzen. */
 export function upgradeState(state: GameState): GameState {
   upgradeConfig(state.config);
+  state.code ??= '';
   for (const t of state.teams) {
     t.crater ??= null;
     t.inside ??= null;

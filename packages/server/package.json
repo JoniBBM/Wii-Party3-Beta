@@ -16,6 +16,7 @@
     "@insel/shared": "*",
     "better-sqlite3": "^13.0.3",
     "fastify": "^5.12.5",
+    "nodemailer": "^10.2.1",
     "sharp": "^0.35.5",
     "socket.io": "^4.8.4",
     "zod": "^4.6.5"
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.19.0",
+    "@types/nodemailer": "^8.0.2",
     "socket.io-client": "^4.8.4",
     "tsup": "^8.5.1",
     "tsx": "^4.23.15"

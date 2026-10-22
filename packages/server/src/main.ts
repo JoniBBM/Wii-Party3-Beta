@@ -13,9 +13,10 @@ import { gameRoutes } from './http/game-routes.ts';
 import { libraryRoutes } from './http/library-routes.ts';
 import { mediaRoutes } from './http/media-routes.ts';
 import { systemRoutes } from './http/system-routes.ts';
+import { usersRoutes } from './http/users-routes.ts';
+import { GameHub } from './hub.ts';
 import { createLive } from './live.ts';
 import { isTrustedProxy, trustWarning } from './net.ts';
-import { GameRuntime } from './runtime.ts';
 import { seedExtras, seedIfEmpty } from './seed.ts';
 
 export async function startServer(opts: { port?: number; dbFile?: string; quiet?: boolean } = {}) {
@@ -57,10 +58,11 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
 
   seedIfEmpty(database, (m) => app.log.warn(m));
   seedExtras(database, (m) => app.log.warn(m));
-  const runtime = new GameRuntime(database);
-  runtime.boot();
+  const hub = new GameHub(database);
+  hub.boot();
 
-  const live = createLive(app.server, runtime, database);
+  const live = createLive(app.server, hub, database);
+  const ctx = { database, hub, live };
 
   await app.register(multipart);
   await app.register(fastifyStatic, {
@@ -74,11 +76,12 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
     list: false,
   });
 
-  authRoutes(app, runtime);
-  libraryRoutes(app, runtime, database, live);
-  gameRoutes(app, runtime, database, live);
-  mediaRoutes(app, runtime);
-  systemRoutes(app, runtime, database, live);
+  authRoutes(app, ctx);
+  usersRoutes(app, ctx);
+  libraryRoutes(app, ctx);
+  gameRoutes(app, ctx);
+  mediaRoutes(app, ctx);
+  systemRoutes(app, ctx);
 
   if (existsSync(config.webDist)) {
     await app.register(fastifyStatic, { root: config.webDist, prefix: '/', wildcard: false });
@@ -96,12 +99,12 @@ export async function startServer(opts: { port?: number; dbFile?: string; quiet?
   await app.listen({ port, host: config.host });
 
   const close = async () => {
-    runtime.shutdown();
+    hub.shutdown();
     await live.close();
     await app.close();
     database.close();
   };
-  return { app, runtime, database, port: (app.server.address() as { port: number }).port, close };
+  return { app, hub, database, port: (app.server.address() as { port: number }).port, close };
 }
 
 const isMain = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('main.js');

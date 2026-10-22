@@ -46,11 +46,14 @@ try {
   const regie = await regieCtx.newPage();
   watch(regie, 'regie');
   await regie.goto(`${base}/regie`);
-  await regie.getByPlaceholder('Passwort').fill(PASS);
-  await regie.getByRole('button', { name: 'Anmelden' }).click();
+  await regie.getByRole('button', { name: 'Admin-Passwort' }).click();
+  await regie.getByPlaceholder('Admin-Passwort').fill(PASS);
+  await regie.getByRole('button', { name: 'Anmelden', exact: true }).click();
   await regie.getByRole('button', { name: 'Spiel anlegen' }).click();
   await regie.getByText('Anmeldung offen').waitFor();
   await shot(regie, 'regie-lobby-leer');
+  // Spielcode aus der Kopfzeile (steckt sonst im QR-Code)
+  const code = (await regie.locator('header span.font-mono').first().textContent()).trim();
 
   // Beamer
   const beamerCtx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
@@ -76,7 +79,7 @@ try {
     const ctx = await browser.newContext({ ...devices['iPhone 13'] });
     const p = await ctx.newPage();
     watch(p, `handy-${name}`);
-    await p.goto(`${base}/join`);
+    await p.goto(`${base}/join/${code}`);
     await p.getByPlaceholder('Vorname').fill(name);
     await p.getByRole('button', { name: 'Los geht’s' }).click();
     await p.getByRole('button', { name: 'Ohne Foto weiter' }).click();
@@ -152,8 +155,9 @@ try {
   const mod = await modCtx.newPage();
   watch(mod, 'moderator');
   await mod.goto(`${base}/moderator`);
+  await mod.getByPlaceholder('Spielcode').fill(code);
   await mod.getByPlaceholder('Passwort').fill(PASS);
-  await mod.getByRole('button', { name: 'Anmelden' }).click();
+  await mod.getByRole('button', { name: 'Anmelden', exact: true }).click();
   await mod.getByText('Nächste Runde vorbereiten').waitFor({ timeout: 5000 }).catch(() => {});
   await shot(mod, 'moderator');
 

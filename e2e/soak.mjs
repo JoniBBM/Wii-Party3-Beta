@@ -31,7 +31,7 @@ const { token } = await post('/api/auth/admin', { password: 'soak' });
 // Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
 const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
 const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
-await post('/api/games', { name: 'Dauertest', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
+const { code: gameCode } = await post('/api/games', { name: 'Dauertest', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
 const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
 let state = null;
 sock.on('state', (p) => (state = p.state));
@@ -57,7 +57,7 @@ const mem = () => page.evaluate(() => ({ heap: Math.round((performance.memory?.u
 const memStart = await mem();
 
 try {
-  for (let i = 0; i < 15; i++) await post('/api/auth/register', { name: `Spieler ${i + 1}` });
+  for (let i = 0; i < 15; i++) await post('/api/auth/register', { name: `Spieler ${i + 1}`, code: gameCode });
   await cmd({ type: 'teams.auto', count: 5 });
   await cmd({ type: 'game.start' });
   const stats = { rounds: 0, kinds: {}, fieldGames: 0, eruptions: 0, undos: 0 };

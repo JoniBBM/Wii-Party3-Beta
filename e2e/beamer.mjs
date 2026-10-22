@@ -38,7 +38,7 @@ const { token } = await post('/api/auth/admin', { password: PASS });
 const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
 const templates = await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json();
 const tpl = templates.templates.find((t) => t.name.startsWith('Standard'));
-await post('/api/games', { name: 'Beamer-Test', templateId: tpl.id }, token);
+const { code: gameCode } = await post('/api/games', { name: 'Beamer-Test', templateId: tpl.id }, token);
 
 const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
 let state = null;
@@ -74,7 +74,7 @@ const shot = async (name) => {
 
 try {
   // Lobby mit Spielern
-  for (const name of ['Anna', 'Ben', 'Cem', 'Dana', 'Emil', 'Fiona', 'Gül', 'Hannes', 'Ida']) await post('/api/auth/register', { name });
+  for (const name of ['Anna', 'Ben', 'Cem', 'Dana', 'Emil', 'Fiona', 'Gül', 'Hannes', 'Ida']) await post('/api/auth/register', { name, code: gameCode });
   await sleep(800);
   await shot('lobby-spieler');
   await cmd({ type: 'teams.auto', count: 4 });

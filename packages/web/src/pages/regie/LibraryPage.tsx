@@ -1,17 +1,23 @@
-/** Bibliothek: Sammlungen mit Spielen und Fragen verwalten, importieren, exportieren. */
+/**
+ * Bibliothek: Sammlungen mit Spielen und Fragen verwalten, importieren, exportieren.
+ * Eigene Sammlungen bearbeiten und für alle veröffentlichen; gemeinsame (vom Admin oder
+ * veröffentlicht) nutzen und bei Bedarf als eigene Kopie übernehmen.
+ */
 import { useRef, useState } from 'react';
-import { Copy, Download, FolderPlus, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { Copy, CopyPlus, Download, FolderPlus, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { useAccount } from '../../lib/account.ts';
 import { CONTENT_KIND_INFO, PLAYER_COUNT_LABEL, type Collection, type ContentItem, type ContentItemInput } from '@insel/shared';
 import { api, downloadFile } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
 import { reloadLibrary, useLibrary } from '../../lib/library.ts';
-import { Badge, Button, Card, EmptyState, IconButton } from '../../ui/basics.tsx';
+import { Badge, Button, Card, EmptyState, IconButton, Switch } from '../../ui/basics.tsx';
 import { confirm, Modal } from '../../ui/overlay.tsx';
 import { toast } from '../../ui/toast.tsx';
 import { ItemEditor } from './ItemEditor.tsx';
 
 export function LibraryPage() {
   const { collections, items, loaded } = useLibrary();
+  const account = useAccount((s) => s.account);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editColl, setEditColl] = useState<Collection | 'new' | null>(null);
   const [editItem, setEditItem] = useState<ContentItem | 'new' | null>(null);
@@ -63,7 +69,7 @@ export function LibraryPage() {
             Importieren
           </Button>
           <Button icon={<Download className="size-4" />} onClick={() => downloadFile('/api/library/export', 'admin').catch((e: Error) => toast.error(e.message))}>
-            Alles exportieren
+            {account?.isAdmin ? 'Alles exportieren' : 'Eigene exportieren'}
           </Button>
           <Button variant="primary" icon={<FolderPlus className="size-4" />} onClick={() => setEditColl('new')}>
             Sammlung
@@ -84,7 +90,10 @@ export function LibraryPage() {
                 >
                   <span className="min-w-0 flex-1">
                     <span className={`block truncate font-bold ${selected?.id === c.id ? 'text-accent' : ''}`}>{c.name}</span>
-                    {c.description && <span className="block truncate text-xs text-muted">{c.description}</span>}
+                    <span className="block truncate text-xs text-muted">
+                      <Ownership c={c} me={account?.id ?? null} />
+                      {c.description && ` · ${c.description}`}
+                    </span>
                   </span>
                   <Badge>{c.itemCount}</Badge>
                 </button>
@@ -96,30 +105,70 @@ export function LibraryPage() {
         {selected ? (
           <Card className="overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
-              <h2 className="min-w-0 flex-1 truncate text-xl font-semibold">{selected.name}</h2>
-              <IconButton label="Sammlung umbenennen" onClick={() => setEditColl(selected)}>
-                <Pencil className="size-4" />
-              </IconButton>
+              {/* Mindestbreite: lieber Knöpfe umbrechen als den Namen abschneiden */}
+              <div className="min-w-0 flex-1 basis-48">
+                <h2 className="truncate text-xl font-semibold">{selected.name}</h2>
+                <p className="text-xs text-muted">
+                  <Ownership c={selected} me={account?.id ?? null} />
+                </p>
+              </div>
+              {selected.editable && (
+                <IconButton label="Sammlung umbenennen" onClick={() => setEditColl(selected)}>
+                  <Pencil className="size-4" />
+                </IconButton>
+              )}
               <IconButton label="Sammlung exportieren" onClick={() => downloadFile(`/api/library/export?collectionId=${selected.id}`, 'admin').catch((e: Error) => toast.error(e.message))}>
                 <Download className="size-4" />
               </IconButton>
-              <IconButton
-                label="Sammlung löschen"
-                className="text-bad"
+              <Button
+                size="sm"
+                icon={<CopyPlus className="size-4" />}
+                loading={busy}
                 onClick={async () => {
-                  if (await confirm({ title: `„${selected.name}“ löschen?`, text: `Alle ${selected.itemCount} Inhalte dieser Sammlung werden gelöscht.`, confirm: 'Löschen', danger: true })) {
-                    await run(() => api(`/api/library/collections/${selected.id}`, { method: 'DELETE', slot: 'admin' }), 'Sammlung gelöscht');
-                    setSelectedId(null);
+                  const r = await run(() => api<Collection>(`/api/library/collections/${selected.id}/copy`, { slot: 'admin', body: {} }), 'Als eigene Kopie übernommen');
+                  if (r) {
                     await reloadLibrary();
+                    setSelectedId(r.id);
                   }
                 }}
               >
-                <Trash2 className="size-4" />
-              </IconButton>
-              <Button size="sm" variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditItem('new')}>
-                Inhalt
+                {selected.editable ? 'Kopie' : 'Als eigene Kopie übernehmen'}
               </Button>
+              {selected.editable && (
+                <IconButton
+                  label="Sammlung löschen"
+                  className="text-bad"
+                  onClick={async () => {
+                    if (await confirm({ title: `„${selected.name}“ löschen?`, text: `Alle ${selected.itemCount} Inhalte dieser Sammlung werden gelöscht.`, confirm: 'Löschen', danger: true })) {
+                      await run(() => api(`/api/library/collections/${selected.id}`, { method: 'DELETE', slot: 'admin' }), 'Sammlung gelöscht');
+                      setSelectedId(null);
+                      await reloadLibrary();
+                    }
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </IconButton>
+              )}
+              {selected.editable && (
+                <Button size="sm" variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditItem('new')}>
+                  Inhalt
+                </Button>
+              )}
             </div>
+            {selected.editable && (
+              <div className="border-b border-line px-5 py-2.5">
+                <Switch
+                  checked={!!selected.published}
+                  onChange={(published) =>
+                    void run(
+                      () => api(`/api/library/collections/${selected.id}/published`, { method: 'PUT', slot: 'admin', body: { published } }),
+                      published ? 'Für alle Spielleiter veröffentlicht' : 'Nur noch für dich sichtbar',
+                    ).then(() => reloadLibrary())
+                  }
+                  label={selected.published ? 'Für alle Spielleiter sichtbar (gemeinsam)' : 'Nur für dich sichtbar – einschalten, um sie für alle zu veröffentlichen'}
+                />
+              </div>
+            )}
             <div className="border-b border-line px-5 py-2.5">
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
@@ -147,28 +196,32 @@ export function LibraryPage() {
                     {!i.roundUse && <Badge>nicht in Runden</Badge>}
                     {i.timerSec && <Badge>{i.timerSec}s</Badge>}
                     {i.audioUrl ? <Badge tone="good">🔊 Audio</Badge> : i.audioRequest ? <Badge tone="warn">🎙️ Audio angefordert</Badge> : null}
-                    <IconButton
-                      label="Duplizieren"
-                      className="size-8 opacity-0 group-hover:opacity-100"
-                      onClick={async () => {
-                        await run(() => api(`/api/library/items/${i.id}/duplicate`, { slot: 'admin', body: {} }), 'Kopie angelegt');
-                        await reloadLibrary();
-                      }}
-                    >
-                      <Copy className="size-4" />
-                    </IconButton>
-                    <IconButton
-                      label="Löschen"
-                      className="size-8 text-bad opacity-0 group-hover:opacity-100"
-                      onClick={async () => {
-                        if (await confirm({ title: `„${i.title}“ löschen?`, confirm: 'Löschen', danger: true })) {
-                          await run(() => api(`/api/library/items/${i.id}`, { method: 'DELETE', slot: 'admin' }));
-                          await reloadLibrary();
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </IconButton>
+                    {selected.editable && (
+                      <>
+                        <IconButton
+                          label="Duplizieren"
+                          className="size-8 opacity-0 group-hover:opacity-100"
+                          onClick={async () => {
+                            await run(() => api(`/api/library/items/${i.id}/duplicate`, { slot: 'admin', body: {} }), 'Kopie angelegt');
+                            await reloadLibrary();
+                          }}
+                        >
+                          <Copy className="size-4" />
+                        </IconButton>
+                        <IconButton
+                          label="Löschen"
+                          className="size-8 text-bad opacity-0 group-hover:opacity-100"
+                          onClick={async () => {
+                            if (await confirm({ title: `„${i.title}“ löschen?`, confirm: 'Löschen', danger: true })) {
+                              await run(() => api(`/api/library/items/${i.id}`, { method: 'DELETE', slot: 'admin' }));
+                              await reloadLibrary();
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                        </IconButton>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -182,11 +235,26 @@ export function LibraryPage() {
       </div>
 
       {editItem && (
-        <ItemEditor key={editItem === 'new' ? 'new' : editItem.id} open item={editItem === 'new' ? null : editItem} onClose={() => setEditItem(null)} onSave={saveItem} busy={busy} />
+        <ItemEditor
+          key={editItem === 'new' ? 'new' : editItem.id}
+          open
+          item={editItem === 'new' ? null : editItem}
+          readOnly={!selected?.editable}
+          onClose={() => setEditItem(null)}
+          onSave={saveItem}
+          busy={busy}
+        />
       )}
       {editColl && <CollectionModal coll={editColl === 'new' ? null : editColl} onClose={() => setEditColl(null)} onSaved={(id) => setSelectedId(id)} />}
     </div>
   );
+}
+
+/** „gemeinsam · Admin“, „eigene · nur für dich“ … */
+function Ownership({ c, me }: { c: Collection; me: string | null }) {
+  const own = c.ownerId === me || (me === null && !c.ownerId);
+  if (own) return <>{c.published ? '🌍 eigene · für alle veröffentlicht' : '🔒 eigene · nur für dich'}</>;
+  return <>{c.published ? `🌍 gemeinsam · ${c.ownerName ?? 'Admin'}` : `🔒 privat · ${c.ownerName ?? 'Admin'}`}</>;
 }
 
 function CollectionModal({ coll, onClose, onSaved }: { coll: Collection | null; onClose: () => void; onSaved: (id: string) => void }) {

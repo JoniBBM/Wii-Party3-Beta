@@ -9,9 +9,8 @@ import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import { isPrivileged } from '@insel/shared';
 import { gameMediaDir, removeFile } from '../media.ts';
-import type { GameRuntime } from '../runtime.ts';
 import { rateLimited } from '../auth.ts';
-import { clientIp, HttpError, sessionOf } from './common.ts';
+import { clientIp, gameSession, HttpError, requestGame, type Ctx } from './common.ts';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 /** Nur echte Fotos (kein SVG, PDF …) */
@@ -32,11 +31,14 @@ async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
-  function targetPlayer(req: Parameters<typeof sessionOf>[0], requested: string | undefined) {
-    const state = runtime.state;
-    if (!state) throw new HttpError(404, 'Es läuft gerade kein Spiel');
-    const session = sessionOf(req, state);
+export function mediaRoutes(app: FastifyInstance, ctx: Ctx) {
+  function targetPlayer(req: Parameters<typeof requestGame>[0], requested: string | undefined) {
+    // Spiel aus der Anmeldung: Regie → gewähltes Spiel, Team/Spieler → ihr Spiel
+    const gameId = requestGame(req, ctx);
+    const runtime = ctx.hub.get(gameId);
+    const state = runtime?.state;
+    if (!runtime || !state) throw new HttpError(404, 'Es läuft gerade kein Spiel');
+    const session = gameSession(req, ctx, state.id);
     let playerId: string | undefined;
     if (isPrivileged(session.role)) playerId = requested;
     else if (session.role === 'player') playerId = session.playerId ?? undefined;
@@ -46,7 +48,7 @@ export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
     }
     const player = state.players.find((p) => p.id === playerId);
     if (!player) throw new HttpError(403, 'Foto kann hier nicht geändert werden');
-    return { state, player, actor: { role: session.role, teamId: session.teamId ?? null, playerId: session.playerId ?? null } };
+    return { state, runtime, player, actor: { role: session.role, teamId: session.teamId ?? null, playerId: session.playerId ?? null } };
   }
 
   app.post('/api/media/photo', async (req) => {
@@ -56,7 +58,7 @@ export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
     const file = await req.file({ limits: { fileSize: MAX_BYTES, files: 1, fields: 4 } });
     if (!file) throw new HttpError(400, 'Kein Foto empfangen');
     const fields = file.fields as Record<string, { value?: string } | undefined>;
-    const { state, player } = targetPlayer(req, fields.playerId?.value);
+    const { state, runtime, player } = targetPlayer(req, fields.playerId?.value);
     if (rateLimited(`photo:p:${player.id}`, 6)) throw new HttpError(429, 'Zu viele Fotos – bitte kurz warten');
     const input = await file.toBuffer();
     if (file.file.truncated) throw new HttpError(413, 'Das Foto ist zu groß (höchstens 8 MB)');
@@ -84,7 +86,7 @@ export function mediaRoutes(app: FastifyInstance, runtime: GameRuntime) {
 
   app.delete('/api/media/photo', async (req) => {
     const { playerId } = req.query as { playerId?: string };
-    const { player } = targetPlayer(req, playerId);
+    const { runtime, player } = targetPlayer(req, playerId);
     const old = player.photo;
     runtime.dispatch({ type: 'player.update', playerId: player.id, photo: null }, { role: 'admin', system: true });
     removeFile(old);

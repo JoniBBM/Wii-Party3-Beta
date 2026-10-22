@@ -16,7 +16,7 @@ import { BeamerQuick } from '../../game/BeamerControl.tsx';
 export default function ModeratorApp() {
   const [theme, setTheme] = useTheme(true);
   return (
-    <StaffGate slot="moderator" roles={['moderator', 'admin']} endpoint="/api/auth/moderator" title="Moderator" hint="QR-Code aus der Regie scannen oder Passwort eingeben">
+    <StaffGate kind="moderator">
       <ModeratorShell dark={theme === 'dark' || (theme === 'system' && document.documentElement.dataset.theme === 'dark')} toggle={(d) => setTheme(d ? 'light' : 'dark')} />
     </StaffGate>
   );
@@ -53,7 +53,7 @@ function ModeratorShell({ dark, toggle }: { dark: boolean; toggle: (dark: boolea
             <Spinner />
           </div>
         ) : !state ? (
-          <EmptyState icon="🏝️" title="Kein Spiel aktiv">Die Regie muss zuerst ein Spiel anlegen.</EmptyState>
+          <EmptyState icon="🏝️" title="Kein Spiel geöffnet">Die Spielleitung muss das Spiel zuerst öffnen.</EmptyState>
         ) : (
           <>
             <PhasePanel state={state} mode="moderator" />

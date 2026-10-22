@@ -26,6 +26,14 @@ export function writeStore(key: string, value: string | null) {
 export const getToken = (slot: TokenSlot) => readStore(KEY(slot));
 export const setToken = (slot: TokenSlot, token: string | null) => writeStore(KEY(slot), token);
 
+/** Spielcode, mit dem dieses Handy zuletzt beigetreten ist (z. B. aus dem QR-Code). */
+export const normalizeCode = (raw: string | null | undefined) => {
+  const c = (raw ?? '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+  return c.length >= 4 && c.length <= 8 ? c : null;
+};
+export const getJoinCode = () => normalizeCode(readStore('insel.join.code'));
+export const setJoinCode = (code: string | null) => writeStore('insel.join.code', normalizeCode(code));
+
 export function readJson<T>(key: string, fallback: T): T {
   const raw = readStore(key);
   if (!raw) return fallback;

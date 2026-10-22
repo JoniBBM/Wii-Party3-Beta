@@ -20,8 +20,11 @@ export function LobbyPanel({ state, mode }: { state: GameState; mode: 'regie' | 
     <div className="flex flex-col gap-5">
       <div className="grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)]">
         <div className="flex flex-col items-center gap-2 rounded-3xl bg-bg-2 p-4">
-          <QrCode value={`${joinUrl}/join`} size={170} />
+          <QrCode value={`${joinUrl}/join/${state.code}`} size={170} />
           <p className="max-w-[210px] text-center text-[11px] font-bold break-all text-ink-2">{joinUrl.replace(/^https?:\/\//, '')}/join</p>
+          <p className="text-center text-sm font-bold text-ink-2">
+            Spielcode <span className="font-mono text-lg tracking-[0.2em] text-ink">{state.code}</span>
+          </p>
           {state.config.devices === 'shared' && (
             <p className="max-w-[210px] text-center text-xs font-bold text-accent">
               👥 Gruppenmodus: Diese Adresse auf der Anmeldestation öffnen – dort melden sich alle nacheinander an. Danach pro Team ein Gerät mit der Team-PIN verbinden.

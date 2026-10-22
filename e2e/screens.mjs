@@ -32,7 +32,7 @@ const { token } = await post('/api/auth/admin', { password: PASS });
 const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
 const auth = { authorization: `Bearer ${token}` };
 const templates = (await (await fetch(`${base}/api/templates`, { headers: auth })).json()).templates;
-await post('/api/games', { name: 'Sommerfreizeit 2026', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
+const { code: gameCode } = await post('/api/games', { name: 'Sommerfreizeit 2026', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
 const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
 let state = null;
 sock.on('state', (p) => (state = p.state));
@@ -61,7 +61,7 @@ try {
   // Handys melden sich an
   const names = ['Mia', 'Leon', 'Emma', 'Paul', 'Lena', 'Ben', 'Hanna', 'Finn', 'Sofia', 'Noah', 'Lea', 'Elias'];
   const tokens = [];
-  for (const n of names) tokens.push((await post('/api/auth/register', { name: n })).token);
+  for (const n of names) tokens.push((await post('/api/auth/register', { name: n, code: gameCode })).token);
   const beamer = await open(`/beamer#bt=${beamerToken}`, { viewport: { width: 1920, height: 1080 } }, { fn: () => localStorage.setItem('insel.beamer', JSON.stringify({ quality: 'beauty', sound: false })) });
   await beamer.waitForFunction(() => !document.body.innerText.includes('Lade Insel'), null, { timeout: 60000 }).catch(() => {});
   const regie = await open('/regie', { viewport: { width: 1440, height: 900 } }, staff('admin'));

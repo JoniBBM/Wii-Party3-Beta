@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { GameState, Role, Session } from '@insel/shared';
+import type { Session } from '@insel/shared';
+import { accountOf, canManage, effectiveSession, gameOf, type AccountCtx } from '../access.ts';
 import {
   bearer,
   globalAttemptsExhausted,
@@ -12,9 +13,10 @@ import {
   type AttemptLimits,
 } from '../auth.ts';
 import { clientAddress, ipKey } from '../net.ts';
-import { resolveSession } from '../live.ts';
 import { config } from '../config.ts';
-import type { GameRuntime } from '../runtime.ts';
+import * as db from '../db.ts';
+import type { GameHub } from '../hub.ts';
+import type { Live } from '../live.ts';
 
 export class HttpError extends Error {
   constructor(
@@ -25,20 +27,65 @@ export class HttpError extends Error {
   }
 }
 
-export function sessionOf(req: FastifyRequest, state: GameState | null): Session {
-  return resolveSession(verifyToken(bearer(req.headers.authorization)), state, 'guest');
+/** Was alle Routen brauchen. */
+export interface Ctx {
+  database: db.DB;
+  hub: GameHub;
+  live: Live;
 }
 
-export function requireRole(req: FastifyRequest, runtime: GameRuntime, roles: Role[]): Session {
-  const s = sessionOf(req, runtime.state);
-  if (!roles.includes(s.role)) {
-    throw new HttpError(s.role === 'guest' ? 401 : 403, s.role === 'guest' ? 'Bitte anmelden' : 'Keine Berechtigung');
-  }
-  return s;
+/** Angaben aus dem Token (noch ungeprüft). */
+export function rawSession(req: FastifyRequest): Session | null {
+  return verifyToken(bearer(req.headers.authorization));
 }
 
-export const STAFF: Role[] = ['admin', 'moderator'];
-export const ADMIN: Role[] = ['admin'];
+/** Angemeldetes Konto (Haupt-Admin oder Spielleiter) – sonst 401/403. `admin`: nur Admins. */
+export function requireAccount(req: FastifyRequest, ctx: Ctx, opts: { admin?: boolean } = {}): AccountCtx {
+  const acc = accountOf(ctx.database, rawSession(req));
+  if (!acc) throw new HttpError(401, 'Bitte anmelden');
+  if (opts.admin && !acc.isAdmin) throw new HttpError(403, 'Nur für Admins');
+  return acc;
+}
+
+/** Konto, das dieses Spiel steuern darf (Admins alle, Spielleiter eigene). */
+export function requireGame(req: FastifyRequest, ctx: Ctx, gameId: string): AccountCtx {
+  const acc = requireAccount(req, ctx);
+  if (!ctx.hub.meta(gameId)) throw new HttpError(404, 'Spiel nicht gefunden');
+  if (!canManage(ctx.hub, acc, gameId)) throw new HttpError(403, 'Das ist nicht dein Spiel');
+  return acc;
+}
+
+/** Spiel, an dem die Anfrage hängt (Konto: gewähltes Spiel, Team/Spieler/Moderator: Token, Gast: Spielcode). */
+export function requestGame(req: FastifyRequest, ctx: Ctx, code?: string | null): string | null {
+  return gameOf(ctx.database, ctx.hub, rawSession(req), { code });
+}
+
+/** Rolle der Anfrage in einem Spiel. */
+export function gameSession(req: FastifyRequest, ctx: Ctx, gameId: string | null): Session {
+  return effectiveSession(ctx.database, ctx.hub, rawSession(req), gameId);
+}
+
+/**
+ * Wer liest Bibliothek und Vorlagen? Ein Konto – oder ein Moderator mit den Leserechten des
+ * Spielbesitzers (ändern darf er nichts, dafür prüfen die Schreib-Routen requireAccount).
+ */
+export function readerOf(req: FastifyRequest, ctx: Ctx): AccountCtx {
+  const acc = accountOf(ctx.database, rawSession(req));
+  if (acc) return acc;
+  const gameId = requestGame(req, ctx);
+  if (!gameId || gameSession(req, ctx, gameId).role !== 'moderator') throw new HttpError(401, 'Bitte anmelden');
+  const ownerId = ctx.hub.meta(gameId)?.ownerId ?? null;
+  const user = ownerId ? db.getUser(ctx.database, ownerId) : undefined;
+  return { userId: ownerId, isAdmin: ownerId === null || user?.role === 'admin', name: user?.name ?? 'Admin' };
+}
+
+/** Spielleitung (Konto oder Moderator) im Spiel der Anfrage – sonst 401/403. */
+export function requireStaff(req: FastifyRequest, ctx: Ctx): { gameId: string | null; session: Session } {
+  const gameId = requestGame(req, ctx);
+  const session = gameSession(req, ctx, gameId);
+  if (session.role === 'admin' || session.role === 'leader' || session.role === 'moderator') return { gameId, session };
+  throw new HttpError(session.role === 'guest' ? 401 : 403, session.role === 'guest' ? 'Bitte anmelden' : 'Keine Berechtigung');
+}
 
 /**
  * Kommt die Anfrage (vermutlich) aus dem Internet? Internet-Betrieb (./start.sh online,

@@ -31,7 +31,7 @@ try {
   // Beamer-Zugang (sonst zeigt der Beamer nur den Kopplungscode)
   const { token: beamerToken } = await post('/api/auth/beamer-link', {}, token);
   const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
-  await post('/api/games', { name: 'Show', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
+  const { code: gameCode } = await post('/api/games', { name: 'Show', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
   const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
   let state = null;
   let beamers = [];
@@ -42,7 +42,7 @@ try {
   await new Promise((r) => sock.on('connect', r));
   const cmd = (c) => new Promise((res) => sock.emit('cmd', c, (a) => { if (!a.ok) errors.push(`${c.type}: ${a.error}`); res(a); }));
   const showCmd = (c) => new Promise((res) => sock.emit('show', c, (a) => { if (!a.ok) errors.push(`show ${c.type}: ${a.error}`); res(a); }));
-  for (let i = 0; i < 6; i++) await post('/api/auth/register', { name: `Spieler ${i + 1}` });
+  for (let i = 0; i < 6; i++) await post('/api/auth/register', { name: `Spieler ${i + 1}`, code: gameCode });
   await cmd({ type: 'teams.auto', count: 3 });
 
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });

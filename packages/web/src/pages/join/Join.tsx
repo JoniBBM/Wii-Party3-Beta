@@ -1,4 +1,7 @@
-/** Beitritt am Handy: als Spieler anmelden (Lobby) oder mit Team-PIN / Team-QR-Code. */
+/**
+ * Beitritt am Handy: Spielcode (steckt im QR-Code, sonst eintippen), dann als Spieler anmelden
+ * (Lobby) oder mit Team-PIN. Team-QR-Codes führen direkt ins Team.
+ */
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowRight, KeyRound, UserPlus } from 'lucide-react';
@@ -6,7 +9,7 @@ import { PLAYER_EMOJIS } from '@insel/shared';
 import { api } from '../../lib/api.ts';
 import { uploadPhoto } from '../../lib/image.ts';
 import { reauth, useLive, useLiveConnection } from '../../lib/live.ts';
-import { getToken, setToken } from '../../lib/storage.ts';
+import { getJoinCode, getToken, normalizeCode, setJoinCode, setToken } from '../../lib/storage.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { Button, Spinner } from '../../ui/basics.tsx';
 import { IslandBackdrop } from '../../ui/IslandBackdrop.tsx';
@@ -15,10 +18,15 @@ import { toast } from '../../ui/toast.tsx';
 
 function Shell({ children }: { children: React.ReactNode }) {
   const appName = useLive((s) => s.appName);
+  // bei mehreren gleichzeitigen Spielen: sehen, wo man gerade beitritt
+  const game = useLive((s) => (s.state ? `${s.state.config.name} · ${s.state.code}` : null));
   return (
     <IslandBackdrop>
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-5 px-4 py-8">
-        <h1 className="text-center text-3xl font-bold drop-shadow-sm">{appName}</h1>
+        <div className="text-center">
+          <h1 className="text-3xl font-bold drop-shadow-sm">{appName}</h1>
+          {game && <p className="mt-1 text-sm font-bold text-ink-2">{game}</p>}
+        </div>
         {children}
       </div>
     </IslandBackdrop>
@@ -27,7 +35,17 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 export function JoinPage() {
   useTheme(false);
-  useLiveConnection('member', 'join');
+  const params = useParams();
+  // Spielcode aus dem QR-Code (/join/KX7P) bzw. vom letzten Beitritt dieses Handys
+  const [code, setCode] = useState<string | null>(() => normalizeCode(params.code) ?? getJoinCode());
+  useEffect(() => {
+    const fromLink = normalizeCode(params.code);
+    if (fromLink) {
+      setJoinCode(fromLink);
+      setCode(fromLink);
+    }
+  }, [params.code]);
+  useLiveConnection('member', 'join', true, code);
   const navigate = useNavigate();
   const { state, session, received } = useLive();
   const [step, setStep] = useState<'start' | 'photo'>('start');
@@ -54,11 +72,15 @@ export function JoinPage() {
   if (!state) {
     return (
       <Shell>
-        <div className="glass rounded-[28px] p-6 text-center">
-          <p className="text-5xl">⏳</p>
-          <p className="mt-3 font-display text-xl font-semibold">Gleich geht’s los</p>
-          <p className="mt-1 text-ink-2">Die Spielleitung hat noch kein Spiel gestartet. Diese Seite aktualisiert sich von selbst.</p>
-        </div>
+        <CodeForm
+          initial={code}
+          missing={!!code}
+          onDone={(c) => {
+            setJoinCode(c);
+            setCode(c);
+            navigate(`/join/${c}`, { replace: true });
+          }}
+        />
       </Shell>
     );
   }
@@ -100,6 +122,7 @@ export function JoinPage() {
               {station && <StationHeader lastName={lastName} count={state.players.length} />}
               <RegisterForm
                 key={lastName ?? 'first'}
+                code={state.code}
                 station={station}
                 onDone={(r) => {
                   if (station) setGuest(r);
@@ -112,7 +135,7 @@ export function JoinPage() {
               />
             </>
           ) : (
-            <PinForm onDone={() => navigate('/team')} hint={!canRegister} />
+            <PinForm code={state.code} onDone={() => navigate('/team')} hint={!canRegister} />
           )}
         </div>
       </div>
@@ -159,7 +182,53 @@ function StationHeader({ lastName, count }: { lastName: string | null; count: nu
   );
 }
 
-function RegisterForm({ onDone, station }: { onDone: (r: { token: string; playerId: string }) => void; station: boolean }) {
+/** Spielcode eintippen (wer ohne QR-Code kommt). */
+function CodeForm({ initial, missing, onDone }: { initial: string | null; missing: boolean; onDone: (code: string) => void }) {
+  const [value, setValue] = useState(missing ? '' : (initial ?? ''));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(missing ? 'Zu diesem Spielcode läuft gerade kein Spiel.' : null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const c = normalizeCode(value);
+    if (!c) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api<{ code: string }>('/api/join/check', { body: { code: c } });
+      onDone(r.code);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Spielcode nicht gefunden');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="glass flex flex-col gap-4 rounded-[28px] p-6 text-center">
+      <div>
+        <p className="text-5xl">🎟️</p>
+        <p className="mt-3 font-display text-xl font-semibold">Spielcode eingeben</p>
+        <p className="mt-1 text-ink-2">Am einfachsten den QR-Code auf dem Beamer scannen. Sonst den Code eingeben, der darunter steht.</p>
+      </div>
+      <input
+        className="field h-16 text-center font-display text-4xl uppercase tracking-[0.3em]"
+        autoComplete="off"
+        autoCapitalize="characters"
+        spellCheck={false}
+        maxLength={8}
+        placeholder="KX7P"
+        value={value}
+        onChange={(e) => setValue(e.target.value.replace(/[^a-z0-9]/gi, '').toUpperCase())}
+        autoFocus
+      />
+      {error && <p className="text-sm font-bold text-bad">{error}</p>}
+      <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={value.length < 4} icon={<ArrowRight />}>
+        Weiter
+      </Button>
+    </form>
+  );
+}
+
+function RegisterForm({ onDone, station, code }: { onDone: (r: { token: string; playerId: string }) => void; station: boolean; code: string }) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState<string>(() => PLAYER_EMOJIS[Math.floor(Math.random() * PLAYER_EMOJIS.length)]!);
   const [busy, setBusy] = useState(false);
@@ -169,7 +238,7 @@ function RegisterForm({ onDone, station }: { onDone: (r: { token: string; player
     if (!name.trim()) return;
     setBusy(true);
     try {
-      const r = await api<{ token: string; playerId: string }>('/api/auth/register', { body: { name: name.trim(), emoji } });
+      const r = await api<{ token: string; playerId: string }>('/api/auth/register', { body: { name: name.trim(), emoji, code } });
       onDone(r);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Anmeldung fehlgeschlagen');
@@ -215,7 +284,7 @@ function RegisterForm({ onDone, station }: { onDone: (r: { token: string; player
   );
 }
 
-function PinForm({ onDone, hint }: { onDone: () => void; hint: boolean }) {
+function PinForm({ onDone, hint, code }: { onDone: () => void; hint: boolean; code: string }) {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -224,7 +293,7 @@ function PinForm({ onDone, hint }: { onDone: () => void; hint: boolean }) {
     if (value.length !== 4 && value.length !== 6) return;
     setBusy(true);
     try {
-      const r = await api<{ token: string; teamName: string }>('/api/auth/pin', { body: { pin: value } });
+      const r = await api<{ token: string; teamName: string }>('/api/auth/pin', { body: { pin: value, code } });
       setToken('member', r.token);
       reauth();
       toast.success(`Willkommen bei ${r.teamName}!`);
@@ -313,9 +382,10 @@ export function JoinTeamLink() {
       setError('Dieser Link ist unvollständig');
       return;
     }
-    api<{ token: string; teamName: string }>('/api/auth/team-link', { body: { code } })
+    api<{ token: string; teamName: string; code: string }>('/api/auth/team-link', { body: { code } })
       .then((r) => {
         setToken('member', r.token);
+        setJoinCode(r.code);
         toast.success(`Willkommen bei ${r.teamName}!`);
         navigate('/team', { replace: true });
       })

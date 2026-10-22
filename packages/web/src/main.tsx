@@ -8,6 +8,7 @@ import { ConfirmHost } from './ui/overlay.tsx';
 import { Spinner } from './ui/basics.tsx';
 import { Home } from './pages/Home.tsx';
 import { JoinPage, JoinTeamLink, JoinModeratorLink } from './pages/join/Join.tsx';
+import { AccountLinkPage } from './pages/account/AccountLink.tsx';
 
 zodForBrowser();
 
@@ -37,10 +38,13 @@ const wrap = (el: React.ReactNode) => <Suspense fallback={<Loading />}>{el}</Sus
 const router = createBrowserRouter([
   { path: '/', element: <Home /> },
   { path: '/join', element: <JoinPage /> },
+  { path: '/konto', element: <AccountLinkPage /> },
   { path: '/join/t', element: <JoinTeamLink /> },
   { path: '/join/t/:code', element: <JoinTeamLink /> },
   { path: '/join/m', element: <JoinModeratorLink /> },
   { path: '/join/m/:token', element: <JoinModeratorLink /> },
+  // Spielcode aus dem QR-Code (nach /join/t und /join/m, damit diese Vorrang behalten)
+  { path: '/join/:code', element: <JoinPage /> },
   { path: '/team', element: wrap(<TeamApp />) },
   { path: '/beamer', element: wrap(<BeamerApp />) },
   { path: '/regie/*', element: wrap(<RegieApp />) },

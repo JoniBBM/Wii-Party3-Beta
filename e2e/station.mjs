@@ -28,7 +28,7 @@ const selfie = join(process.cwd(), 'docs/bilder/handy-figur.webp');
 try {
   const { token } = await post('/api/auth/admin', { password: 'st' });
   const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
-  await post('/api/games', { name: 'Station', devices: 'shared', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
+  const { code } = await post('/api/games', { name: 'Station', devices: 'shared', templateId: templates.find((t) => t.name.startsWith('Standard')).id }, token);
   const sock = io(base, { auth: { token, view: 'regie' }, transports: ['websocket'] });
   let state = null;
   sock.on('state', (p) => (state = p.state));
@@ -41,7 +41,7 @@ try {
   const stationCtx = await browser.newContext({ ...devices['iPad Mini'] });
   const station = await stationCtx.newPage();
   station.on('pageerror', (e) => errors.push('station: ' + e.message));
-  await station.goto(`${base}/join`);
+  await station.goto(`${base}/join/${code}`);
   await station.getByPlaceholder('Vorname der nächsten Person').waitFor({ timeout: 20000 });
   const names = ['Mia', 'Leon', 'Emma', 'Paul', 'Lena', 'Ben'];
   for (const [i, n] of names.entries()) {
@@ -69,7 +69,7 @@ try {
   const teamCtx = await browser.newContext({ ...devices['iPhone 13'] });
   const phone = await teamCtx.newPage();
   phone.on('pageerror', (e) => errors.push('team: ' + e.message));
-  await phone.goto(`${base}/join`);
+  await phone.goto(`${base}/join/${code}`);
   await phone.getByRole('button', { name: 'Team-PIN' }).click();
   await phone.locator('input[inputmode=numeric]').fill(team.pin);
   await phone.waitForURL(/\/team/, { timeout: 10000 });

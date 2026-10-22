@@ -38,6 +38,8 @@ Für starke Rechner: echte Materialien (freie CC0-Texturen für Sand, Gras, Fels
 
 Alle Geräte sind live verbunden – jede Aktion erscheint sofort überall.
 
+Auf einem eigenen Server können **mehrere Spielleiter gleichzeitig** eigene Spiele leiten: Der Admin lädt sie per E-Mail ein, jedes Spiel hat einen **Spielcode** (steckt im QR-Code), und jeder Spielleiter hat eigene Sammlungen, die er für alle veröffentlichen kann – siehe [Spielleiter-Konten](docs/spielleitung.md#spielleiter-konten-und-mehrere-spiele).
+
 | Beamer | Regie | Handy |
 |---|---|---|
 | ![Frage auf dem Beamer](docs/bilder/beamer-frage.webp) | ![Regie während einer Frage](docs/bilder/regie-frage-live.webp) | ![Antworten am Handy](docs/bilder/handy-frage.webp) |
