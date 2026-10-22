@@ -27,6 +27,8 @@ import {
   Waves,
 } from 'lucide-react';
 import {
+  CHATTER_MAX,
+  CHATTER_PRESET,
   MUSIC_MOOD_LABEL,
   MUSIC_MOODS,
   MUSIC_TRACKS,
@@ -54,8 +56,27 @@ function camera(cmd: Omit<CameraCommand, 'type'>) {
   void sendShow({ type: 'camera', ...cmd }).then((r) => !r.ok && toast.error(r.error ?? 'Kamera nicht erreichbar'));
 }
 
-/** Schieberegler, der während des Ziehens gedrosselt live sendet. */
-function VolumeSlider({ value, onChange, disabled, label }: { value: number; onChange: (v: number) => void; disabled?: boolean; label: string }) {
+/**
+ * Schieberegler, der während des Ziehens gedrosselt live sendet. Standard: Lautstärke 0–1
+ * (intern 0–100); mit `max`/`scale` auch andere Werte, z. B. 0–6 in halben Schritten.
+ */
+function VolumeSlider({
+  value,
+  onChange,
+  disabled,
+  label,
+  max = 100,
+  scale = 100,
+  valueText,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  disabled?: boolean;
+  label: string;
+  max?: number;
+  scale?: number;
+  valueText?: string;
+}) {
   const [local, setLocal] = useState(value);
   const last = useRef(0);
   const timer = useRef<number | null>(null);
@@ -76,18 +97,51 @@ function VolumeSlider({ value, onChange, disabled, label }: { value: number; onC
       type="range"
       aria-label={label}
       min={0}
-      max={100}
-      value={Math.round(local * 100)}
+      max={max}
+      value={Math.round(local * scale)}
+      aria-valuetext={valueText}
       disabled={disabled}
       onPointerDown={() => (dragging.current = true)}
       onPointerUp={() => (dragging.current = false)}
       onChange={(e) => {
-        const v = Number(e.target.value) / 100;
+        const v = Number(e.target.value) / scale;
         setLocal(v);
         send(v);
       }}
       className="w-full accent-[var(--accent)] disabled:opacity-40"
     />
+  );
+}
+
+/** „Sprüche pro Minute“: wie oft der Kommentator zwischendurch plaudert, wenn gerade nichts passiert. */
+function ChatterRow({ value, disabled, onChange }: { value: number; disabled: boolean; onChange: (v: number) => void }) {
+  const [shown, setShown] = useState(value);
+  useEffect(() => setShown(value), [value]);
+  const number = shown.toLocaleString('de-DE');
+  const text = shown === 0 ? 'still' : `${number} ${shown === 1 ? 'Spruch' : 'Sprüche'} pro Minute`;
+  const every = shown > 0 ? `etwa alle ${Math.round(60 / shown)} s` : 'nur zu Ereignissen';
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl bg-bg-2 px-3 py-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <span className="text-sm font-bold">Zwischendurch plaudern</span>
+        <span className="text-sm font-bold text-accent tabular-nums">
+          {text} <span className="font-semibold text-muted">· {every}</span>
+        </span>
+      </div>
+      <VolumeSlider
+        label="Sprüche pro Minute zwischendurch"
+        value={value}
+        max={CHATTER_MAX * 2}
+        scale={2}
+        valueText={text}
+        disabled={disabled}
+        onChange={(v) => {
+          setShown(v);
+          onChange(v);
+        }}
+      />
+      <p className="text-xs text-muted">Gilt nur, wenn gerade nichts passiert (Warten auf Antworten, Würfeln, Pausen). Die Stufe oben setzt einen Vorschlag.</p>
+    </div>
   );
 }
 
@@ -113,7 +167,7 @@ function AudioRow({
       <Switch checked={on} onChange={onToggle} />
       <div className="min-w-0">
         <p className="flex items-center gap-2 text-sm font-bold">
-          {icon} {label} <span className="ml-auto text-xs font-semibold text-muted tabular-nums">{on ? `${Math.round(volume * 100)} %` : 'aus'}</span>
+          {icon} {label} <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-semibold text-muted tabular-nums">{on ? `${Math.round(volume * 100)} %` : 'aus'}</span>
         </p>
         <VolumeSlider value={volume} onChange={onVolume} disabled={!on} label={`${label} Lautstärke`} />
       </div>
@@ -337,7 +391,7 @@ export function BeamerControl() {
   const test = (what: 'sound' | 'voice' | 'music') => void sendShow({ type: 'test', what });
 
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
+    <div className="grid gap-5 xl:grid-cols-2 [&>*]:min-w-0">
       <Card>
         <CardHeader
           title="Beamer"
@@ -397,7 +451,7 @@ export function BeamerControl() {
             <Volume2 className="size-5 text-muted" />
             <div>
               <p className="text-sm font-bold">
-                Gesamtlautstärke <span className="float-right text-xs font-semibold text-muted tabular-nums">{Math.round(s.master * 100)} %</span>
+                Gesamtlautstärke <span className="float-right whitespace-nowrap text-xs font-semibold text-muted tabular-nums">{Math.round(s.master * 100)} %</span>
               </p>
               <VolumeSlider value={s.master} onChange={(v) => set({ master: v })} label="Gesamtlautstärke" />
             </div>
@@ -431,7 +485,8 @@ export function BeamerControl() {
             <Segmented<CommentaryLevel>
               size="sm"
               value={s.commentary}
-              onChange={(v) => set({ commentary: v })}
+              // jede Stufe bringt ihren Vorschlag für „zwischendurch“ mit (danach frei einstellbar)
+              onChange={(v) => set(v === 'off' ? { commentary: v } : { commentary: v, chatter: CHATTER_PRESET[v] })}
               options={[
                 { value: 'off', label: 'nie' },
                 { value: 'some', label: 'ab und zu' },
@@ -442,13 +497,14 @@ export function BeamerControl() {
           </div>
           <p className="text-xs text-muted">
             {s.commentary === 'crazy'
-              ? 'Redet ständig, lästert über Führende und Letzte und haut auch mal ziemlich dumme Sprüche raus.'
+              ? 'Kommentiert jeden Zug, lästert über Führende und Letzte und haut auch mal ziemlich dumme Sprüche raus.'
               : s.commentary === 'lots'
-                ? 'Kommentiert fast jeden Zug und plaudert auch zwischendurch.'
+                ? 'Kommentiert fast jeden Zug.'
                 : s.commentary === 'some'
                   ? 'Meldet sich bei den wichtigen Momenten.'
                   : 'Kein Kommentar – nur Erklärung und Siegerehrung.'}
           </p>
+          <ChatterRow value={s.chatter} disabled={s.commentary === 'off' || !s.voice} onChange={(v) => set({ chatter: v })} />
         </div>
       </Card>
 

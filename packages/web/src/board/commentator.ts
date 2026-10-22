@@ -1,8 +1,9 @@
 /**
  * Kommentator: sucht zu einem Ereignis einen passenden Spruch aus (ohne Wiederholung kurz
  * hintereinander) und spricht ihn – wie oft, bestimmt die Regie (aus / ab und zu / viel /
- * Quatschkopf). Bei „viel“ und „Quatschkopf“ plaudert er auch zwischendurch, wenn gerade
- * nichts passiert; der Quatschkopf lästert dazu über Führende und Letzte und reißt dumme Witze.
+ * Quatschkopf). Zwischendurch, wenn gerade nichts passiert, plaudert er so oft, wie der Regler
+ * „Sprüche pro Minute“ es vorgibt; der Quatschkopf lästert dabei über Führende und Letzte und
+ * reißt dumme Witze.
  */
 import type { CommentaryLevel } from '@insel/shared';
 import type { SightKind } from './animals.ts';
@@ -91,6 +92,8 @@ const pickOne = <T>(list: readonly T[]) => list[Math.floor(Math.random() * list.
 
 export class Commentator {
   level: CommentaryLevel = 'some';
+  /** Sprüche zwischendurch je Minute (0 = nur zu Ereignissen) */
+  chatter = 0;
   /** z. B. während der Spielerklärung: kein Kommentar */
   paused = false;
   /** Ist ein Tier dieser Art gerade im Bild? (von der Szene gesetzt) */
@@ -98,6 +101,8 @@ export class Commentator {
   private sightAt = new Map<SightKind, number>();
   private recent = new Map<VoiceCategory, string[]>();
   private lastAt = 0;
+  /** Zufallsfaktor für den nächsten Abstand (0,8–1,2): klingt natürlich, trifft im Mittel genau */
+  private jitter = 1;
   private context: TalkContext = 'off';
   private contextSince = 0;
   /** Rang des Teams am Zug (für Lästereien) */
@@ -105,7 +110,8 @@ export class Commentator {
   private timer: number;
 
   constructor(private audio: BoardAudio) {
-    this.timer = window.setInterval(() => this.idleTick(), 2500);
+    // jede Sekunde prüfen, damit „Sprüche pro Minute“ auch bei hohen Werten genau stimmt
+    this.timer = window.setInterval(() => this.idleTick(), 1000);
   }
 
   setContext(ctx: TalkContext, turnRank: 'leader' | 'last' | null = null) {
@@ -143,7 +149,7 @@ export class Commentator {
     if (!urgent && this.audio.speaking) return false;
     const id = this.pick(cat);
     if (!id) return false;
-    this.lastAt = now + (opts.delay ?? 0);
+    this.spoke(now + (opts.delay ?? 0));
     const epoch = this.epoch;
     const go = () => {
       // inzwischen pausiert (Spielerklärung), abgeschaltet oder rückgängig gemacht → schweigen
@@ -155,18 +161,24 @@ export class Commentator {
     return true;
   }
 
-  /** Zwischendurch etwas sagen, wenn eine Weile Ruhe ist (nur „viel“ und „Quatschkopf“). */
+  private spoke(at: number) {
+    this.lastAt = at;
+    this.jitter = 0.8 + Math.random() * 0.4;
+  }
+
+  /** Zwischendurch etwas sagen, wenn eine Weile Ruhe ist – so oft, wie der Regler vorgibt. */
   private idleTick() {
     if (this.paused || !this.audio.ready || this.audio.speaking) return;
-    if (this.level !== 'lots' && this.level !== 'crazy') return;
+    if (this.level === 'off' || this.chatter <= 0) return;
     const ctx = this.context;
     if (ctx === 'off' || ctx === 'busy') return;
     const now = performance.now();
     const crazy = this.level === 'crazy';
-    // Ruhe seit dem letzten Spruch bzw. seit Beginn der Lage
-    const quiet = crazy ? 9000 : 15000;
-    if (now - this.lastAt < quiet + Math.random() * 4000) return;
-    if (now - this.contextSince < (ctx === 'waiting' ? 7000 : 5000)) return;
+    // Abstand seit dem letzten Spruch (auch zu einem Ereignis) und seit Beginn der Lage
+    const gap = (60_000 / this.chatter) * this.jitter;
+    // − halber Prüftakt: im Mittel kommt der Spruch dann genau nach `gap`
+    if (now - this.lastAt < gap - 500) return;
+    if (now - this.contextSince < Math.min(ctx === 'waiting' ? 6000 : 4000, gap / 2)) return;
     // Tier im Bild? Dann gern darüber reden (je Art höchstens alle 90 s)
     const animals = SIGHTS.filter(([k, cat]) => VOICE_LINES[cat].length > 0 && now - (this.sightAt.get(k) ?? -1e9) > 90_000 && this.sight?.(k));
     if (animals.length && Math.random() < 0.6) {
@@ -174,7 +186,7 @@ export class Commentator {
       const id = this.pick(cat);
       if (id) {
         this.sightAt.set(k, now);
-        this.lastAt = now;
+        this.spoke(now);
         void this.audio.say(voiceUrl(id));
         return;
       }
@@ -194,7 +206,7 @@ export class Commentator {
     const cat = pickOne(cats);
     const id = this.pick(cat);
     if (!id) return;
-    this.lastAt = now;
+    this.spoke(now);
     void this.audio.say(voiceUrl(id));
   }
 

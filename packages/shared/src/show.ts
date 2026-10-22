@@ -60,6 +60,11 @@ const TRACK_IDS = MUSIC_TRACKS.map((t) => t.id) as [MusicTrackId, ...MusicTrackI
 export const COMMENTARY_LEVELS = ['off', 'some', 'lots', 'crazy'] as const;
 export type CommentaryLevel = (typeof COMMENTARY_LEVELS)[number];
 
+/** Sprüche zwischendurch (wenn gerade nichts passiert): höchstens so viele je Minute. */
+export const CHATTER_MAX = 6;
+/** Vorschlag je Stufe – die Regie kann ihn danach mit dem Regler genau einstellen. */
+export const CHATTER_PRESET: Record<CommentaryLevel, number> = { off: 0, some: 0, lots: 3, crazy: 5 };
+
 export const CAMERA_STYLES = ['calm', 'lively'] as const;
 export type CameraStyle = (typeof CAMERA_STYLES)[number];
 
@@ -84,6 +89,8 @@ const SHOW_FIELDS = {
   ambienceVolume: volume,
   /** Wie oft der Kommentator etwas sagt. */
   commentary: z.enum(COMMENTARY_LEVELS),
+  /** Sprüche zwischendurch je Minute (0 = nur zu Ereignissen), in halben Schritten. */
+  chatter: z.number().min(0).max(CHATTER_MAX).multipleOf(0.5),
   camera: z.enum(CAMERA_STYLES),
   /** Nach jedem Zug kurz auf die Figur schauen (Jubel, Ärger …). */
   reactions: z.boolean(),
@@ -116,6 +123,7 @@ export const DEFAULT_SHOW: ShowSettings = {
   ambience: true,
   ambienceVolume: 0.5,
   commentary: 'some',
+  chatter: CHATTER_PRESET.some,
   camera: 'calm',
   reactions: true,
   tags: true,
@@ -137,6 +145,8 @@ export function parseShow(raw: unknown): ShowSettings {
     const r = (schema as z.ZodType).safeParse(base[key]);
     if (r.success) out[key] = r.data;
   }
+  // ältere Einstellungen ohne Regler: Vorschlag der gespeicherten Stufe übernehmen
+  if (!('chatter' in base)) out.chatter = CHATTER_PRESET[out.commentary as CommentaryLevel];
   return out as ShowSettings;
 }
 /** Spielerklärung auf dem Beamer: läuft, solange `running`; `id` startet sie neu. */

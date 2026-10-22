@@ -30,14 +30,15 @@ import { SettingsPage } from './SettingsPage.tsx';
 import { BeamerControl } from '../../game/BeamerControl.tsx';
 import { SecurityNotice } from '../../game/SecurityNotice.tsx';
 
-const NAV = [
+const NAV: { to: string; label: string; short?: string; end?: boolean; icon: typeof Settings }[] = [
   { to: '/regie', end: true, label: 'Live', icon: Clapperboard },
   { to: '/regie/beamer', label: 'Beamer', icon: Monitor },
   { to: '/regie/teams', label: 'Teams', icon: Users },
-  { to: '/regie/einrichten', label: 'Spiel einrichten', icon: SlidersHorizontal },
-  { to: '/regie/bibliothek', label: 'Bibliothek', icon: BookOpen },
+  { to: '/regie/einrichten', label: 'Spiel einrichten', short: 'Spiel', icon: SlidersHorizontal },
+  // kurze Namen für die untere Leiste: 7 Spalten passen auch auf ein 375-px-Handy
+  { to: '/regie/bibliothek', label: 'Bibliothek', short: 'Inhalte', icon: BookOpen },
   { to: '/regie/spiele', label: 'Spiele', icon: LayoutGrid },
-  { to: '/regie/einstellungen', label: 'Einstellungen', icon: Settings },
+  { to: '/regie/einstellungen', label: 'Einstellungen', short: 'Optionen', icon: Settings },
 ];
 
 export default function RegieApp() {
@@ -136,7 +137,7 @@ function RegieShell({ theme, setTheme }: { theme: string; setTheme: (t: 'light' 
             className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2 text-[10px] font-bold ${isActive ? 'text-accent' : 'text-muted'}`}
           >
             <n.icon className="size-5" />
-            <span className="max-w-full truncate px-1">{n.label.split(' ')[0]}</span>
+            <span className="max-w-full truncate px-0.5">{n.short ?? n.label}</span>
           </NavLink>
         ))}
       </nav>

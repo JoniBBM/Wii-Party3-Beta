@@ -136,6 +136,8 @@
   }
   .field {
     width: 100%;
+    /* auch mit w-auto nie breiter als der Platz (z. B. Auswahlfelder mit langen Optionen am Handy) */
+    max-width: 100%;
     background: var(--surface);
     border: 1.5px solid var(--line);
     border-radius: 14px;

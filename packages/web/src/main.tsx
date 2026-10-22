@@ -11,6 +11,14 @@ import { JoinPage, JoinTeamLink, JoinModeratorLink } from './pages/join/Join.tsx
 
 zodForBrowser();
 
+// iPhone/iPad: Safari zoomt beim Antippen von Eingabefeldern mit kleiner Schrift hinein und
+// bleibt danach vergrößert (seitliches Scrollen). maximum-scale=1 verhindert nur diesen
+// Auto-Zoom – der Zwei-Finger-Zoom bleibt auf iOS trotzdem möglich. Android bleibt unberührt.
+const iOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (iOS) {
+  document.querySelector('meta[name="viewport"]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover');
+}
+
 const TeamApp = lazy(() => import('./pages/team/TeamApp.tsx'));
 const RegieApp = lazy(() => import('./pages/regie/RegieApp.tsx'));
 const ModeratorApp = lazy(() => import('./pages/moderator/ModeratorApp.tsx'));

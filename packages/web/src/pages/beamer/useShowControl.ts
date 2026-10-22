@@ -79,10 +79,11 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
   useEffect(() => {
     if (!scene) return;
     scene.commentator.level = settings.commentary;
+    scene.commentator.chatter = settings.chatter;
     scene.setTagsVisible(settings.tags);
     scene.rig.style = settings.camera;
     scene.director.reactions = settings.reactions;
-  }, [scene, settings.commentary, settings.tags, settings.camera, settings.reactions]);
+  }, [scene, settings.commentary, settings.chatter, settings.tags, settings.camera, settings.reactions]);
   // Während der Spielerklärung: Kommentator still, Kamera gesperrt (Maus, Trackpad, Fernsteuerung)
   useEffect(() => {
     if (!scene) return;

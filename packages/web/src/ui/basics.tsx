@@ -121,7 +121,8 @@ export function Segmented<T extends string>({
   size?: 'sm' | 'md';
 }) {
   return (
-    <div className={`inline-flex rounded-full border border-line bg-bg-2 p-1 ${className}`} role="tablist">
+    // bricht auf schmalen Bildschirmen um, statt die Seite seitlich aufzuspreizen
+    <div className={`inline-flex max-w-full flex-wrap rounded-[1.25rem] border border-line bg-bg-2 p-1 ${className}`} role="tablist">
       {options.map((o) => (
         <button
           key={o.value}
