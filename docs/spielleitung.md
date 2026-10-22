@@ -126,7 +126,7 @@ Alles wirkt sofort auf allen Beamern – auch ohne Spiel und in der Lobby. Eine 
 |---|---|
 | Status | Jeder verbundene Beamer mit Bildrate, Grafikstufe, Auflösung, Ton frei?, Vollbild, freie Kamera · **Neu laden** · **Spielerklärung starten/stoppen** |
 | Bild | Grafik **Automatisch / Ultra / Schön / Ausgewogen / Sparsam** (ohne Neuladen), **Auflösung** (Automatisch, Bildschirm, 720p, 1080p, 1440p, 4K – darunter steht, was gerade wirklich gerendert wird), Vollbild, Rangliste & Kopfzeile, Namensschilder, Foto-Blasen beim Ziehen, Bildrate anzeigen |
-| Ton & Musik | Gesamtlautstärke; Musik, Effekte, Kommentator, Umgebungsgeräusche je an/aus mit eigener Lautstärke und **Test**-Knopf; **Musikstück** (automatisch passend zum Spiel oder ein festes Stück) und **Stücke abwechseln**; wie oft der Kommentator spricht (nie / ab und zu / viel / Quatschkopf) und **Zwischendurch plaudern** (Sprüche pro Minute) |
+| Ton & Musik | Gesamtlautstärke; Musik, Effekte, Kommentator, Umgebungsgeräusche je an/aus mit eigener Lautstärke und **Test**-Knopf; **Musikstück** (automatisch passend zum Spiel oder ein festes Stück) und **Stücke abwechseln**; wie oft der Kommentator spricht (nie / ab und zu / viel / Quatschkopf), beim Quatschkopf zusätzlich **Zwischendurch plaudern** (Sprüche pro Minute) |
 | Kamera | Ruhig oder lebhaft · Reaktion nach jedem Zug an/aus · Knöpfe *Automatik, Insel, Start, Vulkan, Gipfel* und je Team · Steuerkreuz (schieben, drehen, neigen, zoomen – gedrückt halten). Nach 60 s ohne Eingabe übernimmt wieder die Automatik. |
 
 Die **Musik** wechselt von selbst: Lobby-Musik vor dem Start, Insel-Musik beim Würfeln, Spannungsmusik bei Fragen und Minispielen, eigene Musik im Vulkan-Inneren, Finale bei der Siegerehrung. Für jede Stimmung gibt es mehrere Stücke (13 insgesamt); mit **Stücke abwechseln** laufen sie nacheinander, sonst wird eins wiederholt. Wer ein bestimmtes Stück will, wählt es fest aus.
@@ -136,11 +136,11 @@ Der **Kommentator** (Stimme „DiMario“) kommentiert Würfe, Sonderfelder, Mut
 | Stufe | Wie |
 |---|---|
 | nie | kein Kommentar (Erklärung und Siegerehrung sprechen trotzdem) |
-| ab und zu | bei den wichtigen Momenten (Vorschlag: zwischendurch still) |
-| viel | fast jeder Zug (Vorschlag: 3 Sprüche pro Minute zwischendurch) |
-| 🤪 Quatschkopf | jeder Zug, lästert über Führende und Letzte, macht sich über Pech lustig und reißt richtig dumme Witze (Vorschlag: 5 pro Minute) |
+| ab und zu | bei den wichtigen Momenten, zwischendurch still |
+| viel | fast jeder Zug, zwischendurch etwa 3 Sprüche pro Minute |
+| 🤪 Quatschkopf | jeder Zug, lästert über Führende und Letzte, macht sich über Pech lustig und reißt richtig dumme Witze – zwischendurch so oft, wie der Regler sagt |
 
-Wie viel er **zwischendurch** plaudert – wenn gerade nichts passiert, z. B. ein Team mit dem Würfeln trödelt oder alle über einer Frage brüten –, stellt der Regler **Zwischendurch plaudern** genau ein: 0 (still) bis 6 Sprüche pro Minute in halben Schritten, daneben steht der Abstand („etwa alle 20 s“). Jede Stufe setzt beim Anklicken ihren Vorschlag; danach lässt er sich frei verschieben und wirkt sofort.
+Beim **Quatschkopf** erscheint der Regler **Zwischendurch plaudern**: Er stellt genau ein, wie oft er loslegt, wenn gerade nichts passiert (ein Team trödelt beim Würfeln, alle brüten über einer Frage) – 0 (still) bis 6 Sprüche pro Minute in halben Schritten, Start bei 5; daneben steht der Abstand („etwa alle 12 s“). Wirkt sofort.
 
 **Grafikstufe Ultra**: echte Materialien fürs Gelände (Sand, Gras, Fels, Weg, Vulkangestein, Kiesel – freie CC0-Texturen), Wellen-Normalen und breiter Sonnenglanz auf dem Meer, doppelt so viel Gras, Tiefenschärfe auf den Punkt, auf den die Kamera schaut, feinere Umgebungsverdeckung und schärferes Himmelslicht. Die Texturen (~28 MB) werden erst geladen, wenn Ultra gewählt wird. Nur für sehr starke Grafikkarten – *Automatisch* nimmt nie Ultra; wer Ultra fest wählt, bleibt dabei. Ruckelt es, auf *Schön* oder *Automatisch* zurückstellen (die Bildrate steht in der Regie).
 

@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import {
   CHATTER_MAX,
-  CHATTER_PRESET,
   MUSIC_MOOD_LABEL,
   MUSIC_MOODS,
   MUSIC_TRACKS,
@@ -113,7 +112,7 @@ function VolumeSlider({
   );
 }
 
-/** „Sprüche pro Minute“: wie oft der Kommentator zwischendurch plaudert, wenn gerade nichts passiert. */
+/** „Sprüche pro Minute“ beim Quatschkopf: wie oft er zwischendurch loslegt, wenn gerade nichts passiert. */
 function ChatterRow({ value, disabled, onChange }: { value: number; disabled: boolean; onChange: (v: number) => void }) {
   const [shown, setShown] = useState(value);
   useEffect(() => setShown(value), [value]);
@@ -140,7 +139,7 @@ function ChatterRow({ value, disabled, onChange }: { value: number; disabled: bo
           onChange(v);
         }}
       />
-      <p className="text-xs text-muted">Gilt nur, wenn gerade nichts passiert (Warten auf Antworten, Würfeln, Pausen). Die Stufe oben setzt einen Vorschlag.</p>
+      <p className="text-xs text-muted">Wie oft der Quatschkopf loslegt, wenn gerade nichts passiert (Warten auf Antworten, Würfeln, Pausen).</p>
     </div>
   );
 }
@@ -485,8 +484,7 @@ export function BeamerControl() {
             <Segmented<CommentaryLevel>
               size="sm"
               value={s.commentary}
-              // jede Stufe bringt ihren Vorschlag für „zwischendurch“ mit (danach frei einstellbar)
-              onChange={(v) => set(v === 'off' ? { commentary: v } : { commentary: v, chatter: CHATTER_PRESET[v] })}
+              onChange={(v) => set({ commentary: v })}
               options={[
                 { value: 'off', label: 'nie' },
                 { value: 'some', label: 'ab und zu' },
@@ -504,7 +502,7 @@ export function BeamerControl() {
                   ? 'Meldet sich bei den wichtigen Momenten.'
                   : 'Kein Kommentar – nur Erklärung und Siegerehrung.'}
           </p>
-          <ChatterRow value={s.chatter} disabled={s.commentary === 'off' || !s.voice} onChange={(v) => set({ chatter: v })} />
+          {s.commentary === 'crazy' && <ChatterRow value={s.crazyChatter} disabled={!s.voice} onChange={(v) => set({ crazyChatter: v })} />}
         </div>
       </Card>
 

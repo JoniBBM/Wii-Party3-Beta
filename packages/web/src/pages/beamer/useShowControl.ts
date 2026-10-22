@@ -3,7 +3,7 @@
  * Ton und Musik, Kommentator, Kamera, Vollbild, Neu laden. Meldet Bildrate & Co. zurück.
  */
 import { useEffect, useRef, useState } from 'react';
-import { MUSIC_TRACKS, type GameState, type MusicMood, type RenderQuality, type ShowSettings } from '@insel/shared';
+import { effectiveChatter, MUSIC_TRACKS, type GameState, type MusicMood, type RenderQuality, type ShowSettings } from '@insel/shared';
 import type { MusicTrack } from '../../board/audio.ts';
 import type { BoardScene } from '../../board/scene.ts';
 import { beamerReport, onShowCommand, onShowTest, useLive } from '../../lib/live.ts';
@@ -79,11 +79,11 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
   useEffect(() => {
     if (!scene) return;
     scene.commentator.level = settings.commentary;
-    scene.commentator.chatter = settings.chatter;
+    scene.commentator.chatter = effectiveChatter(settings);
     scene.setTagsVisible(settings.tags);
     scene.rig.style = settings.camera;
     scene.director.reactions = settings.reactions;
-  }, [scene, settings.commentary, settings.chatter, settings.tags, settings.camera, settings.reactions]);
+  }, [scene, settings.commentary, settings.crazyChatter, settings.tags, settings.camera, settings.reactions]);
   // Während der Spielerklärung: Kommentator still, Kamera gesperrt (Maus, Trackpad, Fernsteuerung)
   useEffect(() => {
     if (!scene) return;
