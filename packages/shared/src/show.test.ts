@@ -9,17 +9,15 @@ describe('Kommentator: Sprüche pro Minute', () => {
     expect(effectiveChatter({ commentary: 'off', crazyChatter: 6 })).toBe(0);
   });
 
-  it('startet beim Quatschkopf mit 5 pro Minute; alte Felder stören nicht', () => {
-    expect(DEFAULT_SHOW.crazyChatter).toBe(5);
-    expect(parseShow({ commentary: 'crazy', chatter: 0 }).crazyChatter).toBe(5);
+  it('startet beim Quatschkopf mit 1 pro Minute; alte oder ungültige Werte fallen darauf zurück', () => {
+    expect(DEFAULT_SHOW.crazyChatter).toBe(1);
+    expect(parseShow({ commentary: 'crazy', chatter: 0 }).crazyChatter).toBe(1);
+    expect(parseShow({ crazyChatter: 5 }).crazyChatter).toBe(1);
     expect(parseShow({ crazyChatter: 1.5 }).crazyChatter).toBe(1.5);
   });
 
-  it('nimmt nur 0–6 in halben Schritten an', () => {
-    expect(showPatchSchema.safeParse({ crazyChatter: 1.5 }).success).toBe(true);
-    expect(showPatchSchema.safeParse({ crazyChatter: 6 }).success).toBe(true);
-    expect(showPatchSchema.safeParse({ crazyChatter: 6.5 }).success).toBe(false);
-    expect(showPatchSchema.safeParse({ crazyChatter: -1 }).success).toBe(false);
-    expect(showPatchSchema.safeParse({ crazyChatter: 1.3 }).success).toBe(false);
+  it('nimmt nur die Stufen 0, 0,25, 0,5, 0,75, 1 … 4 an', () => {
+    for (const v of [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4]) expect(showPatchSchema.safeParse({ crazyChatter: v }).success).toBe(true);
+    for (const v of [5, 6, 4.5, 1.25, -1, 0.3]) expect(showPatchSchema.safeParse({ crazyChatter: v }).success).toBe(false);
   });
 });

@@ -60,10 +60,10 @@ const TRACK_IDS = MUSIC_TRACKS.map((t) => t.id) as [MusicTrackId, ...MusicTrackI
 export const COMMENTARY_LEVELS = ['off', 'some', 'lots', 'crazy'] as const;
 export type CommentaryLevel = (typeof COMMENTARY_LEVELS)[number];
 
-/** Sprüche zwischendurch (wenn gerade nichts passiert): höchstens so viele je Minute. */
-export const CHATTER_MAX = 6;
-/** Feste Werte je Stufe; nur beim Quatschkopf stellt die Regie sie mit dem Regler genau ein. */
-export const CHATTER_PRESET: Record<CommentaryLevel, number> = { off: 0, some: 0, lots: 3, crazy: 5 };
+/** Stufen des Plauder-Reglers (Sprüche je Minute, wenn gerade nichts passiert). */
+export const CHATTER_STEPS = [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4] as const;
+/** Feste Werte je Stufe; nur beim Quatschkopf stellt die Regie sie mit dem Regler genau ein (Start: 1). */
+export const CHATTER_PRESET: Record<CommentaryLevel, number> = { off: 0, some: 0, lots: 0.5, crazy: 1 };
 
 export const CAMERA_STYLES = ['calm', 'lively'] as const;
 export type CameraStyle = (typeof CAMERA_STYLES)[number];
@@ -90,7 +90,7 @@ const SHOW_FIELDS = {
   /** Wie oft der Kommentator etwas sagt. */
   commentary: z.enum(COMMENTARY_LEVELS),
   /** Quatschkopf: Sprüche zwischendurch je Minute (0 = nur zu Ereignissen), in halben Schritten. */
-  crazyChatter: z.number().min(0).max(CHATTER_MAX).multipleOf(0.5),
+  crazyChatter: z.number().refine((v) => (CHATTER_STEPS as readonly number[]).includes(v), 'Ungültige Stufe'),
   camera: z.enum(CAMERA_STYLES),
   /** Nach jedem Zug kurz auf die Figur schauen (Jubel, Ärger …). */
   reactions: z.boolean(),

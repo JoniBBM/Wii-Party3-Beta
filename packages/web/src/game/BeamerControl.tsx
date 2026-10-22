@@ -27,7 +27,7 @@ import {
   Waves,
 } from 'lucide-react';
 import {
-  CHATTER_MAX,
+  CHATTER_STEPS,
   MUSIC_MOOD_LABEL,
   MUSIC_MOODS,
   MUSIC_TRACKS,
@@ -57,25 +57,26 @@ function camera(cmd: Omit<CameraCommand, 'type'>) {
 
 /**
  * Schieberegler, der während des Ziehens gedrosselt live sendet. Standard: Lautstärke 0–1
- * (intern 0–100); mit `max`/`scale` auch andere Werte, z. B. 0–6 in halben Schritten.
+ * (intern 0–100); mit `steps` rastet er auf feste Werte ein (z. B. Sprüche pro Minute).
  */
 function VolumeSlider({
   value,
   onChange,
   disabled,
   label,
-  max = 100,
-  scale = 100,
+  steps,
   valueText,
 }: {
   value: number;
   onChange: (v: number) => void;
   disabled?: boolean;
   label: string;
-  max?: number;
-  scale?: number;
+  steps?: readonly number[];
   valueText?: string;
 }) {
+  // Position auf dem Regler ↔ Wert: Lautstärke in Prozent oder Index der nächsten Stufe
+  const toPos = (v: number) => (steps ? steps.reduce((best, s, i) => (Math.abs(s - v) < Math.abs(steps[best]! - v) ? i : best), 0) : Math.round(v * 100));
+  const fromPos = (n: number) => (steps ? steps[n]! : n / 100);
   const [local, setLocal] = useState(value);
   const last = useRef(0);
   const timer = useRef<number | null>(null);
@@ -96,14 +97,14 @@ function VolumeSlider({
       type="range"
       aria-label={label}
       min={0}
-      max={max}
-      value={Math.round(local * scale)}
+      max={steps ? steps.length - 1 : 100}
+      value={toPos(local)}
       aria-valuetext={valueText}
       disabled={disabled}
       onPointerDown={() => (dragging.current = true)}
       onPointerUp={() => (dragging.current = false)}
       onChange={(e) => {
-        const v = Number(e.target.value) / scale;
+        const v = fromPos(Number(e.target.value));
         setLocal(v);
         send(v);
       }}
@@ -118,7 +119,8 @@ function ChatterRow({ value, disabled, onChange }: { value: number; disabled: bo
   useEffect(() => setShown(value), [value]);
   const number = shown.toLocaleString('de-DE');
   const text = shown === 0 ? 'still' : `${number} ${shown === 1 ? 'Spruch' : 'Sprüche'} pro Minute`;
-  const every = shown > 0 ? `etwa alle ${Math.round(60 / shown)} s` : 'nur zu Ereignissen';
+  const secs = shown > 0 ? 60 / shown : 0;
+  const every = shown === 0 ? 'nur zu Ereignissen' : secs >= 120 ? `etwa alle ${Math.round(secs / 60)} min` : `etwa alle ${Math.round(secs)} s`;
   return (
     <div className="flex flex-col gap-1 rounded-2xl bg-bg-2 px-3 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -130,8 +132,7 @@ function ChatterRow({ value, disabled, onChange }: { value: number; disabled: bo
       <VolumeSlider
         label="Sprüche pro Minute zwischendurch"
         value={value}
-        max={CHATTER_MAX * 2}
-        scale={2}
+        steps={CHATTER_STEPS}
         valueText={text}
         disabled={disabled}
         onChange={(v) => {

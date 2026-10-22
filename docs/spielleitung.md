@@ -137,10 +137,10 @@ Der **Kommentator** (Stimme „DiMario“) kommentiert Würfe, Sonderfelder, Mut
 |---|---|
 | nie | kein Kommentar (Erklärung und Siegerehrung sprechen trotzdem) |
 | ab und zu | bei den wichtigen Momenten, zwischendurch still |
-| viel | fast jeder Zug, zwischendurch etwa 3 Sprüche pro Minute |
+| viel | fast jeder Zug, zwischendurch etwa alle 2 Minuten ein Spruch |
 | 🤪 Quatschkopf | jeder Zug, lästert über Führende und Letzte, macht sich über Pech lustig und reißt richtig dumme Witze – zwischendurch so oft, wie der Regler sagt |
 
-Beim **Quatschkopf** erscheint der Regler **Zwischendurch plaudern**: Er stellt genau ein, wie oft er loslegt, wenn gerade nichts passiert (ein Team trödelt beim Würfeln, alle brüten über einer Frage) – 0 (still) bis 6 Sprüche pro Minute in halben Schritten, Start bei 5; daneben steht der Abstand („etwa alle 12 s“). Wirkt sofort.
+Beim **Quatschkopf** erscheint der Regler **Zwischendurch plaudern**: Er stellt genau ein, wie oft er loslegt, wenn gerade nichts passiert (ein Team trödelt beim Würfeln, alle brüten über einer Frage) – Stufen 0 (still), 0,25, 0,5, 0,75, 1, 1,5, 2, 2,5, 3, 3,5 und 4 Sprüche pro Minute, Start bei 1; daneben steht der Abstand („etwa alle 60 s“). Wirkt sofort.
 
 **Grafikstufe Ultra**: echte Materialien fürs Gelände (Sand, Gras, Fels, Weg, Vulkangestein, Kiesel – freie CC0-Texturen), Wellen-Normalen und breiter Sonnenglanz auf dem Meer, doppelt so viel Gras, Tiefenschärfe auf den Punkt, auf den die Kamera schaut, feinere Umgebungsverdeckung und schärferes Himmelslicht. Die Texturen (~28 MB) werden erst geladen, wenn Ultra gewählt wird. Nur für sehr starke Grafikkarten – *Automatisch* nimmt nie Ultra; wer Ultra fest wählt, bleibt dabei. Ruckelt es, auf *Schön* oder *Automatisch* zurückstellen (die Bildrate steht in der Regie).
 

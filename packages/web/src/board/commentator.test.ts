@@ -31,12 +31,12 @@ describe('Kommentator: Sprüche pro Minute', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  for (const rate of [1, 2.5, 4, 6]) {
-    it(`${rate} pro Minute in ruhigen Phasen`, () => {
+  for (const rate of [0.25, 0.75, 1, 2.5, 4]) {
+    it(`${rate} pro Minute in ruhigen Phasen (2 Stunden simuliert)`, () => {
       const { c, said } = setup('lots', rate);
       c.setContext('waiting');
-      vi.advanceTimersByTime(30 * 60_000);
-      const perMinute = said.length / 30;
+      vi.advanceTimersByTime(120 * 60_000);
+      const perMinute = said.length / 120;
       expect(perMinute).toBeGreaterThan(rate * 0.93);
       expect(perMinute).toBeLessThan(rate * 1.07);
       c.dispose();
