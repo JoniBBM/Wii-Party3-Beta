@@ -12,12 +12,14 @@
   - Ziel: keine waagerechte Scrollleiste, Inhalte in Handybreite, kein ungewolltes Hineinzoomen (z. B. bei Eingabefeldern unter 16 px Schrift).
   - Alle Regie-Seiten durchgehen (Spiel, Teams, Bibliothek, Beamer, Einstellungen) und bei 375 px Breite prüfen.
 
-## Offen
+## Erledigt (2026-10-23)
 
-- [ ] **Spiel-Tempo** (in Arbeit): Spieldauer vorab einstellen, Moderator/Regie „Spiel verlangsamen“ / „Spiel beschleunigen“ – fair für alle Teams, für Teams unbemerkt.
-- [ ] **Spieleinrichtung als geführter Ablauf** (als Nächstes): interaktive Schritte statt versteckter Menüs – erst Anzahl Felder, dann Feldarten an-/abwählen und ihre Häufigkeit, dann welche Fragen- und Spielarten drankommen, dann die Inhalte/Sammlungen …
+- [x] **Spiel-Tempo**: Spieldauer vorab einstellen, Moderator/Regie „Spiel verlangsamen“ / „Spiel beschleunigen“ – fair für alle Teams, für Teams unbemerkt.
+- [x] **Spieleinrichtung als geführter Ablauf**: Folien statt versteckter Menüs – Anzahl Felder, Sonderfelder an/aus mit Häufigkeit, welche Fragen- und Spielarten drankommen, Sammlungen, Handys & Sieg, Übersicht.
   - Einstieg mit grober Spieldauer: schlägt Felderzahl und Sonderfelder vor (anpassbar).
-  - Oder „manuell einrichten“: ohne spielbeeinflussende Algorithmen (kein Tempo, reine Zufallswürfe, keine Tempo-Knöpfe).
+  - Oder „Manuell“: ohne spielbeeinflussende Algorithmen (kein Tempo, reine Zufallswürfe, keine Tempo-Knöpfe).
+
+## Offen
 
 - [ ] Auf einem echten iPhone (Safari) gegenprüfen – getestet wurde in der Browser-Emulation bei 375 und 390 px.
 - [ ] **SSH-Zugang für Claude auf den VPS einrichten** (Schlüssel auf dem Mac, Adresse + Benutzer nennen) – dann kann Claude den Container selbst aktualisieren und prüfen. Bis dahin gibt Claude nach jedem Update die fertigen Befehle für den VPS aus.

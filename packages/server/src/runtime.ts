@@ -13,6 +13,7 @@ import {
   timerRemaining,
   type Actor,
   type Command,
+  type CommandType,
   type ContentItem,
   type Effect,
   type EffectInput,
@@ -39,7 +40,7 @@ export interface RuntimeEvents {
 
 export class GameRuntime extends EventEmitter<RuntimeEvents> {
   state: GameState;
-  private undoStack: { state: GameState; label: string }[] = [];
+  private undoStack: { state: GameState; label: string; type: CommandType }[] = [];
   private effectSeq = 0;
   private timer: NodeJS.Timeout | null = null;
   /** Aus der Beamer-Show: Reaktionen nach jedem Zug (verlängert die Animationszeit). */
@@ -86,7 +87,7 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
     const fromTeam = actor.role === 'team' || actor.role === 'player' || actor.role === 'guest';
     const undoable = !actor.system && !NON_UNDOABLE.has(cmd.type) && !(fromTeam && NON_UNDOABLE_FROM_TEAMS.has(cmd.type));
     if (undoable) {
-      this.undoStack.push({ state: before, label: result.label });
+      this.undoStack.push({ state: before, label: result.label, type: cmd.type });
       if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
     }
 
@@ -111,8 +112,12 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
     const entry = this.undoStack.pop();
     if (!entry) throw new EngineError('Es gibt nichts rückgängig zu machen');
     const restored = structuredClone(entry.state);
-    // Einstellungen der Spielleitung sind keine Spielzüge: Spieldauer/Tempo bleiben wie eingestellt
-    restored.config.targetMinutes = this.state.config.targetMinutes;
+    // Einstellungen der Spielleitung sind keine Spielzüge: Spieldauer/Tempo bleiben wie eingestellt –
+    // außer es wird gerade eine Einrichtung (config.update) zurückgenommen, dann gilt die alte komplett
+    if (entry.type !== 'config.update') {
+      restored.config.targetMinutes = this.state.config.targetMinutes;
+      restored.config.tempoEnabled = this.state.config.tempoEnabled;
+    }
     restored.tempo = { ...restored.tempo, manual: this.state.tempo.manual };
     // Ein inzwischen abgelaufener Countdown würde sofort wieder schließen → anhalten
     if (restored.phase.name === 'content') {

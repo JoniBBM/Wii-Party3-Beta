@@ -266,6 +266,24 @@
 .animate-pulse-ring {
   animation: pulse-ring 1.4s ease-out infinite;
 }
+@keyframes slide-next {
+  from {
+    transform: translateX(28px);
+    opacity: 0;
+  }
+}
+@keyframes slide-prev {
+  from {
+    transform: translateX(-28px);
+    opacity: 0;
+  }
+}
+.animate-slide-next {
+  animation: slide-next 0.28s ease-out both;
+}
+.animate-slide-prev {
+  animation: slide-prev 0.28s ease-out both;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

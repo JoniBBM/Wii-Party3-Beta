@@ -1,10 +1,11 @@
-/** Aktives Spiel einrichten: Sammlungen, Ablaufplan, Spielfeld, Regeln. */
+/** Aktives Spiel einrichten: geführt in Folien (SetupWizard) oder alle Einstellungen in Reitern. */
 import { useEffect, useMemo, useState } from 'react';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { BookmarkPlus, GripVertical, Plus, Save, Trash2, Undo2 } from 'lucide-react';
-import { CONTENT_KIND_INFO, gameConfigSchema, type GameConfig } from '@insel/shared';
+import { useNavigate } from 'react-router';
+import { BookmarkPlus, GripVertical, Plus, Save, SlidersHorizontal, Trash2, Undo2, Wand2 } from 'lucide-react';
+import { CONTENT_KIND_INFO, CONTENT_KINDS, gameConfigSchema, type ContentKind, type GameConfig } from '@insel/shared';
 import { api } from '../../lib/api.ts';
 import { useAsync, useCommand } from '../../lib/hooks.ts';
 import { useLibrary } from '../../lib/library.ts';
@@ -15,11 +16,21 @@ import { toast } from '../../ui/toast.tsx';
 import { BoardEditor } from './BoardEditor.tsx';
 import { RulesEditor } from './RulesEditor.tsx';
 import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
+import { SetupWizard } from './SetupWizard.tsx';
 
 type Tab = 'content' | 'plan' | 'board' | 'rules';
+type View = 'guided' | 'all';
 
 export function SetupPage() {
   const state = useLive((s) => s.state);
+  const navigate = useNavigate();
+  // vor dem Spiel geführt, danach direkt alle Einstellungen
+  const [view, setView] = useState<View>(state?.status === 'lobby' ? 'guided' : 'all');
+  // anderes Spiel gewählt (z. B. gerade neu angelegt) → passende Ansicht
+  useEffect(() => {
+    if (state) setView(state.status === 'lobby' ? 'guided' : 'all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.id]);
   const [tab, setTab] = useState<Tab>('content');
   const [draft, setDraft] = useState<GameConfig | null>(state?.config ?? null);
   const [baseline, setBaseline] = useState<GameConfig | null>(state?.config ?? null);
@@ -50,6 +61,32 @@ export function SetupPage() {
     await run({ type: 'config.update', config: parsed.data }, { success: 'Gespeichert' });
   };
 
+  const switcher = (
+    <Segmented<View>
+      value={view}
+      onChange={setView}
+      options={[
+        { value: 'guided', label: <span className="inline-flex items-center gap-1.5"><Wand2 className="size-4" />Geführt</span> },
+        { value: 'all', label: <span className="inline-flex items-center gap-1.5"><SlidersHorizontal className="size-4" />Alle Einstellungen</span> },
+      ]}
+    />
+  );
+
+  if (view === 'guided') {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Spiel einrichten</h1>
+            <p className="text-sm text-muted">Schritt für Schritt für „{state.config.name}“ – erst „Übernehmen“ ändert etwas.</p>
+          </div>
+          {switcher}
+        </div>
+        <SetupWizard key={state.id} state={state} onDone={() => navigate('/regie')} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -57,6 +94,19 @@ export function SetupPage() {
           <h1 className="text-2xl font-semibold">Spiel einrichten</h1>
           <p className="text-sm text-muted">Änderungen gelten sofort für das laufende Spiel „{state.config.name}“.</p>
         </div>
+        {switcher}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmented<Tab>
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'content', label: 'Inhalte' },
+            { value: 'plan', label: 'Ablaufplan' },
+            { value: 'board', label: 'Spielfeld' },
+            { value: 'rules', label: 'Regeln' },
+          ]}
+        />
         <div className="flex flex-wrap gap-2">
           <Button icon={<BookmarkPlus className="size-4" />} onClick={() => setSaveAs(true)}>
             Als Vorlage
@@ -71,18 +121,6 @@ export function SetupPage() {
           </Button>
         </div>
       </div>
-
-      <Segmented<Tab>
-        value={tab}
-        onChange={setTab}
-        className="self-start"
-        options={[
-          { value: 'content', label: 'Inhalte' },
-          { value: 'plan', label: 'Ablaufplan' },
-          { value: 'board', label: 'Spielfeld' },
-          { value: 'rules', label: 'Regeln' },
-        ]}
-      />
 
       <Card className="p-5">
         {tab === 'content' && <CollectionsPicker config={draft} onChange={setDraft} />}
@@ -123,10 +161,32 @@ function CollectionsPicker({ config, onChange }: { config: GameConfig; onChange:
   };
   const pool = items.filter((i) => selected.has(i.collectionId));
   const fieldGames = pool.filter((i) => i.fieldModes.length).length;
+  const kinds = new Set(config.contentKinds);
+  const toggleKind = (k: ContentKind) => {
+    if (kinds.has(k) && kinds.size === 1) return;
+    onChange({ ...config, contentKinds: CONTENT_KINDS.filter((x) => (x === k ? !kinds.has(k) : kinds.has(x))) });
+  };
   return (
     <div className="flex flex-col gap-4">
+      <div>
+        <p className="mb-2 font-bold">Was kommt per Zufall dran?</p>
+        <div className="flex flex-wrap gap-2">
+          {CONTENT_KINDS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={kinds.has(k)}
+              onClick={() => toggleKind(k)}
+              className={`rounded-full border-2 px-3 py-1.5 text-sm font-bold transition ${kinds.has(k) ? 'border-accent bg-accent-soft text-accent' : 'border-line text-muted hover:border-accent/40'}`}
+            >
+              {CONTENT_KIND_INFO[k].icon} {CONTENT_KIND_INFO[k].label}
+            </button>
+          ))}
+        </div>
+      </div>
       <p className="text-sm text-muted">
-        Aus diesen Sammlungen werden Spiele und Fragen gezogen. Aktuell: <b>{pool.filter((i) => i.roundUse).length}</b> Runden-Inhalte, <b>{fieldGames}</b> Feld-Minispiele.
+        Aus diesen Sammlungen werden Spiele und Fragen gezogen. Aktuell: <b>{pool.filter((i) => i.roundUse && kinds.has(i.kind)).length}</b> passende Runden-Inhalte, <b>{fieldGames}</b>{' '}
+        Feld-Minispiele.
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         {collections.map((c) => {

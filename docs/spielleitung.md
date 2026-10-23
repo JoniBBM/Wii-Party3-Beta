@@ -12,18 +12,28 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 1. **Laptop vorbereiten**: Docker Desktop starten, im Projektordner `./start.sh` ausführen. Die Regie öffnet sich im Browser.
 2. **Anmelden**: Spielleiter melden sich in der Regie mit **E-Mail und Passwort** an (Konto vom Admin, siehe [Spielleiter-Konten](#spielleiter-konten-und-mehrere-spiele)). Der Admin gibt als Benutzernamen `admin` ein und dazu das Passwort aus der Datei `.env` (`ADMIN_PASSWORD`).
 3. **Inhalte prüfen**: Unter *Bibliothek* die Sammlungen ansehen, ggf. eigene Spiele und Fragen anlegen (siehe [Inhalte erstellen](inhalte.md)).
-4. **Spiel anlegen**: Unter *Live* (oder *Spiele*) ein neues Spiel aus einer Vorlage erstellen, z. B. „Standard (72 Felder)“ für einen ganzen Abend oder „Kurzes Spiel (40 Felder)“ für ca. 45–60 Minuten. Jedes Spiel bekommt einen **Spielcode** (z. B. `KX7P`) – er steht oben in der Regie und steckt in allen QR-Codes.
-5. **Spiel einrichten** (optional):
-   - *Inhalte*: welche Sammlungen in diesem Spiel vorkommen.
+4. **Spiel anlegen**: Unter *Live* (oder *Spiele*) ein neues Spiel aus einer Vorlage erstellen, z. B. „Standard (72 Felder)“ für einen ganzen Abend oder „Kurzes Spiel (40 Felder)“ für ca. 45–60 Minuten. Jedes Spiel bekommt einen **Spielcode** (z. B. `KX7P`) – er steht oben in der Regie und steckt in allen QR-Codes. Danach geht es direkt in die **geführte Einrichtung**.
+5. **Spiel einrichten – geführt** (*Spiel einrichten → Geführt*, vor dem Spiel die Standardansicht): Folie für Folie, nichts gilt, bevor du am Ende **Übernehmen** drückst. Oben siehst du alle Schritte und kannst zu bereits besuchten zurückspringen.
+   - **Start**: *Nach Spieldauer* (empfohlen) oder *Manuell*.
+     - *Nach Spieldauer*: Du gibst ein, wie lange ungefähr gespielt wird (und mit wie vielen Teams). Der Assistent schlägt Länge und Sonderfelder vor – kurze Spiele mit weniger Bremsen und Minispielen, lange Abende mit mehr Minispielen und Platztausch. Das Spiel-Tempo (siehe unten) hält die Zeit danach unauffällig ein.
+     - *Manuell*: alles selbst festlegen, **reine Zufallswürfe ohne Spiel-Tempo** – keine Algorithmen, die das Spiel beeinflussen, keine Tempo-Knöpfe.
+   - **Spielfeld**: Anzahl Felder eintippen oder schieben; daneben die Insel als Vorschau und wie lange das Spiel damit dauert (bei *Nach Spieldauer* auch, ob es zur Wunschzeit passt – sonst ein Knopf, der die Länge anpasst).
+   - **Sonderfelder**: jedes Sonderfeld *Aus / Selten / Normal / Oft / Sehr oft* – mit Anzahl und Live-Vorschau. Die Mutproben der Insel (Liane, Fässer oder Kisten, Lavahöhle, Kraterloch, Vulkanausbruch) an- oder ausschalten. Die Häufigkeiten bleiben gespeichert, auch wenn du später die Länge änderst oder neu verteilst.
+   - **Was kommt dran?**: Spiele, Auswahl-, Freitext-, Schätz- und Buzzer-Fragen an- oder abwählen. Das gilt für den Zufall; im Ablaufplan und bei der Auswahl von Hand bist du frei. Feld-Minispiele kommen weiter über die Minispiel-Felder.
+   - **Sammlungen**: Sammlungen wählen (aufklappen zeigt die passenden Inhalte). Unten steht, ob die Inhalte für die erwarteten Runden reichen.
+   - **Handys & Sieg**: eigenes Handy oder Gruppen-Gerät, Siegbedingung.
+   - **Fertig**: Übersicht mit *Ändern* je Punkt, Name des Spiels, **Übernehmen**.
+6. **Alle Einstellungen** (optional, für Feinheiten):
+   - *Inhalte*: welche Arten per Zufall drankommen und welche Sammlungen in diesem Spiel vorkommen.
    - *Ablaufplan*: feste Reihenfolge von Spielen/Fragen per Drag & Drop.
    - *Spielfeld*: Länge des Weges, Sonderfelder neu verteilen oder einzeln antippen und ändern. **Liane**, **Fässer oder Kisten** (Fluss), **Lavahöhle** und **Kraterloch** gehören fest zur Insel (markiert mit „fest“). **Totenkopf-Felder** lassen sich wie andere Sonderfelder setzen.
    - *Regeln*: Bonuswürfel, Siegbedingung, Katapulte, Sperre, Vulkan, Einbruch-Wahrscheinlichkeit am Fluss, Mindestwurf an der Lavahöhle, Länge des Strafwegs im Vulkan-Inneren und Lage des Ausgangsfelds, Augen zum Herausklettern aus dem Krater …
    Danach **Speichern** – oder mit **Als Vorlage** für spätere Abende sichern.
 
    ![Spielfeld-Editor](bilder/regie-spielfeld.webp)
-6. **Beamer**: Am besten mit `./start.sh beamer` öffnen – das startet Chrome/Edge als Kiosk im Vollbild, Ton läuft sofort, und der Beamer ist gleich freigegeben. Alternativ `/beamer` im Browser öffnen (Knopf *Beamer öffnen* in der Regie), auf den Beamer ziehen und **einmal hineinklicken** (Browser geben Ton und Vollbild erst nach einem Klick frei). Läuft der Beamer auf einem anderen Rechner, zeigt er unten rechts einen **sechsstelligen Code** – in der Regie unter *Beamer* eingeben und *Freigeben* (erst dann zeigt er Fotos, QR-Code mit WLAN-Adresse und Verlauf). Am Beamer gibt es kein Menü mehr – **alles steuert die Regie unter *Beamer*** (siehe unten), auch bevor das Spiel startet.
-7. **Moderator verbinden**: *Einstellungen → Moderator-QR-Code erzeugen* – mit dem Handy der vorlesenden Person scannen. Kein Passwort nötig. (Alternativ unter `/moderator` Spielcode + Moderator-Passwort.)
-8. **Material** für die Spiele bereitlegen (steht bei jedem Spiel unter „Material“).
+7. **Beamer**: Am besten mit `./start.sh beamer` öffnen – das startet Chrome/Edge als Kiosk im Vollbild, Ton läuft sofort, und der Beamer ist gleich freigegeben. Alternativ `/beamer` im Browser öffnen (Knopf *Beamer öffnen* in der Regie), auf den Beamer ziehen und **einmal hineinklicken** (Browser geben Ton und Vollbild erst nach einem Klick frei). Läuft der Beamer auf einem anderen Rechner, zeigt er unten rechts einen **sechsstelligen Code** – in der Regie unter *Beamer* eingeben und *Freigeben* (erst dann zeigt er Fotos, QR-Code mit WLAN-Adresse und Verlauf). Am Beamer gibt es kein Menü mehr – **alles steuert die Regie unter *Beamer*** (siehe unten), auch bevor das Spiel startet.
+8. **Moderator verbinden**: *Einstellungen → Moderator-QR-Code erzeugen* – mit dem Handy der vorlesenden Person scannen. Kein Passwort nötig. (Alternativ unter `/moderator` Spielcode + Moderator-Passwort.)
+9. **Material** für die Spiele bereitlegen (steht bei jedem Spiel unter „Material“).
 
 ## Ankommen: Anmeldung & Teams
 
@@ -43,7 +53,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 
 ## Spiel-Tempo: Spieldauer und „schneller/langsamer“
 
-**Vor dem Spiel** steht in der Regie (Live, rechts) und beim Moderator die Karte **Spieldauer**: *Ohne Vorgabe*, 30–120 Minuten oder eine eigene Zahl. Darunter steht, wie lange das gewählte Spielfeld ohne Vorgabe ungefähr dauert. Ist die Wunschzeit für das Spielfeld zu knapp (oder zu lang), sagt die Karte, was unauffällig machbar ist – für deutlich kürzere Spiele ein kürzeres Spielfeld wählen (*Spiel einrichten → Spielfeld* oder Vorlage „Kurzes Spiel“).
+**Vor dem Spiel** steht in der Regie (Live, rechts) und beim Moderator die Karte **Spieldauer**: *Ohne Vorgabe*, 30–120 Minuten oder eine eigene Zahl (am bequemsten gleich in der geführten Einrichtung *Nach Spieldauer*). Darunter steht, wie lange das gewählte Spielfeld mit den aktuellen Teams ohne Vorgabe ungefähr dauert. Ist die Wunschzeit für das Spielfeld zu knapp (oder zu lang), sagt die Karte, was unauffällig machbar ist – für deutlich kürzere Spiele ein kürzeres Spielfeld wählen (*Spiel einrichten*). Mit *Ohne Spiel-Tempo spielen* (bzw. *Manuell* in der Einrichtung) ist das Tempo ganz aus: reine Zufallswürfe, keine Tempo-Knöpfe; *Spieldauer vorgeben* schaltet es wieder ein.
 
 **Während des Spiels** zeigt die Karte **Spiel-Tempo**, wie lange schon gespielt wird, wie lange es voraussichtlich noch dauert (mit Uhrzeit fürs Ende) und ob es im Plan liegt. Mit **Spiel beschleunigen** bzw. **Spiel verlangsamen** öffnet sich ein Fenster: mit Spieldauer „5/10/15/20 Minuten früher bzw. später“ oder eine neue Gesamtdauer, ohne Spieldauer „etwas“ oder „deutlich“ schneller/langsamer. *Normales Tempo* setzt alles zurück.
 

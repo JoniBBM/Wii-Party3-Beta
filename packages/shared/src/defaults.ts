@@ -1,6 +1,7 @@
 import { clone } from './clone.ts';
 import { generateBoard, DEFAULT_GOAL } from './board.ts';
 import {
+  CONTENT_KINDS,
   FIGURE_ACCESSORIES,
   FIGURE_EYES,
   FIGURE_HAIR_COLORS,
@@ -48,6 +49,8 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
   rules.crater ??= clone(DEFAULT_RULES.crater);
   (config as Partial<GameConfig>).devices ??= 'personal';
   (config as Partial<GameConfig>).targetMinutes ??= null;
+  (config as Partial<GameConfig>).tempoEnabled ??= true;
+  if (!config.contentKinds?.length) config.contentKinds = [...CONTENT_KINDS];
   rules.vine ??= clone(DEFAULT_RULES.vine);
   rules.cave ??= clone(DEFAULT_RULES.cave);
   rules.cave.need ??= DEFAULT_RULES.cave.need;
@@ -82,6 +85,8 @@ export function defaultConfig(name = 'Neues Spiel', goal = DEFAULT_GOAL): GameCo
   return {
     name,
     targetMinutes: null,
+    tempoEnabled: true,
+    contentKinds: [...CONTENT_KINDS],
     devices: 'personal',
     collectionIds: [],
     board: generateBoard(goal, 7),

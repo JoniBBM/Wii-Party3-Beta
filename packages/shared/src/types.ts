@@ -7,6 +7,7 @@ import type {
   FIGURE_EYES,
   FIGURE_HAIR_STYLES,
   FIGURE_MOUTHS,
+  MixFieldType,
   PlayerCount,
   TeamColorKey,
 } from './constants.ts';
@@ -169,11 +170,16 @@ export interface Rules {
   autoCloseWhenAllAnswered: boolean;
 }
 
+/** Häufigkeit je Sonderfeld als Faktor auf die Standardmenge (0 = aus, 1 = normal, fehlend = normal). */
+export type FieldMix = Partial<Record<MixFieldType, number>>;
+
 export interface BoardConfig {
   /** Feldtypen, Index = Feldnummer. fields[0] = start, fields[last] = goal. */
   fields: FieldType[];
   /** Seed für die Verteilung (nur zur Nachvollziehbarkeit / „neu verteilen“). */
   seed: number;
+  /** Gewählte Häufigkeiten – bleiben beim Verlängern und Neu-Verteilen erhalten. */
+  mix?: FieldMix;
 }
 
 /**
@@ -188,6 +194,10 @@ export interface GameConfig {
   name: string;
   /** Gewünschte Spieldauer in Minuten (null = ohne Vorgabe). Steuert das Spiel-Tempo, siehe engine/tempo.ts. */
   targetMinutes: number | null;
+  /** Spiel-Tempo an? Aus = „manuell eingerichtet“: reine Zufallswürfe, keine Zielzeit, keine Tempo-Knöpfe. */
+  tempoEnabled: boolean;
+  /** Welche Arten von Inhalten per Zufall drankommen (Plan und Auswahl von Hand sind frei). */
+  contentKinds: ContentKind[];
   devices: DeviceMode;
   collectionIds: string[];
   board: BoardConfig;

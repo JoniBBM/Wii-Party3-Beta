@@ -19,7 +19,19 @@ export { projectState, stripItemSecrets, isPrivileged } from './project.ts';
 export { effectDuration, effectsDuration, DURATION } from './durations.ts';
 export { currentTeamId, barrierText } from './dice.ts';
 export { timerRemaining, isQuestion, computeQuestionRanking } from './content.ts';
-export { tempoStatus, tempoLabel, tempoDie, tempoFactor, ROUND_MINUTES_GUESS, type TempoStatus } from './tempo.ts';
+export {
+  tempoStatus,
+  tempoLabel,
+  tempoDie,
+  tempoFactor,
+  estimateMinutes,
+  estimateRange,
+  roundMinutesGuess,
+  suggestSetup,
+  ROUND_MINUTES_GUESS,
+  type TempoStatus,
+  type SetupSuggestion,
+} from './tempo.ts';
 
 export interface EngineResult {
   state: GameState;

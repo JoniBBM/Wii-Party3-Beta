@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { io as connect, type Socket } from 'socket.io-client';
-import type { Effect, GameState, Session } from '@insel/shared';
+import { buildBoard, type Effect, type GameState, type Session } from '@insel/shared';
 
 const dir = mkdtempSync(join(tmpdir(), 'insel-test-'));
 process.env.DATA_DIR = dir;
@@ -330,6 +330,29 @@ describe('Server', () => {
     expect(undo.ok).toBe(true);
     await regie.waitFor((st) => st.teams.length === 0); // Teams bilden wurde zurückgenommen …
     expect(regie.state()?.config.targetMinutes).toBe(35); // … die Spieldauer bleibt
+  });
+
+  it('Einrichtungs-Assistent: übernimmt alles in einem Schritt, „Rückgängig“ holt die alte Einrichtung komplett zurück', async () => {
+    const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
+    await api('/api/games', { token: admin, body: { name: 'Assistent' } });
+    const regie = await client(admin);
+    const before = (await regie.waitFor((s) => s.config.name === 'Assistent')).config;
+    const config = {
+      ...before,
+      targetMinutes: null,
+      tempoEnabled: false,
+      contentKinds: ['estimate'],
+      board: buildBoard(30, 3, { skull: 0, minigame: 2 }),
+    };
+    expect((await regie.cmd({ type: 'config.update', config })).ok).toBe(true);
+    const after = (await regie.waitFor((s) => s.config.tempoEnabled === false)).config;
+    expect(after.board.fields).toHaveLength(31);
+    expect(after.board.mix).toEqual({ skull: 0, minigame: 2 });
+    expect(after.contentKinds).toEqual(['estimate']);
+    expect((await new Promise<{ ok: boolean }>((res) => regie.socket.emit('undo', res))).ok).toBe(true);
+    const undone = (await regie.waitFor((s) => s.config.tempoEnabled === true)).config;
+    expect(undone.board.fields.length).toBe(before.board.fields.length);
+    expect(undone.contentKinds).toEqual(before.contentKinds);
   });
 
   it('globale Anmeldebremse zählt Fehlversuche, nicht korrekte Logins', async () => {

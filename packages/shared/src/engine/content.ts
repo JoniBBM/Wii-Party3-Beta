@@ -1,6 +1,6 @@
 /** Inhalte einer Runde: Auswahl, Antworten, Buzzer, Auflösung, Platzierung, Ergebnis. */
 import { isTextAnswerCorrect } from '../answers.ts';
-import { CONTENT_KIND_INFO } from '../constants.ts';
+import { CONTENT_KIND_INFO, CONTENT_KINDS } from '../constants.ts';
 import { buildItem } from '../defaults.ts';
 import { pick, shuffle } from '../rng.ts';
 import type { CommandOf } from '../schemas.ts';
@@ -52,9 +52,11 @@ function chooseItem(tx: Tx, cmd: CommandOf<'content.select'>): ContentItem {
       return item;
     }
     case 'random': {
-      const kinds = cmd.kinds?.length ? new Set(cmd.kinds) : null;
-      const pool = tx.ctx.pool.filter((i) => i.roundUse && (!kinds || kinds.has(i.kind)));
-      if (pool.length === 0) fail(kinds ? 'Keine passenden Inhalte in den gewählten Sammlungen' : 'In den gewählten Sammlungen gibt es keine Inhalte');
+      // nur die Arten, die für dieses Spiel gewählt sind (und ggf. weiter eingegrenzt)
+      const allowed = new Set(s.config.contentKinds?.length ? s.config.contentKinds : CONTENT_KINDS);
+      const kinds = new Set((cmd.kinds?.length ? cmd.kinds : [...allowed]).filter((k) => allowed.has(k)));
+      const pool = tx.ctx.pool.filter((i) => i.roundUse && kinds.has(i.kind));
+      if (pool.length === 0) fail(cmd.kinds?.length || allowed.size < CONTENT_KINDS.length ? 'Keine passenden Inhalte in den gewählten Sammlungen' : 'In den gewählten Sammlungen gibt es keine Inhalte');
       let fresh = pool.filter((i) => !s.playedItemIds.includes(i.id));
       if (fresh.length === 0) {
         const ids = new Set(pool.map((i) => i.id));

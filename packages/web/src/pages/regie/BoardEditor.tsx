@@ -2,12 +2,12 @@
 import { useMemo, useState } from 'react';
 import { Anchor, Shuffle } from 'lucide-react';
 import {
+  buildBoard,
   buildIslandPlan,
   coastOutline,
   countFields,
   FIELD_INFO,
   fieldRadiusFor,
-  generateBoard,
   GORGE,
   hasLandmarks,
   LAGOON,
@@ -16,6 +16,7 @@ import {
   MIN_GOAL,
   newSeed,
   PLACEABLE_FIELD_TYPES,
+  resizeBoard,
   RIVER,
   RIVER_LIP,
   VOLCANO,
@@ -44,18 +45,66 @@ function Stream({ pts, color }: { pts: { x: number; z: number; w: number }[]; co
 
 const isLandmark = (t: FieldType) => (LANDMARK_FIELD_TYPES as readonly string[]).includes(t);
 
-export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange: (b: BoardConfig) => void }) {
+/** Draufsicht der Insel mit allen Feldern (Editor und Vorschau im Einrichtungs-Assistenten). */
+export function BoardMap({ board, selected = null, onSelect }: { board: BoardConfig; selected?: number | null; onSelect?: (i: number | null) => void }) {
   const goal = board.fields.length - 1;
   const plan = useMemo(() => buildIslandPlan(board.fields.length), [board.fields.length]);
   const radius = fieldRadiusFor(plan);
-  const [selected, setSelected] = useState<number | null>(null);
-  const counts = countFields(board);
-  const landmarksOk = hasLandmarks(board);
-
   const pathD = plan.path
     .filter((_, i) => i % 3 === 0 || i === plan.path.length - 1)
     .map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)} ${p.z.toFixed(2)}`)
     .join(' ');
+  return (
+    <svg viewBox="-47 -41 95 82" className="block h-auto w-full" role="img" aria-label="Spielfeld-Draufsicht">
+      <defs>
+        <radialGradient id="be-volcano" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor="#5a463c" />
+          <stop offset="0.45" stopColor="#8a7563" />
+          <stop offset="1" stopColor="#8a7563" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* Flachwasser rund um die Insel */}
+      <polygon points={COAST_POINTS} fill="#8fe3e6" stroke="#8fe3e6" strokeWidth="5" strokeLinejoin="round" opacity="0.7" />
+      <polygon points={COAST_POINTS} fill="#71b955" stroke="#f1d993" strokeWidth="2.6" strokeLinejoin="round" />
+      <circle cx={LAGOON.x} cy={LAGOON.z} r={LAGOON.r} fill="#6fe2dc" />
+      <circle cx={VOLCANO.x} cy={VOLCANO.z} r={VOLCANO.baseRadius * 0.8} fill="url(#be-volcano)" />
+      <circle cx={VOLCANO.x} cy={VOLCANO.z} r={VOLCANO.craterRadius + 0.6} fill="#4a3530" />
+      <circle cx={VOLCANO.x} cy={VOLCANO.z} r={VOLCANO.craterRadius * 0.55} fill="#ff6a2b" opacity="0.9" />
+      <Stream pts={GORGE} color="#2a8fc8" />
+      <Stream pts={RIVER.slice(0, RIVER_LIP + 1)} color="#4fb6e3" />
+      <Stream pts={RIVER.slice(RIVER_LIP + 1)} color="#4fb6e3" />
+      <path d={pathD} fill="none" stroke="#ead29a" strokeWidth={radius * 1.5} strokeLinecap="round" strokeLinejoin="round" />
+      {plan.fields.map((f, i) => {
+        const type = board.fields[i] ?? 'normal';
+        const r = radius * (i === 0 || i === goal ? 1.35 : 0.92);
+        return (
+          <g key={i} onClick={onSelect ? () => onSelect(i === selected ? null : i) : undefined} className={onSelect ? 'cursor-pointer' : undefined}>
+            <circle cx={f.x} cy={f.z} r={r} fill={FIELD_INFO[type].color} stroke={selected === i ? '#1b2a36' : 'rgba(0,0,0,0.25)'} strokeWidth={selected === i ? 0.35 : 0.12} />
+            {(i % 10 === 0 || i === goal) && (
+              <text x={f.x} y={f.z + 0.42} textAnchor="middle" fontSize="1.15" fontWeight="800" fill="#1b2a36" pointerEvents="none">
+                {i}
+              </text>
+            )}
+            {isLandmark(type) && (
+              <text x={f.x} y={f.z + 0.4} textAnchor="middle" fontSize="1.1" pointerEvents="none">
+                {FIELD_INFO[type].icon}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export const MAP_BACKGROUND = 'radial-gradient(circle at 50% 45%, #7fd8ee 0%, #3fb0dc 55%, #2a8fc8 100%)';
+
+export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange: (b: BoardConfig) => void }) {
+  const goal = board.fields.length - 1;
+  const [selected, setSelected] = useState<number | null>(null);
+  const counts = countFields(board);
+  const landmarksOk = hasLandmarks(board);
+
   const setType = (pos: number, type: FieldType) => {
     const fields = [...board.fields];
     fields[pos] = type;
@@ -65,46 +114,8 @@ export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange:
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="relative overflow-hidden rounded-3xl border border-line" style={{ background: 'radial-gradient(circle at 50% 45%, #7fd8ee 0%, #3fb0dc 55%, #2a8fc8 100%)' }}>
-        <svg viewBox="-47 -41 95 82" className="block h-auto w-full" role="img" aria-label="Spielfeld-Draufsicht">
-          <defs>
-            <radialGradient id="be-volcano" cx="50%" cy="50%" r="50%">
-              <stop offset="0" stopColor="#5a463c" />
-              <stop offset="0.45" stopColor="#8a7563" />
-              <stop offset="1" stopColor="#8a7563" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          {/* Flachwasser rund um die Insel */}
-          <polygon points={COAST_POINTS} fill="#8fe3e6" stroke="#8fe3e6" strokeWidth="5" strokeLinejoin="round" opacity="0.7" />
-          <polygon points={COAST_POINTS} fill="#71b955" stroke="#f1d993" strokeWidth="2.6" strokeLinejoin="round" />
-          <circle cx={LAGOON.x} cy={LAGOON.z} r={LAGOON.r} fill="#6fe2dc" />
-          <circle cx={VOLCANO.x} cy={VOLCANO.z} r={VOLCANO.baseRadius * 0.8} fill="url(#be-volcano)" />
-          <circle cx={VOLCANO.x} cy={VOLCANO.z} r={VOLCANO.craterRadius + 0.6} fill="#4a3530" />
-          <circle cx={VOLCANO.x} cy={VOLCANO.z} r={VOLCANO.craterRadius * 0.55} fill="#ff6a2b" opacity="0.9" />
-          <Stream pts={GORGE} color="#2a8fc8" />
-          <Stream pts={RIVER.slice(0, RIVER_LIP + 1)} color="#4fb6e3" />
-          <Stream pts={RIVER.slice(RIVER_LIP + 1)} color="#4fb6e3" />
-          <path d={pathD} fill="none" stroke="#ead29a" strokeWidth={radius * 1.5} strokeLinecap="round" strokeLinejoin="round" />
-          {plan.fields.map((f, i) => {
-            const type = board.fields[i] ?? 'normal';
-            const r = radius * (i === 0 || i === goal ? 1.35 : 0.92);
-            return (
-              <g key={i} onClick={() => setSelected(i === selected ? null : i)} className="cursor-pointer">
-                <circle cx={f.x} cy={f.z} r={r} fill={FIELD_INFO[type].color} stroke={selected === i ? '#1b2a36' : 'rgba(0,0,0,0.25)'} strokeWidth={selected === i ? 0.35 : 0.12} />
-                {(i % 10 === 0 || i === goal) && (
-                  <text x={f.x} y={f.z + 0.42} textAnchor="middle" fontSize="1.15" fontWeight="800" fill="#1b2a36" pointerEvents="none">
-                    {i}
-                  </text>
-                )}
-                {isLandmark(type) && (
-                  <text x={f.x} y={f.z + 0.4} textAnchor="middle" fontSize="1.1" pointerEvents="none">
-                    {FIELD_INFO[type].icon}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+      <div className="relative overflow-hidden rounded-3xl border border-line" style={{ background: MAP_BACKGROUND }}>
+        <BoardMap board={board} selected={selected} onSelect={setSelected} />
         {selected !== null && selType && (
           <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-surface/95 p-3 shadow-lifted backdrop-blur">
             <p className="mb-2 text-sm font-bold">
@@ -142,12 +153,12 @@ export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange:
             min={MIN_GOAL}
             max={MAX_GOAL}
             value={goal}
-            onChange={(e) => onChange(generateBoard(Number(e.target.value), board.seed))}
+            onChange={(e) => onChange(resizeBoard(board, Number(e.target.value)))}
             className="w-full accent-[var(--accent)]"
           />
           <span className="text-xs text-muted">Etwa {Math.round(goal / 7)}–{Math.round(goal / 5)} Runden. Änderung verteilt die Sonderfelder neu.</span>
         </label>
-        <Button icon={<Shuffle className="size-4" />} onClick={() => onChange(generateBoard(goal, newSeed()))}>
+        <Button icon={<Shuffle className="size-4" />} onClick={() => onChange(buildBoard(goal, newSeed(), board.mix))}>
           Sonderfelder neu verteilen
         </Button>
         {!landmarksOk && (

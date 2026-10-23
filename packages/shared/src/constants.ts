@@ -50,6 +50,19 @@ export type FieldType = (typeof FIELD_TYPES)[number];
  */
 export const LANDMARK_FIELD_TYPES = ['vine', 'river', 'cave', 'crater'] as const satisfies readonly FieldType[];
 
+/** Sonderfelder, deren Häufigkeit sich einstellen lässt (Inselfelder liegen fest). */
+export const MIX_FIELD_TYPES = ['minigame', 'catapult_forward', 'catapult_backward', 'swap', 'barrier', 'volcano', 'skull'] as const satisfies readonly FieldType[];
+export type MixFieldType = (typeof MIX_FIELD_TYPES)[number];
+
+/** Häufigkeitsstufen: Faktor auf die Standardmenge (0 = aus). */
+export const MIX_LEVELS = [
+  { value: 0, label: 'Aus' },
+  { value: 0.5, label: 'Selten' },
+  { value: 1, label: 'Normal' },
+  { value: 1.5, label: 'Oft' },
+  { value: 2, label: 'Sehr oft' },
+] as const;
+
 /** Feldtypen, die im Editor frei gesetzt werden dürfen (Start/Ziel und Inselfelder sind fix). */
 export const PLACEABLE_FIELD_TYPES = FIELD_TYPES.filter(
   (t) => t !== 'start' && t !== 'goal' && !(LANDMARK_FIELD_TYPES as readonly string[]).includes(t),

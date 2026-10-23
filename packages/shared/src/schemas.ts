@@ -12,6 +12,7 @@ import {
   FIGURE_EYES,
   FIGURE_HAIR_STYLES,
   FIGURE_MOUTHS,
+  MIX_FIELD_TYPES,
   PLAYER_COUNTS,
   TEAM_COLOR_KEYS,
 } from './constants.ts';
@@ -146,6 +147,7 @@ export const boardSchema = z
   .object({
     fields: z.array(z.enum(FIELD_TYPES)).min(21).max(121),
     seed: z.number().int(),
+    mix: z.partialRecord(z.enum(MIX_FIELD_TYPES), z.number().min(0).max(3)).optional(),
   })
   .refine((b) => b.fields[0] === 'start' && b.fields[b.fields.length - 1] === 'goal', {
     message: 'Erstes Feld muss Start, letztes Feld muss Ziel sein',
@@ -159,6 +161,8 @@ export const deviceModeSchema = z.enum(['personal', 'shared']);
 export const gameConfigSchema = z.object({
   name: shortText(80).min(1, 'Name fehlt'),
   targetMinutes: z.number().int().min(5).max(300).nullable().default(null),
+  tempoEnabled: z.boolean().default(true),
+  contentKinds: z.array(z.enum(CONTENT_KINDS)).min(1, 'Mindestens eine Art von Inhalten wählen').max(5).default([...CONTENT_KINDS]),
   devices: deviceModeSchema.default('personal'),
   collectionIds: z.array(id).max(50),
   board: boardSchema,
@@ -286,8 +290,13 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('round.next') }),
   // Spiel-Tempo (Spielleitung): Zielzeit in Minuten bzw. Handregler ohne Zielzeit
   z
-    .object({ type: z.literal('tempo.set'), targetMinutes: z.number().int().min(5).max(300).nullable().optional(), manual: z.number().int().min(-2).max(2).optional() })
-    .refine((c) => c.targetMinutes !== undefined || c.manual !== undefined, 'Zielzeit oder Tempo fehlt'),
+    .object({
+      type: z.literal('tempo.set'),
+      targetMinutes: z.number().int().min(5).max(300).nullable().optional(),
+      manual: z.number().int().min(-2).max(2).optional(),
+      enabled: z.boolean().optional(),
+    })
+    .refine((c) => c.targetMinutes !== undefined || c.manual !== undefined || c.enabled !== undefined, 'Zielzeit oder Tempo fehlt'),
   z.object({ type: z.literal('volcano.set'), pressure: z.number().int().min(0).max(50) }),
   z.object({ type: z.literal('volcano.erupt') }),
   z.object({ type: z.literal('plan.set'), itemIds: z.array(id).max(500) }),

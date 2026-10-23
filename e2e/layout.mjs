@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
+import { audit } from './audit.mjs';
 
 const out = process.argv[2] ?? join(tmpdir(), 'insel-layout');
 mkdirSync(out, { recursive: true });
@@ -37,55 +38,6 @@ const WIDTHS = [
   { name: 'laptop', width: 1280, height: 800 },
   { name: 'monitor', width: 1600, height: 900 },
 ];
-
-/** Im Browser: Text, der aus seinem Kasten ragt, und seitliches Scrollen der Seite finden. */
-function audit() {
-  const vw = document.documentElement.clientWidth;
-  const res = [];
-  const clipped = (el) => {
-    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
-      const o = getComputedStyle(p);
-      if (/(hidden|auto|scroll|clip)/.test(o.overflowX)) return true;
-    }
-    return false;
-  };
-  // absichtlich überstehende Abzeichen (z. B. Stift am Team-Bild) zählen nicht
-  const byAbsolute = (el, r) =>
-    [...el.querySelectorAll('*')].some((d) => {
-      if (!/(absolute|fixed)/.test(getComputedStyle(d).position)) return false;
-      const dr = d.getBoundingClientRect();
-      return dr.right > r.right + 1 || dr.bottom > r.bottom + 1 || dr.left < r.left - 1;
-    });
-  const label = (el) => (el.innerText || el.getAttribute('aria-label') || el.value || '').trim().replace(/\s+/g, ' ').slice(0, 50);
-  if (document.documentElement.scrollWidth > vw + 1) res.push({ kind: 'seite-scrollt', text: `${document.documentElement.scrollWidth}px statt ${vw}px` });
-  for (const el of document.querySelectorAll('body *')) {
-    if (el.closest('svg, canvas, [data-noaudit]')) continue;
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) continue;
-    // Text ragt aus seinem eigenen Kasten (sichtbar, nicht absichtlich gekürzt)
-    if (cs.overflowX === 'visible' && el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 0 && cs.textOverflow !== 'ellipsis' && !clipped(el) && !byAbsolute(el, r)) {
-      const kidsOver = [...el.children].some((c) => c.scrollWidth > c.clientWidth + 2 && getComputedStyle(c).overflowX === 'visible');
-      if (!kidsOver) res.push({ kind: 'text-ragt-raus', text: label(el), detail: `${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 5).join('.')} ${el.scrollWidth}>${el.clientWidth}` });
-    }
-    // Text läuft unten aus einem Kasten fester Höhe (z. B. Knopf mit zweizeiliger Beschriftung)
-    if (cs.overflowY === 'visible' && el.scrollHeight > el.clientHeight + 3 && el.clientHeight > 0 && cs.height !== 'auto' && !clipped(el) && !byAbsolute(el, r)) {
-      const kidsOver = [...el.children].some((c) => c.scrollHeight > c.clientHeight + 3 && getComputedStyle(c).overflowY === 'visible');
-      // reine Emojis sind bauartbedingt etwas höher als ihre Zeile – kein Fehler
-      if (!kidsOver && /[\p{L}\p{N}]/u.test(el.innerText ?? '')) res.push({ kind: 'text-unten-raus', text: label(el), detail: `${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 5).join('.')} ${el.scrollHeight}>${el.clientHeight}` });
-    }
-    // Element ragt seitlich aus dem Bildschirm
-    if ((r.right > vw + 1 || r.left < -1) && !clipped(el) && cs.position !== 'fixed') {
-      const kids = [...el.children].some((c) => {
-        const cr = c.getBoundingClientRect();
-        return cr.width > 0 && (cr.right > vw + 1 || cr.left < -1);
-      });
-      if (!kids) res.push({ kind: 'ausserhalb', text: label(el), detail: `${Math.round(r.left)}…${Math.round(r.right)} / ${vw}` });
-    }
-  }
-  return res;
-}
 
 const findings = [];
 const browser = await chromium.launch();
@@ -155,6 +107,15 @@ try {
   }
 
   const act = (label, fn) => Object.assign(fn, { label });
+  /** Spiel einrichten: Reiter unter „Alle Einstellungen“ bzw. n-mal „Weiter“ im Assistenten */
+  const allSettings = async (p, tab) => {
+    await p.getByRole('tab', { name: 'Alle Einstellungen' }).click();
+    await p.getByRole('tab', { name: tab }).click();
+  };
+  const wizard = async (p, next) => {
+    await p.getByRole('radio', { name: /Nach Spieldauer/ }).click();
+    for (let i = 0; i < next; i++) await p.getByRole('button', { name: 'Weiter' }).click();
+  };
   const DIALOGS = [
     ['/regie/bibliothek', act('Inhalt bearbeiten', (p) => p.getByRole('button', { name: /Riesenplanet/ }).first().click())],
     ['/regie/bibliothek', act('Neue Sammlung', (p) => p.getByRole('button', { name: 'Sammlung', exact: true }).click())],
@@ -162,9 +123,12 @@ try {
     ['/regie/konten', act('Einladen', (p) => p.getByRole('button', { name: 'Spielleiter einladen' }).click())],
     ['/regie/teams', act('Team-QR', (p) => p.getByRole('button', { name: 'QR-Code zeigen' }).first().click())],
     ['/regie/teams', act('Spieler bearbeiten', (p) => p.getByRole('button', { name: 'Bearbeiten' }).first().click())],
-    ['/regie/einrichten', act('Ablaufplan', (p) => p.getByRole('tab', { name: 'Ablaufplan' }).click())],
-    ['/regie/einrichten', act('Spielfeld', (p) => p.getByRole('tab', { name: 'Spielfeld' }).click())],
-    ['/regie/einrichten', act('Regeln', (p) => p.getByRole('tab', { name: 'Regeln' }).click())],
+    ['/regie/einrichten', act('Ablaufplan', (p) => allSettings(p, 'Ablaufplan'))],
+    ['/regie/einrichten', act('Spielfeld', (p) => allSettings(p, 'Spielfeld'))],
+    ['/regie/einrichten', act('Regeln', (p) => allSettings(p, 'Regeln'))],
+    ['/regie/einrichten', act('Assistent Dauer', (p) => wizard(p, 0))],
+    ['/regie/einrichten', act('Assistent Sonderfelder', (p) => wizard(p, 2))],
+    ['/regie/einrichten', act('Assistent Sammlungen', (p) => wizard(p, 4))],
     ['/regie/einstellungen', act('Moderator-QR', (p) => p.getByRole('button', { name: 'Moderator-QR-Code erzeugen' }).click())],
   ];
 

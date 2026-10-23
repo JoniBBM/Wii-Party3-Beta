@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { isTextAnswerCorrect } from '../answers.ts';
-import { generateBoard, countFields } from '../board.ts';
+import { buildBoard, generateBoard, countFields, resizeBoard } from '../board.ts';
 import { islandLandmarks } from '../island.ts';
 import type { FieldType } from '../constants.ts';
-import { buildItem, defaultConfig, upgradeState } from '../defaults.ts';
+import { buildItem, defaultConfig, upgradeConfig, upgradeState } from '../defaults.ts';
 import { randInt, seededRng } from '../rng.ts';
 import { commandSchema, type ContentItemInput } from '../schemas.ts';
 import type { Actor, ContentItem, GameConfig, GameState } from '../types.ts';
-import { applyCommand, createGame, EngineError, projectState, tempoDie, tempoStatus, type EngineContext } from './index.ts';
+import { applyCommand, createGame, EngineError, estimateMinutes, projectState, suggestSetup, tempoDie, tempoStatus, type EngineContext } from './index.ts';
 import { moodAfterTurn } from './dice.ts';
 
 const ADMIN: Actor = { role: 'admin' };
@@ -1008,5 +1008,83 @@ describe('Spiel-Tempo', () => {
     const slow = avg(150);
     expect(fast).toBeLessThan(normal - 0.5);
     expect(slow).toBeGreaterThan(normal + 0.5);
+  });
+});
+
+describe('Geführte Einrichtung', () => {
+  it('Häufigkeiten: Aus/Selten/Oft wirken auf die Anzahl und bleiben beim Verlängern und Neu-Verteilen erhalten', () => {
+    const normal = countFields(buildBoard(72, 5));
+    const mixed = buildBoard(72, 5, { skull: 0, minigame: 2, barrier: 0.5 });
+    const c = countFields(mixed);
+    expect(c.skull ?? 0).toBe(0);
+    expect(c.minigame).toBe(normal.minigame! * 2);
+    expect(c.barrier).toBeLessThan(normal.barrier!);
+    expect(mixed.mix).toEqual({ skull: 0, minigame: 2, barrier: 0.5 });
+    const longer = resizeBoard(mixed, 100);
+    expect(longer.fields).toHaveLength(101);
+    expect(longer.mix).toEqual(mixed.mix);
+    expect(countFields(longer).skull ?? 0).toBe(0);
+    // ohne Angaben exakt wie bisher
+    expect(buildBoard(72, 5)).toEqual(generateBoard(72, 5));
+  });
+
+  it('Vorschlag aus der Spieldauer: länger = mehr Felder, kurze Spiele ohne Totenkopf, Schätzung trifft', () => {
+    const base = defaultConfig('T');
+    let last = 0;
+    for (const minutes of [30, 45, 60, 90, 120]) {
+      const s = suggestSetup(minutes, 4, base);
+      expect(s.goal).toBeGreaterThanOrEqual(last);
+      last = s.goal;
+      expect(Math.abs(estimateMinutes({ ...base, board: buildBoard(s.goal, 1, s.mix) }, 4) - minutes)).toBeLessThan(6);
+    }
+    expect(suggestSetup(30, 4, base).mix.skull).toBe(0);
+    expect(suggestSetup(10, 4, base).limit).toBe('min');
+    expect(suggestSetup(400, 4, base).limit).toBe('max');
+    // mehr Teams = längere Runden = kürzeres Spielfeld für dieselbe Zeit
+    expect(suggestSetup(60, 8, base).goal).toBeLessThan(suggestSetup(60, 2, base).goal);
+  });
+
+  it('Was kommt dran? Zufall zieht nur die gewählten Arten', () => {
+    const h = harness({ config: { contentKinds: ['estimate', 'buzzer'] } }).setup(2);
+    for (let i = 0; i < 6; i++) {
+      h.run({ type: 'content.select', source: 'random' });
+      const kind = phase(h.s, 'content').content.item.kind;
+      expect(['estimate', 'buzzer']).toContain(kind);
+      h.run({ type: 'content.abort' });
+    }
+    // Filter, der nicht zur Auswahl passt → klare Meldung
+    expect(() => h.run({ type: 'content.select', source: 'random', kinds: ['choice'] })).toThrow(/passenden/);
+    // von Hand bleibt alles erlaubt
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q1' });
+    expect(phase(h.s, 'content').content.item.id).toBe('q1');
+  });
+
+  it('manuell eingerichtet: kein Spiel-Tempo, reine Zufallswürfe', () => {
+    const h = harness({ config: { board: boardWith({}, 40), tempoEnabled: false, targetMinutes: 20 } }).setup(3);
+    const st = tempoStatus(h.s, 2_000_000);
+    expect(st.tempo).toBe(0);
+    expect(st.target).toBeNull();
+    expect(() => h.run({ type: 'tempo.set', manual: 2 })).toThrow(/ausgeschaltet/);
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q1' });
+    h.run({ type: 'content.open' });
+    h.run({ type: 'content.close' });
+    h.run({ type: 'content.reveal' });
+    h.run({ type: 'content.finish' });
+    h.run({ type: 'results.confirm' });
+    expect(phase(h.s, 'dice').dice.tempo).toBe(0);
+    // wieder einschalten geht – dann zählt eine neue Zielzeit
+    h.run({ type: 'tempo.set', enabled: true });
+    h.run({ type: 'tempo.set', targetMinutes: 20 });
+    expect(tempoStatus(h.s, 2_000_000).tempo).toBeGreaterThan(0);
+    expect(projectState(h.s, { role: 'team', teamId: h.team(0).id }).config.tempoEnabled).toBe(false);
+  });
+
+  it('ältere Spiele bekommen die neuen Einstellungen', () => {
+    const old = defaultConfig('Alt') as Partial<GameConfig>;
+    delete old.tempoEnabled;
+    delete old.contentKinds;
+    const up = upgradeConfig(old as GameConfig);
+    expect(up.tempoEnabled).toBe(true);
+    expect(up.contentKinds).toEqual(['game', 'choice', 'text', 'estimate', 'buzzer']);
   });
 });

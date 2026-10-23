@@ -103,9 +103,14 @@ export function LobbyPanel({ state, mode }: { state: GameState; mode: 'regie' | 
 
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
         {mode === 'regie' && (
-          <Link to="/regie/teams" className="btn btn-ghost h-11 px-5 text-sm">
-            Teams im Detail bearbeiten
-          </Link>
+          <>
+            <Link to="/regie/einrichten" className="btn btn-ghost h-11 px-5 text-sm">
+              Spiel einrichten
+            </Link>
+            <Link to="/regie/teams" className="btn btn-ghost h-11 px-5 text-sm">
+              Teams im Detail bearbeiten
+            </Link>
+          </>
         )}
         <Button variant="good" size="lg" icon={<Play className="size-5" />} disabled={!canStart} loading={pending === 'game.start'} onClick={() => run({ type: 'game.start' })}>
           Spiel starten

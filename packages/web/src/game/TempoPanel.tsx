@@ -24,6 +24,7 @@ export function TempoPanel({ state }: { state: GameState }) {
   const [dialog, setDialog] = useState<'faster' | 'slower' | null>(null);
   if (state.status === 'finished') return null;
   const st = tempoStatus(state, now);
+  if (state.config.tempoEnabled === false) return state.status === 'lobby' ? <TempoOffCard /> : null;
   if (state.status === 'lobby') return <DurationCard state={state} status={st} now={now} />;
 
   const behind = st.target ? Math.round(st.totalMin - st.target) : 0;
@@ -64,6 +65,21 @@ export function TempoPanel({ state }: { state: GameState }) {
         </div>
       </div>
       {dialog && <TempoDialog state={state} status={st} now={now} direction={dialog} onClose={() => setDialog(null)} />}
+    </Card>
+  );
+}
+
+/** Manuell eingerichtet: kein Spiel-Tempo, reine Zufallswürfe. */
+function TempoOffCard() {
+  const { run, pending } = useCommand();
+  return (
+    <Card>
+      <CardHeader title="Spieldauer" icon={<Timer className="size-5 text-accent" />} sub="Manuell eingerichtet: reine Zufallswürfe, ohne Spiel-Tempo." />
+      <div className="p-4 pt-0">
+        <Button size="sm" disabled={!!pending} onClick={() => void run({ type: 'tempo.set', enabled: true }, { success: 'Spiel-Tempo eingeschaltet' })}>
+          Spieldauer vorgeben
+        </Button>
+      </div>
     </Card>
   );
 }
@@ -116,7 +132,8 @@ function DurationCard({ state, status, now }: { state: GameState; status: TempoS
           </form>
         </div>
         <p className="text-sm text-muted">
-          Ohne Vorgabe dauert dieses Spielfeld ({goal} Felder) etwa <b>{min(natural)}</b> – bei ca. {Math.round(status.roundMin)} Minuten je Runde.
+          Ohne Vorgabe dauert dieses Spielfeld ({goal} Felder) {state.teams.length ? `mit ${state.teams.length} Teams` : 'mit 4 Teams'} etwa <b>{min(natural)}</b> – bei ca.{' '}
+          {Math.round(status.roundMin)} Minuten je Runde.
         </p>
         {status.outOfReach === 'too_short' && (
           <p className="rounded-xl bg-warn-soft px-3 py-2 text-sm font-semibold text-ink-2">
@@ -130,6 +147,14 @@ function DurationCard({ state, status, now }: { state: GameState; status: TempoS
           </p>
         )}
         {status.target && !status.outOfReach && <p className="text-sm font-semibold text-good">Passt: Das Spiel richtet sich nach ca. {status.target} Minuten.</p>}
+        <button
+          type="button"
+          disabled={!!pending}
+          className="self-start text-xs font-semibold text-muted underline-offset-2 hover:underline"
+          onClick={() => void run({ type: 'tempo.set', enabled: false }, { success: 'Spiel-Tempo aus – reine Zufallswürfe' })}
+        >
+          Ohne Spiel-Tempo spielen (reine Zufallswürfe)
+        </button>
       </div>
     </Card>
   );

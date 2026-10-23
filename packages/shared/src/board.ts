@@ -3,10 +3,10 @@
  * Das Ergebnis wird in der Spielkonfiguration gespeichert und danach nur noch bewusst
  * (Editor oder „Neu verteilen“) geändert – nie zufällig während des Spiels.
  */
-import type { FieldType } from './constants.ts';
+import { MIX_FIELD_TYPES, type FieldType } from './constants.ts';
 import { islandLandmarks } from './island.ts';
 import { seededRng, randInt } from './rng.ts';
-import type { BoardConfig } from './types.ts';
+import type { BoardConfig, FieldMix } from './types.ts';
 
 export const DEFAULT_GOAL = 72;
 export const MIN_GOAL = 20;
@@ -30,6 +30,25 @@ export function defaultFieldCounts(goal: number): Partial<Record<FieldType, numb
     volcano: goal >= 40 ? 3 : goal >= 25 ? 1 : 0,
     skull: goal >= 50 ? 2 : goal >= 30 ? 1 : 0,
   };
+}
+
+/** Sonderfelder je Typ bei gewählter Häufigkeit (`mix`: Faktor je Typ, fehlend = normal). */
+export function fieldCounts(goal: number, mix: FieldMix = {}): Partial<Record<FieldType, number>> {
+  const base = defaultFieldCounts(goal);
+  const out: Partial<Record<FieldType, number>> = {};
+  for (const t of MIX_FIELD_TYPES) {
+    const def = base[t] ?? 0;
+    const f = mix[t] ?? 1;
+    out[t] = f <= 0 || def === 0 ? 0 : Math.max(1, Math.round(def * f));
+  }
+  return out;
+}
+
+/** Spielfeld mit Häufigkeiten erzeugen; die Häufigkeiten bleiben gespeichert (Länge ändern, neu verteilen). */
+export function buildBoard(goal: number, seed: number, mix?: FieldMix): BoardConfig {
+  const clean = mix && Object.keys(mix).length ? mix : undefined;
+  const board = generateBoard(goal, seed, fieldCounts(Math.max(MIN_GOAL, Math.min(MAX_GOAL, Math.round(goal))), clean));
+  return clean ? { ...board, mix: clean } : board;
 }
 
 export function generateBoard(goal: number = DEFAULT_GOAL, seed = 1, counts = defaultFieldCounts(goal)): BoardConfig {
@@ -107,9 +126,9 @@ export function fieldAt(board: BoardConfig, position: number): FieldType {
   return board.fields[position] ?? 'normal';
 }
 
-/** Länge ändern: vorhandene Verteilung wird neu erzeugt (mit gleichem Seed). */
+/** Länge ändern: vorhandene Verteilung wird neu erzeugt (mit gleichem Seed und gleichen Häufigkeiten). */
 export function resizeBoard(board: BoardConfig, goal: number): BoardConfig {
-  return generateBoard(goal, board.seed);
+  return buildBoard(goal, board.seed, board.mix);
 }
 
 export function newSeed(): number {

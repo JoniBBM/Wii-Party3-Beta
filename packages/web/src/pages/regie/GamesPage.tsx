@@ -3,6 +3,7 @@
  * Spielleitern); die Regie und die Beamer eines Kontos zeigen dessen gewähltes Spiel.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Download, Play, Plus, Power, Trash2 } from 'lucide-react';
 import type { DeviceMode } from '@insel/shared';
 import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
@@ -187,6 +188,7 @@ export function GamesPage() {
 }
 
 function NewGameModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const navigate = useNavigate();
   const templates = useLibrary((s) => s.templates);
   const [name, setName] = useState(() => `Spieleabend ${new Date().toLocaleDateString('de-DE')}`);
   const [templateId, setTemplateId] = useState((templates.find((t) => t.name.startsWith('Standard')) ?? templates[0])?.id ?? '');
@@ -208,6 +210,8 @@ function NewGameModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             if (r) {
               onCreated();
               onClose();
+              // weiter mit der geführten Einrichtung
+              navigate('/regie/einrichten');
             }
           }}
         >

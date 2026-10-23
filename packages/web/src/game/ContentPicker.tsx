@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { CheckCircle2, ListOrdered, Play, Search, Shuffle, Sparkles } from 'lucide-react';
 import {
   CONTENT_KIND_INFO,
+  CONTENT_KINDS,
   PLAYER_COUNTS,
   PLAYER_COUNT_LABEL,
   type ContentItem,
@@ -102,25 +103,35 @@ const RANDOM_FILTERS: { key: string; label: string; kinds?: ContentKind[] }[] = 
 
 function RandomTab({ state }: { state: GameState }) {
   const { run, pending } = useCommand();
-  const pool = usePool(state).filter((i) => i.roundUse);
+  // nur Arten, die für dieses Spiel gewählt sind (Spiel einrichten → „Was kommt dran?“)
+  const allowed = new Set<ContentKind>(state.config.contentKinds?.length ? state.config.contentKinds : CONTENT_KINDS);
+  const pool = usePool(state).filter((i) => i.roundUse && allowed.has(i.kind));
+  // Filter nur zeigen, wenn sie die gewählten Arten wirklich weiter eingrenzen
+  const filters = RANDOM_FILTERS.filter((x) => {
+    if (!x.kinds) return true;
+    const hit = x.kinds.filter((k) => allowed.has(k));
+    return hit.length > 0 && hit.length < allowed.size;
+  });
   const [filter, setFilter] = useState('all');
-  const f = RANDOM_FILTERS.find((x) => x.key === filter)!;
+  const f = filters.find((x) => x.key === filter) ?? filters[0]!;
   const matching = pool.filter((i) => !f.kinds || f.kinds.includes(i.kind));
   const fresh = matching.filter((i) => !state.playedItemIds.includes(i.id));
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
-        {RANDOM_FILTERS.map((x) => (
-          <button
-            key={x.key}
-            type="button"
-            onClick={() => setFilter(x.key)}
-            className={`rounded-full border-2 px-3.5 py-1.5 text-sm font-bold transition ${filter === x.key ? 'border-accent bg-accent-soft text-accent' : 'border-line text-ink-2 hover:border-accent/40'}`}
-          >
-            {x.label}
-          </button>
-        ))}
-      </div>
+      {filters.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {filters.map((x) => (
+            <button
+              key={x.key}
+              type="button"
+              onClick={() => setFilter(x.key)}
+              className={`rounded-full border-2 px-3.5 py-1.5 text-sm font-bold transition ${f.key === x.key ? 'border-accent bg-accent-soft text-accent' : 'border-line text-ink-2 hover:border-accent/40'}`}
+            >
+              {x.label}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="text-sm text-muted">
         {fresh.length} von {matching.length} noch nicht gespielt
         {matching.length > 0 && fresh.length === 0 && ' – der Stapel wird neu gemischt'}
