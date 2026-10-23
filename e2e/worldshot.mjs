@@ -19,6 +19,8 @@ const VIEWS = {
   river: [[30, 14, 10], [16, 3, -6]],
   field: [[-8, 8, 30], [-6, 1, 20]],
   crater: [[-1, 34, 4], [-1, 18, -9]],
+  coast: [[-44, 9, 40], [-38, -3, 30]],
+  meadow: [[18, 10, 24], [10, 2, 14]],
 };
 
 const { token: admin } = await post('/api/auth/admin', { username: 'admin', password: env.ADMIN_PASSWORD });

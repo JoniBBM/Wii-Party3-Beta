@@ -148,7 +148,7 @@ export function BeamerStatus({ audioReady, fullscreen, wantFullscreen, manual, f
             exit={{ opacity: 0, y: -10 }}
             className="glass pointer-events-none absolute bottom-6 left-6 z-30 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-ink"
           >
-            <Video className="size-4" /> Freie Kamera · Doppelklick oder Leertaste = Automatik
+            <Video className="size-4" /> Freie Kamera · Maus ziehen, Rad zoomen · Umschalt+K oder Esc = Automatik
           </motion.div>
         )}
       </AnimatePresence>

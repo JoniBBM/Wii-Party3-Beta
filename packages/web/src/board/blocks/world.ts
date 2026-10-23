@@ -160,6 +160,10 @@ export interface VoxelWorld {
   group: THREE.Group;
   /** Oberkante der Blöcke an (x, z) */
   topAt: (x: number, z: number) => number;
+  /** Steht dort (über dem Boden) ein Baumstamm oder Busch? */
+  occupied: (x: number, z: number) => boolean;
+  /** Wasser (Fluss, Bach) an (x, z)? */
+  wet: (x: number, z: number) => boolean;
   water: Water;
   river: RiverFx;
   /** Kamera-Hindernisse (Bäume) */
@@ -232,7 +236,12 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
       const cd = field.creekDistance(x, z);
       if (rd < 0.15 || cd < 0.1) {
         const wl = cd < rd ? creekLevel(layout, x, z) : riverLevel(x, z);
-        const wk = Math.round(wl / B);
+        // an der Furt abrunden: Fässer und Kisten müssen immer herausschauen
+        const nearFord = layout.fordFields.some((i) => {
+          const f = layout.fields[i];
+          return !!f && Math.hypot(f.x - x, f.z - z) < 5;
+        });
+        const wk = nearFord ? Math.floor(Math.min(wl, layout.ford.y) / B) : Math.round(wl / B);
         water[idx(i, j)] = wk;
         k = Math.min(k, wk - 1);
         kind = n1 > 0.5 ? 'gravel' : 'sand';
@@ -412,7 +421,8 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
           for (let y = k; y >= low; y--) emit(solid, under(surf[c]!, k - y), i, y, j, false);
           // Wasser (Fluss/Bach): Oberfläche + Kaskaden-Seiten
           const wk = water[c]!;
-          if (wk > -9999) {
+          // auf Meereshöhe deckt das Meer den Fluss ab (keine doppelte Fläche)
+          if (wk > -9999 && wk * B - 0.1 > SEA_Y + 0.02) {
             const x0 = -HALF + i * B;
             const z0 = -HALF + j * B;
             const yw = wk * B - 0.1;
@@ -567,7 +577,8 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
   const floorGeo = new THREE.PlaneGeometry(520, 520, 1, 1);
   floorGeo.rotateX(-Math.PI / 2);
   const floor = new THREE.Mesh(floorGeo, new THREE.MeshLambertMaterial({ color: '#b9ae7c' }));
-  floor.position.y = DEEP * B;
+  // knapp unter den tiefsten Blöcken – sonst flimmern deckungsgleiche Flächen unter Wasser
+  floor.position.y = DEEP * B - 0.06;
   group.add(floor);
 
   const waterObj: Water = {
@@ -601,6 +612,17 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
       const i = Math.floor((x + HALF) / B);
       const j = Math.floor((z + HALF) / B);
       return H(i, j) * B;
+    },
+    occupied(x, z) {
+      const i = Math.floor((x + HALF) / B);
+      const j = Math.floor((z + HALF) / B);
+      const t = H(i, j);
+      return extra.has(key(i, t + 1, j)) || extra.has(key(i, t + 2, j));
+    },
+    wet(x, z) {
+      const i = Math.floor((x + HALF) / B);
+      const j = Math.floor((z + HALF) / B);
+      return i >= 0 && j >= 0 && i < N && j < N && (water[idx(i, j)]! > -9999 || top[idx(i, j)]! < 0);
     },
     water: waterObj,
     river: riverObj,

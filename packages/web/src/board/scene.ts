@@ -287,7 +287,7 @@ export class BoardScene {
     this.props = { group: new THREE.Group(), update() {}, fires: [], smokes: [], canopies: world.crowns, flowers: world.flowers, perches: [], blockers: world.blockers };
     if (!new URLSearchParams(location.search).has('noanimals')) {
       progress(0.7, 'Tiere und Monster ziehen ein …');
-      this.animals = buildBlockAnimals(layout, field, world.topAt);
+      this.animals = buildBlockAnimals(layout, field, world);
       this.scene.add(this.animals.group);
     }
     await nextFrame();

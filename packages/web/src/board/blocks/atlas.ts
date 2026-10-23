@@ -415,6 +415,8 @@ export interface BlockAtlas {
   uv(tile: Tile): [number, number, number, number];
   /** Einzelne Kachel als Bild (für Handy-/Beamer-Oberfläche) */
   dataUrl(tile: Tile): string;
+  /** Einzelne Kachel als Canvas (sofort zeichenbar, z. B. für Schilder) */
+  canvas(tile: Tile): HTMLCanvasElement;
 }
 
 let atlas: BlockAtlas | null = null;
@@ -453,6 +455,9 @@ export function blockAtlas(): BlockAtlas {
     },
     dataUrl(tile) {
       return (tiles.get(tile) ?? tiles.values().next().value!).toDataUrl();
+    },
+    canvas(tile) {
+      return (tiles.get(tile) ?? tiles.values().next().value!).toCanvas();
     },
   };
   return atlas;

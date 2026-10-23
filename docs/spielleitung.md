@@ -206,10 +206,11 @@ Beim **Quatschkopf** erscheint der Regler **Zwischendurch plaudern**: Er stellt 
 
 ## Am Beamer selbst
 
-Kein Menü – nur Maus, Touch und Tastatur für die **freie Kamera**:
+Kein Menü. Die **freie Kamera** ist aus, bis man sie mit **Umschalt + K** einschaltet – vorher bewegt die Maus nichts (aus der Regie geht sie jederzeit über *Beamer → Kamera*). Danach:
 
 | Eingabe | Wirkung |
 |---|---|
+| Umschalt + K | freie Kamera ein/aus |
 | Ziehen | drehen und neigen |
 | Rechte Maustaste oder Umschalt + ziehen / zwei Finger | verschieben |
 | Mausrad / zwei Finger auseinander | zoomen |

@@ -10,6 +10,7 @@ import type { IslandLayout } from '../layout.ts';
 import type { Heightfield } from '../terrain.ts';
 import { buildMob, type MobKind } from './mobs.ts';
 import { rngFor } from './pixels.ts';
+import { BLOCK, type VoxelWorld } from './world.ts';
 
 interface Walker {
   kind: MobKind;
@@ -22,6 +23,14 @@ interface Walker {
   phase: number;
   parts: Record<string, THREE.Object3D | undefined>;
   fly?: boolean;
+  /** zurückgelegte Strecke (treibt die Beine – kein Rutschen) */
+  dist: number;
+  /** Schwung der Beine 0 … 1 (läuft an und aus) */
+  amp: number;
+  /** Fallgeschwindigkeit / Hopser beim Hochsteigen */
+  vy: number;
+  /** Blickziel des Kopfs im Stehen */
+  look: number;
 }
 
 const LEGS: Partial<Record<MobKind, string[]>> = {
@@ -37,7 +46,8 @@ const LEGS: Partial<Record<MobKind, string[]>> = {
 /** Größe der Kastenmodelle in der Welt (Figur ≈ 1,33 Einheiten hoch) */
 const SCALE: Partial<Record<MobKind, number>> = { pig: 0.62, cow: 0.62, sheep: 0.62, chicken: 0.62, zombie: 0.64, skeleton: 0.64, spider: 0.6, slime: 0.55, knaller: 0.62, bat: 0.45 };
 
-export function buildBlockAnimals(layout: IslandLayout, field: Heightfield, topAt: (x: number, z: number) => number): AnimalWorld {
+export function buildBlockAnimals(layout: IslandLayout, field: Heightfield, world: VoxelWorld): AnimalWorld {
+  const topAt = world.topAt;
   const group = new THREE.Group();
   group.name = 'block-animals';
   const templates = new Map<MobKind, THREE.Group>();
@@ -53,9 +63,11 @@ export function buildBlockAnimals(layout: IslandLayout, field: Heightfield, topA
   const walkers: Walker[] = [];
   const V = VOLCANO;
 
-  /** Platz auf trockenem Land abseits des Wegs */
+  /** Platz auf trockenem Land abseits des Wegs, ohne Baum/Busch */
   const land = (x: number, z: number, minPath = 3.2) =>
-    topAt(x, z) > 0.6 && field.riverDistance(x, z) > 1.2 && field.creekDistance(x, z) > 1 && field.pathDistance(x, z) > minPath && field.slope(x, z) < 0.45;
+    topAt(x, z) > 0.6 && !world.wet(x, z) && !world.occupied(x, z) && field.riverDistance(x, z) > 1.2 && field.creekDistance(x, z) > 1 && field.pathDistance(x, z) > minPath && field.slope(x, z) < 0.45;
+  /** darf ein Tier hier stehen? (beim Laufen geprüft) */
+  const walkable = (x: number, z: number) => topAt(x, z) > 0.3 && !world.wet(x, z) && !world.occupied(x, z) && field.pathDistance(x, z) > 1.6;
 
   const find = (test: (x: number, z: number) => boolean, tries = 400): THREE.Vector3 | null => {
     for (let i = 0; i < tries; i++) {
@@ -86,7 +98,7 @@ export function buildBlockAnimals(layout: IslandLayout, field: Heightfield, topA
         leg.rotation.z = side * 0.55;
         leg.rotation.y = ((i % 4) - 1.5) * 0.35 * -side;
       }
-    walkers.push({ kind, o, home: at.clone(), range, target: at.clone(), speed, wait: rng.next() * 3, phase: rng.next() * 10, parts, fly });
+    walkers.push({ kind, o, home: at.clone(), range, target: at.clone(), speed, wait: rng.next() * 3, phase: rng.next() * 10, parts, fly, dist: 0, amp: 0, vy: 0, look: 0 });
   };
 
   // Nutztiere in kleinen Herden auf Wiesen (nicht am Vulkan)
@@ -159,8 +171,8 @@ export function buildBlockAnimals(layout: IslandLayout, field: Heightfield, topA
     if (w.wait > 0) {
       w.wait -= dt;
       if (w.wait <= 0) {
-        // neues Ziel in der Nähe, nur auf trockenem Land
-        for (let i = 0; i < 8; i++) {
+        // neues Ziel in der Nähe, nur auf trockenem, freiem Land
+        for (let i = 0; i < 10; i++) {
           const x = w.home.x + (Math.random() - 0.5) * 2 * w.range;
           const z = w.home.z + (Math.random() - 0.5) * 2 * w.range;
           if (land(x, z, 2.2)) {
@@ -168,45 +180,84 @@ export function buildBlockAnimals(layout: IslandLayout, field: Heightfield, topA
             break;
           }
         }
-      }
+      } else if (Math.random() < dt * 0.4) w.look = (Math.random() - 0.5) * 1.6;
     } else if (dist > 0.15) {
-      moving = true;
       d.normalize();
       const want = Math.atan2(d.x, d.z);
       let diff = want - o.rotation.y;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      o.rotation.y += diff * Math.min(1, dt * 4);
-      o.position.x += d.x * w.speed * dt;
-      o.position.z += d.z * w.speed * dt;
-      o.position.y += (topAt(o.position.x, o.position.z) - o.position.y) * Math.min(1, dt * 10);
+      o.rotation.y += diff * Math.min(1, dt * 5);
+      // erst laufen, wenn ungefähr in Zielrichtung gedreht (wie im Original)
+      if (Math.abs(diff) < 0.6) {
+        const step = w.speed * dt;
+        const nx = o.position.x + d.x * step;
+        const nz = o.position.z + d.z * step;
+        const here = topAt(o.position.x, o.position.z);
+        const there = topAt(nx, nz);
+        // höchstens eine Blockstufe hoch, nicht zu tief hinunter, nicht ins Wasser oder in Bäume
+        if (!walkable(nx, nz) || there - here > BLOCK + 0.05 || here - there > BLOCK * 3) {
+          w.target.copy(o.position);
+          w.wait = 0.4 + Math.random() * 1.2;
+        } else {
+          o.position.x = nx;
+          o.position.z = nz;
+          w.dist += step;
+          moving = true;
+        }
+      }
+      w.look = 0;
     } else w.wait = 1.5 + Math.random() * 4;
 
-    const swing = moving ? Math.sin((t + w.phase) * 9) * 0.6 : 0;
+    // Höhe: Hopser eine Stufe hinauf, Fallen hinunter
+    const ground = topAt(o.position.x, o.position.z);
+    if (w.kind !== 'slime') {
+      if (ground > o.position.y + 0.02 && w.vy <= 0) w.vy = 3.4;
+      w.vy -= 16 * dt;
+      o.position.y += w.vy * dt;
+      if (o.position.y <= ground) {
+        o.position.y = ground;
+        w.vy = 0;
+      }
+    }
+
+    // Beine: Schwung läuft an/aus, Takt folgt der Strecke (diagonale Paare)
+    w.amp += ((moving ? 1 : 0) - w.amp) * Math.min(1, dt * 6);
+    const swing = Math.sin(w.dist * (7 / BLOCK)) * 0.85 * w.amp;
     const legs = LEGS[w.kind] ?? [];
     legs.forEach((n, i) => {
       const leg = p[n];
       if (leg) leg.rotation.x = (i % 2 === 0) !== (i >= 2) ? swing : -swing;
     });
     if (w.kind === 'skeleton') {
-      if (p.armL) p.armL.rotation.x = -swing;
-      if (p.armR) p.armR.rotation.x = swing;
+      if (p.armL) p.armL.rotation.x = -swing * 0.8;
+      if (p.armR) p.armR.rotation.x = swing * 0.8;
     }
-    if (w.kind === 'spider') for (let i = 0; i < 8; i++) if (p[`leg${i}`]) p[`leg${i}`]!.rotation.x = moving ? Math.sin((t + w.phase) * 14 + i) * 0.3 : 0;
+    if (w.kind === 'zombie') {
+      // Arme vorgestreckt, wippen leicht im Schritt
+      if (p.armL) p.armL.rotation.x = -Math.PI / 2 + Math.sin(t * 2 + w.phase) * 0.06 + swing * 0.1;
+      if (p.armR) p.armR.rotation.x = -Math.PI / 2 - Math.sin(t * 2 + w.phase) * 0.06 - swing * 0.1;
+    }
+    if (w.kind === 'spider') for (let i = 0; i < 8; i++) if (p[`leg${i}`]) p[`leg${i}`]!.rotation.x = Math.sin(w.dist * (9 / BLOCK) + i * 1.6) * 0.35 * w.amp;
     if (w.kind === 'slime') {
       // hüpfen: zusammendrücken, springen, landen
       const h = (t * 1.4 + w.phase) % 1;
       const air = moving ? Math.max(0, Math.sin(h * Math.PI)) : 0;
-      o.position.y = topAt(o.position.x, o.position.z) + air * 0.7;
-      const s = SCALE.slime!;
-      o.scale.set(s * (1 + (1 - air) * 0.12), s * (1 - (1 - air) * 0.12 + air * 0.1), s * (1 + (1 - air) * 0.12));
+      o.position.y = ground + air * 0.7;
+      const sc = SCALE.slime!;
+      o.scale.set(sc * (1 + (1 - air) * 0.12 * w.amp), sc * (1 - (1 - air) * 0.12 * w.amp + air * 0.1), sc * (1 + (1 - air) * 0.12 * w.amp));
     }
     if (w.kind === 'chicken' && p.wingL && p.wingR) {
-      const flap = moving ? Math.abs(Math.sin(t * 16)) * 0.6 : 0;
+      // Flügel schlagen nur beim Hüpfen/Fallen
+      const flap = w.vy !== 0 ? Math.abs(Math.sin(t * 20)) * 0.9 : 0;
       p.wingL.rotation.z = -flap;
       p.wingR.rotation.z = flap;
     }
-    // Grasen: Kopf senken, wenn sie stehen
-    if ((w.kind === 'sheep' || w.kind === 'cow') && p.head) p.head.rotation.x = moving ? 0 : 0.5 + Math.sin(t * 2 + w.phase) * 0.1;
+    // Kopf: im Stehen umschauen, Schafe und Kühe grasen
+    if (p.head) {
+      const graze = (w.kind === 'sheep' || w.kind === 'cow') && !moving && Math.sin(t * 0.4 + w.phase) > 0.2;
+      p.head.rotation.x += ((graze ? 0.75 : 0) - p.head.rotation.x) * Math.min(1, dt * 4);
+      p.head.rotation.y += ((graze ? 0 : w.look) - p.head.rotation.y) * Math.min(1, dt * 3);
+    }
   };
 
   return {

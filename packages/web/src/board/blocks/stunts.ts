@@ -15,33 +15,56 @@ import { BLOCK } from './world.ts';
 
 const B = BLOCK;
 
-/** Schild in Pixelschrift auf einem Holzbrett */
-function pixelSign(text: string, w = 1.6, h = 0.55, color = '#3a2516', bg = '#b8945f'): THREE.Mesh {
+/**
+ * Schild wie im Blockspiel: Eichenbrett (24×12 Pixel) mit Holzmaserung auf einem Stiel, Text in
+ * schwarzer Pixelschrift (bis 4 Zeilen). Wird neu gezeichnet, sobald die Pixelschrift geladen ist.
+ */
+export function blockSign(lines: string[], opts: { post?: boolean; scale?: number; ink?: string } = {}): THREE.Group {
+  const px = (BLOCK / 16) * (opts.scale ?? 1);
+  const w = 24 * px;
+  const h = 12 * px;
+  const d = 2 * px;
   const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = Math.round((256 * h) / w);
+  c.width = 24 * 8;
+  c.height = 12 * 8;
   const g = c.getContext('2d')!;
-  g.fillStyle = bg;
-  g.fillRect(0, 0, c.width, c.height);
-  g.fillStyle = 'rgba(0,0,0,0.18)';
-  for (let y = 0; y < c.height; y += 16) g.fillRect(0, y + 14, c.width, 2);
-  g.fillStyle = color;
-  g.font = `${Math.round(c.height * 0.5)}px "Pixelify Sans", monospace`;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(text, c.width / 2, c.height / 2 + 2);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.magFilter = THREE.NearestFilter;
-  const plank = atlasMat();
+  tex.minFilter = THREE.LinearFilter;
+  const draw = () => {
+    g.imageSmoothingEnabled = false;
+    const planks = blockAtlas().canvas('planks');
+    // Maserung: Planken-Kachel in Blockgröße gekachelt (16 Pixel = 128 hier)
+    for (let x = 0; x < c.width; x += 128) for (let y = 0; y < c.height; y += 128) g.drawImage(planks, x, y, 128, 128);
+    g.fillStyle = opts.ink ?? '#1a1a1a';
+    const n = Math.max(1, lines.length);
+    const size = Math.min(52, Math.floor((c.height - 10) / n));
+    g.font = `700 ${size}px "Pixelify Sans", monospace`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    lines.forEach((l, i) => g.fillText(l, c.width / 2, c.height / 2 + (i - (n - 1) / 2) * size * 1.05, c.width - 12));
+    tex.needsUpdate = true;
+  };
+  draw();
+  void document.fonts?.load('700 20px "Pixelify Sans"').then(draw, () => {});
   const face = new THREE.MeshLambertMaterial({ map: tex });
-  const geo = boxGeo(w, h, 0.08, 'planks');
-  // Vorder- und Rückseite zeigen das ganze Schriftbild
-  const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
-  for (let k = 16; k < 24; k++) uv.setXY(k, [0, 1, 0, 1][k % 4]!, [1, 1, 0, 0][k % 4]!);
-  const m = new THREE.Mesh(geo, [plank, plank, plank, plank, face, face]);
-  m.castShadow = true;
-  return m;
+  const wood = atlasMat();
+  const board = new THREE.Mesh(boxGeo(w, h, d, 'planks'), [wood, wood, wood, wood, face, wood]);
+  const uv = board.geometry.getAttribute('uv') as THREE.BufferAttribute;
+  for (let k = 16; k < 20; k++) uv.setXY(k, [0, 1, 0, 1][k % 4]!, [1, 1, 0, 0][k % 4]!);
+  board.castShadow = true;
+  const sign = new THREE.Group();
+  const postH = opts.post === false ? 0 : 14 * px;
+  board.position.y = postH + h / 2;
+  sign.add(board);
+  if (postH) {
+    const post = new THREE.Mesh(boxGeo(2 * px, postH, 2 * px, { top: 'log_top', side: 'log_side' }), wood);
+    post.position.y = postH / 2;
+    post.castShadow = true;
+    sign.add(post);
+  }
+  return sign;
 }
 
 /** Mob-Vorlagen einmal bauen, danach klonen (Geometrie/Material geteilt) */
@@ -216,25 +239,24 @@ export class BlockStunts extends Stunts {
         this.group.add(seg);
       }
     }
-    // Schilder am Ufer
+    // Schilder am Ufer: je Weg eines, zum Ankommenden gedreht
     const dir = new THREE.Vector3(Math.cos(bank.heading), 0, Math.sin(bank.heading));
-    const px = bank.x - dir.x * 0.4 + flow.x * (fr + 0.7);
-    const pz = bank.z - dir.z * 0.4 + flow.z * (fr + 0.7);
-    const py = this.groundAt(px, pz);
-    const post = new THREE.Group();
-    post.position.set(px, py, pz);
-    const stick = new THREE.Mesh(boxGeo(0.12, 2.0, 0.12, 'planks'), atlasMat());
-    stick.position.y = 1.0;
-    post.add(stick);
-    const sign = (text: string, toward: THREE.Vector3, y: number) => {
-      const s = pixelSign(text);
-      s.position.set(toward.x * 0.5, y, toward.z * 0.5);
-      s.rotation.y = Math.atan2(toward.x, toward.z) - Math.PI / 2;
-      post.add(s);
-    };
-    sign('Fässer', dir.clone().multiplyScalar(0.6).addScaledVector(up, 0.15).normalize(), 1.7);
-    sign('Kisten', dir.clone().multiplyScalar(0.4).addScaledVector(up, 0.9).normalize(), 1.15);
-    this.group.add(post);
+    const face = Math.atan2(-dir.x, -dir.z);
+    let px = bank.x;
+    let pz = bank.z;
+    let py = 0;
+    for (const [label, side] of [
+      [['Fässer'], flow.clone().multiplyScalar(fr + 0.7)],
+      [['Kisten'], up.clone().multiplyScalar(gap + fr * 0.2)],
+    ] as const) {
+      px = bank.x - dir.x * 0.5 + side.x;
+      pz = bank.z - dir.z * 0.5 + side.z;
+      py = this.groundAt(px, pz);
+      const sign = blockSign([...label], { scale: 1.3 });
+      sign.position.set(px, py, pz);
+      sign.rotation.y = face;
+      this.group.add(sign);
+    }
     this.blockers.push({ x: px, z: pz, r: 0.5, top: py + 2.2 });
   }
 
@@ -332,13 +354,10 @@ export class BlockStunts extends Stunts {
     entry.position.set(h.x, h.f.y - 0.12, h.z);
     entry.rotation.y = Math.atan2(-h.inward.x, -h.inward.z);
     // Warnschild
-    const sign = pixelSign('Vorsicht!', 1.1, 0.5, '#7a1a10');
-    sign.position.set(B * 3, 1.15, 0.6);
+    const sign = blockSign(['Vorsicht!', 'Lava'], { scale: 1.2 });
+    sign.position.set(B * 3, 0, 0.6);
     sign.rotation.y = -0.4;
     entry.add(sign);
-    const stick = new THREE.Mesh(boxGeo(0.1, 1.0, 0.1, 'planks'), atlasMat());
-    stick.position.set(B * 3, 0.5, 0.6);
-    entry.add(stick);
     this.group.add(entry);
     entry.updateMatrixWorld(true);
     this.hole = new THREE.Vector3(0, 0.1, -0.6).applyMatrix4(entry.matrixWorld);
@@ -684,9 +703,8 @@ export class BlockStunts extends Stunts {
     if (!f) return;
     const g = new THREE.Group();
     g.position.set(f.x, f.y, f.z);
-    const board = pixelSign('MINISPIEL!', 2.8, 0.9, '#ffffff', '#b0306f');
-    board.position.y = 3.4;
-    board.renderOrder = 9;
+    const board = blockSign(['Minispiel!'], { post: false, scale: 3.6 });
+    board.position.y = 3.1;
     g.add(board);
     const notes: THREE.Mesh[] = [];
     for (const s of [-1, 1]) {
@@ -706,7 +724,7 @@ export class BlockStunts extends Stunts {
     const colors = ['#ff5fa2', '#5fd0ff', '#ffd34d', '#7dff8a'];
     let last = 0;
     const upd = (t: number) => {
-      board.position.y = 3.4 + Math.sin(t * 3) * 0.08;
+      board.position.y = 3.1 + Math.sin(t * 3) * 0.08;
       if (this.camPos) board.lookAt(this.camPos.x, board.getWorldPosition(new THREE.Vector3()).y, this.camPos.z);
       beamMat.opacity = 0.28 + Math.sin(t * 4) * 0.08;
       if (t - last > 0.45) {
