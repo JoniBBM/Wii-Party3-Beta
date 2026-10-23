@@ -27,7 +27,7 @@ export function LivePage() {
       <div className="min-w-0">
         <PhasePanel state={state} mode="regie" />
       </div>
-      <div className="flex flex-col gap-5">
+      <div className="flex min-w-0 flex-col gap-5">
         <Standings state={state} editable />
         <BeamerQuick />
         <Feed state={state} />

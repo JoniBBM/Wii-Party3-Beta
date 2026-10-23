@@ -187,6 +187,16 @@ export function getSettings(db: DB): AppSettings {
   return out as unknown as AppSettings;
 }
 
+/** Einzelne Einstellung (z. B. Beamer-Show eines Kontos unter „show:<konto>“). */
+export function getSetting(db: DB, key: string): unknown {
+  const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+  return r ? (JSON.parse(r.value) as unknown) : null;
+}
+
+export function setSetting(db: DB, key: string, value: unknown) {
+  db.prepare('INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, JSON.stringify(value));
+}
+
 export function setSettings(db: DB, patch: Partial<AppSettings>) {
   const stmt = db.prepare('INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   const tx = db.transaction(() => {

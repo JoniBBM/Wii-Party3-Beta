@@ -197,26 +197,52 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
   const hasAccount = (socket: LiveSocket) => !!accountOf(database, socket.data.raw);
 
   // ---------------------------------------------------------------------------
-  // Beamer-Show je Spiel: Einstellungen live an die Beamer, Spielerklärung
+  // Beamer-Show je Konto: Ein Beamer gehört einem Konto; dessen Einstellungen (Grafik, Ton,
+  // Kommentator …) und die Spielerklärung gelten für alle seine Spiele – auch ohne gewähltes Spiel.
   // ---------------------------------------------------------------------------
+  type Owner = string | null;
+  const scope = (o: Owner) => o ?? '';
+  /** Zu wessen Beamer-Show gehört das Gerät? Im Spiel: dessen Besitzer; ohne Spiel: Konto bzw. Besitzer des Beamers. */
+  function showOwnerOf(socket: LiveSocket): Owner | undefined {
+    if (socket.data.gameId) return hub.meta(socket.data.gameId)?.ownerId ?? null;
+    const acc = accountOf(database, socket.data.raw);
+    if (acc) return acc.userId;
+    const raw = socket.data.raw;
+    if (raw?.role === 'beamer' && sessionOf(socket).role === 'beamer') return raw.userId ?? null;
+    return undefined;
+  }
+  const inScope = (o: Owner) => [...sockets()].filter((s) => showOwnerOf(s) === o);
   const explainers = new Map<string, ExplainerState>();
-  const showOf = (gameId: string | null): ShowState => ({
-    settings: gameId ? hub.show(gameId) : DEFAULT_SHOW,
-    explainer: (gameId && explainers.get(gameId)) || { running: false, id: 0, startedAt: 0 },
+  const showFor = (o: Owner | undefined): ShowState => ({
+    settings: o === undefined ? DEFAULT_SHOW : hub.ownerShow(o),
+    explainer: (o !== undefined && explainers.get(scope(o))) || { running: false, id: 0, startedAt: 0 },
   });
-  /** Rückmeldungen der Beamer (Bildrate …) je Spiel */
-  const beamers = new Map<string, BeamerStats & { gameId: string }>();
+  function emitShow(o: Owner) {
+    const show = showFor(o);
+    for (const socket of inScope(o)) socket.emit('show', show);
+  }
+  /** Rückmeldungen der Beamer (Bildrate …) je Konto */
+  const beamers = new Map<string, BeamerStats & { owner: string }>();
+  const beamerList = (o: Owner) => [...beamers.values()].filter((b) => b.owner === scope(o)).map(({ owner: _o, ...b }) => b);
   const beamerTimers = new Map<string, NodeJS.Timeout>();
-  function pushBeamers(gameId: string | null) {
-    if (!gameId || beamerTimers.has(gameId)) return;
+  function pushBeamers(o: Owner) {
+    const key = scope(o);
+    if (beamerTimers.has(key)) return;
     beamerTimers.set(
-      gameId,
+      key,
       setTimeout(() => {
-        beamerTimers.delete(gameId);
-        const list = [...beamers.values()].filter((b) => b.gameId === gameId).map(({ gameId: _g, ...b }) => b);
-        for (const socket of inGame(gameId)) if (isStaffSocket(socket)) socket.emit('beamers', list);
+        beamerTimers.delete(key);
+        const list = beamerList(o);
+        for (const socket of inScope(o)) if (isStaffSocket(socket) || hasAccount(socket)) socket.emit('beamers', list);
       }, 300),
     );
+  }
+  /** Beamer-Rückmeldung entfernen (getrennt oder anderem Konto zugeordnet). */
+  function dropBeamer(socket: LiveSocket) {
+    const b = beamers.get(socket.id);
+    if (!b) return;
+    beamers.delete(socket.id);
+    pushBeamers(b.owner === '' ? null : b.owner);
   }
 
   // ---------------------------------------------------------------------------
@@ -286,17 +312,17 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
     if (next === before && !force) return;
     if (before && before !== next) {
       void socket.leave(room(before));
-      if (beamers.delete(socket.id)) pushBeamers(before);
       pushPresence(before);
     }
     socket.data.gameId = next;
     if (next) void socket.join(room(next));
-    socket.emit('show', showOf(next));
+    const owner = showOwnerOf(socket);
+    // Beamer, der jetzt zu einem anderen Konto gehört: alte Rückmeldung weg
+    if (beamers.get(socket.id) && (owner === undefined || beamers.get(socket.id)!.owner !== scope(owner))) dropBeamer(socket);
+    socket.emit('show', showFor(owner));
     pushState(next, socket);
     pushPresence(next);
-    if (next && isStaffSocket(socket)) {
-      socket.emit('beamers', [...beamers.values()].filter((b) => b.gameId === next).map(({ gameId: _g, ...b }) => b));
-    }
+    if (owner !== undefined && (isStaffSocket(socket) || hasAccount(socket))) socket.emit('beamers', beamerList(owner));
     offerPairing(socket);
   }
 
@@ -307,7 +333,6 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       return;
     }
     // Spiel geschlossen/gelöscht: Geräte lösen sich davon
-    explainers.delete(gameId);
     for (const socket of inGame(gameId)) attach(socket);
   });
   hub.on('effects', (gameId, effects) => io.to(room(gameId)).emit('effects', effects));
@@ -370,7 +395,7 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       trackAccount(socket, true);
       pushPresence(socket.data.gameId);
       if (socket.data.pairCode) pairCodes.delete(socket.data.pairCode);
-      if (beamers.delete(socket.id)) pushBeamers(socket.data.gameId);
+      dropBeamer(socket);
     });
 
     // Spielleitung gibt einen Beamer über seinen Kopplungscode frei: Er gehört dann dem Besitzer
@@ -401,25 +426,26 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       const reply = ack ?? (() => {});
       if (!allow(socket)) return reply(BUSY);
       try {
-        const gameId = socket.data.gameId;
-        if (!gameId || !isStaffSocket(socket)) throw new EngineError('Nur die Spielleitung kann den Beamer steuern', 'forbidden');
+        // Regie (Konto, auch ohne gewähltes Spiel) oder Moderator eines Spiels
+        const owner = showOwnerOf(socket);
+        if (owner === undefined || !(isStaffSocket(socket) || hasAccount(socket))) throw new EngineError('Nur die Spielleitung kann den Beamer steuern', 'forbidden');
         const cmd = showCommandSchema.parse(raw);
-        // Einmalige Befehle an die Beamer dieses Spiels (nicht gespeichert)
+        // Einmalige Befehle an die Beamer dieses Kontos (nicht gespeichert)
         if (cmd.type === 'test') {
-          io.to(room(gameId)).emit('show:test', cmd.what);
+          for (const s of inScope(owner)) s.emit('show:test', cmd.what);
           return reply({ ok: true });
         }
         if (cmd.type === 'reload' || cmd.type === 'camera' || cmd.type === 'speak') {
-          io.to(room(gameId)).emit('show:cmd', cmd);
+          for (const s of inScope(owner)) s.emit('show:cmd', cmd);
           return reply({ ok: true });
         }
         if (cmd.type === 'explain') {
-          const prev = showOf(gameId).explainer;
-          explainers.set(gameId, cmd.action === 'start' ? { running: true, id: prev.id + 1, startedAt: Date.now() } : { ...prev, running: false });
+          const prev = showFor(owner).explainer;
+          explainers.set(scope(owner), cmd.action === 'start' ? { running: true, id: prev.id + 1, startedAt: Date.now() } : { ...prev, running: false });
         } else {
-          hub.setShow(gameId, cmd.type === 'set' ? { ...hub.show(gameId), ...cmd.patch } : { ...DEFAULT_SHOW });
+          hub.setOwnerShow(owner, cmd.type === 'set' ? { ...hub.ownerShow(owner), ...cmd.patch } : { ...DEFAULT_SHOW });
         }
-        io.to(room(gameId)).emit('show', showOf(gameId));
+        emitShow(owner);
         reply({ ok: true });
       } catch (err) {
         reply(errorMessage(err));
@@ -439,20 +465,20 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       explaining: z.boolean(),
     });
     socket.on('beamer:stats', (raw: unknown) => {
-      const gameId = socket.data.gameId;
-      if (!allow(socket) || !gameId || !isBeamer()) return;
+      const owner = showOwnerOf(socket);
+      if (!allow(socket) || owner === undefined || !isBeamer()) return;
       const r = statsSchema.safeParse(raw);
       if (!r.success) return;
-      beamers.set(socket.id, { id: socket.id, gameId, ...r.data });
-      pushBeamers(gameId);
+      beamers.set(socket.id, { id: socket.id, owner: scope(owner), ...r.data });
+      pushBeamers(owner);
     });
     socket.on('beamer:explained', (id: unknown) => {
-      const gameId = socket.data.gameId;
-      if (!allow(socket) || !gameId || !isBeamer()) return;
-      const ex = showOf(gameId).explainer;
+      const owner = showOwnerOf(socket);
+      if (!allow(socket) || owner === undefined || !isBeamer()) return;
+      const ex = showFor(owner).explainer;
       if (id !== ex.id || !ex.running) return;
-      explainers.set(gameId, { ...ex, running: false });
-      io.to(room(gameId)).emit('show', showOf(gameId));
+      explainers.set(scope(owner), { ...ex, running: false });
+      emitShow(owner);
     });
 
     // Neue Anmeldung bzw. anderer Spielcode auf derselben Verbindung

@@ -16,13 +16,14 @@ export function DrawnPlayers({
   const entries = state.teams.filter((t) => drawn[t.id]);
   if (!entries.length) return null;
   return (
-    <div className={`grid gap-2 ${large ? 'sm:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-3'}`}>
+    <div className={`grid gap-2 [&>*]:min-w-0 ${large ? 'sm:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-3'}`}>
       {entries.map((t) => {
         const players = (drawn[t.id] ?? []).map((id) => state.players.find((p) => p.id === id)).filter(Boolean);
         return (
-          <div key={t.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2 px-3 py-2">
+          // bei wenig Platz (langer Teamname, Handy) rutschen die Spieler in die nächste Zeile
+          <div key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-line bg-surface-2 px-3 py-2">
             <TeamChip team={t} size="sm" />
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex min-w-[9rem] flex-1 flex-wrap items-center gap-x-3 gap-y-1">
               {players.length === 0 && <span className="text-sm text-muted">Keine Spieler im Team</span>}
               {players.map((p) => (
                 <span key={p!.id} className={`inline-flex items-center gap-1.5 font-bold ${large ? 'text-lg' : 'text-sm'}`}>

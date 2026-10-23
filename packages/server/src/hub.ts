@@ -1,10 +1,12 @@
 /**
  * Mehrere Spiele gleichzeitig: Jedes geöffnete Spiel hat seine eigene Laufzeit (GameRuntime).
  * Ein Spiel gehört einem Konto (Spielleiter) oder dem Haupt-Admin (ownerId null). Jedes Konto
- * hat ein „gewähltes Spiel“ – das steuert seine Regie, und das zeigen seine Beamer.
+ * hat ein „gewähltes Spiel“ – das steuert seine Regie, und das zeigen seine Beamer. Die
+ * Beamer-Einstellungen (Grafik, Ton, Kommentator …) gehören dem Konto, nicht dem einzelnen Spiel:
+ * Sie gelten für alle seine Spiele und lassen sich auch ohne gewähltes Spiel einstellen.
  */
 import { EventEmitter } from 'node:events';
-import { createGame, DEFAULT_SHOW, parseShow, type Effect, type GameConfig, type GameState, type ShowSettings, type Team } from '@insel/shared';
+import { createGame, parseShow, type Effect, type GameConfig, type GameState, type ShowSettings, type Team } from '@insel/shared';
 import { newId } from './auth.ts';
 import * as db from './db.ts';
 import { GameRuntime } from './runtime.ts';
@@ -20,12 +22,12 @@ export interface HubEvents {
 interface Meta {
   ownerId: string | null;
   code: string;
-  show: ShowSettings;
 }
 
 export class GameHub extends EventEmitter<HubEvents> {
   private runtimes = new Map<string, GameRuntime>();
   private metas = new Map<string, Meta>();
+  private shows = new Map<string, ShowSettings>();
 
   constructor(private readonly database: db.DB) {
     super();
@@ -40,13 +42,12 @@ export class GameHub extends EventEmitter<HubEvents> {
     const state = db.getGame(this.database, id);
     const meta = db.getGameMeta(this.database, id);
     if (!state || !meta) return null;
-    const show = parseShow(meta.show);
     const rt = new GameRuntime(this.database, state);
-    rt.reactions = show.reactions;
+    rt.reactions = this.ownerShow(meta.ownerId).reactions;
     rt.on('state', (s) => this.emit('state', id, s));
     rt.on('effects', (e) => this.emit('effects', id, e));
     this.runtimes.set(id, rt);
-    this.metas.set(id, { ownerId: meta.ownerId, code: meta.code, show });
+    this.metas.set(id, { ownerId: meta.ownerId, code: meta.code });
     return rt;
   }
 
@@ -59,12 +60,12 @@ export class GameHub extends EventEmitter<HubEvents> {
     return [...this.runtimes.keys()];
   }
 
-  /** Besitzer, Spielcode und Beamer-Einstellungen (auch für geschlossene Spiele). */
+  /** Besitzer und Spielcode (auch für geschlossene Spiele). */
   meta(id: string): Meta | undefined {
     const cached = this.metas.get(id);
     if (cached) return cached;
     const m = db.getGameMeta(this.database, id);
-    return m ? { ownerId: m.ownerId, code: m.code, show: parseShow(m.show) } : undefined;
+    return m ? { ownerId: m.ownerId, code: m.code } : undefined;
   }
 
   /** Spiel öffnen: Handys und Beamer können beitreten. */
@@ -96,10 +97,7 @@ export class GameHub extends EventEmitter<HubEvents> {
   create(config: GameConfig, ownerId: string | null): GameState {
     const code = db.freeCode(this.database);
     const state = createGame({ id: newId(), config, now: Date.now(), code });
-    // Beamer-Einstellungen vom zuletzt gewählten Spiel des Besitzers übernehmen
-    const previous = this.currentOf(ownerId);
-    const show = previous ? (this.meta(previous)?.show ?? DEFAULT_SHOW) : DEFAULT_SHOW;
-    db.insertGame(this.database, state, ownerId, show);
+    db.insertGame(this.database, state, ownerId, null);
     this.open(state.id);
     this.setCurrent(ownerId, state.id);
     return state;
@@ -138,24 +136,32 @@ export class GameHub extends EventEmitter<HubEvents> {
     this.emit('current', ownerId);
   }
 
-  show(id: string): ShowSettings {
-    return this.meta(id)?.show ?? DEFAULT_SHOW;
+  /** Beamer-Einstellungen eines Kontos (Haupt-Admin: bisherige Einstellung „show“). */
+  ownerShow(ownerId: string | null): ShowSettings {
+    const key = ownerId ? `show:${ownerId}` : 'show';
+    let show = this.shows.get(key);
+    if (!show) {
+      show = parseShow(db.getSetting(this.database, key));
+      this.shows.set(key, show);
+    }
+    return show;
   }
 
-  setShow(id: string, show: ShowSettings) {
-    db.setGameShow(this.database, id, show);
-    const m = this.metas.get(id);
-    if (m) m.show = show;
-    const rt = this.runtimes.get(id);
-    if (rt) rt.reactions = show.reactions;
+  setOwnerShow(ownerId: string | null, show: ShowSettings) {
+    const key = ownerId ? `show:${ownerId}` : 'show';
+    db.setSetting(this.database, key, show);
+    this.shows.set(key, show);
+    // Reaktionen nach jedem Zug: gilt für alle laufenden Spiele dieses Kontos
+    for (const [id, rt] of this.runtimes) if ((this.metas.get(id)?.ownerId ?? null) === ownerId) rt.reactions = show.reactions;
   }
 
-  /** Besitzer haben sich geändert (Konto gelöscht) – zwischengespeicherte Angaben neu laden. */
+  /** Besitzer haben sich geändert (Konto gelöscht, Spiel übergeben) – zwischengespeicherte Angaben neu laden. */
   refreshMeta() {
-    for (const id of this.runtimes.keys()) {
+    for (const [id, rt] of this.runtimes) {
       const m = db.getGameMeta(this.database, id);
       const cached = this.metas.get(id);
       if (m && cached) cached.ownerId = m.ownerId;
+      rt.reactions = this.ownerShow(m?.ownerId ?? null).reactions;
     }
   }
 

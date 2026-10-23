@@ -35,7 +35,8 @@ export function TeamChip({ team, className = '', size = 'md' }: { team: Team | u
   const cls = { sm: 'text-xs px-2 py-0.5 gap-1.5', md: 'text-sm px-2.5 py-1 gap-2', lg: 'text-lg px-4 py-1.5 gap-2.5' }[size];
   return (
     <span
-      className={`inline-flex max-w-full items-center rounded-full font-bold ${cls} ${className}`}
+      // min-w-0: darf in Zeilen schrumpfen, lange Teamnamen werden dann mit „…“ gekürzt
+      className={`inline-flex max-w-full min-w-0 items-center rounded-full font-bold ${cls} ${className}`}
       style={{ background: `color-mix(in srgb, ${c.hex} 16%, var(--surface))`, color: `color-mix(in srgb, ${c.dark} 85%, var(--ink))` }}
     >
       <TeamDot team={team} size={size === 'lg' ? 14 : size === 'sm' ? 8 : 10} />

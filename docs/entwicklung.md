@@ -35,6 +35,7 @@ Dann `http://localhost:5173` öffnen. Vite leitet `/api`, `/media` und `/socket.
 - **Browser** (`e2e/`, Playwright, nach `npm run build` und `npx playwright install chromium`):
   - `node e2e/flow.mjs [ordner]` – Regie + 4 Handys + Moderator + Beamer spielen eine Runde, mit Screenshots und Prüfung der Browser-Konsolen; der Beamer wird dabei per Code aus der Regie freigegeben.
   - `node e2e/logout.mjs` – Spielleiter-Konto in der Regie, Admin meldet es „überall ab“: Die Regie muss sofort (ohne Neuladen) zur Anmeldung springen.
+  - `node e2e/layout.mjs [ordner]` – optische Prüfung: alle Seiten (Regie, Dialoge, Moderator, Team-Handy, Beitritt, Beamer) in fünf Breiten (375 px bis 1600 px) und allen Spielphasen und Inhaltsarten; meldet Text, der aus seinem Kasten ragt (seitlich oder unten), und seitliches Scrollen – mit Bildern der Fundstellen.
   - Die übrigen Skripte geben ihrem Beamer einen Zugang über `/api/auth/beamer-link` und `/beamer#bt=…` – ohne zeigt ein Beamer nur die Insel und einen Kopplungscode.
   - `node e2e/beamer.mjs [ordner]` – steuert ein Spiel per WebSocket und fotografiert den Beamer in allen Phasen (Lobby, Frage, Würfel, Ausbruch, Sieg).
   - `node e2e/screens.mjs [ordner]` – Galerie aller Oberflächen in typischen Größen (auch für die Doku).

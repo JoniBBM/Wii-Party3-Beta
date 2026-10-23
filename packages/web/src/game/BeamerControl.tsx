@@ -231,7 +231,8 @@ function PairBeamer() {
   };
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-2xl bg-bg-2 px-3 py-2">
-      <label htmlFor="beamer-pair" className="min-w-0 flex-1 text-sm font-semibold text-ink-2">
+      {/* Mindestbreite: auf schmalen Bildschirmen steht der Satz in einer eigenen Zeile */}
+      <label htmlFor="beamer-pair" className="min-w-[12rem] flex-1 text-sm font-semibold text-ink-2">
         Beamer zeigt einen Code? Hier eingeben, um ihn freizugeben:
       </label>
       <input
@@ -413,18 +414,21 @@ export function BeamerControl() {
       <Card>
         <CardHeader title="Bild" icon={<Sparkles className="size-5 text-accent" />} />
         <div className="flex flex-col gap-4 p-5">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {QUALITY_LEVELS.map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => set({ quality: q })}
-                className={`rounded-2xl border-2 p-3 text-left transition ${s.quality === q ? 'border-accent bg-accent-soft/40' : 'border-line hover:border-accent/40'}`}
-              >
-                <span className="block text-2xl">{QUALITY_INFO[q].icon}</span>
-                <span className="block font-bold">{QUALITY_INFO[q].label}</span>
-              </button>
-            ))}
+          {/* nach Breite der Karte: 5 in einer Reihe, wenn alle Namen passen, sonst 3 + 2 (Handy 2 + 2 + 1) */}
+          <div className="@container">
+            <div className="grid grid-cols-2 gap-2 @sm:grid-cols-3 @[40rem]:grid-cols-5">
+              {QUALITY_LEVELS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => set({ quality: q })}
+                  className={`rounded-2xl border-2 p-3 text-left transition ${s.quality === q ? 'border-accent bg-accent-soft/40' : 'border-line hover:border-accent/40'}`}
+                >
+                  <span className="block text-2xl">{QUALITY_INFO[q].icon}</span>
+                  <span className="block font-bold">{QUALITY_INFO[q].label}</span>
+                </button>
+              ))}
+            </div>
           </div>
           <p className="text-sm text-muted">{QUALITY_INFO[s.quality].text}</p>
           <div className="flex flex-wrap items-center gap-3">

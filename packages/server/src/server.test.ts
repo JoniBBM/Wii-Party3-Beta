@@ -511,6 +511,39 @@ describe('Spielleiter-Konten und mehrere Spiele', () => {
     expect((await api(`/api/library/collections/${own.id}`, { method: 'PUT', token: admin, body: { name: 'Utes Fragen (geprüft)', description: '' } })).status).toBe(200);
   });
 
+  it('Beamer-Einstellungen gehen auch ohne gewähltes Spiel und gelten je Konto', async () => {
+    const admin = await adminToken();
+    const ida = await leader(admin, 'ida@example.org', 'Ida');
+    type Show = { settings: { quality: string; commentary: string } };
+    const showCmd = (c: Client, cmd: unknown) => new Promise<{ ok: boolean; error?: string }>((res) => c.socket.emit('show', cmd, res));
+    // Ida hat noch kein Spiel – ihr Beamer zeigt die Insel und folgt trotzdem ihren Einstellungen
+    const regie = await client(ida.token);
+    expect(regie.state()).toBeNull();
+    const beamer = await client((await api<{ token: string }>('/api/auth/beamer-link', { token: ida.token, body: {} })).data.token, 'beamer');
+    let seen: Show | null = null;
+    beamer.socket.on('show', (sh: Show) => (seen = sh));
+    const set = await showCmd(regie, { type: 'set', patch: { quality: 'eco', commentary: 'crazy' } });
+    expect(set).toMatchObject({ ok: true });
+    for (let i = 0; i < 40 && seen?.settings.quality !== 'eco'; i++) await new Promise((r) => setTimeout(r, 25));
+    expect(seen!.settings).toMatchObject({ quality: 'eco', commentary: 'crazy' });
+    // Testton und Erklärung gehen ebenfalls ohne Spiel
+    expect(await showCmd(regie, { type: 'test', what: 'sound' })).toMatchObject({ ok: true });
+    expect(await showCmd(regie, { type: 'explain', action: 'start' })).toMatchObject({ ok: true });
+
+    // Idas Einstellungen gelten auch für ihr neues Spiel – und ändern die des Admins nicht
+    await api('/api/games', { token: ida.token, body: { name: 'Ida-Abend' } });
+    const adminRegie = await client(admin);
+    let adminShow: Show | null = null;
+    adminRegie.socket.on('show', (sh: Show) => (adminShow = sh));
+    expect(await showCmd(adminRegie, { type: 'set', patch: { quality: 'ultra' } })).toMatchObject({ ok: true });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(adminShow!.settings.quality).toBe('ultra');
+    expect(seen!.settings.quality).toBe('eco');
+    // Gäste dürfen nicht steuern
+    const guest = await client(null, 'join');
+    expect((await showCmd(guest, { type: 'set', patch: { quality: 'ultra' } })).ok).toBe(false);
+  });
+
   it('Admin sieht live, welche Spielleiter gerade online sind', async () => {
     const admin = await adminToken();
     const ben = await leader(admin, 'ben@example.org', 'Ben');
