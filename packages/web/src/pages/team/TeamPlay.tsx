@@ -47,7 +47,7 @@ function Hero({ icon, title, children }: { icon: string; title: string; children
 function Lobby({ state, me }: { state: GameState; me: Me }) {
   return (
     <>
-      <Hero icon="🏝️" title={`Willkommen bei ${me.team!.name}!`}>
+      <Hero icon={state.config.theme === 'blocks' ? '⛏️' : '🏝️'} title={`Willkommen bei ${me.team!.name}!`}>
         <p>Gleich geht es los – bis dahin: Team gestalten!</p>
         <p className="mt-2 text-sm text-muted">
           {state.players.filter((p) => p.teamId === me.team!.id).length} Spieler im Team · {state.teams.length} Teams

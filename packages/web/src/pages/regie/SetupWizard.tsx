@@ -24,6 +24,7 @@ import {
   newSeed,
   roundMinutesGuess,
   suggestSetup,
+  THEME_INFO,
   type ContentKind,
   type FieldMix,
   type GameConfig,
@@ -37,13 +38,15 @@ import { Badge, Button, Card, Switch } from '../../ui/basics.tsx';
 import { FieldSwatch } from '../../ui/game.tsx';
 import { toast } from '../../ui/toast.tsx';
 import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
+import { ThemePicker } from '../../game/ThemePicker.tsx';
 import { BoardMap, MAP_BACKGROUND } from './BoardEditor.tsx';
 
 type Mode = 'auto' | 'manual';
-type StepKey = 'mode' | 'duration' | 'board' | 'fields' | 'kinds' | 'content' | 'devices' | 'summary';
+type StepKey = 'world' | 'mode' | 'duration' | 'board' | 'fields' | 'kinds' | 'content' | 'devices' | 'summary';
 
 const STEP_LABEL: Record<StepKey, string> = {
-  mode: 'Start',
+  world: 'Welt',
+  mode: 'Einrichtung',
   duration: 'Dauer',
   board: 'Spielfeld',
   fields: 'Sonderfelder',
@@ -89,7 +92,7 @@ export function SetupWizard({ state, onDone }: { state: GameState; onDone: () =>
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState<'next' | 'prev'>('next');
 
-  const steps: StepKey[] = mode === 'auto' ? ['mode', 'duration', 'board', 'fields', 'kinds', 'content', 'devices', 'summary'] : ['mode', 'board', 'fields', 'kinds', 'content', 'devices', 'summary'];
+  const steps: StepKey[] = mode === 'auto' ? ['world', 'mode', 'duration', 'board', 'fields', 'kinds', 'content', 'devices', 'summary'] : ['world', 'mode', 'board', 'fields', 'kinds', 'content', 'devices', 'summary'];
   const step = steps[Math.min(index, steps.length - 1)]!;
   const goal = draft.board.fields.length - 1;
   const range = useMemo(() => estimateRange(draft, teams), [draft, teams]);
@@ -148,14 +151,26 @@ export function SetupWizard({ state, onDone }: { state: GameState; onDone: () =>
 
       <Card className="overflow-hidden">
         <div key={step} className={`p-5 sm:p-6 ${dir === 'next' ? 'animate-slide-next' : 'animate-slide-prev'}`}>
+          {step === 'world' && (
+            <div>
+              <StepTitle title="In welcher Welt wird gespielt?" sub="Nur die Optik ändert sich – Regeln und Spielfeld sind in beiden Welten gleich." />
+              <ThemePicker
+                large
+                value={draft.theme}
+                onChange={(theme) => {
+                  setDraft((d) => ({ ...d, theme }));
+                  go(1);
+                }}
+              />
+            </div>
+          )}
           {step === 'mode' && (
             <ModeStep
               mode={mode}
               onPick={(m) => {
                 setMode(m);
                 if (m === 'auto' && !state.config.targetMinutes) applySuggestion(minutes, teams);
-                setDir('next');
-                setIndex(1);
+                go(2);
               }}
             />
           )}
@@ -228,7 +243,7 @@ export function SetupWizard({ state, onDone }: { state: GameState; onDone: () =>
           )}
         </div>
 
-        {step !== 'mode' && (
+        {step !== 'world' && step !== 'mode' && (
           <div className="flex items-center justify-between gap-2 border-t border-line bg-bg-2/60 px-5 py-3 sm:px-6">
             <Button variant="ghost" icon={<ArrowLeft className="size-4" />} onClick={() => go(index - 1)}>
               Zurück
@@ -727,6 +742,7 @@ function SummaryStep({
   const goal = config.board.fields.length - 1;
   const names = collections.filter((c) => config.collectionIds.includes(c.id)).map((c) => c.name);
   const rows: { key: StepKey; label: string; value: string }[] = [
+    { key: 'world', label: 'Welt', value: THEME_INFO[config.theme].label },
     { key: 'mode', label: 'Einrichtung', value: mode === 'auto' ? 'Nach Spieldauer (mit Spiel-Tempo)' : 'Manuell (reine Zufallswürfe)' },
     ...(mode === 'auto' ? [{ key: 'duration' as const, label: 'Spieldauer', value: `ca. ${minutes} Minuten · ${teams} Teams` }] : []),
     { key: 'board', label: 'Spielfeld', value: `${goal} Felder · ca. ${min(range.normal)} bei normalem Tempo` },

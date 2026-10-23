@@ -1,7 +1,7 @@
 /** Hält die 3D-Szene: erzeugt sie, füttert sie mit Zustand und Effekten, baut sie bei Bedarf neu. */
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { GameState } from '@insel/shared';
+import type { GameState, Theme } from '@insel/shared';
 import { BoardAudio } from '../../board/audio.ts';
 import type { Caption } from '../../board/director.ts';
 import { BoardScene } from '../../board/scene.ts';
@@ -16,19 +16,21 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
   const stateRef = useRef(state);
   stateRef.current = state;
   const fieldCount = state?.config.board.fields.length ?? 73;
-  const [progress, setProgress] = useState<{ p: number; label: string } | null>({ p: 0, label: 'Lade Insel …' });
+  // ?world=blocks zum Ausprobieren ohne eingerichtetes Spiel
+  const theme = (new URLSearchParams(window.location.search).get('world') as Theme | null) ?? state?.config.theme ?? 'island';
+  const [progress, setProgress] = useState<{ p: number; label: string } | null>({ p: 0, label: 'Lade Welt …' });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     let scene: BoardScene | null = null;
     let offCaption: (() => void) | undefined;
-    setProgress({ p: 0, label: 'Lade Insel …' });
+    setProgress({ p: 0, label: theme === 'blocks' ? 'Lade Blockwelt …' : 'Lade Insel …' });
     setError(null);
     // Anfangsstufe; danach schaltet useShowControl live um (ohne Neuaufbau)
     const q = useLive.getState().show.settings.quality;
     const quality = qualityOverride() ?? (q === 'auto' ? 'high' : q);
-    BoardScene.create(host.current!, { quality, fieldCount, onProgress: (p, label) => alive && setProgress({ p, label }) }, boardAudio)
+    BoardScene.create(host.current!, { quality, fieldCount, theme, onProgress: (p, label) => alive && setProgress({ p, label }) }, boardAudio)
       .then((s) => {
         if (!alive) {
           s.dispose();
@@ -53,9 +55,9 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
       sceneRef.current = null;
       onReady?.(null);
     };
-    // onCaption/onReady sind stabil genug; Neuaufbau nur bei anderer Brettlänge
+    // onCaption/onReady sind stabil genug; Neuaufbau nur bei anderer Brettlänge oder Welt
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldCount]);
+  }, [fieldCount, theme]);
 
   useEffect(() => {
     if (state) sceneRef.current?.setState(state);
@@ -70,12 +72,12 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
         {(progress || error) && (
           <motion.div
             className="absolute inset-0 z-40 grid place-items-center"
-            style={{ background: 'linear-gradient(180deg, #8fd8ff 0%, #c9efff 60%, #3fb4d6 100%)' }}
+            style={{ background: theme === 'blocks' ? 'linear-gradient(180deg, #6b98ff 0%, #bcd4ff 60%, #5e9b35 100%)' : 'linear-gradient(180deg, #8fd8ff 0%, #c9efff 60%, #3fb4d6 100%)' }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
           >
             <div className="flex flex-col items-center gap-4 text-center">
-              <span className="text-7xl animate-float">🏝️</span>
+              <span className="text-7xl animate-float">{theme === 'blocks' ? '⛏️' : '🏝️'}</span>
               {error ? (
                 <p className="max-w-md font-display text-xl font-semibold text-bad">{error}</p>
               ) : (

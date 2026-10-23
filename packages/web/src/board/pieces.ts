@@ -1,7 +1,10 @@
 /** Spielfiguren auf dem Brett: Aufstellung, Laufen von Feld zu Feld, Fliegen, Käfig, Namensschilder. */
 import * as THREE from 'three';
-import { teamColor, type FigureConfig, type Mood, type Team, type TeamColorKey } from '@insel/shared';
+import { teamColor, type FigureConfig, type Mood, type Team, type TeamColorKey, type Theme } from '@insel/shared';
 import { createFigure, type FigureRig } from '../figure/figure3d.ts';
+import { createBlockFigure } from '../figure/figureBlocks.ts';
+import { blockAtlas } from './blocks/atlas.ts';
+import { buildMob } from './blocks/mobs.ts';
 import type { FieldMeshes } from './fields.ts';
 import type { IslandLayout } from './layout.ts';
 import { ease, type Tweens } from './tweens.ts';
@@ -68,8 +71,14 @@ export class Pieces {
     private fields: FieldMeshes,
     private tweens: Tweens,
     private cb: PieceCallbacks = {},
+    /** Welt: Blockwelt hat Kastenfiguren und Spinnennetz statt Käfig */
+    readonly theme: Theme = 'island',
   ) {
     this.group.name = 'pieces';
+  }
+
+  private makeFigure(figure: FigureConfig, color: TeamColorKey): FigureRig {
+    return this.theme === 'blocks' ? createBlockFigure(figure, color) : createFigure(figure, color);
   }
 
   get(teamId: string) {
@@ -100,7 +109,7 @@ export class Pieces {
       if (p && p.key !== key) {
         p.body.remove(p.rig.root);
         p.rig.dispose();
-        p.rig = createFigure(t.figure, t.color);
+        p.rig = this.makeFigure(t.figure, t.color);
         p.rig.root.scale.setScalar(SCALE);
         p.body.add(p.rig.root);
         p.radius = footprint(p.rig);
@@ -111,10 +120,10 @@ export class Pieces {
         const holder = new THREE.Group();
         const body = new THREE.Group();
         holder.add(body);
-        const rig = createFigure(t.figure, t.color);
+        const rig = this.makeFigure(t.figure, t.color);
         rig.root.scale.setScalar(SCALE);
         body.add(rig.root);
-        const cage = buildCage();
+        const cage = this.theme === 'blocks' ? buildWebCage() : buildCage();
         cage.visible = false;
         body.add(cage);
         this.group.add(holder);
@@ -135,12 +144,12 @@ export class Pieces {
     const holder = new THREE.Group();
     const body = new THREE.Group();
     holder.add(body);
-    const rig = createFigure(figure, color);
+    const rig = this.makeFigure(figure, color);
     rig.root.scale.setScalar(SCALE);
     body.add(rig.root);
     const c = teamColor(color);
     this.tags.set(id, name, c.hex, c.dark);
-    const cage = buildCage();
+    const cage = this.theme === 'blocks' ? buildWebCage() : buildCage();
     cage.visible = false;
     body.add(cage);
     this.group.add(holder);
@@ -883,6 +892,43 @@ function buildCage(): THREE.Group {
     m.position.y = y;
     g.add(m);
   }
+  return g;
+}
+
+/** Blockwelt-Sperre: Spinnennetz-Würfel um die Figur, oben sitzt eine Spinne */
+function buildWebCage(): THREE.Group {
+  const g = new THREE.Group();
+  const atlas = blockAtlas();
+  const [u0, v0, u1, v1] = atlas.uv('cobweb');
+  const mat = new THREE.MeshLambertMaterial({ map: atlas.texture, alphaTest: 0.4, side: THREE.DoubleSide, transparent: false });
+  const s = 1.1;
+  const h = 1.75;
+  const face = (w: number, hh: number) => {
+    const geo = new THREE.PlaneGeometry(w, hh);
+    const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+    uv.setXY(0, u0, v1);
+    uv.setXY(1, u1, v1);
+    uv.setXY(2, u0, v0);
+    uv.setXY(3, u1, v0);
+    return geo;
+  };
+  const side = face(s, h);
+  for (let i = 0; i < 4; i++) {
+    const m = new THREE.Mesh(side, mat);
+    const a = (i / 4) * Math.PI * 2;
+    m.position.set(Math.sin(a) * s * 0.5, h / 2, Math.cos(a) * s * 0.5);
+    m.rotation.y = a;
+    g.add(m);
+  }
+  const top = new THREE.Mesh(face(s, s), mat);
+  top.rotation.x = -Math.PI / 2;
+  top.position.y = h;
+  g.add(top);
+  const spider = buildMob('spider');
+  spider.root.scale.setScalar(0.45);
+  spider.root.position.set(0, h, 0);
+  spider.root.rotation.y = 0.6;
+  g.add(spider.root);
   return g;
 }
 

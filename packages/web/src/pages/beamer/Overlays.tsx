@@ -718,7 +718,7 @@ export function VictoryBanner({ state }: { state: GameState }) {
             </motion.span>
             <FigureAvatar figure={winner.figure} color={winner.color} size={96} className="ring-[5px] ring-gold" />
             <div>
-              <p className="font-display text-2xl font-semibold text-white/90">Sieger der Insel</p>
+              <p className="font-display text-2xl font-semibold text-white/90">{state.config.theme === 'blocks' ? 'Sieger der Blockwelt' : 'Sieger der Insel'}</p>
               <p className="font-display text-7xl leading-none font-semibold drop-shadow-md">{winner.name}</p>
             </div>
             <motion.span className="text-7xl drop-shadow-lg" animate={{ rotate: [8, -8, 8], y: [0, -8, 0] }} transition={{ duration: 1.6, repeat: Infinity, delay: 0.3 }}>

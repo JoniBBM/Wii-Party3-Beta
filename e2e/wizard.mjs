@@ -62,8 +62,11 @@ try {
   await page.getByRole('button', { name: 'Neues Spiel' }).click();
   await page.getByRole('button', { name: 'Anlegen & wählen' }).click();
   await page.waitForURL('**/regie/einrichten');
-  await page.getByText('Wie möchtest du das Spiel einrichten?').waitFor();
+  await page.getByText('In welcher Welt wird gespielt?').waitFor();
   check(true, 'Neues Spiel führt direkt in den Assistenten');
+  await slide(page, '0-welt');
+  await page.getByRole('radio', { name: /Blockwelt/ }).click();
+  await page.getByText('Wie möchtest du das Spiel einrichten?').waitFor();
   await slide(page, '1-start');
 
   await page.getByRole('radio', { name: /Nach Spieldauer/ }).click();
@@ -123,6 +126,7 @@ try {
   check(JSON.stringify(c.contentKinds) === JSON.stringify(['game', 'choice', 'estimate']), `Arten: ${c.contentKinds.join(', ')}`);
   check(c.collectionIds.length > 0, `${c.collectionIds.length} Sammlungen gewählt`);
   check(c.rules.winRule === 'reach', 'Siegbedingung: Wer oben ist, gewinnt');
+  check(c.theme === 'blocks', 'Welt: Blockwelt');
   await page.getByText('Passt: Das Spiel richtet sich nach ca. 45 Minuten.').waitFor();
   check(true, 'Live-Ansicht zeigt die Spieldauer');
   await slide(page, '9-live');
@@ -134,6 +138,7 @@ try {
   const p2 = await phone.newPage();
   p2.on('pageerror', (e) => errors.push(e.message));
   await p2.goto(`${base}/regie/einrichten`);
+  await p2.getByRole('radio', { name: /Insel der Abenteuer/ }).click();
   await p2.getByRole('radio', { name: /Manuell/ }).click();
   const input = p2.getByRole('textbox', { name: 'Anzahl Felder', exact: true });
   await input.fill('30');
@@ -150,6 +155,7 @@ try {
   await sleep(500);
   check(state.config.tempoEnabled === false && state.config.targetMinutes === null, 'Manuell: Spiel-Tempo aus, keine Spieldauer');
   check(state.config.board.fields.length === 31, 'Manuell: 30 Felder');
+  check(state.config.theme === 'island', 'Welt zurück auf Insel');
   await p2.getByText('Manuell eingerichtet: reine Zufallswürfe, ohne Spiel-Tempo.').waitFor();
   check(true, 'Live-Ansicht am Handy zeigt „manuell eingerichtet“');
   await slide(p2, 'handy-live');

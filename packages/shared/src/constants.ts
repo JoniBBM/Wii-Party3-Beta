@@ -23,6 +23,14 @@ export function teamColor(key: string) {
   return TEAM_COLORS.find((c) => c.key === key) ?? TEAM_COLORS[0];
 }
 
+/** Welten (Optik von Beamer, Figuren und Handys) – Regeln und Spielfeld sind in allen gleich. */
+export const THEMES = ['island', 'blocks'] as const;
+export type Theme = (typeof THEMES)[number];
+export const THEME_INFO: Record<Theme, { label: string; short: string; icon: string; description: string }> = {
+  island: { label: 'Insel der Abenteuer', short: 'Insel', icon: '🏝️', description: 'Tropische Vulkaninsel mit Dschungel, Wasserfall und Tieren.' },
+  blocks: { label: 'Blockwelt', short: 'Blockwelt', icon: '🧱', description: 'Alles aus Blöcken im Minecraft-Stil – mit Mobs, Höhlen und dem Nether im Vulkan.' },
+};
+
 export const MIN_TEAMS = 2;
 export const MAX_TEAMS = 10;
 

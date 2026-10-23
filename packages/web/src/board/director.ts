@@ -315,7 +315,7 @@ export class Director {
         const rest = e.remaining ? ` – danach noch ${e.remaining} ${e.remaining === 1 ? 'Feld' : 'Felder'}` : '';
         if (e.stage === 'grab') {
           s.rig.set({ kind: 'focus', ...s.stunts.vineShot() }, 2);
-          this.say({ icon: '🌿', title: 'Halt – hier geht’s nur mit der Liane!', sub: `${name} würfelt gleich, wie weit es über den Bach schwingt${rest}`, tone: 'team', color }, 3600);
+          this.say({ icon: '🌿', title: `Halt – hier geht’s nur mit der ${this.s.theme === 'blocks' ? 'Ranke' : 'Liane'}!`, sub: `${name} würfelt gleich, wie weit es über den Bach schwingt${rest}`, tone: 'team', color }, 3600);
           A.play('liane');
           this.voice('vine');
           await s.stunts.vineGrab(e.teamId);
@@ -340,7 +340,7 @@ export class Director {
         // von der Seeseite: Bergflanke mit der Höhle hinter der Figur statt neben der Kamera
         s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 8.5, 5, true) }, 2.2);
         if (e.stage === 'stop') {
-          this.say({ icon: '🦇', title: 'Mutprobe an der Lavahöhle!', sub: `${name} braucht mindestens eine ${e.need} – sonst geht’s ins Vulkan-Innere`, tone: 'team', color }, 3600);
+          this.say({ icon: '🦇', title: 'Mutprobe an der Lavahöhle!', sub: `${name} braucht mindestens eine ${e.need} – sonst geht’s ${this.s.theme === 'blocks' ? 'in den Nether' : 'ins Vulkan-Innere'}`, tone: 'team', color }, 3600);
           A.play('hoehle', { volume: 0.7 });
           A.play('rumble', { volume: 0.4 });
           s.pieces.setMode(e.teamId, 'shock');
@@ -443,7 +443,7 @@ export class Director {
           });
           if (stale()) return;
           s.rig.set({ kind: 'focus', ...ins.plateShot(0) }, 1.3);
-          this.say({ icon: '🌋', title: 'Ab ins Vulkan-Innere!', sub: `${name} muss über die Lava-Inseln zum Ausgang`, tone: 'bad', color }, 3600);
+          this.say(this.s.theme === 'blocks' ? { icon: '🔥', title: 'Ab in den Nether!', sub: `${name} muss über die Netherziegel zum Portal`, tone: 'bad', color } : { icon: '🌋', title: 'Ab ins Vulkan-Innere!', sub: `${name} muss über die Lava-Inseln zum Ausgang`, tone: 'bad', color }, 3600);
           this.voice('insideEnter', { delay: 300 });
           A.play('whoosh-down');
           await s.pieces.insideDrop(e.teamId, ins.dropPoint);
@@ -565,8 +565,11 @@ export class Director {
             A.play('land');
           } else {
             const t = this.team(e.teamId);
-            A.play('flugzeug', { volume: 0.8 });
-            this.voice('plane', { delay: 900 });
+            // Blockwelt: Knaller statt Flugzeug (eigene Geräusche im Auftritt)
+            if (s.theme !== 'blocks') {
+              A.play('flugzeug', { volume: 0.8 });
+              this.voice('plane', { delay: 900 });
+            }
             await s.stunts.plane(e.teamId, e.to, teamColor(t?.color ?? 'red').hex);
             if (stale()) return;
           }
@@ -667,7 +670,7 @@ export class Director {
         const a = this.teamCaption(e.a);
         const b = this.teamCaption(e.b);
         this.say({ icon: '🔄', title: 'Platztausch!', sub: `${a.name} ⇄ ${b.name}`, tone: 'info' }, 3200);
-        this.voice('ufo', { delay: 800 });
+        if (s.theme !== 'blocks') this.voice('ufo', { delay: 800 });
         // Kamera begleitet das UFO
         const pa = s.pieces.worldPos(e.a) ?? new THREE.Vector3();
         const last = pa.clone();
@@ -768,7 +771,7 @@ export class Director {
         s.pieces.setMode(e.teamId, 'cheer');
         A.play('jingle-win');
         this.voice('victory', { force: true });
-        this.say({ icon: '🏆', title: `${name} gewinnt!`, sub: 'Herrscher der Insel!', tone: 'gold', color }, 9000);
+        this.say({ icon: '🏆', title: `${name} gewinnt!`, sub: this.s.theme === 'blocks' ? 'Herrscher der Blockwelt!' : 'Herrscher der Insel!', tone: 'gold', color }, 9000);
         const p = s.pieces.worldPos(e.teamId) ?? new THREE.Vector3();
         s.effects.confettiBurst(p.x, p.y + 1.5, p.z, TEAM_COLORS.map((c) => c.hex), 260);
         s.pieces.setAllModes('clap', e.teamId);

@@ -290,6 +290,139 @@ function buildAccessory(kind: FigureConfig['accessory'], team: string, headR: nu
   return g;
 }
 
+/**
+ * Haltung je Modus (Laufen, Jubeln, Schwimmen …) – für alle Figurenarten gleich, nur die
+ * Ruhestellung der Arme (`rest`, seitlich abgespreizt) unterscheidet sich.
+ */
+export function poseFigure(p: Pick<FigureRig, 'body' | 'head' | 'armL' | 'armR' | 'legL' | 'legR'>, m: FigureMode, tt: number, rest = 0.32) {
+  let bob = 0;
+  let armSwing = 0;
+  let legSwing = 0;
+  let armLift = 0;
+  let headTilt = 0;
+  let headTurn = Math.sin(tt * 0.6) * 0.18 * (m === 'idle' ? 1 : 0.2);
+  let lean = 0;
+  let armReach = 0;
+  switch (m) {
+    case 'balance':
+      armLift = 1.35 + Math.sin(tt * 7) * 0.35;
+      lean = Math.sin(tt * 5.5) * 0.22;
+      headTurn = Math.sin(tt * 4) * 0.25;
+      break;
+    case 'swim':
+      armSwing = Math.sin(tt * 6) * 1.7;
+      legSwing = Math.sin(tt * 12) * 0.4;
+      headTilt = -0.2;
+      armLift = 0.5;
+      bob = Math.sin(tt * 3) * 0.03;
+      break;
+    case 'climb':
+      armReach = Math.sin(tt * 5);
+      legSwing = Math.sin(tt * 5) * 0.45;
+      headTilt = -0.3;
+      break;
+    case 'idle':
+      bob = Math.sin(tt * 2.2) * 0.01;
+      armSwing = Math.sin(tt * 2.2) * 0.05;
+      break;
+    case 'walk':
+      bob = Math.abs(Math.sin(tt * 11)) * 0.04;
+      armSwing = Math.sin(tt * 11) * 0.7;
+      legSwing = Math.sin(tt * 11) * 0.6;
+      break;
+    case 'jump':
+      armLift = 2.4;
+      legSwing = 0.25;
+      break;
+    case 'cheer':
+      bob = Math.abs(Math.sin(tt * 7)) * 0.12;
+      armLift = 2.6 + Math.sin(tt * 14) * 0.25;
+      headTilt = -0.12;
+      break;
+    case 'sad':
+      headTilt = 0.35;
+      armSwing = 0;
+      bob = Math.sin(tt * 1.5) * 0.005;
+      break;
+    case 'fly':
+      armLift = 1.6 + Math.sin(tt * 20) * 0.2;
+      legSwing = Math.sin(tt * 18) * 0.5;
+      break;
+    case 'stuck':
+      bob = Math.sin(tt * 25) * 0.006;
+      armLift = 0.4;
+      headTurn = Math.sin(tt * 3) * 0.5;
+      break;
+    case 'angry':
+      // stampfen, Fäuste schütteln
+      bob = Math.abs(Math.sin(tt * 12)) * 0.05;
+      legSwing = Math.sin(tt * 12) * 0.35;
+      armLift = 0.55;
+      armSwing = Math.sin(tt * 18) * 0.45;
+      headTilt = 0.18;
+      headTurn = Math.sin(tt * 9) * 0.12;
+      lean = Math.sin(tt * 12) * 0.05;
+      break;
+    case 'shock':
+      bob = Math.sin(tt * 40) * 0.008;
+      armLift = 2.1 + Math.sin(tt * 30) * 0.08;
+      headTilt = -0.28;
+      break;
+    case 'shrug':
+      armLift = 0.75 + Math.max(0, Math.sin(tt * 3.2)) * 0.35;
+      armSwing = -0.25;
+      headTilt = 0.08;
+      bob = Math.max(0, Math.sin(tt * 3.2)) * 0.03;
+      break;
+    case 'wave':
+      bob = Math.sin(tt * 3) * 0.01;
+      headTilt = -0.06;
+      break;
+    case 'dance':
+      bob = Math.abs(Math.sin(tt * 8)) * 0.09;
+      lean = Math.sin(tt * 4) * 0.18;
+      armLift = 1.3 + Math.sin(tt * 8) * 0.9;
+      legSwing = Math.sin(tt * 8) * 0.35;
+      headTurn = Math.sin(tt * 4) * 0.35;
+      break;
+    case 'clap':
+      bob = Math.abs(Math.sin(tt * 7)) * 0.03;
+      headTilt = -0.1;
+      break;
+    case 'tuck':
+      // Hocke im Salto: Knie an, Arme um die Beine
+      armSwing = -1.4;
+      armLift = 0.1;
+      legSwing = -1.1;
+      headTilt = 0.3;
+      break;
+  }
+  p.body.position.y = bob;
+  p.body.rotation.z = lean;
+  p.body.scale.y = m === 'idle' ? 1 + Math.sin(tt * 2.2) * 0.01 : 1;
+  p.armL.rotation.x = m === 'climb' ? -2.5 + armReach * 0.6 : armSwing;
+  p.armR.rotation.x = m === 'climb' ? -2.5 - armReach * 0.6 : m === 'swim' || m === 'tuck' || m === 'shrug' ? armSwing : -armSwing;
+  p.armL.rotation.z = rest + armLift;
+  p.armR.rotation.z = -rest - armLift;
+  p.legL.rotation.x = m === 'tuck' ? legSwing : -legSwing;
+  p.legR.rotation.x = legSwing;
+  p.head.rotation.y = headTurn;
+  p.head.rotation.x = headTilt;
+  p.head.rotation.z = m === 'shrug' ? Math.sin(tt * 3.2) * 0.18 : 0;
+  if (m === 'wave') {
+    // rechte Hand hoch und winken
+    p.armR.rotation.x = -0.3;
+    p.armR.rotation.z = -2.7 + Math.sin(tt * 11) * 0.35;
+  } else if (m === 'clap') {
+    // Hände vor der Brust zusammen
+    const c = Math.abs(Math.sin(tt * 9));
+    p.armL.rotation.x = -1.25;
+    p.armR.rotation.x = -1.25;
+    p.armL.rotation.z = 0.05 - c * 0.42;
+    p.armR.rotation.z = -0.05 + c * 0.42;
+  }
+}
+
 export function createFigure(config: FigureConfig, color: TeamColorKey, opts: { base?: boolean } = {}): FigureRig {
   const team = teamColor(color);
   const skin = FIGURE_SKINS[config.skin] ?? FIGURE_SKINS[1];
@@ -420,132 +553,7 @@ export function createFigure(config: FigureConfig, color: TeamColorKey, opts: { 
       const blink = (tt % 4.3) < 0.12 ? 0.1 : 1;
       for (const e of eyes) e.scale.y = m === 'stuck' || m === 'angry' ? 0.6 : m === 'shock' ? 1.35 : blink;
 
-      let bob = 0;
-      let armSwing = 0;
-      let legSwing = 0;
-      let armLift = 0;
-      let headTilt = 0;
-      let headTurn = Math.sin(tt * 0.6) * 0.18 * (m === 'idle' ? 1 : 0.2);
-      let lean = 0;
-      let armReach = 0;
-      switch (m) {
-        case 'balance':
-          armLift = 1.35 + Math.sin(tt * 7) * 0.35;
-          lean = Math.sin(tt * 5.5) * 0.22;
-          headTurn = Math.sin(tt * 4) * 0.25;
-          break;
-        case 'swim':
-          armSwing = Math.sin(tt * 6) * 1.7;
-          legSwing = Math.sin(tt * 12) * 0.4;
-          headTilt = -0.2;
-          armLift = 0.5;
-          bob = Math.sin(tt * 3) * 0.03;
-          break;
-        case 'climb':
-          armReach = Math.sin(tt * 5);
-          legSwing = Math.sin(tt * 5) * 0.45;
-          headTilt = -0.3;
-          break;
-        case 'idle':
-          bob = Math.sin(tt * 2.2) * 0.01;
-          armSwing = Math.sin(tt * 2.2) * 0.05;
-          break;
-        case 'walk':
-          bob = Math.abs(Math.sin(tt * 11)) * 0.04;
-          armSwing = Math.sin(tt * 11) * 0.7;
-          legSwing = Math.sin(tt * 11) * 0.6;
-          break;
-        case 'jump':
-          armLift = 2.4;
-          legSwing = 0.25;
-          break;
-        case 'cheer':
-          bob = Math.abs(Math.sin(tt * 7)) * 0.12;
-          armLift = 2.6 + Math.sin(tt * 14) * 0.25;
-          headTilt = -0.12;
-          break;
-        case 'sad':
-          headTilt = 0.35;
-          armSwing = 0;
-          bob = Math.sin(tt * 1.5) * 0.005;
-          break;
-        case 'fly':
-          armLift = 1.6 + Math.sin(tt * 20) * 0.2;
-          legSwing = Math.sin(tt * 18) * 0.5;
-          break;
-        case 'stuck':
-          bob = Math.sin(tt * 25) * 0.006;
-          armLift = 0.4;
-          headTurn = Math.sin(tt * 3) * 0.5;
-          break;
-        case 'angry':
-          // stampfen, Fäuste schütteln
-          bob = Math.abs(Math.sin(tt * 12)) * 0.05;
-          legSwing = Math.sin(tt * 12) * 0.35;
-          armLift = 0.55;
-          armSwing = Math.sin(tt * 18) * 0.45;
-          headTilt = 0.18;
-          headTurn = Math.sin(tt * 9) * 0.12;
-          lean = Math.sin(tt * 12) * 0.05;
-          break;
-        case 'shock':
-          bob = Math.sin(tt * 40) * 0.008;
-          armLift = 2.1 + Math.sin(tt * 30) * 0.08;
-          headTilt = -0.28;
-          break;
-        case 'shrug':
-          armLift = 0.75 + Math.max(0, Math.sin(tt * 3.2)) * 0.35;
-          armSwing = -0.25;
-          headTilt = 0.08;
-          bob = Math.max(0, Math.sin(tt * 3.2)) * 0.03;
-          break;
-        case 'wave':
-          bob = Math.sin(tt * 3) * 0.01;
-          headTilt = -0.06;
-          break;
-        case 'dance':
-          bob = Math.abs(Math.sin(tt * 8)) * 0.09;
-          lean = Math.sin(tt * 4) * 0.18;
-          armLift = 1.3 + Math.sin(tt * 8) * 0.9;
-          legSwing = Math.sin(tt * 8) * 0.35;
-          headTurn = Math.sin(tt * 4) * 0.35;
-          break;
-        case 'clap':
-          bob = Math.abs(Math.sin(tt * 7)) * 0.03;
-          headTilt = -0.1;
-          break;
-        case 'tuck':
-          // Hocke im Salto: Knie an, Arme um die Beine
-          armSwing = -1.4;
-          armLift = 0.1;
-          legSwing = -1.1;
-          headTilt = 0.3;
-          break;
-      }
-      body.position.y = bob;
-      body.rotation.z = lean;
-      body.scale.y = m === 'idle' ? 1 + Math.sin(tt * 2.2) * 0.01 : 1;
-      armL.rotation.x = m === 'climb' ? -2.5 + armReach * 0.6 : armSwing;
-      armR.rotation.x = m === 'climb' ? -2.5 - armReach * 0.6 : m === 'swim' || m === 'tuck' || m === 'shrug' ? armSwing : -armSwing;
-      armL.rotation.z = 0.32 + armLift;
-      armR.rotation.z = -0.32 - armLift;
-      legL.rotation.x = m === 'tuck' ? legSwing : -legSwing;
-      legR.rotation.x = legSwing;
-      head.rotation.y = headTurn;
-      head.rotation.x = headTilt;
-      head.rotation.z = m === 'shrug' ? Math.sin(tt * 3.2) * 0.18 : 0;
-      if (m === 'wave') {
-        // rechte Hand hoch und winken
-        armR.rotation.x = -0.3;
-        armR.rotation.z = -2.7 + Math.sin(tt * 11) * 0.35;
-      } else if (m === 'clap') {
-        // Hände vor der Brust zusammen
-        const c = Math.abs(Math.sin(tt * 9));
-        armL.rotation.x = -1.25;
-        armR.rotation.x = -1.25;
-        armL.rotation.z = 0.05 - c * 0.42;
-        armR.rotation.z = -0.05 + c * 0.42;
-      }
+      poseFigure(rig, m, tt);
       if (base.visible) {
         const mBase = base.material as THREE.MeshBasicMaterial;
         mBase.opacity = 0.65 + Math.sin(tt * 3) * 0.2;

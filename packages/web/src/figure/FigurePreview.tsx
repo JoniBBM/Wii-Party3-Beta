@@ -1,8 +1,9 @@
 /** 3D-Vorschau einer Figur (drehbar) und statische Schnappschüsse für Listen. */
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import type { FigureConfig, TeamColorKey } from '@insel/shared';
-import { createFigure, type FigureMode } from './figure3d.ts';
+import type { FigureConfig, TeamColorKey, Theme } from '@insel/shared';
+import type { FigureMode } from './figure3d.ts';
+import { makeFigure, useTheme } from './figures.ts';
 
 function studio(scene: THREE.Scene) {
   scene.add(new THREE.HemisphereLight('#eaf6ff', '#c7d9a8', 1.6));
@@ -33,7 +34,8 @@ export function FigurePreview({
   height?: number;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const api = useRef<{ set: (f: FigureConfig, c: TeamColorKey, m: FigureMode) => void } | null>(null);
+  const api = useRef<{ set: (f: FigureConfig, c: TeamColorKey, m: FigureMode, th: Theme) => void } | null>(null);
+  const theme = useTheme();
 
   useEffect(() => {
     const el = host.current!;
@@ -62,7 +64,7 @@ export function FigurePreview({
 
     const pivot = new THREE.Group();
     scene.add(pivot);
-    let rig = createFigure(figure, color, { base: false });
+    let rig = makeFigure(theme, figure, color, { base: false });
     pivot.add(rig.root);
     rig.setMode(mode);
 
@@ -115,10 +117,10 @@ export function FigurePreview({
     loop();
 
     api.current = {
-      set(f, c, m) {
+      set(f, c, m, th) {
         pivot.remove(rig.root);
         rig.dispose();
-        rig = createFigure(f, c, { base: false });
+        rig = makeFigure(th, f, c, { base: false });
         rig.setMode(m);
         pivot.add(rig.root);
       },
@@ -139,8 +141,8 @@ export function FigurePreview({
 
   const figureKey = JSON.stringify(figure);
   useEffect(() => {
-    api.current?.set(JSON.parse(figureKey) as FigureConfig, color, mode);
-  }, [figureKey, color, mode]);
+    api.current?.set(JSON.parse(figureKey) as FigureConfig, color, mode, theme);
+  }, [figureKey, color, mode, theme]);
 
   return <div ref={host} className={`relative w-full cursor-grab active:cursor-grabbing ${className}`} style={{ height }} />;
 }
@@ -153,8 +155,8 @@ let snapScene: THREE.Scene | null = null;
 let snapCamera: THREE.PerspectiveCamera | null = null;
 const snapCache = new Map<string, string>();
 
-export function figureSnapshot(figure: FigureConfig, color: TeamColorKey, size = 160): string {
-  const key = `${JSON.stringify(figure)}|${color}|${size}`;
+export function figureSnapshot(figure: FigureConfig, color: TeamColorKey, size = 160, theme: Theme = 'island'): string {
+  const key = `${JSON.stringify(figure)}|${color}|${size}|${theme}`;
   const hit = snapCache.get(key);
   if (hit) return hit;
   if (!snapRenderer) {
@@ -174,7 +176,7 @@ export function figureSnapshot(figure: FigureConfig, color: TeamColorKey, size =
   }
   snapRenderer.setPixelRatio(1);
   snapRenderer.setSize(size, size, false);
-  const rig = createFigure(figure, color, { base: false });
+  const rig = makeFigure(theme, figure, color, { base: false });
   rig.root.rotation.y = 0.25;
   snapScene!.add(rig.root);
   snapRenderer.render(snapScene!, snapCamera!);
@@ -188,10 +190,11 @@ export function figureSnapshot(figure: FigureConfig, color: TeamColorKey, size =
 /** Kopf-und-Schultern-Bild der Teamfigur. */
 export function FigureAvatar({ figure, color, size = 48, className = '' }: { figure: FigureConfig; color: TeamColorKey; size?: number; className?: string }) {
   const [src, setSrc] = useState<string | null>(null);
+  const theme = useTheme();
   useEffect(() => {
-    const id = requestAnimationFrame(() => setSrc(figureSnapshot(figure, color, 192)));
+    const id = requestAnimationFrame(() => setSrc(figureSnapshot(figure, color, 192, theme)));
     return () => cancelAnimationFrame(id);
-  }, [figure, color]);
+  }, [figure, color, theme]);
   return (
     <span className={`inline-block shrink-0 overflow-hidden rounded-full ${className}`} style={{ width: size, height: size, background: 'linear-gradient(180deg, #dff3ff, #ffffff)' }}>
       {src && <img src={src} alt="" className="size-full object-cover" draggable={false} />}

@@ -113,6 +113,7 @@ try {
     await p.getByRole('tab', { name: tab }).click();
   };
   const wizard = async (p, next) => {
+    await p.getByRole('radio', { name: /Insel der Abenteuer/ }).click();
     await p.getByRole('radio', { name: /Nach Spieldauer/ }).click();
     for (let i = 0; i < next; i++) await p.getByRole('button', { name: 'Weiter' }).click();
   };

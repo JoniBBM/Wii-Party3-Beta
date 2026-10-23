@@ -15,6 +15,7 @@ import {
   MIX_FIELD_TYPES,
   PLAYER_COUNTS,
   TEAM_COLOR_KEYS,
+  THEMES,
 } from './constants.ts';
 
 const id = z.string().min(1).max(64);
@@ -162,6 +163,7 @@ export const gameConfigSchema = z.object({
   name: shortText(80).min(1, 'Name fehlt'),
   targetMinutes: z.number().int().min(5).max(300).nullable().default(null),
   tempoEnabled: z.boolean().default(true),
+  theme: z.enum(THEMES).default('island'),
   contentKinds: z.array(z.enum(CONTENT_KINDS)).min(1, 'Mindestens eine Art von Inhalten wählen').max(5).default([...CONTENT_KINDS]),
   devices: deviceModeSchema.default('personal'),
   collectionIds: z.array(id).max(50),

@@ -50,6 +50,7 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
   (config as Partial<GameConfig>).devices ??= 'personal';
   (config as Partial<GameConfig>).targetMinutes ??= null;
   (config as Partial<GameConfig>).tempoEnabled ??= true;
+  (config as Partial<GameConfig>).theme ??= 'island';
   if (!config.contentKinds?.length) config.contentKinds = [...CONTENT_KINDS];
   rules.vine ??= clone(DEFAULT_RULES.vine);
   rules.cave ??= clone(DEFAULT_RULES.cave);
@@ -87,6 +88,7 @@ export function defaultConfig(name = 'Neues Spiel', goal = DEFAULT_GOAL): GameCo
     targetMinutes: null,
     tempoEnabled: true,
     contentKinds: [...CONTENT_KINDS],
+    theme: 'island',
     devices: 'personal',
     collectionIds: [],
     board: generateBoard(goal, 7),

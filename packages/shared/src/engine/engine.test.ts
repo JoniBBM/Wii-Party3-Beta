@@ -1079,11 +1079,21 @@ describe('Geführte Einrichtung', () => {
     expect(projectState(h.s, { role: 'team', teamId: h.team(0).id }).config.tempoEnabled).toBe(false);
   });
 
+  it('Welt (Insel/Blockwelt) ist pro Spiel einstellbar und für Handys/Beamer sichtbar', () => {
+    const h = harness({ config: { theme: 'blocks' } }).setup(2);
+    expect(h.s.config.theme).toBe('blocks');
+    expect(projectState(h.s, { role: 'team', teamId: h.team(0).id }).config.theme).toBe('blocks');
+    expect(projectState(h.s, { role: 'beamer' }).config.theme).toBe('blocks');
+    expect(defaultConfig('Neu').theme).toBe('island');
+  });
+
   it('ältere Spiele bekommen die neuen Einstellungen', () => {
     const old = defaultConfig('Alt') as Partial<GameConfig>;
     delete old.tempoEnabled;
     delete old.contentKinds;
+    delete old.theme;
     const up = upgradeConfig(old as GameConfig);
+    expect(up.theme).toBe('island');
     expect(up.tempoEnabled).toBe(true);
     expect(up.contentKinds).toEqual(['game', 'choice', 'text', 'estimate', 'buzzer']);
   });

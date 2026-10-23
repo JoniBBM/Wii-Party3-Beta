@@ -1,7 +1,7 @@
 /** Dauerhafte Beamer-Anzeigen: Kopfzeile, Rangliste (in Teamfarben), Einblendungen, Status. */
 import { AnimatePresence, motion } from 'motion/react';
 import { Maximize, Video, Volume2 } from 'lucide-react';
-import { currentTurnTeamId, standings, teamColor, type GameState } from '@insel/shared';
+import { currentTurnTeamId, standings, teamColor, THEME_INFO, type GameState } from '@insel/shared';
 import type { Caption } from '../../board/director.ts';
 import { FigureAvatar } from '../../figure/FigurePreview.tsx';
 import { BonusDieBadge, VolcanoMeter } from '../../ui/game.tsx';
@@ -9,7 +9,7 @@ import { BonusDieBadge, VolcanoMeter } from '../../ui/game.tsx';
 export function TopBar({ state, appName }: { state: GameState | null; appName: string }) {
   return (
     <div className="glass pointer-events-auto flex items-center gap-3 rounded-full py-1.5 pr-5 pl-1.5">
-      <span className="grid size-11 place-items-center rounded-full bg-white text-2xl shadow-soft">🏝️</span>
+      <span className="grid size-11 place-items-center rounded-full bg-white text-2xl shadow-soft">{THEME_INFO[state?.config.theme ?? 'island'].icon}</span>
       <div className="leading-tight">
         <p className="font-display text-xl font-semibold text-ink">{appName}</p>
         {state && <p className="text-sm font-bold text-ink-2">{state.round > 0 ? `Runde ${state.round}` : state.config.name}</p>}

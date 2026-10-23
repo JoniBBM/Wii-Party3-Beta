@@ -15,6 +15,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/nunito": "^5.3.0",
     "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/pixelify-sans": "^5.3.0",
     "@insel/shared": "*",
     "lucide-react": "^1.52.0",
     "motion": "^14.0.0",

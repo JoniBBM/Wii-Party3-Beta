@@ -21,7 +21,7 @@ const matCache = new Map<string, THREE.MeshStandardMaterial>();
 const shared = new WeakSet<THREE.Material>();
 
 /** Vorübergehendes Objekt samt Geometrien, eigenen Materialien und Texturen freigeben. */
-function disposeTree(o: THREE.Object3D) {
+export function disposeTree(o: THREE.Object3D) {
   o.traverse((c) => {
     const m = c as THREE.Mesh;
     m.geometry?.dispose();
@@ -58,7 +58,7 @@ function mesh(geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0,
 }
 
 /** Fass bzw. Kiste auf einem der beiden Wege über den Fluss. */
-interface LaneItem {
+export interface LaneItem {
   o: THREE.Group;
   /** Mitte der Oberseite (dort steht die Figur) */
   top: THREE.Vector3;
@@ -70,39 +70,39 @@ interface LaneItem {
 }
 
 /** Beendet einen Auftritt, wenn zwischendurch Rückgängig gedrückt wurde. */
-class Aborted extends Error {}
+export class Aborted extends Error {}
 
 export class Stunts {
   readonly group = new THREE.Group();
   /** vorübergehende Objekte (UFO, Flugzeug, Feder …) – werden bei Abbruch entfernt */
-  private temps = new Set<THREE.Object3D>();
-  private updaters = new Set<(t: number, dt: number) => void>();
+  protected temps = new Set<THREE.Object3D>();
+  protected updaters = new Set<(t: number, dt: number) => void>();
 
   // Liane
-  private liana: THREE.Group | null = null;
-  private lianaAxis = new THREE.Vector3(1, 0, 0);
-  private lianaLen = 5;
-  private lianaAngle = 0;
-  private lianaTarget = 0;
-  private lianaVel = 0;
-  private hanging: string | null = null;
-  private swinging = false;
+  protected liana: THREE.Group | null = null;
+  protected lianaAxis = new THREE.Vector3(1, 0, 0);
+  protected lianaLen = 5;
+  protected lianaAngle = 0;
+  protected lianaTarget = 0;
+  protected lianaVel = 0;
+  protected hanging: string | null = null;
+  protected swinging = false;
   // Lavahöhle
-  private hole: THREE.Vector3 | null = null;
-  private holeFront: THREE.Vector3 | null = null;
-  private mouth: { pos: THREE.Vector3; inner: THREE.Vector3 } | null = null;
+  protected hole: THREE.Vector3 | null = null;
+  protected holeFront: THREE.Vector3 | null = null;
+  protected mouth: { pos: THREE.Vector3; inner: THREE.Vector3 } | null = null;
   // Minispiel-Bühne
-  private stage: THREE.Group | null = null;
+  protected stage: THREE.Group | null = null;
   // Fässer oder Kisten: zwei Wege über den Fluss
-  private lanes: Record<RiverChoice, LaneItem[]> = { barrels: [], crates: [] };
+  protected lanes: Record<RiverChoice, LaneItem[]> = { barrels: [], crates: [] };
 
   constructor(
-    private layout: IslandLayout,
-    private field: Heightfield,
-    private pieces: Pieces,
-    private tweens: Tweens,
-    private effects: Effects,
-    private audio: BoardAudio,
+    protected layout: IslandLayout,
+    protected field: Heightfield,
+    protected pieces: Pieces,
+    protected tweens: Tweens,
+    protected effects: Effects,
+    protected audio: BoardAudio,
   ) {
     this.group.name = 'stunts';
     this.buildVineTree();
@@ -111,17 +111,17 @@ export class Stunts {
     this.buildCave();
   }
 
-  private guard(epoch: number) {
+  protected guard(epoch: number) {
     if (this.pieces.epochNow !== epoch) throw new Aborted();
   }
 
-  private temp<T extends THREE.Object3D>(o: T): T {
+  protected temp<T extends THREE.Object3D>(o: T): T {
     this.temps.add(o);
     this.group.add(o);
     return o;
   }
 
-  private drop(o: THREE.Object3D | null) {
+  protected drop(o: THREE.Object3D | null) {
     if (!o) return;
     this.temps.delete(o);
     o.removeFromParent();
@@ -149,7 +149,7 @@ export class Stunts {
       }
   }
 
-  private async run(fn: (epoch: number) => Promise<void>) {
+  protected async run(fn: (epoch: number) => Promise<void>) {
     const epoch = this.pieces.epochNow;
     try {
       await fn(epoch);
@@ -161,14 +161,14 @@ export class Stunts {
   // =========================================================================
   // Liane am Riesenbaum
   // =========================================================================
-  private vineFrame() {
+  protected vineFrame() {
     const f = this.layout.fields[this.layout.plan.vineField]!;
     const dir = new THREE.Vector3(Math.cos(f.heading), 0, Math.sin(f.heading));
     const side = new THREE.Vector3(-dir.z, 0, dir.x);
     return { f, dir, side };
   }
 
-  private buildVineTree() {
+  protected buildVineTree() {
     const { f, dir, side } = this.vineFrame();
     // Liane hängt so, dass die Figur gut einen Meter über dem Boden baumelt
     const pivot = new THREE.Vector3(f.x, f.y + this.lianaLen + 2.9, f.z);
@@ -233,7 +233,7 @@ export class Stunts {
   /** Baumkronen des Lianenbaums (für freie Sicht bei Nahaufnahmen) */
   readonly crowns: THREE.Vector3[] = [];
 
-  private treeSide = 1;
+  protected treeSide = 1;
 
   /** Freie Sicht (von scene.ts gesetzt: Kamera prüft Gelände, Gebäude, Baumkronen). */
   shotPicker: ((target: THREE.Vector3, dist: number, height: number, prefer?: THREE.Vector3) => { position: THREE.Vector3; lookAt: THREE.Vector3 }) | null = null;
@@ -270,13 +270,13 @@ export class Stunts {
   }
 
   /** Untere Spitze der Liane in Weltkoordinaten. */
-  private lianaTip(): THREE.Vector3 {
+  protected lianaTip(): THREE.Vector3 {
     const l = this.liana!;
     l.updateMatrixWorld(true);
     return new THREE.Vector3(0, -this.lianaLen - 0.1, 0).applyMatrix4(l.matrixWorld);
   }
 
-  private setLianaAngle(a: number) {
+  protected setLianaAngle(a: number) {
     if (!this.liana) return;
     this.lianaAngle = a;
     this.liana.quaternion.setFromAxisAngle(this.lianaAxis, a);
@@ -359,7 +359,7 @@ export class Stunts {
   // =========================================================================
   // Bach hinter der Liane: Quellfelsen, Steine am Ufer, Schilf
   // =========================================================================
-  private buildCreekDeco() {
+  protected buildCreekDeco() {
     const creek = this.layout.creek;
     if (creek.length < 3) return;
     const rock = mat('#7d7468', { flat: true });
@@ -410,12 +410,12 @@ export class Stunts {
   // Fässer oder Kisten: zwei schwimmende Wege über den Fluss
   // =========================================================================
   /** Ufer vor dem Fluss und erstes Feld dahinter */
-  private fordSpan() {
+  protected fordSpan() {
     const ff = this.layout.fordFields;
     return { bank: ff[0]! - 1, exit: ff[ff.length - 1]! + 1 };
   }
 
-  private buildFord() {
+  protected buildFord() {
     const ff = this.layout.fordFields;
     if (!ff.length) return;
     const fr = this.layout.fieldRadius;
@@ -680,7 +680,7 @@ export class Stunts {
   }
 
   /** Fass bzw. Kiste zerbirst: Bretter fliegen, das Teil taucht später wieder auf. */
-  private burst(item: LaneItem, choice: RiverChoice) {
+  protected burst(item: LaneItem, choice: RiverChoice) {
     item.o.visible = false;
     item.hidden = 3.4;
     const at = item.top;
@@ -818,7 +818,7 @@ export class Stunts {
   // =========================================================================
   // Lavahöhle
   // =========================================================================
-  private buildCave() {
+  protected buildCave() {
     const V = new THREE.Vector3(VOLCANO.x, 0, VOLCANO.z);
     const fr = this.layout.fieldRadius;
     const place = (index: number, off: number) => {
@@ -968,7 +968,7 @@ export class Stunts {
   }
 
   /** Fledermäuse flattern aus einem Loch. */
-  private bats(at: THREE.Vector3) {
+  protected bats(at: THREE.Vector3) {
     const wingGeo = new THREE.BufferGeometry();
     wingGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0.32, 0.05, -0.1, 0.28, 0, 0.14, 0, 0, 0, -0.32, 0.05, -0.1, -0.28, 0, 0.14], 3));
     wingGeo.computeVertexNormals();
@@ -1049,7 +1049,7 @@ export class Stunts {
   // =========================================================================
   // Flugzeug mit Strickleiter und Fallschirm (Katapult rückwärts)
   // =========================================================================
-  private buildPlane(): THREE.Group {
+  protected buildPlane(): THREE.Group {
     const p = new THREE.Group();
     const red = mat('#d8402f', { rough: 0.45 });
     const white = mat('#f4f1ea', { rough: 0.5 });
@@ -1074,7 +1074,7 @@ export class Stunts {
     return p;
   }
 
-  private buildParachute(color: string): THREE.Group {
+  protected buildParachute(color: string): THREE.Group {
     const g = new THREE.Group();
     const canopy = new THREE.Mesh(
       new THREE.SphereGeometry(1.05, 16, 6, 0, Math.PI * 2, 0, Math.PI / 2.4),
@@ -1185,7 +1185,7 @@ export class Stunts {
   // =========================================================================
   // UFO (Platztausch)
   // =========================================================================
-  private buildUfo(): THREE.Group {
+  protected buildUfo(): THREE.Group {
     const u = new THREE.Group();
     const hull = new THREE.Mesh(
       new THREE.LatheGeometry([new THREE.Vector2(0, -0.35), new THREE.Vector2(0.9, -0.25), new THREE.Vector2(1.8, 0), new THREE.Vector2(0.9, 0.25), new THREE.Vector2(0, 0.3)], 28),
@@ -1403,7 +1403,7 @@ export class Stunts {
     for (const ms of [0, 380, 760]) void this.tweens.wait(ms).then(() => this.effects.geyser(f.x, f.y + 0.2, f.z));
   }
 
-  private camPos: THREE.Vector3 | null = null;
+  protected camPos: THREE.Vector3 | null = null;
 
   update(t: number, dt: number, camera?: THREE.Camera) {
     if (camera) this.camPos = camera.position;

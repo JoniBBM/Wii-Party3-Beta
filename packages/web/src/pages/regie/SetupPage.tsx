@@ -17,6 +17,7 @@ import { BoardEditor } from './BoardEditor.tsx';
 import { RulesEditor } from './RulesEditor.tsx';
 import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
 import { SetupWizard } from './SetupWizard.tsx';
+import { ThemePicker } from '../../game/ThemePicker.tsx';
 
 type Tab = 'content' | 'plan' | 'board' | 'rules';
 type View = 'guided' | 'all';
@@ -128,6 +129,10 @@ export function SetupPage() {
         {tab === 'board' && <BoardEditor board={draft.board} onChange={(board) => setDraft({ ...draft, board })} />}
         {tab === 'rules' && (
           <div className="flex flex-col gap-5">
+            <div>
+              <p className="mb-2 font-bold">Welt</p>
+              <ThemePicker value={draft.theme ?? 'island'} onChange={(theme) => setDraft({ ...draft, theme })} />
+            </div>
             <div>
               <p className="mb-2 font-bold">Handys</p>
               <DeviceModePicker value={draft.devices ?? 'personal'} onChange={(devices) => setDraft({ ...draft, devices })} />

@@ -1,7 +1,7 @@
 /** Leichtgewichtiges Partikelsystem (Rauch, Funken, Konfetti, Lava, Staub). */
 import * as THREE from 'three';
 
-export type ParticleShape = 'soft' | 'confetti' | 'star';
+export type ParticleShape = 'soft' | 'confetti' | 'star' | 'pixel';
 
 export interface Particle {
   x: number;
@@ -51,7 +51,9 @@ const fragment = (shape: ParticleShape) => /* glsl */ `
     ${
       shape === 'confetti'
         ? 'float w = abs(cos(vAngle * 1.7)) * 0.32 + 0.06; a = step(abs(p.x), w) * step(abs(p.y), 0.18);'
-        : shape === 'star'
+        : shape === 'pixel'
+          ? 'a = step(abs(p.x), 0.36) * step(abs(p.y), 0.36);'
+          : shape === 'star'
           ? 'float r = length(p); float ang = atan(p.y, p.x); float star = 0.18 + 0.16 * pow(abs(cos(ang * 2.0)), 6.0); a = smoothstep(star, star - 0.08, r) + smoothstep(0.5, 0.0, r) * 0.35;'
           : 'float r = length(p); a = smoothstep(0.5, 0.0, r); a *= a;'
     }
@@ -69,6 +71,13 @@ export class ParticleSystem {
   private sizes: Float32Array;
   private angles: Float32Array;
   private geo: THREE.BufferGeometry;
+  private material: THREE.ShaderMaterial;
+
+  /** Form wechseln (Blockwelt: eckige Pixel statt weicher Wolken) */
+  setShape(shape: ParticleShape) {
+    this.material.fragmentShader = fragment(shape);
+    this.material.needsUpdate = true;
+  }
 
   constructor(
     private max: number,
@@ -93,6 +102,7 @@ export class ParticleSystem {
       depthWrite: opts.depthWrite ?? false,
       blending: opts.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
     });
+    this.material = material;
     this.points = new THREE.Points(this.geo, material);
     this.points.frustumCulled = false;
     this.points.renderOrder = 5;
@@ -175,6 +185,13 @@ export class Effects {
 
   setScale(h: number) {
     for (const s of [this.smoke, this.glow, this.confetti, this.stars]) s.setScale(h);
+  }
+
+  /** Blockwelt: Rauch, Glut und Funken als eckige Pixel */
+  setPixel(on: boolean) {
+    this.smoke.setShape(on ? 'pixel' : 'soft');
+    this.glow.setShape(on ? 'pixel' : 'soft');
+    this.stars.setShape(on ? 'pixel' : 'star');
   }
 
   update(dt: number) {

@@ -6,6 +6,7 @@ import { standings, teamColor, type GameState, type Player, type Session, type T
 import { useLive, useLiveConnection } from '../../lib/live.ts';
 import { setToken } from '../../lib/storage.ts';
 import { useTheme } from '../../lib/theme.ts';
+import { useWorldStyle } from '../../lib/world.ts';
 import { FigureAvatar } from '../../figure/FigurePreview.tsx';
 import { IconButton, Spinner } from '../../ui/basics.tsx';
 import { ConnectionDot } from '../../ui/game.tsx';
@@ -36,6 +37,7 @@ export default function TeamApp() {
   useLiveConnection('member', 'team');
   const navigate = useNavigate();
   const { state, session, received, status } = useLive();
+  useWorldStyle(state?.config.theme);
   const [tab, setTab] = useState<Tab>('play');
 
   const member = session?.role === 'team' || session?.role === 'player';

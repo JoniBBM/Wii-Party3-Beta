@@ -19,7 +19,7 @@ import {
   VignetteEffect,
 } from 'postprocessing';
 import { N8AOPostPass } from 'n8ao';
-import type { Effect, GameState, RenderQuality, Resolution } from '@insel/shared';
+import type { Effect, GameState, RenderQuality, Resolution, Theme } from '@insel/shared';
 import { windUniforms } from './assets.ts';
 import { BoardAudio } from './audio.ts';
 import { CameraRig } from './camera.ts';
@@ -45,6 +45,13 @@ import { createUltraTerrainMaterial, loadUltraTextures } from './ultra.ts';
 import { createRiver, createWater, type RiverFx, type Water } from './water.ts';
 import { fx } from './worldfx.ts';
 import { createSky, type Sky } from './sky.ts';
+import { buildVoxelWorld, type VoxelWorld } from './blocks/world.ts';
+import { buildBlockFields } from './blocks/fields.ts';
+import { BLOCK_SKY, createBlockSky } from './blocks/sky.ts';
+import { buildBlockVolcano } from './blocks/volcano.ts';
+import { BlockStunts } from './blocks/stunts.ts';
+import { NetherInside } from './blocks/nether.ts';
+import { buildBlockAnimals } from './blocks/animals.ts';
 
 export type Quality = RenderQuality;
 
@@ -83,6 +90,8 @@ export interface BoardSceneOptions {
   /** Anfangsstufe; später mit setQuality umschaltbar */
   quality: Quality;
   fieldCount: number;
+  /** Welt: Insel (Standard) oder Blockwelt */
+  theme?: Theme;
   onProgress?: (p: number, label: string) => void;
 }
 
@@ -128,6 +137,9 @@ export class BoardScene {
   private envUltra: THREE.Texture | null = null;
   private grassFull = 0;
   private frame = 0;
+  /** Welt dieser Szene (wechselt nur mit Neuaufbau) */
+  theme: Theme = 'island';
+  private voxel: VoxelWorld | null = null;
   private shadowEvery = 1;
   /** Bildrate (gleitend über ~2 s) */
   fps = 60;
@@ -146,7 +158,7 @@ export class BoardScene {
   /** Welche Welt gerade zu sehen ist (Insel oder Vulkan-Inneres) */
   view: 'island' | 'inside' = 'island';
   /** Vulkan-Inneres als eigene Szene (erst angelegt, wenn die Regel aktiv ist) */
-  inside: VolcanoInside | null = null;
+  inside: VolcanoInside | NetherInside | null = null;
   private insideKey = '';
   private islandHeightAt: ((x: number, z: number) => number) | null = null;
   private islandBlockers: Parameters<CameraRig['setBlockers']>[0] = [];
@@ -198,15 +210,17 @@ export class BoardScene {
   private async build(opts: BoardSceneOptions) {
     const preset = PRESETS[opts.quality];
     const progress = opts.onProgress ?? (() => {});
-    progress(0.05, 'Insel wird vermessen …');
+    const blocks = opts.theme === 'blocks';
+    this.theme = blocks ? 'blocks' : 'island';
+    progress(0.05, blocks ? 'Welt wird generiert …' : 'Insel wird vermessen …');
     this.layout = buildLayout(opts.fieldCount);
     const layout = this.layout;
 
     // Licht
-    this.scene.fog = new THREE.Fog(HORIZON, 140, 420);
-    const hemi = new THREE.HemisphereLight('#dff2ff', '#86b06a', 0.9);
+    this.scene.fog = blocks ? new THREE.Fog(BLOCK_SKY.horizon, 110, 360) : new THREE.Fog(HORIZON, 140, 420);
+    const hemi = blocks ? new THREE.HemisphereLight('#e8f0ff', '#8a9a70', 1.15) : new THREE.HemisphereLight('#dff2ff', '#86b06a', 0.9);
     this.scene.add(hemi);
-    this.sun = new THREE.DirectionalLight('#fff1d6', 3.1);
+    this.sun = new THREE.DirectionalLight('#fff1d6', blocks ? 2.1 : 3.1);
     this.sun.position.set(-44, 46, 36);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(preset.shadow, preset.shadow);
@@ -222,7 +236,7 @@ export class BoardScene {
 
     // Himmel (HDRI als Hintergrund und Umgebungslicht)
     progress(0.12, 'Himmel wird aufgezogen …');
-    try {
+    if (!blocks) try {
       const hdr = await new HDRLoader().loadAsync('/assets/hdri/sky.hdr');
       hdr.mapping = THREE.EquirectangularReflectionMapping;
       const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -235,14 +249,41 @@ export class BoardScene {
     } catch {
       /* ohne Umgebungslicht geht es auch */
     }
-    this.scene.background = HORIZON;
-    this.sky = createSky({ horizon: HORIZON, sunDir: this.sun.position, clouds: 16 });
+    this.scene.background = blocks ? BLOCK_SKY.horizon : HORIZON;
+    this.sky = blocks ? createBlockSky(this.sun.position) : createSky({ horizon: HORIZON, sunDir: this.sun.position, clouds: 16 });
     this.scene.add(this.sky.group);
 
     // Gelände & Wasser
-    progress(0.25, 'Insel wird geformt …');
+    progress(0.25, blocks ? 'Blöcke werden gesetzt …' : 'Insel wird geformt …');
     await nextFrame();
     const field = buildHeightfield(layout, BUILD.terrain);
+    if (blocks) await this.buildBlockWorld(layout, field, progress);
+    else await this.buildIsland(layout, field, preset, progress);
+    this.finishBuild(layout, field, preset, progress);
+  }
+
+  /** Blockwelt: Würfel-Gelände, Fluss-Kaskaden, Bäume, Woll-Felder (statt Insel-Gelände, Deko und Gras) */
+  private async buildBlockWorld(layout: IslandLayout, field: ReturnType<typeof buildHeightfield>, progress: (p: number, label: string) => void) {
+    const world = buildVoxelWorld(layout, field);
+    this.voxel = world;
+    this.scene.add(world.group);
+    this.water = world.water;
+    this.scene.add(world.water.mesh);
+    this.river = world.river;
+    progress(0.45, 'Spielfelder werden gelegt …');
+    this.fields = buildBlockFields(layout, world.topAt);
+    this.fields.setFields(layout.fields.map((_, i) => (i === 0 ? 'start' : i === layout.fields.length - 1 ? 'goal' : 'normal')));
+    this.scene.add(this.fields.group);
+    this.props = { group: new THREE.Group(), update() {}, fires: [], smokes: [], canopies: world.crowns, flowers: world.flowers, perches: [], blockers: world.blockers };
+    if (!new URLSearchParams(location.search).has('noanimals')) {
+      progress(0.7, 'Tiere und Monster ziehen ein …');
+      this.animals = buildBlockAnimals(layout, field, world.topAt);
+      this.scene.add(this.animals.group);
+    }
+    await nextFrame();
+  }
+
+  private async buildIsland(layout: IslandLayout, field: ReturnType<typeof buildHeightfield>, preset: Preset, progress: (p: number, label: string) => void) {
     let hTexCache: THREE.DataTexture | null = null;
     const heightTex0 = () => (hTexCache ??= heightTexture(field));
     const terrain = buildTerrainMesh(layout, field);
@@ -263,7 +304,7 @@ export class BoardScene {
     this.scene.add(this.fields.group);
 
     // Deko
-    progress(0.55, 'Palmen werden gepflanzt …');
+    progress(0.55, 'Palmen werden gepflanzt …'); // nur Insel
     try {
       if (!new URLSearchParams(location.search).has('noprops')) {
         this.props = await buildProps(layout, field, { density: BUILD.density });
@@ -299,10 +340,13 @@ export class BoardScene {
     } catch (e) {
       console.warn('Deko konnte nicht geladen werden', e);
     }
+  }
 
+  private finishBuild(layout: IslandLayout, field: ReturnType<typeof buildHeightfield>, preset: Preset, progress: (p: number, label: string) => void) {
     progress(0.85, 'Vulkan wird angeheizt …');
     this.scene.add(this.effects.group);
-    this.volcano = buildVolcano(layout, this.effects, { light: true, field });
+    this.effects.setPixel(this.theme === 'blocks');
+    this.volcano = this.voxel ? buildBlockVolcano(this.effects, this.voxel.lavaY) : buildVolcano(layout, this.effects, { light: true, field });
     this.scene.add(this.volcano.group);
 
     // Figuren, Kamera, Würfel, Regie
@@ -316,9 +360,9 @@ export class BoardScene {
         const spot = layout.fields[f]!;
         this.effects.dust(spot.x, this.fields.topY[f]!, spot.z);
       },
-    });
+    }, this.theme);
     this.scene.add(this.pieces.group);
-    this.stunts = new Stunts(layout, field, this.pieces, this.tweens, this.effects, this.audio);
+    this.stunts = new (this.theme === 'blocks' ? BlockStunts : Stunts)(layout, field, this.pieces, this.tweens, this.effects, this.audio);
     this.scene.add(this.stunts.group);
     this.rig = new CameraRig(this.camera, layout);
     this.islandHeightAt = (x, z) => field.height(x, z);
@@ -392,7 +436,7 @@ export class BoardScene {
       }
     const effects: ConstructorParameters<typeof EffectPass>[1][] = [];
     if (p.bloom) effects.push(new BloomEffect({ luminanceThreshold: p.ultra ? 0.88 : 0.92, luminanceSmoothing: 0.2, intensity: p.ultra ? 1.05 : 0.9, mipmapBlur: true, radius: p.ultra ? 0.78 : 0.7, levels: p.ultra ? 9 : 8 }));
-    if (p.tilt) effects.push(new TiltShiftEffect({ offset: 0.05, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: 1 }));
+    if (p.tilt && this.theme !== 'blocks') effects.push(new TiltShiftEffect({ offset: 0.05, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: 1 }));
     if (p.ultra) {
       // echte Tiefenschärfe: scharf, wohin die Kamera schaut; Hintergrund weich
       const dof = new DepthOfFieldEffect(this.camera, { focusDistance: 20, focusRange: 16, bokehScale: 2.2, resolutionScale: 0.5 });
@@ -412,7 +456,7 @@ export class BoardScene {
 
   /** Ultra-Grafik an/aus: Gelände-Materialien, Wellen, schärferes Umgebungslicht (lädt beim ersten Mal). */
   private applyUltra(on: boolean) {
-    if (!on) {
+    if (!on || this.theme === 'blocks') {
       if (this.terrain && this.terrainBase) this.terrain.material = this.terrainBase;
       this.water.setUltra(null);
       if (this.envBase) this.scene.environment = this.envBase;
@@ -454,7 +498,7 @@ export class BoardScene {
     const shout = r?.shout ?? 4;
     const key = `${length}|${shout}`;
     if (!this.inside) {
-      this.inside = new VolcanoInside({ length, shout, quality: this.quality });
+      this.inside = new (this.theme === 'blocks' ? NetherInside : VolcanoInside)({ length, shout, quality: this.quality });
       const inside = this.inside;
       this.pieces.inside = { root: inside.scene, spot: (st, i, n, g) => inside.spot(st, i, n, g), facing: (st) => inside.facing(st) };
       this.scheduleWarm();

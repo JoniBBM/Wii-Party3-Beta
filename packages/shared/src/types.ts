@@ -10,6 +10,7 @@ import type {
   MixFieldType,
   PlayerCount,
   TeamColorKey,
+  Theme,
 } from './constants.ts';
 
 // ---------------------------------------------------------------------------
@@ -198,6 +199,8 @@ export interface GameConfig {
   tempoEnabled: boolean;
   /** Welche Arten von Inhalten per Zufall drankommen (Plan und Auswahl von Hand sind frei). */
   contentKinds: ContentKind[];
+  /** Welt: Insel oder Blockwelt (nur Optik) */
+  theme: Theme;
   devices: DeviceMode;
   collectionIds: string[];
   board: BoardConfig;

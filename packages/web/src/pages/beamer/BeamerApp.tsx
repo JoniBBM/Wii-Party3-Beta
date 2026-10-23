@@ -20,6 +20,7 @@ import { BeamerStatus, CaptionBanner, Ranking, TopBar } from './Hud.tsx';
 import { DiceBanner, PhaseOverlay, QuestionSpotlight, RevealSpotlight, VictoryBanner } from './Overlays.tsx';
 import { PhotoBubbles } from './PhotoBubbles.tsx';
 import { useShowControl } from './useShowControl.ts';
+import { useWorldStyle } from '../../lib/world.ts';
 
 /** Beamer-Zugang einrichten (Link oder Regie-Login auf demselben Rechner); true, sobald geprüft. */
 function useBeamerAccess(): boolean {
@@ -59,6 +60,7 @@ export default function BeamerApp() {
   useLiveConnection('beamer', 'beamer', access);
   useSystemSync(access ? 'beamer' : null);
   const { state, status, appName, session, pairCode } = useLive();
+  useWorldStyle(state?.config.theme);
   // Zugang abgelaufen (z. B. neues Passwort), aber die Regie ist auf diesem Rechner angemeldet → neu holen
   const renewed = useRef(false);
   useEffect(() => {
