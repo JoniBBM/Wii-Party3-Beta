@@ -42,7 +42,7 @@ Bei Fragen gibt es Bonuswürfel standardmäßig **nur für richtige Antworten** 
 | 🌋 **Vulkanfeld** (dunkelrot) | Heizt den Vulkan an: **+2 Druck**. |
 | 💀 **Totenkopf** (dunkelviolett) | Der Boden bricht ein – das Team fällt **ins Innere des Vulkans** (siehe unten). Standard: 2 Totenkopf-Felder in der Mitte der Strecke (bei kurzen Brettern 1 oder keins). |
 
-Alle Werte lassen sich unter *Spiel einrichten → Regeln* ändern.
+Alle Werte lassen sich unter *Spiel einrichten → Alle Einstellungen* in den Bereichen *Würfel & Sieg*, *Sonderfelder*, *Mutproben*, *Vulkan* und *Fragen & Antworten* ändern (oder oben in der Regie danach suchen).
 
 ## Mutproben und besondere Orte
 

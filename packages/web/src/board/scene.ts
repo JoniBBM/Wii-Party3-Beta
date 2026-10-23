@@ -22,7 +22,7 @@ import { N8AOPostPass } from 'n8ao';
 import { atmosphereFor, type Effect, type Festive, type GameState, type RenderQuality, type Resolution, type ShowSettings, type Theme } from '@insel/shared';
 import { windUniforms } from './assets.ts';
 import { BoardAudio } from './audio.ts';
-import { CameraRig } from './camera.ts';
+import { CameraRig, ease, flight, type Shot } from './camera.ts';
 import { Ceremony } from './ceremony.ts';
 import { Commentator } from './commentator.ts';
 import { attachManualCamera } from './manual.ts';
@@ -466,24 +466,191 @@ export class BoardScene {
   }
 
   /**
+   * Regie-Besuch im Vulkan-Inneren (Nether): `going` = Anflug und Sturz in den Krater, `inside` =
+   * Kamera schwebt ruhig durchs Innere, `leaving` = hinaus und zurück auf die Insel.
+   */
+  private visitState: 'none' | 'going' | 'inside' | 'leaving' = 'none';
+  /** Woher die Kamera zum Besuch aufgebrochen ist (Blickwinkel um die Inselmitte) – dorthin geht es zurück */
+  private visitFrom: number | null = null;
+
+  /** Regie-Besuch läuft (die Automatik lässt die Kamera dort, bis gewürfelt wird). `false` beendet ihn. */
+  get visiting() {
+    return this.visitState !== 'none';
+  }
+  set visiting(on: boolean) {
+    if (!on) this.visitState = 'none';
+  }
+
+  /**
    * Regie: ins Vulkan-Innere (Nether) schauen bzw. zurück auf die Insel – nur, wenn gerade kein Zug
-   * oder Auftritt läuft und keine Spielerklärung. Der nächste Zug holt die Kamera wieder dorthin,
+   * oder Auftritt läuft und keine Spielerklärung. Hinein: Anflug auf den Vulkan, über den Kraterrand
+   * hinab in die Lava, Überblendung – im Inneren gleitet die Kamera von der Decke herab und kreist
+   * danach ruhig. Zurück: hinauf zur Deckenöffnung (Nether: ins Portal), Überblendung, aus dem
+   * Krater auftauchen und zur Inselansicht zurückziehen. Der nächste Zug holt die Kamera wieder dorthin,
    * wo das Team ist.
    */
-  /** Regie-Besuch im Vulkan-Inneren läuft (Automatik lässt die Kamera dort, bis gewürfelt wird) */
-  visiting = false;
-
   async visit(to: 'inside' | 'island'): Promise<boolean> {
-    if (this.director.busy || this.rig.locked || this.view === to) return false;
-    this.visiting = to === 'inside';
+    if (this.director.busy || this.rig.locked) return false;
     const ins = this.inside;
-    if (to === 'inside' && !ins) return false;
+    if (to === 'inside') {
+      if (!ins || this.visitState === 'going' || this.visitState === 'leaving') return false;
+      this.rig.endManual();
+      if (this.view === 'inside') {
+        // schon drin (z. B. Team im Vulkan): ab hier ruhig kreisen
+        this.visitState = 'inside';
+        this.rig.set({ kind: 'path', at: this.insideVisitPath(ins, this.rig.pose()) }, 2.6);
+        return true;
+      }
+      this.visitState = 'going';
+      this.visitFrom = Math.atan2(this.camera.position.x, this.camera.position.z);
+      const warm = this.warmInside();
+      const dive = this.craterDive();
+      const mode = { kind: 'path' as const, at: dive.at, duration: dive.seconds };
+      this.rig.set(mode, 7);
+      // bis ganz unten (die Kamera folgt der Bahn mit kurzer Verzögerung)
+      await Promise.all([this.untilPath(mode, dive.seconds + 0.3), warm]);
+      if (this.visitState !== 'going' || this.disposed || this.rig.locked || this.director.busy) {
+        if (this.visitState === 'going') this.visitState = 'none';
+        return false;
+      }
+      await this.travel('inside', {
+        fade: 1100,
+        arrive: () => {
+          if (this.visitState !== 'going') return;
+          this.visitState = 'inside';
+          this.rig.set({ kind: 'path', at: this.insideVisitPath(ins) }, 2.6);
+        },
+      });
+      // (Ansicht und Zustand ändern sich während der Reise)
+      const view: string = this.view;
+      return view === 'inside' && this.visiting;
+    }
+    if (this.visitState === 'going') {
+      // noch auf dem Anflug: umkehren
+      this.visitState = 'none';
+      this.rig.set({ kind: 'overview' }, 1);
+      return true;
+    }
+    if (this.view !== 'inside' || !ins || this.visitState === 'leaving') return false;
+    this.visitState = 'leaving';
     this.rig.endManual();
-    await this.travel(to, {
-      fade: 700,
-      arrive: () => (to === 'inside' && ins ? this.rig.set({ kind: 'focus', ...ins.overviewShot() }, 2) : this.rig.set({ kind: 'overview' }, 1)),
+    // hinauf zum Licht (Nether: ins Portal), noch in Bewegung überblenden
+    const up = 3.4;
+    const exit = { kind: 'path' as const, at: flight([this.rig.pose(), ...ins.exitShots()], up, ease(0, 1)), duration: up };
+    this.rig.set(exit, 7);
+    await this.untilPath(exit, up);
+    if (this.visitState !== 'leaving' || this.disposed) return false;
+    const back: { mode: { kind: 'path'; at: (t: number) => Shot; duration: number } | null } = { mode: null };
+    await this.travel('island', {
+      fade: 1100,
+      arrive: () => {
+        if (this.visitState !== 'leaving') return;
+        const r = this.craterRise();
+        back.mode = { kind: 'path', at: r.at, duration: r.seconds };
+        this.rig.set(back.mode, 3.2);
+      },
     });
+    const rise = back.mode;
+    if (rise) await this.untilPath(rise, rise.duration);
+    if (this.visitState === 'leaving') {
+      this.visitState = 'none';
+      // weiter mit der langsam kreisenden Inselansicht (setzt dort an, wo die Fahrt endet)
+      if (rise && this.rig.mode === rise) this.rig.set({ kind: 'overview' }, 1);
+    }
     return true;
+  }
+
+  /** Warten, bis die vorgezeichnete Fahrt `mode` bei Sekunde `t` ist (oder abgelöst wurde). */
+  private async untilPath(mode: object, t: number) {
+    // ohne Bilder (verstecktes Fenster) läuft die Fahrt nicht weiter: höchstens etwas länger warten
+    const end = performance.now() + t * 1000 + 2500;
+    while (!this.disposed && this.rig.mode === mode && this.rig.pathTime < t && performance.now() < end) await new Promise((r) => window.setTimeout(r, 30));
+  }
+
+  /**
+   * Regie-Besuch, hinein: Anflug auf den Vulkan (von der Seite, wo die Kamera gerade ist), über den
+   * Kraterrand und hinab in den glühenden Schlund – endet noch in Bewegung knapp über der Lava.
+   */
+  private craterDive(): { at: (t: number) => Shot; seconds: number } {
+    const v = this.layout.volcano;
+    const from = this.rig.pose();
+    const ground = (x: number, z: number) => this.rig.heightAt?.(x, z) ?? 0;
+    let a = Math.atan2(from.position.z - v.z, from.position.x - v.x);
+    const flat = Math.hypot(from.position.x - v.x, from.position.z - v.z);
+    if (flat < 4) a = Math.PI / 2;
+    const at = (r: number, y: number) => new THREE.Vector3(v.x + Math.cos(a) * r, y, v.z + Math.sin(a) * r);
+    const lava = this.volcano.craterTop.y;
+    const keys: Shot[] = [from];
+    const approach: Shot = { position: at(26, v.height + 12), lookAt: new THREE.Vector3(v.x, v.height - 1.5, v.z) };
+    if (flat > 30) {
+      // von weit weg: Bogen über Hügel und Bäume hinweg zum Anflugpunkt
+      let lift = 0;
+      for (let f = 0.1; f < 1; f += 0.1) {
+        const p = from.position.clone().lerp(approach.position, f);
+        lift = Math.max(lift, ground(p.x, p.z) + 8 - p.y);
+      }
+      if (lift > 0) {
+        const mid = from.position.clone().lerp(approach.position, 0.5);
+        mid.y += lift * 1.4;
+        keys.push({ position: mid, lookAt: from.lookAt.clone().lerp(approach.lookAt, 0.6) });
+      }
+      keys.push(approach);
+    }
+    // über den Kraterrand, Blick hinab – dann senkrecht hinein bis knapp über den Lavasee
+    keys.push({ position: at(8, v.height + 6.5), lookAt: at(-1.5, lava + 0.5) });
+    keys.push({ position: at(2.2, v.height + 1), lookAt: at(-0.8, lava - 3) });
+    // Blockwelt: nur ein kleiner Lavasee ganz unten – so nah heran, dass er das Bild füllt
+    const pool = this.voxel ? this.voxel.lavaY + 1.05 : lava + 1.9;
+    keys.push({ position: at(0.3, pool), lookAt: at(-1, pool - 7) });
+    let length = 0;
+    for (let i = 1; i < keys.length; i++) length += keys[i]!.position.distanceTo(keys[i - 1]!.position);
+    const seconds = Math.min(7.5, Math.max(4.2, 2.4 + length / 24));
+    return { at: flight(keys, seconds, ease(0, 0.6)), seconds };
+  }
+
+  /**
+   * Regie-Besuch, zurück: aus dem Krater auftauchen (Blick erst zum Himmel), über den Rand steigen,
+   * dann rückwärts zurückziehen bis zur ganzen Insel – dorthin, woher die Kamera zum Besuch kam.
+   */
+  private craterRise(): { at: (t: number) => Shot; seconds: number } {
+    const v = this.layout.volcano;
+    const lava = this.volcano.craterTop.y;
+    const hero = this.rig.hero(this.visitFrom ?? undefined);
+    const a = Math.atan2(hero.position.z - v.z, hero.position.x - v.x);
+    const at = (r: number, y: number) => new THREE.Vector3(v.x + Math.cos(a) * r, y, v.z + Math.sin(a) * r);
+    const keys: Shot[] = [
+      // im Krater, Blick schräg hinauf über den Rand zum Himmel
+      { position: at(0.8, Math.max(lava + 2.4, v.height - 1.4)), lookAt: at(-6, v.height + 5.5) },
+      // über den Rand gestiegen: Blick quer über den Krater
+      { position: at(2, v.height + 7), lookAt: at(-5, v.height - 1) },
+      { position: at(13, v.height + 17), lookAt: at(-1, v.height - 2) },
+      hero,
+    ];
+    const seconds = 7.5;
+    return { at: flight(keys, seconds, ease(0.35, 0)), seconds };
+  }
+
+  /**
+   * Kamera im Inneren beim Regie-Besuch: von der Decke herab (bzw. ab `from`) zur Übersicht gleiten,
+   * danach ruhig über Route und Figuren schweben.
+   */
+  private insideVisitPath(ins: VolcanoInside | NetherInside, from?: Shot): (t: number) => Shot {
+    const focus = () => {
+      const out: THREE.Vector3[] = [];
+      for (const id of this.pieces.insideIds()) {
+        const p = this.pieces.worldPos(id);
+        if (p) out.push(p);
+      }
+      return out;
+    };
+    const glide = from ? 3.5 : 5.5;
+    const start = from ?? ins.entryShot();
+    const first = flight([start, ins.tourShot(0, focus())], glide, from ? undefined : ease(0.4, 0));
+    return (t) => {
+      if (t >= glide) return ins.tourShot(t - glide, focus());
+      const s = first(t);
+      return { position: ins.fit(s.position), lookAt: s.lookAt };
+    };
   }
 
   /** Wetter und Festzeit: Materialien für Schnee/Herbst anmelden, Bodenhöhe für Dekoration */
@@ -595,6 +762,8 @@ export class BoardScene {
     if (v === 'inside' && !this.inside) return;
     if (v === this.view) return;
     this.view = v;
+    // zurück auf der Insel (z. B. Ende der Spielerklärung): ein Regie-Besuch im Inneren ist vorbei
+    if (v === 'island' && this.visitState === 'inside') this.visitState = 'none';
     // freie Kamera (Maus/Fernsteuerung) gilt nur für die alte Welt
     this.rig.endManual();
     if (v === 'inside') {
@@ -668,18 +837,24 @@ export class BoardScene {
     this.warmTimer = window.setTimeout(() => void this.warmInside(), 1800);
   }
 
-  private async warmInside() {
+  /** Vorbereitung läuft bzw. ist fertig (zum Abwarten vor einer Reise ins Innere) */
+  private warming: Promise<void> = Promise.resolve();
+
+  private warmInside(): Promise<void> {
     const ins = this.inside;
-    if (!ins || this.insideWarm || this.disposed) return;
+    if (!ins || this.insideWarm || this.disposed) return this.warming;
     this.insideWarm = true;
-    try {
-      // Materialien des Inneren und der Figuren (mit dessen Licht) parallel übersetzen
-      await this.renderer.compileAsync(ins.scene, this.camera);
-      await this.renderer.compileAsync(this.pieces.group, this.camera, ins.scene);
-    } catch (e) {
-      console.warn('Vulkan-Inneres konnte nicht vorbereitet werden', e);
-    }
-    if (!this.disposed) this.warmFrame = true;
+    this.warming = (async () => {
+      try {
+        // Materialien des Inneren und der Figuren (mit dessen Licht) parallel übersetzen
+        await this.renderer.compileAsync(ins.scene, this.camera);
+        await this.renderer.compileAsync(this.pieces.group, this.camera, ins.scene);
+      } catch (e) {
+        console.warn('Vulkan-Inneres konnte nicht vorbereitet werden', e);
+      }
+      if (!this.disposed) this.warmFrame = true;
+    })();
+    return this.warming;
   }
 
   /** Nächstes fertiges Bild als Standbild über die Bühne legen. */
@@ -868,6 +1043,12 @@ export class BoardScene {
       this.festive?.update(t, dt);
     }
     this.rig.update(dt);
+    // beim Sturz in den Krater (Regie-Besuch) nicht durch die Rauchwolke schauen
+    if (this.view === 'island') {
+      const v = this.layout.volcano;
+      const c = this.camera.position;
+      this.effects.smoke.points.visible = !(this.visitState === 'going' && Math.hypot(c.x - v.x, c.z - v.z) < v.craterRadius + 3 && c.y < v.height + 5);
+    }
     this.pieces.updateTags(this.camera, t);
     // Schatten nicht in jedem Bild neu zeichnen (Sonne steht still; bewegte Dinge sind langsam)
     if (++this.frame % this.shadowEvery === 0) this.renderer.shadowMap.needsUpdate = true;

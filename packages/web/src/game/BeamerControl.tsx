@@ -1,10 +1,11 @@
 /**
- * Beamer-Fernsteuerung für Regie (und Moderator): Grafik, Vollbild, Ton & Musik mit
- * Lautstärken, Kommentator, Kamera samt Steuerkreuz, Spielerklärung, Testtöne, Neu laden.
- * Funktioniert unabhängig vom Spielstand – auch ohne Spiel und in der Lobby.
+ * Beamer-Fernsteuerung für Regie (und Moderator): Beamer & Spielerklärung, Bild, Ton & Musik,
+ * Kommentator, Kamera samt Steuerkreuz. Wetter & Stimmung stehen bei „Spiel einrichten › Welt“.
+ * Funktioniert unabhängig vom Spielstand – auch ohne Spiel und in der Lobby. Jede Einstellung trägt
+ * `data-setting` (Sprungziel der Suche, siehe lib/settingsIndex.ts).
  */
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   ArrowDown,
   ArrowLeft,
@@ -26,15 +27,13 @@ import {
   Volume2,
   Waves,
   CloudSun,
+  ChevronRight,
 } from 'lucide-react';
 import {
   atmosphereFor,
-  FESTIVE_INFO,
-  FESTIVE_MODES,
   SEASON_INFO,
-  SEASONS,
   WEATHER_INFO,
-  WEATHER_KINDS,
+  FESTIVE_INFO,
   CHATTER_STEPS,
   MUSIC_MOOD_LABEL,
   MUSIC_MOODS,
@@ -44,6 +43,8 @@ import {
   QUALITY_LEVELS,
   RESOLUTION_INFO,
   RESOLUTIONS,
+  THEME_INFO,
+  THEMES,
   type Resolution,
   teamColor,
   type CameraCommand,
@@ -52,8 +53,10 @@ import {
   type ShowSettings,
 } from '@insel/shared';
 import { pairBeamer, sendShow, useLive } from '../lib/live.ts';
+import { goToSetting, settingById, useSettingFocus } from '../lib/settingsIndex.ts';
 import { Badge, Button, Card, CardHeader, Segmented, Switch } from '../ui/basics.tsx';
 import { toast } from '../ui/toast.tsx';
+import { AtmosphereCard } from './AtmosphereControl.tsx';
 
 async function patch(p: ShowPatch) {
   const r = await sendShow({ type: 'set', patch: p });
@@ -131,7 +134,7 @@ function ChatterRow({ value, disabled, onChange }: { value: number; disabled: bo
   const secs = shown > 0 ? 60 / shown : 0;
   const every = shown === 0 ? 'nur zu Ereignissen' : secs >= 120 ? `etwa alle ${Math.round(secs / 60)} min` : `etwa alle ${Math.round(secs)} s`;
   return (
-    <div className="flex flex-col gap-1 rounded-2xl bg-bg-2 px-3 py-2">
+    <div data-setting="b.chatter" className="flex flex-col gap-1 rounded-2xl bg-bg-2 px-3 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <span className="text-sm font-bold">Zwischendurch plaudern</span>
         <span className="text-sm font-bold text-accent tabular-nums">
@@ -162,6 +165,7 @@ function AudioRow({
   onToggle,
   onVolume,
   test,
+  id,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -170,9 +174,10 @@ function AudioRow({
   onToggle: (v: boolean) => void;
   onVolume: (v: number) => void;
   test?: () => void;
+  id?: string;
 }) {
   return (
-    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-1.5">
+    <div data-setting={id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl py-1.5">
       <Switch checked={on} onChange={onToggle} />
       <div className="min-w-0">
         <p className="flex items-center gap-2 text-sm font-bold">
@@ -239,7 +244,7 @@ function PairBeamer() {
     } else toast.error(r.error ?? 'Freigabe fehlgeschlagen');
   };
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-2xl bg-bg-2 px-3 py-2">
+    <form data-setting="b.pair" onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-2xl bg-bg-2 px-3 py-2">
       {/* Mindestbreite: auf schmalen Bildschirmen steht der Satz in einer eigenen Zeile */}
       <label htmlFor="beamer-pair" className="min-w-[12rem] flex-1 text-sm font-semibold text-ink-2">
         Beamer zeigt einen Code? Hier eingeben, um ihn freizugeben:
@@ -265,13 +270,13 @@ function BeamerStatusList() {
   const presence = useLive((s) => s.presence);
   if (!beamers.length) {
     return (
-      <p className="rounded-2xl bg-warn-soft px-4 py-3 text-sm font-semibold">
+      <p data-setting="b.status" className="rounded-2xl bg-warn-soft px-4 py-3 text-sm font-semibold">
         Kein Beamer verbunden{presence.beamer ? ' (lädt noch …)' : ''}. Öffne <a href="/beamer" target="insel-beamer" className="underline">/beamer</a> auf dem Beamer-Rechner – am besten mit <code>./start.sh beamer</code> (Kiosk: Vollbild und Ton ohne Klick).
       </p>
     );
   }
   return (
-    <ul className="flex flex-col gap-2">
+    <ul data-setting="b.status" className="flex flex-col gap-2 rounded-2xl">
       {beamers.map((b, i) => (
         <li key={b.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-bg-2 px-3 py-2 text-sm">
           <Monitor className="size-4 text-muted" />
@@ -294,7 +299,7 @@ function BeamerStatusList() {
 function ExplainerControl() {
   const explainer = useLive((s) => s.show.explainer);
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div data-setting="b.explainer" className="flex flex-wrap items-center gap-3 rounded-2xl">
       {explainer.running ? (
         <Button variant="bad" icon={<Square className="size-4" />} onClick={() => void sendShow({ type: 'explain', action: 'stop' })}>
           Erklärung stoppen
@@ -318,7 +323,7 @@ function CameraPad() {
   return (
     <div className="flex flex-col gap-3">
       {/* Ins Vulkan-Innere und zurück – nur, wenn auf dem Beamer gerade nichts passiert */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-setting="b.cameraInside" className="flex flex-wrap items-center gap-2 rounded-2xl">
         <Button size="sm" variant={inside ? 'soft' : 'primary'} disabled={busy || inside} onClick={() => camera({ action: 'inside' })}>
           {blocks ? '🔥 In den Nether' : '🌋 In den Vulkan'}
         </Button>
@@ -327,12 +332,12 @@ function CameraPad() {
         </Button>
         <span className="text-xs text-muted">{busy ? 'Gerade läuft ein Zug – kurz warten.' : 'Geht, wenn gerade nichts passiert; der nächste Zug holt die Kamera zurück.'}</span>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div data-setting="b.cameraPad" className="flex flex-wrap gap-2 rounded-2xl">
         <Button size="sm" variant="primary" icon={<Camera className="size-4" />} onClick={() => camera({ action: 'auto' })}>
           Automatik
         </Button>
         <Button size="sm" onClick={() => camera({ action: 'overview' })}>
-          🏝️ Insel
+          {blocks ? '🧱 Blockwelt' : '🏝️ Insel'}
         </Button>
         <Button size="sm" onClick={() => camera({ action: 'start' })}>
           🚩 Start
@@ -407,66 +412,54 @@ function CameraPad() {
   );
 }
 
-/** Auswahl als Chips: „Automatisch“ plus feste Werte */
-function ChoiceChips<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string; icon?: string }[]; onChange: (v: T) => void; label: string }) {
+/** Verweis auf Wetter & Stimmung (stehen bei der Welt); ohne Spiel direkt hier */
+function AtmosphereLink() {
+  const s = useLive((x) => x.show.settings);
+  const state = useLive((x) => x.state);
+  const navigate = useNavigate();
+  if (!state) return <AtmosphereCard />;
+  const now = atmosphereFor(s, state);
+  const entry = settingById('g.weather')!;
   return (
-    <div>
-      <p className="mb-1.5 text-sm font-bold">{label}</p>
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={value === o.value}
-            onClick={() => onChange(o.value)}
-            className={`inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-bold transition ${value === o.value ? 'border-accent bg-accent-soft text-accent' : 'border-line text-ink-2 hover:border-accent/40'}`}
-          >
-            {o.icon && <span aria-hidden>{o.icon}</span>}
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <Card>
+      <button type="button" onClick={() => goToSetting(navigate, entry)} className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-bg-2/60">
+        <CloudSun className="size-5 shrink-0 text-accent" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-lg font-semibold">Wetter & Stimmung</span>
+          <span className="block text-sm text-muted">
+            Jetzt: {WEATHER_INFO[now.weather].icon} {WEATHER_INFO[now.weather].label} · {SEASON_INFO[now.season].icon} {SEASON_INFO[now.season].label}
+            {now.festive !== 'off' && ` · ${FESTIVE_INFO[now.festive].icon} ${FESTIVE_INFO[now.festive].label}`} – einstellen unter Spiel einrichten › Welt & Stimmung
+          </span>
+        </span>
+        <ChevronRight className="size-5 shrink-0 text-muted" />
+      </button>
+    </Card>
   );
 }
 
-/** Wetter, Jahreszeit und Festzeit (beide Welten), jeweils mit Automatik */
-function AtmosphereCard({ settings: s, onChange }: { settings: ShowSettings; onChange: (p: ShowPatch) => void }) {
-  const state = useLive((x) => x.state);
-  const now = atmosphereFor(s, state);
+/** Musikstück: Stücke der Welt dieses Spiels zuerst, die der anderen Welt darunter */
+function TrackPicker({ value, onChange }: { value: ShowSettings['musicTrack']; onChange: (v: ShowSettings['musicTrack']) => void }) {
+  const world = useLive((x) => x.state?.config.theme ?? 'island');
+  const order = [world, ...THEMES.filter((t) => t !== world)];
   return (
-    <Card>
-      <CardHeader title="Wetter & Stimmung" icon={<CloudSun className="size-5 text-accent" />} />
-      <div className="flex flex-col gap-4 p-5">
-        <ChoiceChips
-          label="Wetter"
-          value={s.weather}
-          onChange={(weather) => onChange({ weather })}
-          options={[{ value: 'auto' as const, label: 'Automatisch', icon: '🔄' }, ...WEATHER_KINDS.map((w) => ({ value: w, label: WEATHER_INFO[w].label, icon: WEATHER_INFO[w].icon }))]}
-        />
-        <ChoiceChips
-          label="Jahreszeit"
-          value={s.season}
-          onChange={(season) => onChange({ season })}
-          options={[{ value: 'auto' as const, label: 'Nach Datum', icon: '📅' }, ...SEASONS.map((v) => ({ value: v, label: SEASON_INFO[v].label, icon: SEASON_INFO[v].icon }))]}
-        />
-        <ChoiceChips
-          label="Festzeit"
-          value={s.festive}
-          onChange={(festive) => onChange({ festive })}
-          options={[{ value: 'auto' as const, label: 'Nach Datum', icon: '📅' }, ...FESTIVE_MODES.map((v) => ({ value: v, label: FESTIVE_INFO[v].label, icon: FESTIVE_INFO[v].icon }))]}
-        />
-        <p className="rounded-2xl bg-bg-2 px-4 py-3 text-sm">
-          Gerade auf dem Beamer: <b>{WEATHER_INFO[now.weather].icon} {WEATHER_INFO[now.weather].label}</b> · {SEASON_INFO[now.season].icon} {SEASON_INFO[now.season].label}
-          {now.festive !== 'off' && ` · ${FESTIVE_INFO[now.festive].icon} ${FESTIVE_INFO[now.festive].label}`}
-        </p>
-        <p className="-mt-2 text-xs text-muted">
-          Automatisch: Die Jahreszeit bestimmt die Grundstimmung, alle paar Runden wechselt das Wetter. Hoher Vulkandruck zieht Wolken auf, im Finale wird es dramatisch, beim Sieg reißt der Himmel auf. Halloween ist vom
-          17.10. bis 2.11., Weihnachten vom 1. bis 26.12.
-        </p>
-      </div>
-    </Card>
+    <select className="field h-9 w-auto max-w-full py-1 text-sm" aria-label="Musikstück" value={value} onChange={(e) => onChange(e.target.value as ShowSettings['musicTrack'])}>
+      <option value="auto">🎼 Automatisch passend zu Welt und Spiel</option>
+      {order.map((w) =>
+        MUSIC_MOODS.map((m) => {
+          const tracks = MUSIC_TRACKS.filter((t) => t.mood === m && musicWorld(t) === w);
+          if (!tracks.length) return null;
+          return (
+            <optgroup key={`${w}-${m}`} label={w === world ? MUSIC_MOOD_LABEL[m] : `${THEME_INFO[w].icon} ${THEME_INFO[w].short} · ${MUSIC_MOOD_LABEL[m]}`}>
+              {tracks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </optgroup>
+          );
+        }),
+      )}
+    </select>
   );
 }
 
@@ -476,148 +469,169 @@ export function BeamerControl() {
   const firstBeamer = useLive((x) => x.beamers[0]);
   const set = (p: ShowPatch) => void patch(p);
   const test = (what: 'sound' | 'voice' | 'music') => void sendShow({ type: 'test', what });
+  useSettingFocus();
 
   return (
-    <div className="grid gap-5 xl:grid-cols-2 [&>*]:min-w-0">
-      <Card>
-        <CardHeader
-          title="Beamer"
-          icon={<Monitor className="size-5 text-accent" />}
-          sub="Alles hier wirkt sofort auf allen Beamern – auch ohne laufendes Spiel."
-          actions={
-            <Button size="sm" variant="ghost" icon={<RefreshCw className="size-4" />} onClick={() => void sendShow({ type: 'reload' })}>
-              Neu laden
-            </Button>
-          }
-        />
-        <div className="flex flex-col gap-4 p-5">
-          <BeamerStatusList />
-          <PairBeamer />
-          <ExplainerControl />
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="Bild" icon={<Sparkles className="size-5 text-accent" />} />
-        <div className="flex flex-col gap-4 p-5">
-          {/* nach Breite der Karte: 5 in einer Reihe, wenn alle Namen passen, sonst 3 + 2 (Handy 2 + 2 + 1) */}
-          <div className="@container">
-            <div className="grid grid-cols-2 gap-2 @sm:grid-cols-3 @[40rem]:grid-cols-5">
-              {QUALITY_LEVELS.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => set({ quality: q })}
-                  className={`rounded-2xl border-2 p-3 text-left transition ${s.quality === q ? 'border-accent bg-accent-soft/40' : 'border-line hover:border-accent/40'}`}
-                >
-                  <span className="block text-2xl">{QUALITY_INFO[q].icon}</span>
-                  <span className="block font-bold">{QUALITY_INFO[q].label}</span>
-                </button>
-              ))}
+    <div className="flex flex-col gap-5">
+      <div>
+        <h1 className="text-2xl font-semibold">Beamer</h1>
+        <p className="text-sm text-muted">Alles hier wirkt sofort auf allen deinen Beamern – auch ohne laufendes Spiel.</p>
+      </div>
+      <div className="grid gap-5 xl:grid-cols-2 [&>*]:min-w-0">
+        <div className="flex min-w-0 flex-col gap-5">
+          <Card>
+            <CardHeader
+              title="Beamer & Spielerklärung"
+              icon={<Monitor className="size-5 text-accent" />}
+              actions={
+                <span data-setting="b.reload" className="rounded-2xl">
+                  <Button size="sm" variant="ghost" icon={<RefreshCw className="size-4" />} onClick={() => void sendShow({ type: 'reload' })}>
+                    Neu laden
+                  </Button>
+                </span>
+              }
+            />
+            <div className="flex flex-col gap-4 p-5">
+              <BeamerStatusList />
+              <PairBeamer />
+              <ExplainerControl />
             </div>
-          </div>
-          <p className="text-sm text-muted">{QUALITY_INFO[s.quality].text}</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-bold">Auflösung</span>
-            <Segmented<Resolution> size="sm" value={s.resolution} onChange={(v) => set({ resolution: v })} options={RESOLUTIONS.map((r) => ({ value: r, label: RESOLUTION_INFO[r] }))} />
-          </div>
-          <p className="-mt-2 text-xs text-muted">
-            Automatisch richtet sich nach der Grafikstufe. Niedriger = flüssiger, höher = schärfer. Tatsächlich gerendert wird gerade: {firstBeamer ? `${firstBeamer.width}×${firstBeamer.height}` : '–'}.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Switch checked={s.fullscreen} onChange={(v) => set({ fullscreen: v })} label={<span className="inline-flex items-center gap-1.5"><Maximize className="size-4" /> Vollbild</span>} />
-            <Switch checked={s.hud} onChange={(v) => set({ hud: v })} label="Rangliste & Kopfzeile" />
-            <Switch checked={s.tags} onChange={(v) => set({ tags: v })} label="Namensschilder" />
-            <Switch checked={s.photos} onChange={(v) => set({ photos: v })} label="Foto-Blasen beim Ziehen" />
-            <Switch checked={s.fps} onChange={(v) => set({ fps: v })} label="Bildrate anzeigen" />
-          </div>
-        </div>
-      </Card>
+          </Card>
 
-      <AtmosphereCard settings={s} onChange={set} />
-
-      <Card>
-        <CardHeader title="Ton & Musik" icon={<Volume2 className="size-5 text-accent" />} />
-        <div className="flex flex-col gap-1 p-5">
-          <div className="grid grid-cols-[auto_1fr] items-center gap-3 pb-2">
-            <Volume2 className="size-5 text-muted" />
-            <div>
-              <p className="text-sm font-bold">
-                Gesamtlautstärke <span className="float-right whitespace-nowrap text-xs font-semibold text-muted tabular-nums">{Math.round(s.master * 100)} %</span>
-              </p>
-              <VolumeSlider value={s.master} onChange={(v) => set({ master: v })} label="Gesamtlautstärke" />
+          <Card>
+            <CardHeader title="Kamera" icon={<Camera className="size-5 text-accent" />} />
+            <div className="flex flex-col gap-4 p-5">
+              <div className="flex flex-wrap items-center gap-4">
+                <div data-setting="b.cameraStyle" className="rounded-2xl">
+                  <Segmented<ShowSettings['camera']>
+                    value={s.camera}
+                    onChange={(v) => set({ camera: v })}
+                    options={[
+                      { value: 'calm', label: '🧘 Ruhig' },
+                      { value: 'lively', label: '⚡ Lebhaft' },
+                    ]}
+                  />
+                </div>
+                <div data-setting="b.reactions" className="rounded-2xl">
+                  <Switch checked={s.reactions} onChange={(v) => set({ reactions: v })} label="Reaktion nach jedem Zug" />
+                </div>
+              </div>
+              <CameraPad />
             </div>
-          </div>
-          <AudioRow icon={<Music className="size-4" />} label="Musik" on={s.music} volume={s.musicVolume} onToggle={(v) => set({ music: v })} onVolume={(v) => set({ musicVolume: v })} test={() => test('music')} />
-          <AudioRow icon={<Sparkles className="size-4" />} label="Effekte" on={s.sound} volume={s.soundVolume} onToggle={(v) => set({ sound: v })} onVolume={(v) => set({ soundVolume: v })} test={() => test('sound')} />
-          <AudioRow icon={<Mic className="size-4" />} label="Kommentator" on={s.voice} volume={s.voiceVolume} onToggle={(v) => set({ voice: v })} onVolume={(v) => set({ voiceVolume: v })} test={() => test('voice')} />
-          <div className="mb-2 flex flex-wrap items-center gap-3 pl-8">
-            <select
-              className="field h-9 w-auto py-1 text-sm"
-              aria-label="Musikstück"
-              value={s.musicTrack}
-              onChange={(e) => set({ musicTrack: e.target.value as ShowSettings['musicTrack'] })}
-            >
-              <option value="auto">🎼 Automatisch passend zum Spiel</option>
-              {MUSIC_MOODS.map((m) => (
-                <optgroup key={m} label={MUSIC_MOOD_LABEL[m]}>
-                  {MUSIC_TRACKS.filter((t) => t.mood === m).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {musicWorld(t) === 'blocks' ? `🧱 Blockwelt: ${t.title}` : t.title}
-                    </option>
+          </Card>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-5">
+          <Card>
+            <CardHeader title="Bild" icon={<Sparkles className="size-5 text-accent" />} />
+            <div className="flex flex-col gap-4 p-5">
+              {/* nach Breite der Karte: 5 in einer Reihe, wenn alle Namen passen, sonst 3 + 2 (Handy 2 + 2 + 1) */}
+              <div data-setting="b.quality" className="@container rounded-2xl">
+                <p className="mb-1.5 text-sm font-bold">Grafikstufe</p>
+                <div className="grid grid-cols-2 gap-2 @sm:grid-cols-3 @[40rem]:grid-cols-5">
+                  {QUALITY_LEVELS.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => set({ quality: q })}
+                      className={`rounded-2xl border-2 p-3 text-left transition ${s.quality === q ? 'border-accent bg-accent-soft/40' : 'border-line hover:border-accent/40'}`}
+                    >
+                      <span className="block text-2xl">{QUALITY_INFO[q].icon}</span>
+                      <span className="block font-bold">{QUALITY_INFO[q].label}</span>
+                    </button>
                   ))}
-                </optgroup>
-              ))}
-            </select>
-            <Switch checked={s.musicRotate} disabled={s.musicTrack !== 'auto'} onChange={(v) => set({ musicRotate: v })} label="Stücke abwechseln" />
-          </div>
-          <AudioRow icon={<Waves className="size-4" />} label="Umgebung (Meer, Dschungel, Vulkan)" on={s.ambience} volume={s.ambienceVolume} onToggle={(v) => set({ ambience: v })} onVolume={(v) => set({ ambienceVolume: v })} />
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <span className="text-sm font-bold">Kommentator spricht</span>
-            <Segmented<CommentaryLevel>
-              size="sm"
-              value={s.commentary}
-              onChange={(v) => set({ commentary: v })}
-              options={[
-                { value: 'off', label: 'nie' },
-                { value: 'some', label: 'ab und zu' },
-                { value: 'lots', label: 'viel' },
-                { value: 'crazy', label: '🤪 Quatschkopf' },
-              ]}
-            />
-          </div>
-          <p className="text-xs text-muted">
-            {s.commentary === 'crazy'
-              ? 'Kommentiert jeden Zug, lästert über Führende und Letzte und haut auch mal ziemlich dumme Sprüche raus.'
-              : s.commentary === 'lots'
-                ? 'Kommentiert fast jeden Zug.'
-                : s.commentary === 'some'
-                  ? 'Meldet sich bei den wichtigen Momenten.'
-                  : 'Kein Kommentar – nur Erklärung und Siegerehrung.'}
-          </p>
-          {s.commentary === 'crazy' && <ChatterRow value={s.crazyChatter} disabled={!s.voice} onChange={(v) => set({ crazyChatter: v })} />}
-        </div>
-      </Card>
+                </div>
+                <p className="mt-2 text-sm text-muted">{QUALITY_INFO[s.quality].text}</p>
+              </div>
+              <div data-setting="b.resolution" className="rounded-2xl">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-bold">Auflösung</span>
+                  <Segmented<Resolution> size="sm" value={s.resolution} onChange={(v) => set({ resolution: v })} options={RESOLUTIONS.map((r) => ({ value: r, label: RESOLUTION_INFO[r] }))} />
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  Automatisch richtet sich nach der Grafikstufe. Niedriger = flüssiger, höher = schärfer. Tatsächlich gerendert wird gerade: {firstBeamer ? `${firstBeamer.width}×${firstBeamer.height}` : '–'}.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div data-setting="b.fullscreen" className="rounded-2xl">
+                  <Switch checked={s.fullscreen} onChange={(v) => set({ fullscreen: v })} label={<span className="inline-flex items-center gap-1.5"><Maximize className="size-4" /> Vollbild</span>} />
+                </div>
+                <div data-setting="b.hud" className="rounded-2xl">
+                  <Switch checked={s.hud} onChange={(v) => set({ hud: v })} label="Rangliste & Kopfzeile" />
+                </div>
+                <div data-setting="b.tags" className="rounded-2xl">
+                  <Switch checked={s.tags} onChange={(v) => set({ tags: v })} label="Namensschilder" />
+                </div>
+                <div data-setting="b.photos" className="rounded-2xl">
+                  <Switch checked={s.photos} onChange={(v) => set({ photos: v })} label="Foto-Blasen beim Ziehen" />
+                </div>
+                <div data-setting="b.fps" className="rounded-2xl">
+                  <Switch checked={s.fps} onChange={(v) => set({ fps: v })} label="Bildrate anzeigen" />
+                </div>
+              </div>
+            </div>
+          </Card>
 
-      <Card>
-        <CardHeader title="Kamera" icon={<Camera className="size-5 text-accent" />} />
-        <div className="flex flex-col gap-4 p-5">
-          <div className="flex flex-wrap items-center gap-4">
-            <Segmented<ShowSettings['camera']>
-              value={s.camera}
-              onChange={(v) => set({ camera: v })}
-              options={[
-                { value: 'calm', label: '🧘 Ruhig' },
-                { value: 'lively', label: '⚡ Lebhaft' },
-              ]}
-            />
-            <Switch checked={s.reactions} onChange={(v) => set({ reactions: v })} label="Reaktion nach jedem Zug" />
-          </div>
-          <CameraPad />
-        </div>
-      </Card>
+          <AtmosphereLink />
 
-      <div className="xl:col-span-2">
+          <Card>
+            <CardHeader title="Ton & Musik" icon={<Volume2 className="size-5 text-accent" />} />
+            <div className="flex flex-col gap-1 p-5">
+              <div data-setting="b.master" className="grid grid-cols-[auto_1fr] items-center gap-3 rounded-2xl pb-2">
+                <Volume2 className="size-5 text-muted" />
+                <div>
+                  <p className="text-sm font-bold">
+                    Gesamtlautstärke <span className="float-right whitespace-nowrap text-xs font-semibold text-muted tabular-nums">{Math.round(s.master * 100)} %</span>
+                  </p>
+                  <VolumeSlider value={s.master} onChange={(v) => set({ master: v })} label="Gesamtlautstärke" />
+                </div>
+              </div>
+              <AudioRow id="b.music" icon={<Music className="size-4" />} label="Musik" on={s.music} volume={s.musicVolume} onToggle={(v) => set({ music: v })} onVolume={(v) => set({ musicVolume: v })} test={() => test('music')} />
+              <div data-setting="b.musicTrack" className="mb-2 flex flex-wrap items-center gap-3 rounded-2xl pl-8">
+                <TrackPicker value={s.musicTrack} onChange={(musicTrack) => set({ musicTrack })} />
+                <Switch checked={s.musicRotate} disabled={s.musicTrack !== 'auto'} onChange={(v) => set({ musicRotate: v })} label="Stücke abwechseln" />
+              </div>
+              <AudioRow id="b.sound" icon={<Sparkles className="size-4" />} label="Effekte" on={s.sound} volume={s.soundVolume} onToggle={(v) => set({ sound: v })} onVolume={(v) => set({ soundVolume: v })} test={() => test('sound')} />
+              <AudioRow id="b.ambience" icon={<Waves className="size-4" />} label="Umgebung (Meer, Wald, Vulkan)" on={s.ambience} volume={s.ambienceVolume} onToggle={(v) => set({ ambience: v })} onVolume={(v) => set({ ambienceVolume: v })} />
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader title="Kommentator" icon={<Mic className="size-5 text-accent" />} sub="DiMario kommentiert das Spiel – in der Blockwelt mit eigenen Sprüchen." />
+            <div className="flex flex-col gap-2 p-5">
+              <AudioRow id="b.voice" icon={<Mic className="size-4" />} label="Kommentator" on={s.voice} volume={s.voiceVolume} onToggle={(v) => set({ voice: v })} onVolume={(v) => set({ voiceVolume: v })} test={() => test('voice')} />
+              <div data-setting="b.commentary" className="rounded-2xl">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-bold">Spricht</span>
+                  <Segmented<CommentaryLevel>
+                    size="sm"
+                    value={s.commentary}
+                    onChange={(v) => set({ commentary: v })}
+                    options={[
+                      { value: 'off', label: 'nie' },
+                      { value: 'some', label: 'ab und zu' },
+                      { value: 'lots', label: 'viel' },
+                      { value: 'crazy', label: '🤪 Quatschkopf' },
+                    ]}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  {s.commentary === 'crazy'
+                    ? 'Kommentiert jeden Zug, lästert über Führende und Letzte und haut auch mal ziemlich dumme Sprüche raus.'
+                    : s.commentary === 'lots'
+                      ? 'Kommentiert fast jeden Zug.'
+                      : s.commentary === 'some'
+                        ? 'Meldet sich bei den wichtigen Momenten.'
+                        : 'Kein Kommentar – nur Erklärung und Siegerehrung.'}
+                </p>
+              </div>
+              {s.commentary === 'crazy' && <ChatterRow value={s.crazyChatter} disabled={!s.voice} onChange={(v) => set({ crazyChatter: v })} />}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      <div data-setting="b.reset" className="self-start rounded-2xl">
         <Button size="sm" variant="ghost" onClick={() => void sendShow({ type: 'reset' })}>
           Alle Beamer-Einstellungen zurücksetzen
         </Button>

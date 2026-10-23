@@ -389,10 +389,8 @@ export class BlockStunts extends Stunts {
         if (b.wr) b.wr.rotation.z = -flap;
         b.o.rotation.y = Math.atan2(b.v.x, b.v.z);
       }
-      if (life > 2.6) {
-        for (const b of flock) this.drop(b.o);
-        this.updaters.delete(upd);
-      }
+      // weiterfliegen, bis sie aus dem Bild sind – erst dann verschwinden (kein Ploppen)
+      this.flyOff(flock, life, upd);
     };
     this.updaters.add(upd);
   }
@@ -547,21 +545,47 @@ export class BlockStunts extends Stunts {
       const back = new THREE.Vector3(target.x - start.x, 0, target.z - start.z);
       if (back.lengthSq() < 0.01) back.set(0, 0, -1);
       back.normalize();
-      // Knaller kommt von vorne (gegen die Flugrichtung)
+      // Knaller kommt von vorne (gegen die Flugrichtung) – von außerhalb des Bildes, wenn möglich
       const k = this.temp(mob('knaller'));
       k.scale.setScalar(0.9);
-      const from = start.clone().addScaledVector(back, -3.2);
+      let away = 3.2;
+      const probe = new THREE.Vector3();
+      while (away <= 12 && this.seen(probe.copy(start).addScaledVector(back, -away).setY(start.y + 0.6), 0.6, 0.6)) away += 0.6;
+      // alles im Bild (weite Einstellung): dann klettert er nah aus dem Boden statt aufzuploppen
+      const rise = away > 12;
+      if (rise) away = 3.2;
+      const from = start.clone().addScaledVector(back, -away);
       const stop = start.clone().addScaledVector(back, -0.95);
+      const span = from.distanceTo(stop);
       k.position.copy(from);
       k.rotation.y = Math.atan2(back.x, back.z);
       const feet = [0, 1, 2, 3].map((i) => k.getObjectByName(`foot${i}`));
       const spark = k.getObjectByName('spark');
       g.rig.setMode('shock');
       g.holder.rotation.y = Math.atan2(-back.x, -back.z);
-      await this.tweens.run(0.9, (t) => {
+      // Höhe: weiter draußen auf dem Gelände, die letzten Meter auf Höhe der Figur
+      const heightAt = (x: number, z: number, left: number) => {
+        const near = Math.max(0, Math.min(1, (left - 1.3) / 1));
+        return near > 0 ? start.y + (this.groundAt(x, z) - start.y) * near : start.y;
+      };
+      if (rise) {
+        const ground = this.groundAt(from.x, from.z);
+        const top = heightAt(from.x, from.z, span);
+        k.position.set(from.x, ground - 1.3, from.z);
+        this.effects.dust(from.x, ground, from.z, new THREE.Color('#8a6438'), 14);
+        await this.tweens.run(0.6, (t) => {
+          k.position.y = ground - 1.3 + (top - ground + 1.3) * t;
+          feet.forEach((f, i) => f && (f.rotation.x = Math.sin(t * 30 + i * Math.PI) * 0.6));
+        }, ease.out);
+        this.guard(epoch);
+      }
+      // Höhe weich nachführen: die Blockstufen des Geländes nicht als Sprung zeigen
+      let ky = heightAt(from.x, from.z, span);
+      await this.tweens.run(0.9 + (away - 3.2) / 4, (t) => {
         k.position.lerpVectors(from, stop, t);
-        k.position.y = from.y + Math.abs(Math.sin(t * Math.PI * 4)) * 0.08;
-        feet.forEach((f, i) => f && (f.rotation.x = Math.sin(t * 24 + i * Math.PI) * 0.6));
+        ky += (heightAt(k.position.x, k.position.z, (1 - t) * span) - ky) * 0.22;
+        k.position.y = ky + Math.abs(Math.sin(t * span * 5.6)) * 0.08;
+        feet.forEach((f, i) => f && (f.rotation.x = Math.sin(t * span * 10.7 + i * Math.PI) * 0.6));
       }, ease.out);
       this.guard(epoch);
       // Zischen: anschwellen und weiß blinken

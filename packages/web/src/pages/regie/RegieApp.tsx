@@ -38,6 +38,7 @@ import { SettingsPage } from './SettingsPage.tsx';
 import { UsersPage } from './UsersPage.tsx';
 import { BeamerControl } from '../../game/BeamerControl.tsx';
 import { SecurityNotice } from '../../game/SecurityNotice.tsx';
+import { SettingsSearch } from './SettingsSearch.tsx';
 
 const NAV: { to: string; label: string; short?: string; end?: boolean; admin?: boolean; icon: typeof Settings }[] = [
   { to: '/regie', end: true, label: 'Live', icon: Clapperboard },
@@ -134,6 +135,7 @@ function RegieShell({ theme, setTheme }: { theme: string; setTheme: (t: 'light' 
             )}
           </div>
         </div>
+        <SettingsSearch />
         <Button size="sm" variant="soft" icon={<Undo2 className="size-4" />} disabled={!undo} onClick={doUndo} title={undo ? `Rückgängig: ${undo}` : 'Nichts rückgängig zu machen'}>
           <span className="hidden max-w-56 truncate sm:inline">{undo ? `Rückgängig: ${undo}` : 'Rückgängig'}</span>
         </Button>

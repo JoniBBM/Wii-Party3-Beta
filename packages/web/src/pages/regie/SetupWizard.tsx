@@ -31,6 +31,7 @@ import {
   type GameState,
   type MixFieldType,
   type Rules,
+  type Theme,
 } from '@insel/shared';
 import { useCommand } from '../../lib/hooks.ts';
 import { useLibrary } from '../../lib/library.ts';
@@ -74,6 +75,11 @@ const LANDMARKS: { key: 'vine' | 'river' | 'cave' | 'crater' | 'volcano'; icon: 
   { key: 'crater', icon: '🕳️', title: 'Kraterloch', text: 'Kurz vor dem Gipfel hineinfallen und Augen sammeln, um herauszuklettern.' },
   { key: 'volcano', icon: '🌋', title: 'Vulkanausbruch', text: 'Der Druck steigt jede Runde – beim Ausbruch rutschen Teams am Gipfel zurück.' },
 ];
+/** Mutproben mit den Namen der gewählten Welt (Blockwelt: Ranke, Nether) */
+const landmarksFor = (theme: Theme) =>
+  theme === 'blocks'
+    ? LANDMARKS.map((l) => (l.key === 'vine' ? { ...l, title: 'Ranke', text: 'Mutprobe über den Bach – würfeln, wie weit man an der Ranke schwingt.' } : l.key === 'cave' ? { ...l, text: 'Hoch genug würfeln, sonst geht es in den Nether.' } : l))
+    : LANDMARKS;
 
 const WIN_RULES: { value: Rules['winRule']; icon: string; title: string; text: string }[] = [
   { value: 'final_roll', icon: '🎲', title: 'Siegeswurf auf dem Gipfel', text: 'Oben angekommen braucht es noch einen hohen Wurf – spannend bis zum Schluss.' },
@@ -559,9 +565,9 @@ function FieldsStep({
         </ul>
 
         <div>
-          <p className="mb-2 text-sm font-extrabold uppercase tracking-wide text-muted">Mutproben auf der Insel (feste Orte)</p>
+          <p className="mb-2 text-sm font-extrabold uppercase tracking-wide text-muted">Mutproben {config.theme === 'blocks' ? 'in der Blockwelt' : 'auf der Insel'} (feste Orte)</p>
           <ul className="grid gap-2 sm:grid-cols-2">
-            {LANDMARKS.map((l) => (
+            {landmarksFor(config.theme).map((l) => (
               <li key={l.key} className="flex items-start justify-between gap-3 rounded-2xl border border-line p-3">
                 <span className="min-w-0">
                   <span className="block font-bold">
@@ -749,7 +755,7 @@ function SummaryStep({
     {
       key: 'fields',
       label: 'Sonderfelder',
-      value: `${specialsLine(config)}${LANDMARKS.some((l) => !config.rules[l.key].enabled) ? ` · aus: ${LANDMARKS.filter((l) => !config.rules[l.key].enabled).map((l) => l.title).join(', ')}` : ''}`,
+      value: `${specialsLine(config)}${LANDMARKS.some((l) => !config.rules[l.key].enabled) ? ` · aus: ${LANDMARKS.filter((l) => !config.rules[l.key].enabled).map((l) => landmarksFor(config.theme).find((x) => x.key === l.key)!.title).join(', ')}` : ''}`,
     },
     { key: 'kinds', label: 'Was kommt dran?', value: config.contentKinds.length === CONTENT_KINDS.length ? 'Alles' : config.contentKinds.map((k) => CONTENT_KIND_INFO[k].label).join(', ') },
     { key: 'content', label: 'Sammlungen', value: names.length ? names.join(', ') : 'keine' },

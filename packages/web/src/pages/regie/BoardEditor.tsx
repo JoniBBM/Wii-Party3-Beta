@@ -114,7 +114,7 @@ export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange:
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="relative overflow-hidden rounded-3xl border border-line" style={{ background: MAP_BACKGROUND }}>
+      <div data-setting="g.boardMap" className="relative overflow-hidden rounded-3xl border border-line" style={{ background: MAP_BACKGROUND }}>
         <BoardMap board={board} selected={selected} onSelect={setSelected} />
         {selected !== null && selType && (
           <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-surface/95 p-3 shadow-lifted backdrop-blur">
@@ -125,7 +125,7 @@ export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange:
               <p className="text-sm text-muted">Start und Ziel sind fest.</p>
             ) : isLandmark(selType) ? (
               <p className="text-sm text-muted">
-                {FIELD_INFO[selType].icon} {FIELD_INFO[selType].label} gehört fest zur Insel. Ob und wie stark es wirkt, stellst du bei den Regeln ein.
+                {FIELD_INFO[selType].icon} {FIELD_INFO[selType].label} ist eine feste Station. Ob und wie stark sie wirkt, stellst du unter „Mutproben“ bzw. „Vulkan“ ein.
               </p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
@@ -146,7 +146,7 @@ export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange:
       </div>
 
       <div className="flex flex-col gap-4">
-        <label className="block">
+        <label data-setting="g.boardSize" className="block rounded-2xl">
           <span className="label">Anzahl Felder bis zum Ziel: {goal}</span>
           <input
             type="range"
@@ -158,9 +158,11 @@ export function BoardEditor({ board, onChange }: { board: BoardConfig; onChange:
           />
           <span className="text-xs text-muted">Etwa {Math.round(goal / 7)}–{Math.round(goal / 5)} Runden. Änderung verteilt die Sonderfelder neu.</span>
         </label>
-        <Button icon={<Shuffle className="size-4" />} onClick={() => onChange(buildBoard(goal, newSeed(), board.mix))}>
-          Sonderfelder neu verteilen
-        </Button>
+        <span data-setting="g.boardShuffle" className="block rounded-2xl">
+          <Button className="w-full" icon={<Shuffle className="size-4" />} onClick={() => onChange(buildBoard(goal, newSeed(), board.mix))}>
+            Sonderfelder neu verteilen
+          </Button>
+        </span>
         {!landmarksOk && (
           <div className="rounded-2xl bg-warn-soft p-3 text-sm">
             <p className="font-bold">Dieses Brett stammt aus einer älteren Version.</p>

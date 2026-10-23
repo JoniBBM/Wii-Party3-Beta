@@ -107,10 +107,10 @@ function ContentStage({ state, me, content }: { state: GameState; me: Me; conten
           {content.timer && <Countdown timer={content.timer} size="sm" />}
         </div>
         <div className="flex flex-col gap-3 p-4">
-          <p className="font-display text-2xl leading-tight font-semibold">{item.title}</p>
-          {question && content.stage !== 'intro' && <p className="text-xl font-bold leading-snug">{question}</p>}
+          <p className="readable font-display text-2xl leading-tight font-semibold">{item.title}</p>
+          {question && content.stage !== 'intro' && <p className="readable text-xl font-bold leading-snug">{question}</p>}
           {question && content.stage === 'intro' && <p className="text-ink-2">Gleich kommt die Frage – macht euch bereit!</p>}
-          {item.kind === 'game' && item.description && <p className="whitespace-pre-line text-ink-2">{item.description}</p>}
+          {item.kind === 'game' && item.description && <p className="readable whitespace-pre-line text-ink-2">{item.description}</p>}
         </div>
       </Card>
 
@@ -136,7 +136,7 @@ function ContentStage({ state, me, content }: { state: GameState; me: Me; conten
         <Card className="flex flex-col items-center gap-2 p-5 text-center">
           <CheckCircle2 className="size-10 text-good" />
           <p className="font-display text-xl font-semibold">Antwort abgeschickt</p>
-          <p className="text-ink-2">
+          <p className="readable text-ink-2">
             {item.kind === 'choice' ? `${String.fromCharCode(65 + Number(answer.value))}: ${item.options[Number(answer.value)]}` : String(answer.value)}
             {item.kind === 'estimate' && item.unit ? ` ${item.unit}` : ''}
           </p>
@@ -178,7 +178,7 @@ function ChoiceAnswer({ options }: { options: string[] }) {
           onClick={() => tap(i)}
           aria-label={`Antwort ${String.fromCharCode(65 + i)}: ${o}`}
           aria-pressed={sel === i}
-          className={`flex min-h-16 touch-manipulation items-center gap-3 rounded-3xl px-4 py-3 text-left text-lg font-extrabold text-white shadow-soft transition select-none active:scale-[0.98] ${sel === i ? 'ring-4 ring-ink/70 ring-offset-2 ring-offset-bg' : sel !== null ? 'opacity-55' : ''}`}
+          className={`answer-tile readable flex min-h-16 touch-manipulation items-center gap-3 rounded-3xl px-4 py-3 text-left text-lg font-extrabold text-white shadow-soft transition select-none active:scale-[0.98] ${sel === i ? 'ring-4 ring-ink/70 ring-offset-2 ring-offset-bg' : sel !== null ? 'opacity-55' : ''}`}
           style={{ background: OPTION_COLORS[i % OPTION_COLORS.length] }}
         >
           <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/25 font-display text-xl">{String.fromCharCode(65 + i)}</span>
@@ -188,7 +188,7 @@ function ChoiceAnswer({ options }: { options: string[] }) {
       <Button variant="good" size="lg" block icon={<Send className="size-5" />} disabled={sel === null} loading={pending === 'answer.submit'} onClick={() => sel !== null && submit(sel)}>
         Antwort abschicken
       </Button>
-      <p className="text-center text-xs font-semibold text-muted">Tipp: Doppelt auf eine Antwort tippen schickt sie sofort ab.</p>
+      <p className="readable on-ground text-center text-xs font-semibold text-muted">Tipp: Doppelt auf eine Antwort tippen schickt sie sofort ab.</p>
     </div>
   );
 }
@@ -204,7 +204,7 @@ function TextAnswer() {
         if (v.trim()) void run({ type: 'answer.submit', value: v.trim() });
       }}
     >
-      <input className="field h-16 text-xl font-bold" value={v} onChange={(e) => setV(e.target.value)} placeholder="Eure Antwort" autoFocus maxLength={300} enterKeyHint="send" />
+      <input className="field readable h-16 text-xl font-bold" value={v} onChange={(e) => setV(e.target.value)} placeholder="Eure Antwort" autoFocus maxLength={300} enterKeyHint="send" />
       <Button type="submit" variant="good" size="lg" block icon={<Send className="size-5" />} disabled={!v.trim()} loading={pending === 'answer.submit'}>
         Antwort abschicken
       </Button>
@@ -225,8 +225,8 @@ function EstimateAnswer({ unit }: { unit: string }) {
       }}
     >
       <div className="flex items-center gap-2">
-        <input className="field h-16 text-center font-display text-3xl font-semibold" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value.replace(/[^\d.,-]/g, ''))} placeholder="0" autoFocus />
-        {unit && <span className="font-display text-2xl font-semibold text-muted">{unit}</span>}
+        <input className="field readable h-16 text-center font-display text-3xl font-semibold" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value.replace(/[^\d.,-]/g, ''))} placeholder="0" autoFocus />
+        {unit && <span className="readable on-ground font-display text-2xl font-semibold text-muted">{unit}</span>}
       </div>
       <Button type="submit" variant="good" size="lg" block icon={<Send className="size-5" />} disabled={!v || !Number.isFinite(n)} loading={pending === 'answer.submit'}>
         Schätzung abschicken
@@ -243,7 +243,7 @@ function Buzzer({ state, content, teamId }: { state: GameState; content: ActiveC
   if (pos >= 0) {
     return (
       <Card className="flex flex-col items-center gap-2 p-6 text-center">
-        <span className="font-display text-6xl font-semibold">#{pos + 1}</span>
+        <span className="readable font-display text-6xl font-semibold">#{pos + 1}</span>
         <p className="font-display text-xl font-semibold">{pos === 0 ? 'Ihr wart am schnellsten!' : 'Gebuzzert!'}</p>
         {judged === false && <p className="font-bold text-bad">Leider falsch – jetzt sind die anderen dran.</p>}
         {judged === undefined && pos === 0 && <p className="text-ink-2">Sagt jetzt laut eure Antwort!</p>}
@@ -309,20 +309,20 @@ function Reveal({ content, teamId }: { content: ActiveContent; teamId: string })
       >
         <span className="text-6xl">{isEstimate ? (rank === 1 ? '🎯' : '📏') : correct ? '🎉' : a || item.kind === 'buzzer' ? '😬' : '🤷'}</span>
         <p className="font-display text-4xl font-semibold">{headline}</p>
-        {isEstimate && mine && <p className="text-base font-bold text-white/90">Eure Schätzung: {mine}</p>}
+        {isEstimate && mine && <p className="readable text-base font-bold text-white/90">Eure Schätzung: {mine}</p>}
       </motion.div>
       {solution && (
         <Card className="flex flex-col gap-2 p-5">
           <p className="text-xs font-extrabold tracking-wide text-good uppercase">Richtige Antwort</p>
           <div className="flex items-center gap-3">
             {solLetter !== null && (
-              <span className="grid size-12 shrink-0 place-items-center rounded-full font-display text-2xl font-semibold text-white" style={{ background: OPTION_COLORS[solLetter % OPTION_COLORS.length] }}>
+              <span className="readable grid size-12 shrink-0 place-items-center rounded-full font-display text-2xl font-semibold text-white" style={{ background: OPTION_COLORS[solLetter % OPTION_COLORS.length] }}>
                 {letter(solLetter)}
               </span>
             )}
-            <p className="font-display text-2xl leading-tight font-semibold">{solution}</p>
+            <p className="readable font-display text-2xl leading-tight font-semibold">{solution}</p>
           </div>
-          {!won && !isEstimate && mine && <p className="text-sm font-bold text-muted">Eure Antwort: {mine}</p>}
+          {!won && !isEstimate && mine && <p className="readable text-sm font-bold text-muted">Eure Antwort: {mine}</p>}
         </Card>
       )}
     </div>
@@ -347,7 +347,7 @@ function Results({ state, me }: { state: GameState; me: Me }) {
         )}
       </Card>
       <Card className="p-4">
-        <p className="label">
+        <p className="label readable">
           {CONTENT_KIND_INFO[r.kind].icon} {r.title}
         </p>
         <ul className="flex flex-col gap-1.5">

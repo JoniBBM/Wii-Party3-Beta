@@ -50,7 +50,10 @@ try {
   await regie.getByPlaceholder('Benutzername oder E-Mail').fill('admin');
   await regie.getByPlaceholder('Passwort', { exact: true }).fill(PASS);
   await regie.getByRole('button', { name: 'Anmelden', exact: true }).click();
-  await regie.getByRole('button', { name: 'Spiel anlegen' }).click();
+  // „Neues Spiel“ legt sofort an und öffnet den Assistenten – hier direkt zur Live-Seite
+  await regie.getByRole('button', { name: 'Neues Spiel', exact: true }).click();
+  await regie.waitForURL('**/regie/einrichten');
+  await regie.goto(`${base}/regie`);
   await regie.getByText('Anmeldung offen').waitFor();
   await shot(regie, 'regie-lobby-leer');
   // Spielcode aus der Kopfzeile (steckt sonst im QR-Code)

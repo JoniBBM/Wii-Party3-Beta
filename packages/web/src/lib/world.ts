@@ -1,6 +1,8 @@
 /**
  * Oberfläche passend zur Welt: In der Blockwelt bekommen Handys und Beamer-Einblendungen den
  * Pixel-Look (Pixelschrift, graue Rahmen mit Kanten, Erd-Hintergrund) – über data-world am <html>.
+ * Fragen, Antworten und Zahlen bleiben lesbar: Elemente mit class="readable" bekommen dort eine klare
+ * Schrift (siehe styles.css, Abschnitt Blockwelt).
  */
 import { useEffect } from 'react';
 import type { Theme } from '@insel/shared';

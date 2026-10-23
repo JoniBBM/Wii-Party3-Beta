@@ -108,7 +108,7 @@ export function DiceFace({ value, size = 56, color = '#ffffff', pip = '#1b2a36',
 export function BonusDieBadge({ sides }: { sides: number }) {
   if (!sides) return null;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gold/25 px-2 py-0.5 text-xs font-extrabold text-[#8a6a00]" title={`Bonuswürfel mit ${sides} Seiten`}>
+    <span className="readable inline-flex items-center gap-1 rounded-full bg-gold/25 px-2 py-0.5 text-xs font-extrabold text-[#8a6a00]" title={`Bonuswürfel mit ${sides} Seiten`}>
       🎲 W{sides}
     </span>
   );
@@ -137,7 +137,7 @@ export function Countdown({ timer, size = 'md' }: { timer: Timer | null; size?: 
         <circle cx="50" cy="50" r={r} fill="var(--surface)" stroke="var(--line)" strokeWidth="8" />
         <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - frac)} style={{ transition: 'stroke-dashoffset 0.25s linear' }} />
       </svg>
-      <span className="relative font-display font-semibold tabular-nums" style={{ fontSize: px * 0.36, color: c.running ? 'var(--ink)' : 'var(--muted)' }}>
+      <span className="readable relative font-display font-semibold tabular-nums" style={{ fontSize: px * 0.36, color: c.running ? 'var(--ink)' : 'var(--muted)' }}>
         {secs}
       </span>
     </div>

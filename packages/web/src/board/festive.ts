@@ -413,10 +413,13 @@ export function buildFestive(kind: Exclude<Festive, 'off'>, theme: Theme, layout
     });
   }
 
+  // eigene Uhr: Gespenster und Fledermäuse machen nach einem Ruckler keinen Satz
+  let clock = 0;
   return {
     group,
-    update(t, dt) {
-      for (const u of updaters) u(t, dt);
+    update(_t, dt) {
+      clock += dt;
+      for (const u of updaters) u(clock, dt);
     },
     dispose() {
       for (const d of disposables) d.dispose();

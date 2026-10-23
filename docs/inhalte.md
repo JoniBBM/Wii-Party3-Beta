@@ -33,7 +33,7 @@ Feld-Minispiele sind ganz normale *Spiele*, bei denen „Als Feld-Minispiel nutz
 
 ## Ablaufplan
 
-Unter *Spiel einrichten → Ablaufplan* lässt sich eine feste Reihenfolge zusammenstellen (Drag & Drop, Inhalte dürfen mehrfach vorkommen). In der Live-Ansicht startet der Reiter *Plan* immer den nächsten Punkt. Zufall und freie Auswahl bleiben jederzeit möglich.
+Unter *Spiel einrichten → Alle Einstellungen → Ablaufplan* lässt sich eine feste Reihenfolge zusammenstellen (Drag & Drop, Inhalte dürfen mehrfach vorkommen). In der Live-Ansicht startet der Reiter *Plan* immer den nächsten Punkt. Zufall und freie Auswahl bleiben jederzeit möglich.
 
 ## Vorlagen
 

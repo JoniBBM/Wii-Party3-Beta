@@ -19,6 +19,54 @@ export interface InsideShot {
 }
 export type InsideQuality = 'ultra' | 'high' | 'balanced' | 'eco';
 
+/** Punkt auf der Route (Platten + Portal) bei Anteil s (0 = Landefeld, 1 = Portal) der Weglänge */
+export function routeAt(route: THREE.Vector3[], s: number): THREE.Vector3 {
+  let total = 0;
+  for (let i = 1; i < route.length; i++) total += route[i]!.distanceTo(route[i - 1]!);
+  let want = Math.min(1, Math.max(0, s)) * total;
+  for (let i = 1; i < route.length; i++) {
+    const seg = route[i]!.distanceTo(route[i - 1]!);
+    if (want <= seg || i === route.length - 1) return route[i - 1]!.clone().lerp(route[i]!, seg > 1e-6 ? Math.min(1, want / seg) : 1);
+    want -= seg;
+  }
+  return route[0]!.clone();
+}
+
+/**
+ * Automatische Kamera im Inneren, solange nichts passiert: ruhiges Pendeln vor der Route, mal
+ * weiter weg, mal näher, der Blick wandert die Route entlang; sind Figuren drin, schaut sie immer
+ * wieder zu ihnen. Bei t = 0 genau die Grundeinstellung `base`, und die Bewegung läuft weich an.
+ * `fit` holt den Standpunkt aus Wänden, Decke und Tropfsteinen.
+ */
+export function insideTour(t: number, opts: { route: THREE.Vector3[]; base: InsideShot; near: number; focus: THREE.Vector3[]; fit: (p: THREE.Vector3) => THREE.Vector3 }): InsideShot {
+  const TAU = Math.PI * 2;
+  // Phase mit weichem Anlauf (Geschwindigkeit 0 bei t = 0)
+  const ramp = 3.5;
+  const ph = t - ramp * (1 - Math.exp(-t / ramp));
+  const { base, route } = opts;
+  const rel = base.position.clone().sub(base.lookAt);
+  const dist0 = rel.length();
+  const yaw0 = Math.atan2(rel.x, rel.z);
+  const pitch0 = Math.asin(clamp(rel.y / Math.max(1e-3, dist0), -1, 1));
+  // Blick wandert die Route entlang (bezogen auf ihre Mitte)
+  const s = 0.5 + 0.36 * Math.sin((TAU * ph) / 34);
+  const lookAt = base.lookAt.clone().add(routeAt(route, s).sub(routeAt(route, 0.5)));
+  let dist = dist0 * (0.8 + 0.2 * Math.cos((TAU * ph) / 27));
+  const yaw = yaw0 + 0.42 * Math.sin((TAU * ph) / 52);
+  const pitch = pitch0 + 0.08 * (Math.cos((TAU * ph) / 41) - 1);
+  if (opts.focus.length) {
+    // Figuren im Inneren: immer im Bild, und immer wieder näher heran
+    const f = new THREE.Vector3();
+    for (const p of opts.focus) f.add(p);
+    f.divideScalar(opts.focus.length).y += 0.9;
+    const w = 0.55 + 0.35 * (0.5 - 0.5 * Math.cos((TAU * ph) / 44));
+    lookAt.lerp(f, w);
+    dist += (Math.max(opts.near, dist0 * 0.45) - dist) * (w - 0.4);
+  }
+  const position = new THREE.Vector3(lookAt.x + Math.sin(yaw) * Math.cos(pitch) * dist, lookAt.y + Math.sin(pitch) * dist, lookAt.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+  return { position: opts.fit(position), lookAt };
+}
+
 // ---------------------------------------------------------------------------
 // Maße
 // ---------------------------------------------------------------------------
@@ -650,6 +698,8 @@ export class VolcanoInside {
   private columns: THREE.InstancedMesh;
   private boulders: THREE.InstancedMesh;
   private stalCand: DecoCandidate[] = [];
+  /** hängende Tropfsteine (für die Kamera: Unterkante) */
+  private hanging: { x: number; z: number; r: number; bottom: number }[] = [];
   private colCand: DecoCandidate[] = [];
   private boulderCand: DecoCandidate[] = [];
 
@@ -1553,12 +1603,14 @@ export class VolcanoInside {
 
     let n = 0;
     const o = this.opening;
+    this.hanging = [];
     for (const c of this.stalCand) {
       if (Math.hypot(c.x - o.x, c.z - o.z) < 9) continue;
       const y = ceilY(c.x, c.z) + 0.6;
       q.setFromAxisAngle(yAxis, c.rot).multiply(flip);
       m.compose(pv.set(c.x, y, c.z), q, sv.set(c.r, c.h, c.r));
       this.stalactites.setMatrixAt(n++, m);
+      this.hanging.push({ x: c.x, z: c.z, r: c.r * 1.25, bottom: y - c.h });
     }
     // Stalagmiten aus der Lava (nur an den Rändern)
     for (const c of this.stalCand) {
@@ -1708,6 +1760,54 @@ export class VolcanoInside {
     const lookAt = p.clone().addScaledVector(d, 0.5);
     lookAt.y = p.y + 3.4;
     return { position, lookAt };
+  }
+
+  /** Route für die Kamera: Platten und Portal */
+  private get routePoints(): THREE.Vector3[] {
+    return [...this.plates.map((p) => p.top), this.portal];
+  }
+
+  /** Höchste Kamerahöhe bei (x, z): unter der Decke und den Tropfsteinen ringsum (Abstand `pad`) */
+  private roofAt(x: number, z: number, pad = 2): number {
+    let roof = ceilY(x, z) - 1;
+    for (const h of this.hanging) if ((h.x - x) ** 2 + (h.z - z) ** 2 < (h.r + pad) ** 2) roof = Math.min(roof, h.bottom);
+    return roof;
+  }
+
+  /** Kamera-Standpunkt in den freien Raum holen: weg von den Wänden, unter Decke und Tropfsteinen, über Säulen und Platten. */
+  fit(p: THREE.Vector3): THREE.Vector3 {
+    const e = ell(p.x, p.z);
+    if (e > 0.62) {
+      p.x *= 0.62 / e;
+      p.z *= 0.62 / e;
+    }
+    p.y = Math.min(p.y, this.roofAt(p.x, p.z) - 1.6);
+    p.y = Math.max(p.y, this.heightAt(p.x, p.z) + 2.5, 3);
+    return p;
+  }
+
+  /** Ankunft von oben (Regie-Besuch): knapp unter der Deckenöffnung, Blick steil hinab aufs Landefeld */
+  entryShot(): InsideShot {
+    const p = this.plates[0]!.top;
+    const s = this.side(0);
+    const position = this.fit(new THREE.Vector3(p.x + s.x * 6, this.dropPoint.y - 1.5, p.z + s.z * 6));
+    return { position, lookAt: new THREE.Vector3(p.x - s.x, p.y + 0.5, p.z - s.z) };
+  }
+
+  /** Hinaus (Regie-Besuch): hinauf zur Deckenöffnung, dem Tageslicht entgegen – Stützpunkte der Fahrt */
+  exitShots(): InsideShot[] {
+    const o = this.opening;
+    const s = this.side(0);
+    const cy = ceilY(o.x, o.z);
+    return [
+      { position: this.fit(new THREE.Vector3(o.x + s.x * 9, 22, o.z + s.z * 9)), lookAt: new THREE.Vector3(o.x, cy, o.z) },
+      { position: new THREE.Vector3(o.x + s.x * 2.2, cy - 4.5, o.z + s.z * 2.2), lookAt: new THREE.Vector3(o.x - s.x * 1.2, o.y + 4, o.z - s.z * 1.2) },
+    ];
+  }
+
+  /** Automatische Kamera, solange nichts passiert (Regie-Besuch); `focus` = Figuren im Inneren */
+  tourShot(t: number, focus: THREE.Vector3[] = []): InsideShot {
+    return insideTour(t, { route: this.routePoints, base: this.overviewShot(), near: 9, focus, fit: (p) => this.fit(p) });
   }
 
   // =========================================================================

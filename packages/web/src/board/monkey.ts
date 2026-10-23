@@ -43,6 +43,8 @@ const BANANA = '#ffd83a';
 /** Länge der Glieder (Modellmaße, ein stehender Affe ist ~0,86 hoch) */
 const ARM_U = 0.16;
 const ARM_F = 0.15;
+/** schnellste Drehung (rad/s) */
+const MAX_TURN = 8;
 
 let spec: RigSpec | null = null;
 
@@ -163,7 +165,8 @@ export class Monkey implements Agent {
     private R: () => number,
     size = 0.9,
   ) {
-    this.rig = monkeySpec().create();
+    // große Sichtprüfungs-Kugel: beim Hängen und Springen ragt der Affe weit aus der Ruhepose (sonst verschwindet er am Bildrand zu früh)
+    this.rig = monkeySpec().create(undefined, 2.8);
     this.root.name = 'monkey';
     this.root.userData.animal = this;
     this.root.add(this.rig.mesh);
@@ -368,11 +371,14 @@ export class Monkey implements Agent {
         this.dur = 2.2 + R() * 1.5;
         this.yawWant = this.camYaw(ctx);
         break;
-      case 'crouch':
-        this.dur = 0.38;
+      case 'crouch': {
         fade = 0.25;
         this.yawWant = Math.atan2(this.target!.p.x - this.spot.p.x, this.target!.p.z - this.spot.p.z);
+        // große Kehrtwende: etwas länger ducken, damit die Drehung vor dem Sprung fertig ist
+        const turn = Math.abs(Math.atan2(Math.sin(this.yawWant - this.yaw), Math.cos(this.yawWant - this.yaw)));
+        this.dur = 0.38 + Math.max(0, turn - 1.5) / MAX_TURN;
         break;
+      }
       case 'fly': {
         this.from.copy(this.spot.p);
         this.to.copy(this.target!.p);
@@ -471,7 +477,9 @@ export class Monkey implements Agent {
     }
     if (this.state === 'wave') this.yawWant = this.camYaw(ctx);
     const turnRate = this.state === 'crouch' ? 12 : this.state === 'fly' ? 0 : 2.5;
-    this.yaw = dampAngle(this.yaw, this.yawWant, turnRate, dt);
+    // weich drehen, aber nie schneller als MAX_TURN (sonst zuckt der Affe herum)
+    const next = dampAngle(this.yaw, this.yawWant, turnRate, dt);
+    this.yaw += Math.max(-MAX_TURN * dt, Math.min(MAX_TURN * dt, next - this.yaw));
     this.root.rotation.y = this.yaw;
 
     const tt = t + this.seed;

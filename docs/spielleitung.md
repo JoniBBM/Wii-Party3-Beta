@@ -12,7 +12,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 1. **Laptop vorbereiten**: Docker Desktop starten, im Projektordner `./start.sh` ausführen. Die Regie öffnet sich im Browser.
 2. **Anmelden**: Spielleiter melden sich in der Regie mit **E-Mail und Passwort** an (Konto vom Admin, siehe [Spielleiter-Konten](#spielleiter-konten-und-mehrere-spiele)). Der Admin gibt als Benutzernamen `admin` ein und dazu das Passwort aus der Datei `.env` (`ADMIN_PASSWORD`).
 3. **Inhalte prüfen**: Unter *Bibliothek* die Sammlungen ansehen, ggf. eigene Spiele und Fragen anlegen (siehe [Inhalte erstellen](inhalte.md)).
-4. **Spiel anlegen**: Unter *Live* (oder *Spiele*) ein neues Spiel aus einer Vorlage erstellen, z. B. „Standard (72 Felder)“ für einen ganzen Abend oder „Kurzes Spiel (40 Felder)“ für ca. 45–60 Minuten. Jedes Spiel bekommt einen **Spielcode** (z. B. `KX7P`) – er steht oben in der Regie und steckt in allen QR-Codes. Danach geht es direkt in die **geführte Einrichtung**.
+4. **Spiel anlegen**: Unter *Live* (ohne Spiel) oder *Spiele* auf **Neues Spiel** – mehr nicht. Das Spiel entsteht sofort (Name „Spieleabend <Datum>“, Standard-Vorlage), danach geht es direkt in die **geführte Einrichtung**, die Welt, Dauer, Spielfeld, Inhalte, Handys und Namen abfragt. Wer von einer eigenen Vorlage starten will: *Spiele → Vorlagen → Neues Spiel daraus*. Jedes Spiel bekommt einen **Spielcode** (z. B. `KX7P`) – er steht oben in der Regie und steckt in allen QR-Codes.
 5. **Spiel einrichten – geführt** (*Spiel einrichten → Geführt*, vor dem Spiel die Standardansicht): Folie für Folie, nichts gilt, bevor du am Ende **Übernehmen** drückst. Oben siehst du alle Schritte und kannst zu bereits besuchten zurückspringen.
    - **Welt**: *Insel der Abenteuer* oder *Blockwelt* (siehe [Welten](#welten-insel-oder-blockwelt)).
    - **Einrichtung**: *Nach Spieldauer* (empfohlen) oder *Manuell*.
@@ -24,12 +24,24 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
    - **Sammlungen**: Sammlungen wählen (aufklappen zeigt die passenden Inhalte). Unten steht, ob die Inhalte für die erwarteten Runden reichen.
    - **Handys & Sieg**: eigenes Handy oder Gruppen-Gerät, Siegbedingung.
    - **Fertig**: Übersicht mit *Ändern* je Punkt, Name des Spiels, **Übernehmen**.
-6. **Alle Einstellungen** (optional, für Feinheiten):
-   - *Inhalte*: welche Arten per Zufall drankommen und welche Sammlungen in diesem Spiel vorkommen.
-   - *Ablaufplan*: feste Reihenfolge von Spielen/Fragen per Drag & Drop.
-   - *Spielfeld*: Länge des Weges, Sonderfelder neu verteilen oder einzeln antippen und ändern. **Liane**, **Fässer oder Kisten** (Fluss), **Lavahöhle** und **Kraterloch** gehören fest zur Insel (markiert mit „fest“). **Totenkopf-Felder** lassen sich wie andere Sonderfelder setzen.
-   - *Regeln*: Bonuswürfel, Siegbedingung, Katapulte, Sperre, Vulkan, Einbruch-Wahrscheinlichkeit am Fluss, Mindestwurf an der Lavahöhle, Länge des Strafwegs im Vulkan-Inneren und Lage des Ausgangsfelds, Augen zum Herausklettern aus dem Krater …
-   Danach **Speichern** – oder mit **Als Vorlage** für spätere Abende sichern.
+6. **Alle Einstellungen** (optional, für Feinheiten): links (am Handy oben als Leiste) die Bereiche, rechts die Einstellungen dazu. Unten blättert man zum nächsten Bereich.
+
+   | Gruppe | Bereich | Inhalt |
+   |---|---|---|
+   | Grundlagen | Name & Handys | Name des Spiels, eigenes Handy oder Gruppen-Gerät |
+   | | Welt & Stimmung | **Welt** (Insel oder Blockwelt) und darunter **Wetter, Jahreszeit, Festzeit** (siehe unten) |
+   | | Spieldauer | Wunschdauer bzw. Spiel beschleunigen/verlangsamen (wie auf der Live-Seite) |
+   | Inhalte | Was kommt dran? | Arten, die per Zufall drankommen, und die Sammlungen |
+   | | Ablaufplan | feste Reihenfolge von Spielen/Fragen per Drag & Drop |
+   | Spielfeld & Regeln | Spielfeld | Länge, Sonderfelder neu verteilen oder einzeln antippen. Liane/Ranke, Fässer oder Kisten, Lavahöhle und Kraterloch sind feste Stationen („fest“). |
+   | | Würfel & Sieg | Bonuswürfel nach Platz, Siegbedingung |
+   | | Sonderfelder | Katapulte, Platztausch, Sperre, Feld-Minispiele |
+   | | Mutproben | Liane/Ranke, Fässer oder Kisten, Lavahöhle, Kraterloch – je an/aus und wie schwer |
+   | | Vulkan (Blockwelt: Vulkan & Nether) | Druck, Gefahrenzone, Rückschlag, Vulkan-Inneres/Nether und Strafweg |
+   | | Fragen & Antworten | Bonus nur für richtige Antworten, automatisch schließen |
+
+   Die Namen richten sich nach der Welt (Blockwelt: Ranke, Nether, Schleimblock, Knaller, Teleport-Perle, Spinnennetz). Änderungen merkt sich die Seite, auch beim Wechsel zwischen den Bereichen (Punkt an geänderten Bereichen). Sobald etwas geändert ist, erscheint unten eine Leiste **Ungespeichert · … – Verwerfen / Speichern**; erst *Speichern* ändert das Spiel. Ausnahme: Wetter & Stimmung und Spieldauer wirken sofort (so markiert). Mit **Als Vorlage** lässt sich alles für spätere Abende sichern.
+
 
    ![Spielfeld-Editor](bilder/regie-spielfeld.webp)
 7. **Beamer**: Am besten mit `./start.sh beamer` öffnen – das startet Chrome/Edge als Kiosk im Vollbild, Ton läuft sofort, und der Beamer ist gleich freigegeben. Alternativ `/beamer` im Browser öffnen (Knopf *Beamer öffnen* in der Regie), auf den Beamer ziehen und **einmal hineinklicken** (Browser geben Ton und Vollbild erst nach einem Klick frei). Läuft der Beamer auf einem anderen Rechner, zeigt er unten rechts einen **sechsstelligen Code** – in der Regie unter *Beamer* eingeben und *Freigeben* (erst dann zeigt er Fotos, QR-Code mit WLAN-Adresse und Verlauf). Am Beamer gibt es kein Menü mehr – **alles steuert die Regie unter *Beamer*** (siehe unten), auch bevor das Spiel startet.
@@ -67,19 +79,19 @@ So funktioniert es – fair und für die Teams unsichtbar:
 
 ## Welten: Insel oder Blockwelt
 
-Jedes Spiel hat eine **Welt** (*Spiel einrichten* → erste Folie bzw. *Alle Einstellungen → Regeln*). Regeln, Spielfeld und Ablauf sind in beiden gleich – nur die Optik wechselt:
+Jedes Spiel hat eine **Welt** (*Spiel einrichten* → erste Folie bzw. *Alle Einstellungen → Welt & Stimmung*). Regeln, Spielfeld und Ablauf sind in beiden gleich – nur die Optik wechselt:
 
 - **Insel der Abenteuer**: tropische Vulkaninsel (Standard).
 - **Blockwelt** (Minecraft-Stil, alles mit eigenen Pixel-Texturen gezeichnet): Die Insel besteht aus Blöcken – Gras, Erde, Stein, Sandstrände, Kiesweg, Wasserfall und Fluss als Wasserblöcke, Eichen-, Birken- und Dschungelbäume, Blumen. Die Felder sind Woll-Platten mit Pixel-Symbolen (Start: Smaragd, Ziel: Gold mit Diamant). Figuren sind Kastenmännchen aus denselben Editor-Einstellungen (Hemd = Teamfarbe). Auf den Wiesen grasen Schafe, Kühe, Schweine und Hühner, in den Wäldern streifen Zombies und Skelette, an der Höhle Spinnen und Fledermäuse, am Wasser hüpfen Schleime, am Vulkanfuß schleichen Knaller.
   - Sonderfelder als Mobs/Blöcke: *Katapult vorwärts* = Schleimblock schleudert, *Katapult rückwärts* = ein **Knaller** schleicht heran, zischt und sprengt das Team zurück, *Platztausch* = Teleport-Perle, *Sperre* = Spinnennetz mit Spinne, *Minispiel* = Notenblöcke mit Leuchtfeuer, *Totenkopf* = der Boden bricht weg.
   - Mutproben: Eiche mit **Ranke** über den Bach, Fass- und Kistenblöcke am Wasserfall, Höhleneingang aus Bruchstein.
   - **Vulkan-Inneres = Nether**: Netherrack-Höhle mit Glowstone, Lavasee und Lavafällen, Strafweg über Netherziegel-Pfeiler, Ausgangsfeld als Glowstone mit Leuchtfeuer, Ausgang durch ein Obsidian-Portal, darüber schweben Glutgeister.
-  - Handys und Beamer-Einblendungen bekommen den Pixel-Look (Pixelschrift, graue Menü-Kästen, Erd-Hintergrund). Die Regie bleibt wie gewohnt.
+  - Handys und Beamer-Einblendungen bekommen den Pixel-Look (Pixelschrift für Überschriften und Knöpfe, graue Menü-Kästen, Erd-Hintergrund). Fragen, Antworten, Lösungen und Zahlen stehen in einer klar lesbaren, kantigen Schrift (Chakra Petch), damit sich nichts verwechseln lässt (2/Z, 5/S, 8/B). Die Regie bleibt wie gewohnt.
   - Eigene Kommentator-Sprüche (Knaller, Teleport-Perle, Spinnennetz, Ranke, Nether …), eigene Spielerklärung und eigene ruhige Musik (freie Stücke im Blockspiel-Stil, im Nether düster).
 
 ## Wetter, Jahreszeit und Festzeit
 
-Unter *Beamer → Wetter & Stimmung* (gilt für beide Welten, live):
+Unter *Spiel einrichten → Alle Einstellungen → Welt & Stimmung* (gilt für beide Welten und für alle Beamer deines Kontos, wirkt sofort; auf der Seite *Beamer* steht ein Verweis mit dem aktuellen Wetter):
 
 - **Wetter**: *Automatisch* oder fest Sonne, Wolken, Regen, Gewitter (Blitze mit Donner), Schnee, Nebel.
 - **Jahreszeit**: *Nach Datum* oder fest. Herbst färbt das Laub, im Winter liegt Schnee.
@@ -169,24 +181,28 @@ Gewinnt ein Team (Standard: auf dem Gipfel stehen und dann mindestens eine 6 wü
 | Figur steht falsch | In der Rangliste auf das Team tippen → *Position korrigieren*. |
 | Team hängt in der Sperre fest | Rangliste → Team → *Aus der Sperre befreien*. |
 | Schütteln zum Würfeln geht nicht | Bewegungssensoren geben Browser nur über eine sichere Verbindung frei (HTTPS). Im WLAN-Betrieb (`http://…`) bleibt der Würfel-Knopf; über `./start.sh online` (https) klappt auch das Schütteln. Am iPhone einmal *Würfeln durch Schütteln erlauben* antippen. |
-| Team kommt nicht aus dem Krater | Rangliste → Team → *Aus dem Krater holen* (oder in den Regeln weniger Augen zum Herausklettern einstellen). |
+| Team kommt nicht aus dem Krater | Rangliste → Team → *Aus dem Krater holen* (oder unter *Spiel einrichten → Mutproben* weniger Augen zum Herausklettern einstellen). |
 | Ein Handy ist ausgeloggt | Mit der Team-PIN wieder beitreten – der Spielstand bleibt. |
 | Handys kommen nicht auf die Seite | Gleiches WLAN? Adresse unter *Einstellungen → Beitritts-Adresse* prüfen; ggf. `./start.sh online`. |
 | Beamer ruckelt | Regie → *Beamer* → Grafik **Ausgewogen** oder **Sparsam** (oder **Automatisch**: schaltet selbst herunter). Die Bildrate jedes Beamers steht dort. |
 | Kein Ton | Regie → *Beamer* zeigt „einmal am Beamer klicken“ → einmal auf den Beamer klicken (Browser-Regel). Mit `./start.sh beamer` (Kiosk) entfällt das. |
 | Beamer hängt / zeigt Alt-Stand | Regie → *Beamer* → **Neu laden**. |
 
+## Einstellungen finden: Suche
+
+Oben in der Regie steht **Einstellungen suchen …** (am Handy die Lupe, am Laptop auch **Strg+K** bzw. **⌘K**). Ein Stichwort eintippen – z. B. *Welt*, *Minecraft*, *Lautstärke*, *Schnee*, *Liane*, *Nether*, *Grafik*, *dunkel* – und mit Enter oder Klick hinspringen: Die Seite öffnet sich am richtigen Bereich, die Einstellung leuchtet kurz auf. Gefunden werden Einstellungen von *Spiel einrichten*, *Beamer* und *Einstellungen* sowie Seiten wie *Teams* oder *Bibliothek*, auch mit den Namen der jeweils anderen Welt (*Nether* findet das Vulkan-Innere).
+
 ## Beamer & Ton steuern (Regie → *Beamer*)
 
-Alles wirkt sofort auf allen Beamern – auch ohne Spiel und in der Lobby. Eine Kurzfassung (Musik, Effekte, Kommentator, Lautstärke, Kamera, Erklärung) steht zusätzlich auf der *Live*-Seite und beim Moderator.
+Alles wirkt sofort auf allen Beamern – auch ohne Spiel und in der Lobby. Die Seite ist in Karten gegliedert: *Beamer & Spielerklärung*, *Kamera*, *Bild*, *Ton & Musik*, *Kommentator* (Wetter & Stimmung: siehe oben, bei der Welt). Eine Kurzfassung (Musik, Effekte, Kommentator, Lautstärke, Kamera, Erklärung) steht zusätzlich auf der *Live*-Seite und beim Moderator.
 
 | Bereich | Was geht |
 |---|---|
-| Kamera | Automatik, feste Blicke, Teams · **In den Vulkan / Nether** und **Zurück auf die Insel** (nur, wenn gerade kein Zug läuft; der nächste Wurf holt die Kamera zurück) |
-| Status | Jeder verbundene Beamer mit Bildrate, Grafikstufe, Auflösung, Ton frei?, Vollbild, freie Kamera · **Neu laden** · **Spielerklärung starten/stoppen** |
+| Beamer & Spielerklärung | Jeder verbundene Beamer mit Bildrate, Grafikstufe, Auflösung, Ton frei?, Vollbild, freie Kamera · neuen Beamer per Code freigeben · **Neu laden** · **Spielerklärung starten/stoppen** |
 | Bild | Grafik **Automatisch / Ultra / Schön / Ausgewogen / Sparsam** (ohne Neuladen), **Auflösung** (Automatisch, Bildschirm, 720p, 1080p, 1440p, 4K – darunter steht, was gerade wirklich gerendert wird), Vollbild, Rangliste & Kopfzeile, Namensschilder, Foto-Blasen beim Ziehen, Bildrate anzeigen |
-| Ton & Musik | Gesamtlautstärke; Musik, Effekte, Kommentator, Umgebungsgeräusche je an/aus mit eigener Lautstärke und **Test**-Knopf; **Musikstück** (automatisch passend zum Spiel oder ein festes Stück) und **Stücke abwechseln**; wie oft der Kommentator spricht (nie / ab und zu / viel / Quatschkopf), beim Quatschkopf zusätzlich **Zwischendurch plaudern** (Sprüche pro Minute) |
-| Kamera | Ruhig oder lebhaft · Reaktion nach jedem Zug an/aus · Knöpfe *Automatik, Insel, Start, Vulkan, Gipfel* und je Team · Steuerkreuz (schieben, drehen, neigen, zoomen – gedrückt halten). Nach 60 s ohne Eingabe übernimmt wieder die Automatik. |
+| Ton & Musik | Gesamtlautstärke; Musik, Effekte, Umgebungsgeräusche je an/aus mit eigener Lautstärke und **Test**-Knopf; **Musikstück** (automatisch passend zu Welt und Spiel oder ein festes Stück – die Stücke der aktuellen Welt stehen oben) und **Stücke abwechseln** |
+| Kommentator | an/aus mit Lautstärke und **Test**; wie oft er spricht (nie / ab und zu / viel / Quatschkopf), beim Quatschkopf zusätzlich **Zwischendurch plaudern** (Sprüche pro Minute) |
+| Kamera | Ruhig oder lebhaft · Reaktion nach jedem Zug an/aus · **In den Vulkan / Nether** und **Zurück auf die Insel** (nur, wenn gerade kein Zug läuft): Die Kamera fliegt zum Krater, taucht hinein und gleitet im Inneren herab; dort kreist sie von selbst und zeigt Teams, die gerade drin sind. Zurück geht es durch die Deckenöffnung bzw. das Portal. Der nächste Wurf holt die Kamera ebenfalls zurück. · Knöpfe *Automatik, Insel/Blockwelt, Start, Vulkan, Gipfel* und je Team · Steuerkreuz (schieben, drehen, neigen, zoomen – gedrückt halten). Nach 60 s ohne Eingabe übernimmt wieder die Automatik. |
 
 Die **Musik** wechselt von selbst: Lobby-Musik vor dem Start, Insel-Musik beim Würfeln, Spannungsmusik bei Fragen und Minispielen, eigene Musik im Vulkan-Inneren, Finale bei der Siegerehrung. Für jede Stimmung gibt es mehrere Stücke (13 insgesamt); mit **Stücke abwechseln** laufen sie nacheinander, sonst wird eins wiederholt. Wer ein bestimmtes Stück will, wählt es fest aus.
 

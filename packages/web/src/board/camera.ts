@@ -14,11 +14,57 @@ import * as THREE from 'three';
 import type { CameraStyle } from '@insel/shared';
 import type { IslandLayout } from './layout.ts';
 
+/** Kamerastandpunkt und Blickpunkt */
+export interface Shot {
+  position: THREE.Vector3;
+  lookAt: THREE.Vector3;
+}
+
 export type CameraMode =
   | { kind: 'overview'; tour?: boolean }
   | { kind: 'follow'; target: () => THREE.Vector3 | null; distance?: number; height?: number; side?: number }
   | { kind: 'focus'; position: THREE.Vector3; lookAt: THREE.Vector3 }
+  /**
+   * Vorgezeichnete Fahrt (Sekunden seit Beginn → Einstellung): ohne automatisches Ausweichen,
+   * Anheben oder Bogenflug – die Bahn selbst hält Abstand zu Gelände und Wänden. Nach `duration`
+   * Sekunden bleibt sie auf der letzten Einstellung stehen (ohne Angabe: endlos).
+   */
+  | { kind: 'path'; at: (t: number) => Shot; duration?: number }
   | { kind: 'free' };
+
+const easeInOut = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * x * (x * (x * 6 - 15) + 10));
+/**
+ * Weicher Verlauf 0 → 1 mit Anfangs- und Endtempo (1 = Durchschnittstempo der Fahrt): z. B.
+ * (0, 1) fährt an und taucht noch in Bewegung ab, (0.5, 0) ist schon unterwegs und bremst sanft.
+ */
+export function ease(v0: number, v1: number): (x: number) => number {
+  return (x) => (x <= 0 ? 0 : x >= 1 ? 1 : v0 * x + (3 - 2 * v0 - v1) * x * x + (v0 + v1 - 2) * x * x * x);
+}
+
+/**
+ * Kamerafahrt durch Stützpunkte (weiche Kurve für Standpunkt und Blickpunkt), gleichmäßig über die
+ * Weglänge verteilt und weich angefahren bzw. abgebremst. Liefert die Einstellung zur Zeit t (s).
+ */
+export function flight(keys: Shot[], seconds: number, curve: (x: number) => number = easeInOut): (t: number) => Shot {
+  if (keys.length === 1) return () => ({ position: keys[0]!.position.clone(), lookAt: keys[0]!.lookAt.clone() });
+  const pos = new THREE.CatmullRomCurve3(keys.map((k) => k.position), false, 'centripetal');
+  const look = new THREE.CatmullRomCurve3(keys.map((k) => k.lookAt), false, 'centripetal');
+  const n = keys.length - 1;
+  const M = 24;
+  // Anteil der Weglänge bis zu jedem Stützpunkt – damit der Blick mit dem Standpunkt mitläuft
+  const lengths = pos.getLengths(n * M);
+  const total = lengths[n * M]!;
+  const frac = keys.map((_, k) => (total > 1e-3 ? lengths[k * M]! / total : k / n));
+  return (t) => {
+    const u = curve(t / Math.max(0.001, seconds));
+    let k = 0;
+    while (k < n - 1 && u > frac[k + 1]!) k++;
+    const span = frac[k + 1]! - frac[k]!;
+    const local = span > 1e-6 ? Math.min(1, Math.max(0, (u - frac[k]!) / span)) : 1;
+    const p = (k + local) / n;
+    return { position: pos.getPoint(p), lookAt: look.getPoint(p) };
+  };
+}
 
 /** Sichthindernis als senkrechter Zylinder (Baum, Turm, Gebäude). */
 export interface Blocker {
@@ -77,6 +123,13 @@ export interface ManualView {
   hold: number;
 }
 
+/** Gesamtansichten im Rundflug: [Nummer, Start x, Start z] (siehe `tour`) */
+const WIDE_SHOTS: [number, number, number][] = [
+  [0, 70, 70],
+  [3, -80, 50],
+  [7, 10, -90],
+];
+
 const STYLES: Record<CameraStyle, { turn: number; turnAccel: number; smooth: number; tourLen: number; orbit: number }> = {
   calm: { turn: 0.95, turnAccel: 2.2, smooth: 1.45, tourLen: 16, orbit: 0.022 },
   lively: { turn: 1.5, turnAccel: 3.5, smooth: 1, tourLen: 11, orbit: 0.035 },
@@ -104,6 +157,8 @@ export class CameraRig {
   private shakeAmp = 0;
   private shakeTime = 0;
   private tourTime = 0;
+  /** Sekunden seit Beginn der vorgezeichneten Fahrt */
+  pathTime = 0;
   /** Ausweichen: Drehung um das Motiv und zusätzliche Höhe (aktuell / Ziel) */
   private adj = { a: 0, h: 0 };
   private adjWant = { a: 0, h: 0 };
@@ -137,6 +192,14 @@ export class CameraRig {
 
   set(mode: CameraMode, stiffness = 1.8) {
     const changed = mode.kind !== this.mode.kind || mode !== this.mode;
+    if (mode.kind === 'overview') {
+      // Übersicht von der Seite, auf der die Kamera gerade ist – kein Schwenk um die halbe Insel;
+      // der Rundflug beginnt mit der Gesamtansicht, die am nächsten liegt
+      const prev = this.mode.kind === 'overview' ? this.mode : null;
+      if (!prev) this.orbit = Math.atan2(this.pos.x, this.pos.z);
+      if (mode.tour && !prev?.tour) this.tourTime = this.nearestWideShot() * STYLES[this.style].tourLen;
+    }
+    if (mode !== this.mode) this.pathTime = 0;
     this.mode = mode;
     this.autoStiffness = stiffness;
     if (!this.manual) this.stiffness = stiffness;
@@ -284,10 +347,10 @@ export class CameraRig {
   }
 
   /** Blick auf die ganze Insel (für Startbild/Lobby). */
-  hero() {
+  hero(orbit = this.orbit) {
     const aspect = this.camera.aspect;
     const d = aspect < 1.2 ? 104 : 84;
-    return { position: new THREE.Vector3(Math.sin(this.orbit) * d, d * 0.55, Math.cos(this.orbit) * d), lookAt: new THREE.Vector3(0, 4, -2) };
+    return { position: new THREE.Vector3(Math.sin(orbit) * d, d * 0.55, Math.cos(orbit) * d), lookAt: new THREE.Vector3(0, 4, -2) };
   }
 
   /**
@@ -318,6 +381,21 @@ export class CameraRig {
     // Hochformat: etwas weiter weg
     if (this.camera.aspect < 1.2) pos.sub(l0).multiplyScalar(1.25).add(l0);
     return { position: pos, lookAt: l0.clone().lerp(l1, u) };
+  }
+
+  /** Nummer der Gesamtansicht im Rundflug (0, 3 oder 7), die der Kamera am nächsten liegt. */
+  private nearestWideShot(): number {
+    const here = Math.atan2(this.pos.x, this.pos.z);
+    let best = 0;
+    let bestD = Infinity;
+    for (const [i, x, z] of WIDE_SHOTS) {
+      const d = Math.abs(Math.atan2(Math.sin(Math.atan2(x, z) - here), Math.cos(Math.atan2(x, z) - here)));
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
   }
 
   update(dt: number) {
@@ -359,6 +437,12 @@ export class CameraRig {
         this.wantLook.set(t.x - outward.x * 2, t.y + 1, t.z - outward.z * 2);
         this.subject.set(t.x, t.y + 0.9, t.z);
       }
+    } else if (m.kind === 'path') {
+      this.pathTime += dt;
+      const s = m.at(m.duration !== undefined ? Math.min(this.pathTime, m.duration) : this.pathTime);
+      this.wantPos.copy(s.position);
+      this.wantLook.copy(s.lookAt);
+      this.subject.copy(s.lookAt);
     } else {
       this.wantPos.copy(m.position);
       this.wantLook.copy(m.lookAt);
@@ -367,8 +451,12 @@ export class CameraRig {
 
     // Sichtlinie prüfen (nicht jedes Bild) und weich ausweichen – nicht bei freier Kamera
     this.adjTimer -= dt;
-    if (this.manual) this.adjWant = { a: 0, h: 0 };
-    else if (this.adjTimer <= 0) {
+    // vorgezeichnete Fahrten: keine Ausweichbewegung, kein Anheben (die Bahn kennt ihren Weg)
+    const scripted = !this.manual && m.kind === 'path';
+    if (this.manual || scripted) {
+      this.adjWant = { a: 0, h: 0 };
+      if (scripted) this.travelLiftWant = 0;
+    } else if (this.adjTimer <= 0) {
       this.adjTimer = 0.35;
       this.chooseAdj(this.wantPos, this.wantLook);
       // Unterwegs verdeckt? Dann über das Hindernis hinweg fahren, bis die Sicht frei ist
@@ -383,7 +471,7 @@ export class CameraRig {
     target.y += this.travelLift;
     // Weite Fahrten im Bogen: erst steigen, über die Insel, dann absenken (wie ein Kamerakran)
     const travel = Math.hypot(target.x - this.pos.x, target.z - this.pos.z);
-    if (travel > 12 && dt > 0 && !this.manual) {
+    if (travel > 12 && dt > 0 && !this.manual && !scripted) {
       let ridge = 0;
       if (this.heightAt)
         for (let f = 0.1; f < 1; f += 0.15) ridge = Math.max(ridge, this.heightAt(this.pos.x + (target.x - this.pos.x) * f, this.pos.z + (target.z - this.pos.z) * f));
@@ -393,10 +481,10 @@ export class CameraRig {
 
     // große Sprünge (anderes Motiv, andere Seite) langsamer und ohne Peitschenschwenk
     const base = this.manual ? 0.22 : (1.1 / Math.max(0.05, this.stiffness)) * st.smooth;
-    const far = this.manual ? 1 : Math.min(2.2, Math.max(1, this.pos.distanceTo(target) / 18));
+    const far = this.manual || scripted ? 1 : Math.min(2.2, Math.max(1, this.pos.distanceTo(target) / 18));
     const cur = this.look.clone().sub(this.pos).normalize();
     const want = this.wantLook.clone().sub(target).normalize();
-    const turn = this.manual ? 1 : Math.min(1.6, Math.max(1, cur.angleTo(want) / 1.2));
+    const turn = this.manual || scripted ? 1 : Math.min(1.6, Math.max(1, cur.angleTo(want) / 1.2));
     const smooth = base * Math.max(far, turn);
     if (dt <= 0) {
       this.pos.copy(target);
@@ -415,7 +503,8 @@ export class CameraRig {
       }
       const base = Math.max(0, ground);
       const min = base + 2.2;
-      if (this.pos.y < min) {
+      // vorgezeichnete Fahrten (z. B. hinab in den Krater) halten nur die harte Untergrenze
+      if (this.pos.y < min && !scripted) {
         this.pos.y += (min - this.pos.y) * Math.min(1, dt * 6);
         if (this.vel.y < 0) this.vel.y = 0;
       }
@@ -490,6 +579,12 @@ export class CameraRig {
     this.lookVel.set(0, 0, 0);
     this.camera.position.copy(this.pos);
     this.camera.lookAt(this.look);
+  }
+
+  /** Was gerade zu sehen ist: Standpunkt und Blickpunkt in tatsächlicher Blickrichtung (Start einer Fahrt). */
+  pose(): Shot {
+    const d = Math.max(4, this.look.distanceTo(this.pos));
+    return { position: this.pos.clone(), lookAt: this.pos.clone().addScaledVector(this.viewDir, d) };
   }
 
   /** Baumkronen (Palmen) – für freie Sicht bei Nahaufnahmen */

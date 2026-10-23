@@ -14,6 +14,7 @@ import { bigBarrel, floatingCrate } from './landmarks.ts';
 import type { IslandLayout } from './layout.ts';
 import type { Effects } from './particles.ts';
 import type { Pieces } from './pieces.ts';
+import { CameraSight } from './sight.ts';
 import type { Heightfield } from './terrain.ts';
 import { ease, type Tweens } from './tweens.ts';
 import { fordLanes, LIANA_LEN, riverView, swingView, vineFrame, vineTree, vineView } from './views.ts';
@@ -950,10 +951,8 @@ export class Stunts {
         b.o.scale.x = 1.4 * (0.3 + Math.abs(Math.sin(life * 22 + b.ph)));
         b.o.rotation.y = Math.atan2(b.v.x, b.v.z);
       }
-      if (life > 2.6) {
-        for (const b of flock) this.drop(b.o);
-        this.updaters.delete(upd);
-      }
+      // weiterfliegen, bis sie aus dem Bild sind – erst dann verschwinden (kein Ploppen)
+      this.flyOff(flock, life, upd);
     };
     this.updaters.add(upd);
   }
@@ -1364,9 +1363,35 @@ export class Stunts {
   }
 
   protected camPos: THREE.Vector3 | null = null;
+  /** was die Kamera gerade sieht (Kurzauftritte verschwinden nur außerhalb des Bildes) */
+  protected sight: CameraSight | null = null;
+
+  /** Ist die Stelle gerade im Bild? (ohne Kamera: ja) */
+  protected seen(p: THREE.Vector3, radius = 0.6, margin = 1) {
+    return this.sight ? this.sight.sees(p, radius, margin, 60) : true;
+  }
+
+  /**
+   * Fledermäuse nach dem Auftritt: wer aus dem Bild ist, verschwindet; alle übrigen fliegen
+   * weiter hinauf und hinaus, spätestens nach 12 s ist Schluss.
+   */
+  protected flyOff(flock: { o: THREE.Object3D; v: THREE.Vector3 }[], life: number, upd: (t: number, dt: number) => void) {
+    if (life < 2.6) return;
+    for (let i = flock.length - 1; i >= 0; i--) {
+      const b = flock[i]!;
+      if (life > 12 || !this.seen(b.o.position)) {
+        this.drop(b.o);
+        flock.splice(i, 1);
+      }
+    }
+    if (!flock.length) this.updaters.delete(upd);
+  }
 
   update(t: number, dt: number, camera?: THREE.Camera) {
-    if (camera) this.camPos = camera.position;
+    if (camera) {
+      this.camPos = camera.position;
+      (this.sight ??= new CameraSight()).update(camera);
+    }
     // Liane: Ruhependeln bzw. Nachschwingen
     if (this.liana && this.hanging === null) {
       const acc = -(this.lianaAngle - this.lianaTarget) * 9 - this.lianaVel * 1.6;

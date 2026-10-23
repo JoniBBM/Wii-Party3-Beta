@@ -138,6 +138,16 @@ export class Director {
     if (this.paused === on) return;
     this.paused = on;
     if (on) {
+      // Regie-Besuch im Vulkan-Inneren beenden – die Erklärung spielt auf der Insel
+      if (this.s.visiting) {
+        this.s.visiting = false;
+        if (this.s.view === 'inside') {
+          this.s.setView('island');
+          this.s.rig.set({ kind: 'overview' }, 1);
+          this.s.rig.jump();
+        }
+      }
+      this.calmUntil = 0;
       this.queue = [];
       this.generation += 1;
       if (this.idleTimer) clearTimeout(this.idleTimer);
@@ -249,8 +259,17 @@ export class Director {
     }
     this.s.pieces.setActive(null);
     this.s.fields.highlight(null);
+    // nach dem Rundenende erst in Ruhe herausfahren – der Rundflug wechselt danach die Motive
+    const calm = this.calmUntil - performance.now();
+    if (calm > 0 && this.s.rig.mode.kind === 'overview') {
+      this.idleTimer = window.setTimeout(() => !this.running && this.idleCamera(), calm + 50);
+      return;
+    }
     this.s.rig.set({ kind: 'overview', tour: true }, 0.7);
   }
+
+  /** Bis dahin bleibt die Kamera nach dem Rundenende in der ruhigen Rückfahrt (performance.now) */
+  private calmUntil = 0;
 
   enqueue(effects: Effect[]) {
     for (const e of effects) {
@@ -862,7 +881,10 @@ export class Director {
         return;
       case 'round_end':
         await this.viewFor(null);
-        s.rig.set({ kind: 'overview' }, 0.8);
+        // Würfelrunde vorbei: nicht herumschwenken, sondern von dort, wo die Kamera ist, langsam
+        // zurückziehen und hochfahren bis zur ganzen Insel (gleiche Seite); erst danach der Rundflug
+        s.rig.set({ kind: 'overview' }, 0.55);
+        this.calmUntil = performance.now() + 9000;
         this.voice('roundEnd', { delay: 1500 });
         return;
       case 'react': {

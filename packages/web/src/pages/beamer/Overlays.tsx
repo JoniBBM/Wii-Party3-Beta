@@ -249,7 +249,7 @@ export function QuestionSpotlight({ state }: { state: GameState }) {
             <span className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-1.5 font-display text-2xl font-semibold text-white">
               {info.icon} {info.label}
             </span>
-            <p className="mt-6 font-display text-[3.6rem] leading-[1.12] font-semibold text-balance text-ink">{question}</p>
+            <p className="readable mt-6 font-display text-[3.6rem] leading-[1.12] font-semibold text-balance text-ink">{question}</p>
           </motion.div>
         </motion.div>
       )}
@@ -337,15 +337,15 @@ export function RevealSpotlight({ state }: { state: GameState }) {
             <span className="inline-flex items-center gap-2 rounded-full bg-good px-6 py-2 font-display text-3xl font-semibold text-white">✅ Richtig ist</span>
             <div className="flex items-center gap-6">
               {sol.letter && (
-                <span className="grid size-28 shrink-0 place-items-center rounded-full font-display text-7xl font-semibold text-white shadow-lifted" style={{ background: sol.color }}>
+                <span className="readable grid size-28 shrink-0 place-items-center rounded-full font-display text-7xl font-semibold text-white shadow-lifted" style={{ background: sol.color }}>
                   {sol.letter}
                 </span>
               )}
-              <p className="font-display text-[4.6rem] leading-[1.05] font-semibold text-balance text-ink">{sol.text}</p>
+              <p className="readable font-display text-[4.6rem] leading-[1.05] font-semibold text-balance text-ink">{sol.text}</p>
             </div>
-            {sol.also && <p className="text-2xl font-bold text-ink-2">Auch richtig: {sol.also}</p>}
+            {sol.also && <p className="readable text-2xl font-bold text-ink-2">Auch richtig: {sol.also}</p>}
             <div className="flex flex-col items-center gap-3">
-              <p className="text-2xl font-bold text-ink-2">{note}</p>
+              <p className="readable text-2xl font-bold text-ink-2">{note}</p>
               {right.length > 0 && (
                 <div className="flex max-w-[70rem] flex-wrap justify-center gap-3">
                   {right.map((t) => (
@@ -389,7 +389,7 @@ function ContentPanel({ state, content }: { state: GameState; content: ActiveCon
           <span className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-1 font-display text-lg font-semibold text-white">
             {info.icon} {info.label}
           </span>
-          <p className="mt-3 font-display text-5xl leading-tight font-semibold text-ink">{item.title}</p>
+          <p className="readable mt-3 font-display text-5xl leading-tight font-semibold text-ink">{item.title}</p>
         </div>
         {content.timer && content.stage !== 'revealed' && <Countdown timer={content.timer} size="lg" />}
       </div>
@@ -400,15 +400,15 @@ function ContentPanel({ state, content }: { state: GameState; content: ActiveCon
           initial={false}
           animate={{ opacity: spot ? 0 : 1 }}
           transition={{ duration: 0.35, delay: spot ? 0 : 0.55 }}
-          className="text-4xl leading-snug font-bold text-ink"
+          className="readable text-4xl leading-snug font-bold text-ink"
         >
           {(item as { question: string }).question}
         </motion.p>
       )}
-      {showQuestion && item.kind === 'estimate' && item.unit && !revealed && <p className="text-2xl font-bold text-ink-2">Antwort in: {item.unit}</p>}
+      {showQuestion && item.kind === 'estimate' && item.unit && !revealed && <p className="readable text-2xl font-bold text-ink-2">Antwort in: {item.unit}</p>}
       {!showQuestion && 'question' in item && <p className="text-3xl font-bold text-ink-2">Gleich kommt die Frage …</p>}
-      {item.kind === 'game' && item.description && <p className="text-2xl leading-relaxed font-semibold whitespace-pre-line text-ink-2">{item.description}</p>}
-      {item.kind === 'game' && item.materials && <p className="text-xl font-bold text-ink-2">🧰 {item.materials}</p>}
+      {item.kind === 'game' && item.description && <p className="readable text-2xl leading-relaxed font-semibold whitespace-pre-line text-ink-2">{item.description}</p>}
+      {item.kind === 'game' && item.materials && <p className="readable text-xl font-bold text-ink-2">🧰 {item.materials}</p>}
 
       {item.kind === 'choice' && content.stage !== 'intro' && (
         <div className="grid grid-cols-2 gap-3">
@@ -418,7 +418,7 @@ function ContentPanel({ state, content }: { state: GameState; content: ActiveCon
             return (
               <div
                 key={i}
-                className={`relative flex items-center gap-3 rounded-3xl px-4 py-3 text-2xl font-extrabold text-white transition ${revealed && !right ? 'opacity-35 saturate-50' : ''} ${right ? 'ring-8 ring-white' : ''}`}
+                className={`answer-tile readable relative flex items-center gap-3 rounded-3xl px-4 py-3 text-2xl font-extrabold text-white transition ${revealed && !right ? 'opacity-35 saturate-50' : ''} ${right ? 'ring-8 ring-white' : ''}`}
                 style={{ background: OPTION_COLORS[i % OPTION_COLORS.length] }}
               >
                 <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white/25 font-display text-2xl">{String.fromCharCode(65 + i)}</span>
@@ -438,7 +438,7 @@ function ContentPanel({ state, content }: { state: GameState; content: ActiveCon
       )}
 
       {revealed && (item.kind === 'text' || item.kind === 'buzzer') && (
-        <p className="rounded-3xl bg-good px-5 py-3 font-display text-4xl font-semibold text-white">✅ {item.kind === 'text' ? item.answers[0] : item.answer}</p>
+        <p className="answer-tile readable rounded-3xl bg-good px-5 py-3 font-display text-4xl font-semibold text-white">✅ {item.kind === 'text' ? item.answers[0] : item.answer}</p>
       )}
       {revealed && item.kind === 'estimate' && <EstimateReveal state={state} content={content} />}
       {item.kind === 'buzzer' && content.buzzQueue.length > 0 && <BuzzQueue state={state} content={content} />}
@@ -475,7 +475,7 @@ function TeamVerdicts({ state, content }: { state: GameState; content: ActiveCon
         const a = content.answers[t.id];
         const ok = a?.correct === true;
         return (
-          <span key={t.id} className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xl font-bold ${ok ? 'bg-good-soft text-good' : 'bg-white/70 text-ink-2'}`}>
+          <span key={t.id} className={`readable inline-flex items-center gap-2 rounded-full px-3 py-1 text-xl font-bold ${ok ? 'bg-good-soft text-good' : 'bg-white/70 text-ink-2'}`}>
             <span className="size-4 rounded-full" style={{ background: teamColor(t.color).hex }} />
             {t.name}: {a ? String(a.value) : '–'} {ok ? '✅' : a ? '❌' : ''}
           </span>
@@ -494,7 +494,7 @@ function EstimateReveal({ state, content }: { state: GameState; content: ActiveC
     .sort((a, b) => a.r.rank - b.r.rank);
   return (
     <div className="flex flex-col gap-2">
-      <p className="rounded-3xl bg-good px-5 py-3 font-display text-4xl font-semibold text-white">
+      <p className="answer-tile readable rounded-3xl bg-good px-5 py-3 font-display text-4xl font-semibold text-white">
         🎯 {Number(item.target).toLocaleString('de-DE')} {item.unit}
       </p>
       {rows.map(({ r, t, a }) => (
@@ -502,10 +502,10 @@ function EstimateReveal({ state, content }: { state: GameState; content: ActiveC
           <span className="w-10">{placeLabel(r.rank)}</span>
           <span className="size-5 rounded-full" style={{ background: teamColor(t?.color ?? 'red').hex }} />
           <span className="flex-1 text-ink">{t?.name}</span>
-          <span className="text-ink-2 tabular-nums">
+          <span className="readable text-ink-2 tabular-nums">
             {Number(a!.value).toLocaleString('de-DE')} {item.unit}
           </span>
-          <span className="w-40 text-right text-lg text-muted tabular-nums">
+          <span className="readable w-40 text-right text-lg text-muted tabular-nums">
             {Number(a!.value) === item.target ? 'genau!' : `${Number(a!.value) > item.target ? '+' : '−'}${Math.abs(Number(a!.value) - item.target).toLocaleString('de-DE')}`}
           </span>
         </div>
@@ -527,7 +527,7 @@ function BuzzQueue({ state, content }: { state: GameState; content: ActiveConten
             animate={{ x: 0, opacity: 1 }}
             className={`flex items-center gap-3 rounded-3xl px-4 py-2 font-display text-3xl font-semibold ${j === false ? 'bg-white/50 text-muted line-through' : 'bg-white/85 text-ink'}`}
           >
-            <span className="grid size-11 place-items-center rounded-full text-white" style={{ background: teamColor(t?.color ?? 'red').hex }}>
+            <span className="readable grid size-11 place-items-center rounded-full text-white" style={{ background: teamColor(t?.color ?? 'red').hex }}>
               {i + 1}
             </span>
             {t?.name}
@@ -545,7 +545,7 @@ function Results({ state }: { state: GameState }) {
   return (
     <div className="flex flex-col gap-4 p-7">
       <p className="font-display text-5xl font-semibold text-ink">🏅 Ergebnis</p>
-      <p className="text-2xl font-bold text-ink-2">
+      <p className="readable text-2xl font-bold text-ink-2">
         {CONTENT_KIND_INFO[r.kind].icon} {r.title}
       </p>
       <div className="flex flex-col gap-2">
@@ -562,7 +562,7 @@ function Results({ state }: { state: GameState }) {
               <span className="w-14 text-center font-display text-4xl">{placeLabel(e.rank)}</span>
               {t && <FigureAvatar figure={t.figure} color={t.color} size={52} />}
               <span className="flex-1 font-display text-3xl font-semibold text-ink">{t?.name}</span>
-              {e.detail && <span className="text-xl font-bold text-ink-2">{e.detail}</span>}
+              {e.detail && <span className="readable text-xl font-bold text-ink-2">{e.detail}</span>}
               {e.bonusDie > 0 && (
                 <span className="scale-150">
                   <BonusDieBadge sides={e.bonusDie} />
@@ -584,13 +584,13 @@ function FieldGamePanel({ state }: { state: GameState }) {
   return (
     <div className="flex flex-col gap-4 p-7">
       <span className="self-start rounded-full bg-[#ff6fb5] px-4 py-1 font-display text-lg font-semibold text-white">🎮 Minispiel-Feld · {fg.mode ? FIELD_GAME_MODE_LABEL[fg.mode] : ''}</span>
-      <p className="font-display text-5xl leading-tight font-semibold text-ink">{fg.item?.title ?? 'Minispiel!'}</p>
+      <p className="readable font-display text-5xl leading-tight font-semibold text-ink">{fg.item?.title ?? 'Minispiel!'}</p>
       <div className="flex flex-wrap items-center gap-3 font-display text-3xl font-semibold">
         <span style={{ color: teamColor(team?.color ?? 'red').dark }}>{team?.name}</span>
         <span className="text-ink-2">gegen</span>
         {fg.mode === 'duel' ? <span style={{ color: teamColor(opponents[0]?.color ?? 'red').dark }}>{opponents[0]?.name}</span> : <span className="text-ink">alle anderen</span>}
       </div>
-      {fg.item?.description && <p className="text-2xl leading-relaxed font-semibold whitespace-pre-line text-ink-2">{fg.item.description}</p>}
+      {fg.item?.description && <p className="readable text-2xl leading-relaxed font-semibold whitespace-pre-line text-ink-2">{fg.item.description}</p>}
       <Faces state={state} drawn={fg.drawn} />
     </div>
   );

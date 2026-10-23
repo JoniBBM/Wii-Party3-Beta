@@ -28,6 +28,13 @@
 - [x] **Spielerklärung**: Vulkanfelder mit Druckbalken erklärt, Ausbruch mit zurückfliegender Figur, Blockwelt-Fassung.
 - [x] **Liane**: Bach in beiden Welten deutlich breiter (~2,9 m), Kamera bei Liane und Fluss ohne Bäume davor.
 - [x] **Vulkan-Knopf**: Regie → Beamer → Kamera „In den Vulkan/Nether“ und zurück, wenn gerade nichts passiert.
+- [x] **Einstellungsmenü neu**: „Spiel einrichten → Alle Einstellungen“ in Bereiche gegliedert (Welt & Stimmung eigener Bereich mit Wetter), Speichern-Leiste, Namen je Welt; Beamer- und Einstellungsseite aufgeräumt.
+- [x] **Suche über alle Einstellungen** (Kopfzeile, Strg/⌘+K) mit Sprung und Hervorhebung.
+- [x] **Neues Spiel = ein Knopf**, danach direkt der Assistent.
+- [x] **Vulkan-Besuch**: Kamerafahrt in den Krater und zurück, im Inneren kreist die Kamera; Blockwelt-Krater mit Lavasee.
+- [x] **Rundenende**: Kamera zieht sich sanft zurück statt wild zu schwenken.
+- [x] **Fragen in der Blockwelt lesbar** (Chakra Petch für Fragen/Antworten/Zahlen, Pixelschrift nur für Überschriften).
+- [x] **Tiere**: kein Auftauchen/Verschwinden/Springen im Bild; Schleime und alle anderen Tiere laufen bzw. hüpfen sauber (beide Welten).
 
 ## Offen
 

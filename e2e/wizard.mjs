@@ -59,8 +59,7 @@ try {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${base}/regie/spiele`);
-  await page.getByRole('button', { name: 'Neues Spiel' }).click();
-  await page.getByRole('button', { name: 'Anlegen & wählen' }).click();
+  await page.getByRole('button', { name: 'Neues Spiel', exact: true }).click();
   await page.waitForURL('**/regie/einrichten');
   await page.getByText('In welcher Welt wird gespielt?').waitFor();
   check(true, 'Neues Spiel führt direkt in den Assistenten');
@@ -91,7 +90,8 @@ try {
   await page.getByRole('button', { name: 'Weiter' }).click();
   await page.getByRole('radiogroup', { name: 'Häufigkeit Totenkopf' }).getByRole('radio', { name: 'Aus' }).click();
   await page.getByRole('radiogroup', { name: 'Häufigkeit Minispiel-Feld' }).getByRole('radio', { name: 'Sehr oft' }).click();
-  await page.locator('li', { hasText: 'Liane' }).getByRole('switch').click();
+  // Blockwelt gewählt: die Liane heißt dort Ranke
+  await page.locator('li', { hasText: 'Ranke' }).getByRole('switch').click();
   await slide(page, '4-sonderfelder');
 
   await page.getByRole('button', { name: 'Weiter' }).click();
@@ -122,7 +122,7 @@ try {
   check(c.board.fields.length - 1 === suggestion, `Spielfeld: ${c.board.fields.length - 1} Felder`);
   check(c.board.mix?.skull === 0 && c.board.mix?.minigame === 2, `Häufigkeiten gespeichert: ${JSON.stringify(c.board.mix)}`);
   check(!c.board.fields.includes('skull'), 'kein Totenkopf auf dem Feld');
-  check(c.rules.vine.enabled === false, 'Liane ausgeschaltet');
+  check(c.rules.vine.enabled === false, 'Ranke (Liane) ausgeschaltet');
   check(JSON.stringify(c.contentKinds) === JSON.stringify(['game', 'choice', 'estimate']), `Arten: ${c.contentKinds.join(', ')}`);
   check(c.collectionIds.length > 0, `${c.collectionIds.length} Sammlungen gewählt`);
   check(c.rules.winRule === 'reach', 'Siegbedingung: Wer oben ist, gewinnt');

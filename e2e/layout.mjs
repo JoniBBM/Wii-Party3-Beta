@@ -107,10 +107,15 @@ try {
   }
 
   const act = (label, fn) => Object.assign(fn, { label });
-  /** Spiel einrichten: Reiter unter „Alle Einstellungen“ bzw. n-mal „Weiter“ im Assistenten */
-  const allSettings = async (p, tab) => {
+  /** Spiel einrichten: Bereich unter „Alle Einstellungen“ bzw. n-mal „Weiter“ im Assistenten */
+  const allSettings = async (p, section) => {
     await p.getByRole('tab', { name: 'Alle Einstellungen' }).click();
-    await p.getByRole('tab', { name: tab }).click();
+    await p.locator('nav[aria-label="Bereiche"]:visible').getByRole('button', { name: section }).click();
+  };
+  /** Suche über alle Einstellungen (Strg+K) */
+  const search = async (p, q) => {
+    await p.keyboard.press('Control+k');
+    await p.getByRole('textbox', { name: 'Suchbegriff' }).fill(q);
   };
   const wizard = async (p, next) => {
     await p.getByRole('radio', { name: /Insel der Abenteuer/ }).click();
@@ -120,13 +125,15 @@ try {
   const DIALOGS = [
     ['/regie/bibliothek', act('Inhalt bearbeiten', (p) => p.getByRole('button', { name: /Riesenplanet/ }).first().click())],
     ['/regie/bibliothek', act('Neue Sammlung', (p) => p.getByRole('button', { name: 'Sammlung', exact: true }).click())],
-    ['/regie/spiele', act('Neues Spiel', (p) => p.getByRole('button', { name: 'Neues Spiel' }).click())],
+    ['/regie', act('Suche', (p) => search(p, 'vulkan'))],
     ['/regie/konten', act('Einladen', (p) => p.getByRole('button', { name: 'Spielleiter einladen' }).click())],
     ['/regie/teams', act('Team-QR', (p) => p.getByRole('button', { name: 'QR-Code zeigen' }).first().click())],
     ['/regie/teams', act('Spieler bearbeiten', (p) => p.getByRole('button', { name: 'Bearbeiten' }).first().click())],
+    ['/regie/einrichten', act('Welt', (p) => allSettings(p, 'Welt & Stimmung'))],
     ['/regie/einrichten', act('Ablaufplan', (p) => allSettings(p, 'Ablaufplan'))],
     ['/regie/einrichten', act('Spielfeld', (p) => allSettings(p, 'Spielfeld'))],
-    ['/regie/einrichten', act('Regeln', (p) => allSettings(p, 'Regeln'))],
+    ['/regie/einrichten', act('Sonderfelder', (p) => allSettings(p, 'Sonderfelder'))],
+    ['/regie/einrichten', act('Vulkan', (p) => allSettings(p, 'Vulkan'))],
     ['/regie/einrichten', act('Assistent Dauer', (p) => wizard(p, 0))],
     ['/regie/einrichten', act('Assistent Sonderfelder', (p) => wizard(p, 2))],
     ['/regie/einrichten', act('Assistent Sammlungen', (p) => wizard(p, 4))],

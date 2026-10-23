@@ -1,6 +1,6 @@
 # Lizenzen der Assets
 
-Alle Assets sind frei verwendbar. Die meisten stehen unter **CC0 1.0 (Public Domain)**; einige Tiermodelle stehen unter **CC BY 3.0** und verlangen eine Namensnennung (siehe unten), die Wasser-Normalenkarte der Ultra-Grafik steht unter der **MIT-Lizenz**.
+Alle Assets sind frei verwendbar. Die meisten stehen unter **CC0 1.0 (Public Domain)**; einige Tiermodelle stehen unter **CC BY 3.0** und verlangen eine Namensnennung (siehe unten), die Wasser-Normalenkarte der Ultra-Grafik steht unter der **MIT-Lizenz**, die Schriften unter der **SIL Open Font License 1.1**.
 
 ## CC0 1.0 (Public Domain)
 
@@ -76,5 +76,16 @@ Lizenztext: https://creativecommons.org/licenses/by/3.0/ – Modelle unveränder
 | `models/veg/bamboo.glb` | „Bamboo“ | Poly by Google | https://poly.pizza/m/auVD_m-ugF0 |
 | `models/animals/turtle.glb` | „Turtle“ | Poly by Google | https://poly.pizza/m/2LCcq8vhqJ3 |
 | `models/animals/turtle2.glb` | „Turtle“ (Meeresschildkröte) | Poly by Google | https://poly.pizza/m/fklSEvGm1Q8 |
+
+## Schriften
+
+**SIL Open Font License 1.1** – Lizenztext: https://openfontlicense.org – selbst gehostet über die Fontsource-Pakete (`@fontsource/…`, Lizenztext liegt jeweils im Paket als `LICENSE`), beim Bauen mit ausgeliefert; keine Abrufe bei Google Fonts. Schriftdateien unverändert.
+
+| Schrift | Wofür | Urheber | Quelle |
+|---|---|---|---|
+| Nunito (variabel) | Fließtext der Insel-Oberflächen | The Nunito Project Authors | https://github.com/googlefonts/nunito |
+| Fredoka | Überschriften der Insel-Oberflächen | The Fredoka Project Authors | https://github.com/hafontia/Fredoka-One |
+| Pixelify Sans | Pixelschrift der Blockwelt (Überschriften, Etiketten, Knöpfe) | The Pixelify Sans Project Authors | https://github.com/eifetx/Pixelify-Sans |
+| Chakra Petch | Gut lesbare Schrift der Blockwelt für Fragen, Antworten, Lösungen und Zahlen | The Chakra Petch Project Authors (Cadson Demak) | https://github.com/m4rc1e/Chakra-Petch |
 
 Danke an ElevenLabs, Kenney (www.kenney.nl), Quaternius (quaternius.com), Isa Lousberg, Poly Haven (polyhaven.com), ambientCG (ambientcg.com), die three.js-Autoren, Poly by Google, alle Urheber auf Poly Pizza (poly.pizza) sowie Yoiyami, Umplix, SpringySpringo, Alex McCulloch und Centurion_of_war auf OpenGameArt (opengameart.org)!

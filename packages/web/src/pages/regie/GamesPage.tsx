@@ -5,15 +5,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Download, Play, Plus, Power, Trash2 } from 'lucide-react';
-import type { DeviceMode } from '@insel/shared';
-import { DeviceModePicker } from '../../game/DeviceModePicker.tsx';
 import { useAccount } from '../../lib/account.ts';
 import { api, downloadFile } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
 import { reloadLibrary, useLibrary } from '../../lib/library.ts';
 import { onServerChanged, useLive } from '../../lib/live.ts';
 import { Badge, Button, Card, CardHeader, EmptyState, IconButton } from '../../ui/basics.tsx';
-import { confirm, Modal } from '../../ui/overlay.tsx';
+import { confirm } from '../../ui/overlay.tsx';
 import { toast } from '../../ui/toast.tsx';
 
 interface GameSummary {
@@ -38,10 +36,27 @@ const STATUS: Record<GameSummary['status'], { label: string; tone: 'accent' | 'g
   finished: { label: 'beendet', tone: 'neutral' },
 };
 
+/**
+ * Neues Spiel mit einem Klick: Name mit Datum, Standard-Vorlage (oder die gewählte) – alles Weitere
+ * (Welt, Dauer, Spielfeld, Inhalte, Handys, Name) fragt danach der Einrichtungs-Assistent ab.
+ */
+export function useNewGame() {
+  const navigate = useNavigate();
+  const templates = useLibrary((s) => s.templates);
+  const { busy, run } = useAsync();
+  const create = async (templateId?: string) => {
+    const tpl = templateId ?? (templates.find((t) => t.name.startsWith('Standard')) ?? templates[0])?.id;
+    const name = `Spieleabend ${new Date().toLocaleDateString('de-DE')}`;
+    const r = await run(() => api('/api/games', { slot: 'admin', body: { name, ...(tpl ? { templateId: tpl } : {}) } }), 'Neues Spiel angelegt');
+    if (r) navigate('/regie/einrichten');
+  };
+  return { create, busy };
+}
+
 export function GamesPage() {
   const [games, setGames] = useState<GameSummary[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const newGame = useNewGame();
   const account = useAccount((s) => s.account);
   const templates = useLibrary((s) => s.templates);
   const liveId = useLive((s) => s.state?.id ?? null);
@@ -125,7 +140,7 @@ export function GamesPage() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Spiele & Vorlagen</h1>
-        <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
+        <Button variant="primary" icon={<Plus className="size-4" />} loading={newGame.busy} onClick={() => void newGame.create()}>
           Neues Spiel
         </Button>
       </div>
@@ -146,20 +161,23 @@ export function GamesPage() {
       )}
 
       <Card>
-        <CardHeader title="Vorlagen" sub="Spielfeld, Regeln, Sammlungen und Ablaufplan zum Wiederverwenden. Neue Vorlagen entstehen unter „Spiel einrichten“." />
+        <CardHeader title="Vorlagen" sub="Spielfeld, Regeln, Sammlungen und Ablaufplan zum Wiederverwenden. „Neues Spiel“ oben nimmt die Standard-Vorlage; neue Vorlagen entstehen unter „Spiel einrichten“." />
         {templates.length === 0 ? (
           <EmptyState icon="📋" title="Keine Vorlagen" />
         ) : (
           <ul className="divide-y divide-line">
             {templates.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="min-w-0 flex-1">
+              <li key={t.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-[12rem] flex-1">
                   <p className="font-bold">{t.name}</p>
                   <p className="text-xs text-muted">
                     {t.config.board.fields.length - 1} Felder · {t.config.collectionIds.length} Sammlungen{t.config.plan.length ? ` · Ablaufplan mit ${t.config.plan.length} Punkten` : ''}
                     {t.description && ` · ${t.description}`}
                   </p>
                 </div>
+                <Button size="sm" icon={<Plus className="size-4" />} loading={newGame.busy} onClick={() => void newGame.create(t.id)}>
+                  Neues Spiel daraus
+                </Button>
                 {t.editable ? (
                   <IconButton
                     label="Vorlage löschen"
@@ -182,57 +200,6 @@ export function GamesPage() {
         )}
       </Card>
 
-      {creating && <NewGameModal onClose={() => setCreating(false)} onCreated={load} />}
     </div>
-  );
-}
-
-function NewGameModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const navigate = useNavigate();
-  const templates = useLibrary((s) => s.templates);
-  const [name, setName] = useState(() => `Spieleabend ${new Date().toLocaleDateString('de-DE')}`);
-  const [templateId, setTemplateId] = useState((templates.find((t) => t.name.startsWith('Standard')) ?? templates[0])?.id ?? '');
-  const [devices, setDevices] = useState<DeviceMode>('personal');
-  const { busy, run } = useAsync();
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Neues Spiel"
-      size="sm"
-      footer={
-        <Button
-          variant="primary"
-          loading={busy}
-          disabled={!name.trim()}
-          onClick={async () => {
-            const r = await run(() => api('/api/games', { slot: 'admin', body: { name, devices, ...(templateId ? { templateId } : {}) } }), 'Spiel angelegt und gewählt');
-            if (r) {
-              onCreated();
-              onClose();
-              // weiter mit der geführten Einrichtung
-              navigate('/regie/einrichten');
-            }
-          }}
-        >
-          Anlegen & wählen
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-        <select className="field" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-          <option value="">Ohne Vorlage (alle Sammlungen, 72 Felder)</option>
-        </select>
-        <span className="label mt-1">Handys</span>
-        <DeviceModePicker value={devices} onChange={setDevices} />
-        <p className="text-xs text-muted">Das neue Spiel bekommt einen eigenen Spielcode. Andere geöffnete Spiele laufen weiter.</p>
-      </div>
-    </Modal>
   );
 }

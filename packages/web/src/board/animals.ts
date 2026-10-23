@@ -10,6 +10,8 @@
  * Bewegung im Vertex-Shader (swarms.ts).
  *
  * Leistung: Tiere im Blickfeld werden jedes Bild bewegt, alle anderen nur jedes 4. Bild.
+ * Ruhe im Bild: Die Tiere laufen auf einer eigenen Uhr, die nur mit den (begrenzten) Bildschritten
+ * weiterläuft – nach einem Ruckler springt keins; Drehungen und Sprünge setzen weich ein.
  */
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
@@ -22,6 +24,7 @@ import type { IslandLayout } from './layout.ts';
 import { Monkey, type MonkeySpot } from './monkey.ts';
 import { rand } from './noise.ts';
 import type { Agent, AgentCtx } from './rig.ts';
+import { CameraSight } from './sight.ts';
 import { buildButterflies, buildSchool, type FishKind } from './swarms.ts';
 import type { Heightfield } from './terrain.ts';
 
@@ -214,13 +217,14 @@ function spawn(p: Prepared, sp: Species): Animal {
     mixer.update(Math.random() * 2);
   }
   // Sichtbarkeitsprüfung wieder an: Kugel aus der verformten Pose, großzügig erweitert
+  // (Sprünge strecken die Figur – zu knapp, und sie verschwindet am Bildrand zu früh)
   root.updateMatrixWorld(true);
   inner.traverse((o) => {
     const m = o as THREE.SkinnedMesh;
     if (!m.isSkinnedMesh) return;
     m.computeBoundingSphere();
     if (m.boundingSphere && Number.isFinite(m.boundingSphere.radius) && m.boundingSphere.radius > 0) {
-      m.boundingSphere.radius *= 1.6;
+      m.boundingSphere.radius *= 2;
       m.frustumCulled = true;
     }
   });
@@ -269,6 +273,19 @@ const headingTo = (dx: number, dz: number) => Math.atan2(dx, dz);
 /** Tiere im Blickfeld jedes Bild bewegen, die übrigen jedes 4. Bild (mit aufgelaufener Zeit). */
 const NEAR = 18;
 const SLOW_EVERY = 4;
+/** Rand ums Blickfeld: Tiere knapp außerhalb (Kopf ragt ins Bild, Kamera schwenkt) laufen schon flüssig */
+const EDGE = 1.5;
+
+/** Winkel weich nachführen (kürzester Weg), höchstens `max` rad/s */
+const turnTo = (from: number, to: number, rate: number, dt: number, max = 6) => {
+  const d = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+  const step = d * (1 - Math.exp(-rate * dt));
+  return from + Math.max(-max * dt, Math.min(max * dt, step));
+};
+const smooth = (x: number) => {
+  const u = Math.max(0, Math.min(1, x));
+  return u * u * (3 - 2 * u);
+};
 
 export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
   const group = new THREE.Group();
@@ -312,29 +329,27 @@ export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
     group,
     inView: (kind) => performance.now() - (seen.get(kind) ?? -1e9) < 900,
     update: (() => {
-      const frustum = new THREE.Frustum();
-      const pv = new THREE.Matrix4();
-      const sphere = new THREE.Sphere();
+      const sight = new CameraSight();
       const actx: AgentCtx = { cam: new THREE.Vector3(), visible: true };
       let frame = 0;
-      return (t: number, dt: number, camera: THREE.Camera) => {
+      /** eigene Uhr (statt der Wanduhr): kein Satz nach vorn, wenn ein Bild einmal länger dauert */
+      let clock = 0;
+      return (_t: number, dt: number, camera: THREE.Camera) => {
         frame++;
-        pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        frustum.setFromProjectionMatrix(pv);
-        camera.getWorldPosition(actx.cam);
+        clock += dt;
+        sight.update(camera);
+        actx.cam.copy(sight.cam);
         for (const a of agents) {
           a.acc += dt;
           const pos = a.obj.position;
-          sphere.center.copy(pos);
-          sphere.radius = a.radius;
-          const vis = pos.distanceToSquared(actx.cam) < NEAR * NEAR || frustum.intersectsSphere(sphere);
-          if (a.sight && vis && frustum.containsPoint(pos)) {
+          const vis = pos.distanceToSquared(actx.cam) < NEAR * NEAR || sight.inFrustum(pos, a.radius + EDGE);
+          if (a.sight && vis && sight.inFrustum(pos, 0)) {
             const r = SIGHT_RANGE[a.sight];
             if (pos.distanceToSquared(actx.cam) < r * r) seen.set(a.sight, performance.now());
           }
           if (!vis && (frame + a.slot) % SLOW_EVERY !== 0) continue;
           actx.visible = vis;
-          a.update(t, Math.min(0.25, a.acc), actx);
+          a.update(clock, Math.min(0.25, a.acc), actx);
           a.acc = 0;
         }
       };
@@ -378,7 +393,8 @@ export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
           jump += dt / 1.25;
           const u = Math.min(1, jump);
           y = -0.5 + Math.sin(u * Math.PI) * 2.1;
-          pitch = -Math.cos(u * Math.PI) * 0.9;
+          // Nase hebt sich unter Wasser an und senkt sich zum Eintauchen – ohne Ruck am Anfang/Ende
+          pitch = -Math.cos(u * Math.PI) * 0.9 * smooth(u / 0.14) * smooth((1 - u) / 0.14);
           if (jump >= 1) {
             jump = -1;
             ctx.splash?.(x, 0, z, false);
@@ -483,22 +499,37 @@ export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
     if (!f) continue;
     let next = 2 + R() * 4;
     let hop = -1;
+    /** vor dem Sprung: erst in Sprungrichtung drehen */
+    let aim = -1;
     let from = new THREE.Vector3(bx, field.height(bx, bz), bz);
     let to = from.clone();
+    let yaw = R() * Math.PI * 2;
+    let yawWant = yaw;
     f.root.position.copy(from);
+    f.root.rotation.y = yaw;
     animal(f, 0.5, (_t, dt) => {
       next -= dt;
-      if (hop < 0 && next <= 0) {
-        hop = 0;
-        next = 3 + R() * 5;
-        f.play('Jump', 0.1);
+      if (hop < 0 && aim < 0 && next <= 0) {
+        aim = 0;
         const a = R() * Math.PI * 2;
         const x = bx + Math.cos(a) * 0.8;
         const z = bz + Math.sin(a) * 0.8;
         from = f.root.position.clone();
         to = new THREE.Vector3(x, field.height(x, z), z);
-        f.root.rotation.y = headingTo(to.x - from.x, to.z - from.z);
+        yawWant = headingTo(to.x - from.x, to.z - from.z);
       }
+      if (aim >= 0) {
+        aim += dt;
+        // springen, sobald er (fast) in Sprungrichtung schaut
+        if ((aim > 0.25 && Math.abs(Math.atan2(Math.sin(yawWant - yaw), Math.cos(yawWant - yaw))) < 0.15) || aim > 0.9) {
+          aim = -1;
+          hop = 0;
+          next = 3 + R() * 5;
+          f.play('Jump', 0.1);
+        }
+      }
+      yaw = turnTo(yaw, yawWant, 8, dt);
+      f.root.rotation.y = yaw;
       if (hop >= 0) {
         hop += dt / 0.6;
         const u = Math.min(1, hop);
@@ -623,12 +654,19 @@ export async function buildAnimals(ctx: Ctx): Promise<AnimalWorld> {
   // Landschildkröte am Wegesrand im Dschungel
   {
     const tt = make('tortoise');
-    animal(tt, 0.6, (t) => {
+    let yaw = 0;
+    let first = true;
+    animal(tt, 0.6, (t, dt) => {
       const u = Math.sin(t * 0.03) * 0.5 + 0.5;
       const x = 18 + u * 6;
       const z = 9 + Math.sin(u * 3) * 1.5;
       tt!.root.position.set(x, field.height(x, z), z);
-      tt!.root.rotation.y = headingTo(Math.cos(t * 0.03) > 0 ? 1 : -1, 0);
+      // Blick in Laufrichtung; am Wendepunkt (dort ist sie fast still) gemächlich umdrehen
+      const dir = Math.cos(t * 0.03);
+      const want = headingTo(dir * 6, dir * Math.cos(u * 3) * 4.5);
+      yaw = first ? want : turnTo(yaw, want, 1.2, dt);
+      first = false;
+      tt!.root.rotation.y = yaw;
     });
   }
 

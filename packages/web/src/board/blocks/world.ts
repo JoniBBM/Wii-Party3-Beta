@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { RIVER, RIVER_LIP, RIVER_POOL, VOLCANO } from '@insel/shared';
+import { CRATER } from '../ground.ts';
 import type { IslandLayout } from '../layout.ts';
 import type { Heightfield } from '../terrain.ts';
 import { inCorridor, stuntCorridors } from '../views.ts';
@@ -251,14 +252,20 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
       surf[idx(i, j)] = kind;
     }
 
-  // Lava im Krater: bis knapp unter den Rand füllen
+  // Lava im Krater: ein See wie auf der Insel – bis knapp unter die Kante, auf der hineingefallene
+  // Figuren stehen (Ring um CRATER.ledge), damit der Kraterboden leuchtet statt schwarz zu sein
   let lavaK = -9999;
   {
     let floor = 9999;
+    let ledge = 9999;
     for (let j = 0; j < N; j++)
-      for (let i = 0; i < N; i++) if (Math.hypot(cx(i) - V.x, cx(j) - V.z) < V.craterRadius - 0.8) floor = Math.min(floor, top[idx(i, j)]!);
+      for (let i = 0; i < N; i++) {
+        const r = Math.hypot(cx(i) - V.x, cx(j) - V.z);
+        if (r < V.craterRadius - 0.8) floor = Math.min(floor, top[idx(i, j)]!);
+        if (r > CRATER.ledge - 0.6 && r < CRATER.ledge + 0.2) ledge = Math.min(ledge, top[idx(i, j)]!);
+      }
     if (floor < 9999) {
-      lavaK = floor + 1;
+      lavaK = Math.max(floor + 1, Math.min(ledge, floor + 4));
       for (let j = 0; j < N; j++)
         for (let i = 0; i < N; i++) {
           const r = Math.hypot(cx(i) - V.x, cx(j) - V.z);

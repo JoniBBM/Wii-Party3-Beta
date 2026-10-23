@@ -150,9 +150,10 @@ try {
   await regie.goto(`${base}/regie/teams`);
   await shot(regie, 'regie-teams', 1500);
   await regie.goto(`${base}/regie/einrichten`);
-  await regie.getByRole('tab', { name: 'Spielfeld' }).click();
+  const section = (name) => regie.locator('nav[aria-label="Bereiche"]:visible').getByRole('button', { name }).click();
+  await section('Spielfeld');
   await shot(regie, 'regie-spielfeld', 1200);
-  await regie.getByRole('tab', { name: 'Regeln' }).click();
+  await section('Sonderfelder');
   await shot(regie, 'regie-regeln', 800);
   await regie.goto(`${base}/regie/bibliothek`);
   await shot(regie, 'regie-bibliothek', 1200);

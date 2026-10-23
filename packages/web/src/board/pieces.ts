@@ -682,6 +682,11 @@ export class Pieces {
     return this.insideSteps.has(teamId);
   }
 
+  /** Teams, die gerade im Vulkan-Inneren sind */
+  insideIds(): string[] {
+    return [...this.insideSteps.keys()];
+  }
+
   /** Im Vulkan-Inneren von Platte zu Platte hüpfen. */
   async insideWalk(teamId: string, from: number, to: number, onStep?: (step: number) => void) {
     const p = this.pieces.get(teamId);

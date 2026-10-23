@@ -1,6 +1,7 @@
 /**
- * Einstellungen: eigenes Konto, Moderator-Link, Datenschutz, Darstellung – und für Admins Name,
- * Beitritts-Adresse und E-Mail-Versand (gelten für alle Spiele auf dem Server).
+ * Einstellungen, in drei Gruppen: „Für dich“ (Konto, Darstellung), „Spiel & Geräte“ (Beitritts-
+ * Adresse, Moderator, Fotos) und für Admins „Server“ (Name der App, E-Mail-Versand – gelten für alle
+ * Spiele). Spiel und Beamer stellt man unter „Spiel einrichten“ bzw. „Beamer“ ein.
  */
 import { useState } from 'react';
 import { Globe, ImageOff, Link2, Mic, Moon, Save, Sun, Wifi } from 'lucide-react';
@@ -8,6 +9,7 @@ import { useAccount } from '../../lib/account.ts';
 import { api } from '../../lib/api.ts';
 import { useAsync } from '../../lib/hooks.ts';
 import { useLive } from '../../lib/live.ts';
+import { useSettingFocus } from '../../lib/settingsIndex.ts';
 import { reloadSystem, useJoinUrl, useSystem } from '../../lib/system.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { Button, Card, CardHeader, Segmented } from '../../ui/basics.tsx';
@@ -25,6 +27,7 @@ export function SettingsPage() {
   const [modLink, setModLink] = useState<string | null>(null);
   const [theme, setTheme] = useTheme(true);
   const { busy, run } = useAsync();
+  useSettingFocus();
 
   const saveSettings = (patch: { appName?: string; joinUrl?: string }) =>
     run(() => api('/api/system/settings', { method: 'PUT', slot: 'admin', body: patch }), 'Gespeichert').then(() => reloadSystem());
@@ -32,22 +35,27 @@ export function SettingsPage() {
   return (
     <div className="flex max-w-3xl flex-col gap-5">
       <h1 className="text-2xl font-semibold">Einstellungen</h1>
-
-      <AccountCard />
-
-      {admin && (
-        <Card>
-          <CardHeader title="Name des Spiels" sub="Erscheint auf Beamer, Startseite und Handys – für alle Spiele auf diesem Server." />
-          <div className="flex gap-2 p-5">
-            <input className="field" value={appName || info?.appName || ''} onChange={(e) => setAppName(e.target.value)} maxLength={60} />
-            <Button variant="primary" icon={<Save className="size-4" />} loading={busy} disabled={!appName.trim()} onClick={() => saveSettings({ appName: appName.trim() })}>
-              Speichern
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      <Card>
+      <h2 className="-mb-2 text-sm font-extrabold tracking-wide text-muted uppercase">Für dich</h2>
+      <div data-setting="o.account" className="rounded-3xl">
+        <AccountCard />
+      </div>
+      <Card data-setting="o.regieTheme">
+        <CardHeader title="Darstellung der Regie" />
+        <div className="p-5">
+          <Segmented
+            value={theme}
+            onChange={setTheme}
+            options={[
+              { value: 'light', label: <span className="inline-flex items-center gap-1.5"><Sun className="size-4" />Hell</span> },
+              { value: 'dark', label: <span className="inline-flex items-center gap-1.5"><Moon className="size-4" />Dunkel</span> },
+              { value: 'system', label: 'System' },
+            ]}
+          />
+          <p className="mt-3 text-sm text-muted">Nur für dieses Gerät. Grafik, Ton und Kamera des Beamers stehen unter „Beamer“, Welt und Regeln unter „Spiel einrichten“.</p>
+        </div>
+      </Card>
+      <h2 className="-mb-2 text-sm font-extrabold tracking-wide text-muted uppercase">Spiel & Geräte</h2>
+      <Card data-setting="o.joinUrl">
         <CardHeader
           title="Beitritts-Adresse"
           sub={admin ? 'Diese Adresse steckt in allen QR-Codes. Die Handys müssen sie erreichen können.' : 'Diese Adresse steckt in allen QR-Codes (stellt der Admin ein).'}
@@ -101,10 +109,7 @@ export function SettingsPage() {
           )}
         </div>
       </Card>
-
-      {admin && <SmtpCard />}
-
-      <Card>
+      <Card data-setting="o.moderator">
         <CardHeader title="Moderator verbinden" sub="Für die Person, die vorliest: QR-Code mit dem Handy scannen – kein Passwort nötig. 24 Stunden gültig." icon={<Mic className="size-5" />} />
         <div className="p-5">
           <Button
@@ -121,8 +126,7 @@ export function SettingsPage() {
           </Button>
         </div>
       </Card>
-
-      <Card>
+      <Card data-setting="o.photosDelete">
         <CardHeader title="Datenschutz" sub="Fotos werden nur auf diesem Server gespeichert und nie exportiert." icon={<ImageOff className="size-5" />} />
         <div className="p-5">
           <Button
@@ -139,22 +143,30 @@ export function SettingsPage() {
           </Button>
         </div>
       </Card>
-
-      <Card>
-        <CardHeader title="Darstellung der Regie" />
-        <div className="p-5">
-          <Segmented
-            value={theme}
-            onChange={setTheme}
-            options={[
-              { value: 'light', label: <span className="inline-flex items-center gap-1.5"><Sun className="size-4" />Hell</span> },
-              { value: 'dark', label: <span className="inline-flex items-center gap-1.5"><Moon className="size-4" />Dunkel</span> },
-              { value: 'system', label: 'System' },
-            ]}
-          />
-          <p className="mt-3 text-sm text-muted">Grafik, Ton und Kamera des Beamers stellst du unter „Beamer“ ein.</p>
+      {admin && <h2 className="-mb-2 text-sm font-extrabold tracking-wide text-muted uppercase">Server</h2>}
+      {admin && (
+        <Card data-setting="o.appName">
+          <CardHeader title="Name der App" sub="Erscheint auf Beamer, Startseite und Handys – für alle Spiele auf diesem Server." />
+          <div className="flex gap-2 p-5">
+            <input className="field" value={appName || info?.appName || ''} onChange={(e) => setAppName(e.target.value)} maxLength={60} />
+            <Button variant="primary" icon={<Save className="size-4" />} loading={busy} disabled={!appName.trim()} onClick={() => saveSettings({ appName: appName.trim() })}>
+              Speichern
+            </Button>
+          </div>
+        </Card>
+      )}
+      {admin && (
+        <div data-setting="o.smtp" className="rounded-3xl">
+          <SmtpCard />
         </div>
-      </Card>
+      )}
+
+
+
+
+
+
+
 
       <p className="text-center text-xs text-muted">
         Version {info?.version} · 3D-Modelle und Klänge: Kenney, Quaternius, Poly Haven (CC0) sowie einige Tiere von Poly by Google u. a. (CC BY 3.0) –{' '}

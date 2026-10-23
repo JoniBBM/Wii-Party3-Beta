@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 import { ParticleSystem } from '../particles.ts';
-import type { InsideQuality, InsideShot } from '../inside.ts';
+import { insideTour, type InsideQuality, type InsideShot } from '../inside.ts';
 import { rand } from '../noise.ts';
 import { blockAtlas, type Tile } from './atlas.ts';
 import { buildMob } from './mobs.ts';
@@ -78,6 +78,8 @@ export class NetherInside {
   private frameMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, toneMapped: false });
   private beamMat = new THREE.MeshBasicMaterial({ color: '#ffd34d', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
   private ghosts: { o: THREE.Object3D; base: THREE.Vector3; ph: number }[] = [];
+  /** Deckenhöhen je Block (Unterkante, in Blöcken) – für die Kamera */
+  private roof: { ceil: number[]; nx: number; nz: number; x0: number; z0: number } | null = null;
   private emberAcc = 0;
   private geos: THREE.BufferGeometry[] = [];
   private textures: THREE.Texture[] = [];
@@ -171,6 +173,7 @@ export class NetherInside {
         const c = CAVE.ceil - Math.round(Math.max(0, Math.sin(x * 0.7) * Math.cos(z * 0.6) * 3) + (rng() < 0.08 ? 3 + rng() * 5 : 0));
         ceil.push(c);
       }
+    this.roof = { ceil, nx, nz, x0, z0 };
     const F = (i: number, j: number) => (i < 0 || j < 0 || i >= nx || j >= nz ? CAVE.ceil + 2 : floor[j * nx + i]!);
     const C = (i: number, j: number) => (i < 0 || j < 0 || i >= nx || j >= nz ? CAVE.ceil : ceil[j * nx + i]!);
     const kindAt = (i: number, y: number, j: number, wall: boolean): Tile => {
@@ -415,6 +418,8 @@ export class NetherInside {
     const maxY = CAVE.ceil - 4;
     if (c.y + d * Math.sin(pitch) > maxY) d = (maxY - c.y) / Math.sin(pitch);
     const position = new THREE.Vector3(c.x + Math.sin(yaw) * Math.cos(pitch) * d, c.y + Math.sin(pitch) * d, c.z + Math.cos(yaw) * Math.cos(pitch) * d);
+    // nicht in herabhängenden Netherrack-Zacken stehen
+    position.y = Math.min(position.y, this.roofAt(position.x, position.z) - 1.4);
     return { position, lookAt: new THREE.Vector3(c.x, c.y + 1, c.z - 1.5) };
   }
 
@@ -450,6 +455,66 @@ export class NetherInside {
     const lookAt = p.clone().addScaledVector(d, 0.5);
     lookAt.y = p.y + 3.4;
     return { position, lookAt };
+  }
+
+  /** Route für die Kamera: Platten und Portal */
+  private get routePoints(): THREE.Vector3[] {
+    return [...this.plates.map((p) => p.top), this.portal];
+  }
+
+  /** Unterkante der Decke (samt Zacken) im Umkreis `pad` um (x, z) */
+  private roofAt(x: number, z: number, pad = 2.5): number {
+    const g = this.roof;
+    if (!g) return CAVE.ceil * NB;
+    let roof = Infinity;
+    const i0 = Math.floor((x - pad) / NB - g.x0);
+    const i1 = Math.floor((x + pad) / NB - g.x0);
+    const j0 = Math.floor((z - ROUTE_Z - pad) / NB - g.z0);
+    const j1 = Math.floor((z - ROUTE_Z + pad) / NB - g.z0);
+    for (let j = j0; j <= j1; j++)
+      for (let i = i0; i <= i1; i++) roof = Math.min(roof, (i < 0 || j < 0 || i >= g.nx || j >= g.nz ? CAVE.ceil : g.ceil[j * g.nx + i]!) * NB);
+    return roof;
+  }
+
+  /** Kamera-Standpunkt in den freien Raum holen: weg von den Wänden, unter Decke und Zacken, über Lava und Platten. */
+  fit(p: THREE.Vector3): THREE.Vector3 {
+    const dz = p.z - ROUTE_Z;
+    const r = Math.hypot(p.x / CAVE.rx, dz / CAVE.rz);
+    if (r > 0.72) {
+      p.x *= 0.72 / r;
+      p.z = ROUTE_Z + (dz * 0.72) / r;
+    }
+    p.y = Math.min(p.y, this.roofAt(p.x, p.z) - 1.4);
+    p.y = Math.max(p.y, this.heightAt(p.x, p.z) + 2.5, LAVA_Y + 3);
+    return p;
+  }
+
+  /** Ankunft von oben (Regie-Besuch): unter der Decke über dem Landefeld, Blick steil hinab */
+  entryShot(): InsideShot {
+    const p = this.plates[0]!.top;
+    const s = this.side(0);
+    const position = this.fit(new THREE.Vector3(p.x + s.x * 5, this.dropPoint.y - 1.5, p.z + s.z * 5));
+    return { position, lookAt: new THREE.Vector3(p.x - s.x, p.y + 0.4, p.z - s.z) };
+  }
+
+  /** Hinaus (Regie-Besuch): von vorn aufs Portal zu und mitten in den Strudel – Stützpunkte der Fahrt */
+  exitShots(): InsideShot[] {
+    const d = this.dir(this.length);
+    // Strudel steht quer zur Laufrichtung; Kamera kommt von der Kameraseite (+z)
+    const n = new THREE.Vector3(-d.z, 0, d.x);
+    if (n.z < 0) n.negate();
+    const swirl = this.portal.clone().setY(this.portal.y - 0.04 + 2 * NB);
+    return [
+      { position: this.fit(swirl.clone().addScaledVector(n, 7.5).add(new THREE.Vector3(0, 1.6, 0))), lookAt: swirl.clone() },
+      { position: swirl.clone().addScaledVector(n, 1.1), lookAt: swirl.clone().addScaledVector(n, -3) },
+    ];
+  }
+
+  /** Automatische Kamera, solange nichts passiert (Regie-Besuch); `focus` = Figuren im Nether */
+  tourShot(t: number, focus: THREE.Vector3[] = []): InsideShot {
+    // unter allen Zacken bleiben (die längsten reichen bis 15 Blöcke herab)
+    const fit = (p: THREE.Vector3) => this.fit(p.setY(Math.min(p.y, (CAVE.ceil - 11) * NB - 1.5)));
+    return insideTour(t, { route: this.routePoints, base: this.overviewShot(), near: 8, focus, fit });
   }
 
   highlight(step: number | null, color?: string) {
