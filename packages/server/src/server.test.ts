@@ -309,6 +309,29 @@ describe('Server', () => {
     expect((await api<{ session: { role: string } }>('/api/auth/me', { token: playerTok })).data.session.role).toBe('guest');
   });
 
+  it('Spiel-Tempo: Moderator stellt es ein, Teams und Beamer merken nichts', async () => {
+    const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
+    const { code } = (await api<{ code: string }>('/api/games', { token: admin, body: { name: 'Tempo' } })).data;
+    const regie = await client(admin);
+    const p = await api<{ token: string }>('/api/auth/register', { body: { name: 'Tim', code } });
+    await api('/api/auth/register', { body: { name: 'Tara', code } });
+    await regie.cmd({ type: 'teams.auto', count: 2 });
+    const mod = await client((await api<{ token: string }>('/api/auth/moderator-link', { token: admin, body: {} })).data.token, 'moderator');
+    const player = await client(p.data.token);
+    expect((await mod.cmd({ type: 'tempo.set', targetMinutes: 35 })).ok).toBe(true);
+    expect((await player.cmd({ type: 'tempo.set', targetMinutes: 200 })).ok).toBe(false);
+    await regie.waitFor((st) => st.config.targetMinutes === 35);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(player.state()?.config.targetMinutes).toBeNull();
+    expect(player.state()?.tempo).toEqual({ startedAt: null, manual: 0 });
+    expect(player.state()?.feed.some((f) => /Tempo|Spieldauer/.test(f.text))).toBe(false);
+    // Einstellung ist kein Spielzug: „Rückgängig“ nimmt sie nicht zurück
+    const undo = await new Promise<{ ok: boolean }>((res) => regie.socket.emit('undo', res));
+    expect(undo.ok).toBe(true);
+    await regie.waitFor((st) => st.teams.length === 0); // Teams bilden wurde zurückgenommen …
+    expect(regie.state()?.config.targetMinutes).toBe(35); // … die Spieldauer bleibt
+  });
+
   it('globale Anmeldebremse zählt Fehlversuche, nicht korrekte Logins', async () => {
     const { globalAttemptsExhausted, spendAttempt } = await import('./auth.ts');
     const scope = `test-${Math.random()}`;

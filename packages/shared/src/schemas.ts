@@ -158,6 +158,7 @@ export const deviceModeSchema = z.enum(['personal', 'shared']);
 
 export const gameConfigSchema = z.object({
   name: shortText(80).min(1, 'Name fehlt'),
+  targetMinutes: z.number().int().min(5).max(300).nullable().default(null),
   devices: deviceModeSchema.default('personal'),
   collectionIds: z.array(id).max(50),
   board: boardSchema,
@@ -283,6 +284,10 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('fieldgame.result'), won: z.boolean() }),
   z.object({ type: z.literal('fieldgame.cancel') }),
   z.object({ type: z.literal('round.next') }),
+  // Spiel-Tempo (Spielleitung): Zielzeit in Minuten bzw. Handregler ohne Zielzeit
+  z
+    .object({ type: z.literal('tempo.set'), targetMinutes: z.number().int().min(5).max(300).nullable().optional(), manual: z.number().int().min(-2).max(2).optional() })
+    .refine((c) => c.targetMinutes !== undefined || c.manual !== undefined, 'Zielzeit oder Tempo fehlt'),
   z.object({ type: z.literal('volcano.set'), pressure: z.number().int().min(0).max(50) }),
   z.object({ type: z.literal('volcano.erupt') }),
   z.object({ type: z.literal('plan.set'), itemIds: z.array(id).max(500) }),

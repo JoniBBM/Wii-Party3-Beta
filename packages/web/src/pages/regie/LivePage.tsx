@@ -10,6 +10,7 @@ import { useLive } from '../../lib/live.ts';
 import { Button, Card, EmptyState, Spinner } from '../../ui/basics.tsx';
 import { PhasePanel } from '../../game/PhasePanel.tsx';
 import { Feed, Standings } from '../../game/Standings.tsx';
+import { TempoPanel } from '../../game/TempoPanel.tsx';
 import { BeamerQuick } from '../../game/BeamerControl.tsx';
 
 export function LivePage() {
@@ -28,6 +29,7 @@ export function LivePage() {
         <PhasePanel state={state} mode="regie" />
       </div>
       <div className="flex min-w-0 flex-col gap-5">
+        <TempoPanel state={state} />
         <Standings state={state} editable />
         <BeamerQuick />
         <Feed state={state} />

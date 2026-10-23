@@ -4,6 +4,7 @@ import { CONTENT_KIND_INFO } from '../constants.ts';
 import { buildItem } from '../defaults.ts';
 import { pick, shuffle } from '../rng.ts';
 import type { CommandOf } from '../schemas.ts';
+import { tempoStatus } from './tempo.ts';
 import type {
   ActiveContent,
   ContentItem,
@@ -491,9 +492,11 @@ export function handleContentCommand(
         if (t) t.bonusDie = e.bonusDie;
       }
       const order = results.order.filter((id) => s.teams.some((t) => t.id === id));
+      // Spiel-Tempo einmal je Runde festlegen – gilt für alle Teams gleich (siehe tempo.ts)
+      const tempo = Math.round(tempoStatus(s, now).tempo * 100) / 100;
       s.phase = {
         name: 'dice',
-        dice: { order, index: 0, rolls: [], fieldGame: null, challenge: null, busyUntil: now },
+        dice: { order, index: 0, rolls: [], fieldGame: null, challenge: null, busyUntil: now, tempo },
         results,
       };
       tx.effects.push({ type: 'turn', teamId: order[0]! });

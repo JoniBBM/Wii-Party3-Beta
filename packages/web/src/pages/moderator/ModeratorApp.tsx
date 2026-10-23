@@ -12,6 +12,7 @@ import { StaffGate } from '../../game/StaffLogin.tsx';
 import { PhasePanel } from '../../game/PhasePanel.tsx';
 import { Feed, Standings } from '../../game/Standings.tsx';
 import { BeamerQuick } from '../../game/BeamerControl.tsx';
+import { TempoPanel } from '../../game/TempoPanel.tsx';
 
 export default function ModeratorApp() {
   const [theme, setTheme] = useTheme(true);
@@ -57,6 +58,7 @@ function ModeratorShell({ dark, toggle }: { dark: boolean; toggle: (dark: boolea
         ) : (
           <>
             <PhasePanel state={state} mode="moderator" />
+            <TempoPanel state={state} />
             <button
               type="button"
               onClick={() => setShowRanking(!showRanking)}

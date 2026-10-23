@@ -47,6 +47,7 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
   rules.river ??= clone(DEFAULT_RULES.river);
   rules.crater ??= clone(DEFAULT_RULES.crater);
   (config as Partial<GameConfig>).devices ??= 'personal';
+  (config as Partial<GameConfig>).targetMinutes ??= null;
   rules.vine ??= clone(DEFAULT_RULES.vine);
   rules.cave ??= clone(DEFAULT_RULES.cave);
   rules.cave.need ??= DEFAULT_RULES.cave.need;
@@ -61,6 +62,8 @@ export function upgradeConfig<T extends GameConfig>(config: T): T {
 export function upgradeState(state: GameState): GameState {
   upgradeConfig(state.config);
   state.code ??= '';
+  // Spiele aus der Zeit vor dem Spiel-Tempo: Start ≈ erste Runde bzw. Anlegen
+  state.tempo ??= { startedAt: state.status === 'lobby' ? null : (state.history[0]?.at ?? state.createdAt), manual: 0 };
   for (const t of state.teams) {
     t.crater ??= null;
     t.inside ??= null;
@@ -78,6 +81,7 @@ export function upgradeState(state: GameState): GameState {
 export function defaultConfig(name = 'Neues Spiel', goal = DEFAULT_GOAL): GameConfig {
   return {
     name,
+    targetMinutes: null,
     devices: 'personal',
     collectionIds: [],
     board: generateBoard(goal, 7),

@@ -41,6 +41,19 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 
 ![Regie in der Lobby](bilder/regie-lobby.webp)
 
+## Spiel-Tempo: Spieldauer und „schneller/langsamer“
+
+**Vor dem Spiel** steht in der Regie (Live, rechts) und beim Moderator die Karte **Spieldauer**: *Ohne Vorgabe*, 30–120 Minuten oder eine eigene Zahl. Darunter steht, wie lange das gewählte Spielfeld ohne Vorgabe ungefähr dauert. Ist die Wunschzeit für das Spielfeld zu knapp (oder zu lang), sagt die Karte, was unauffällig machbar ist – für deutlich kürzere Spiele ein kürzeres Spielfeld wählen (*Spiel einrichten → Spielfeld* oder Vorlage „Kurzes Spiel“).
+
+**Während des Spiels** zeigt die Karte **Spiel-Tempo**, wie lange schon gespielt wird, wie lange es voraussichtlich noch dauert (mit Uhrzeit fürs Ende) und ob es im Plan liegt. Mit **Spiel beschleunigen** bzw. **Spiel verlangsamen** öffnet sich ein Fenster: mit Spieldauer „5/10/15/20 Minuten früher bzw. später“ oder eine neue Gesamtdauer, ohne Spieldauer „etwas“ oder „deutlich“ schneller/langsamer. *Normales Tempo* setzt alles zurück.
+
+So funktioniert es – fair und für die Teams unsichtbar:
+
+- Zu Beginn jeder Würfelrunde legt das Spiel ein Tempo fest, das für **alle Teams gleich** gilt. Es hängt nur von Spielzeit und Gesamtfortschritt ab, nie davon, wer vorne liegt.
+- Bei schnellem Tempo zeigen die Würfel (auch Bonuswürfel, Liane, Lavahöhle, Siegeswurf) etwas öfter hohe Augen – im Schnitt ca. 4,4 statt 3,5, jede Zahl bleibt möglich –, und Fässer/Kisten brechen seltener ein, Katapulte werfen etwas weiter vor und weniger weit zurück. Bei langsamem Tempo umgekehrt.
+- Handys und Beamer bekommen Spieldauer und Tempo gar nicht erst zu sehen; im Verlauf steht nichts davon. Echte Würfe, die die Regie einträgt, bleiben unverändert.
+- Unauffällig lässt sich ein Spiel so um etwa ein Drittel verkürzen oder um ein Viertel verlängern (Standard-Spielfeld mit 72 Feldern: ca. 60–115 statt ca. 90 Minuten). Die Prognose lernt aus den gespielten Runden mit (Rundendauer, Vorankommen).
+
 ## Spielleiter-Konten und mehrere Spiele
 
 Auf einem Server können mehrere Spielleiter gleichzeitig eigene Spiele leiten:

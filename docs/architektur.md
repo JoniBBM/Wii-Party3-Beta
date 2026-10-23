@@ -45,7 +45,8 @@ legacy/     alte Flask-Version (nur Referenz)
 - **Zustand** (`GameState`): Teams, Spieler, Phase, Runde, Vulkan, gespielte Inhalte, Verlauf, Ereignis-Ticker. Die Phase ist eine diskriminierte Union: `lobby → idle → content → results → dice → round_end → … → finished`.
 - **Befehle** (`commandSchema`): rund 45 Befehle, validiert mit zod. `COMMAND_ROLES` legt fest, welche Rolle was darf; Feinprüfungen („nur das eigene Team“) macht die Engine.
 - **Effekte** (`EffectInput`): beschreiben *was passiert ist*, damit der Beamer es inszenieren kann. `durations.ts` schätzt die Animationsdauer – so weiß der Server, wann das nächste Team würfeln darf.
-- **Projektion** (`projectState`): Regie & Moderator sehen alles; Beamer und Handys bekommen keine Lösungen vor der Auflösung, keine fremden Antworten, keine fremden PINs.
+- **Projektion** (`projectState`): Regie & Moderator sehen alles; Beamer und Handys bekommen keine Lösungen vor der Auflösung, keine fremden Antworten, keine fremden PINs – und weder Spieldauer noch Tempo.
+- **Spiel-Tempo** (`tempo.ts`): `tempoStatus(state, now)` schätzt aus Zielzeit (`config.targetMinutes`), Spielzeit (`tempo.startedAt`), gemessener Rundendauer und tempo-bereinigtem Vorankommen des führenden Teams (Startwerte aus Simulationen: 4,8 Felder/Runde, ~2,5 Runden Siegeswurf, 5 Min./Runde) das nötige Tempo t ∈ [−1, 1]. `results.confirm` legt es je Würfelrunde fest (`dice.tempo`, für alle Teams gleich); `tempoDie` neigt Würfel sanft (β = 0,35·t, t = 0 ist exakt `randInt`), `tempoInt`/`tempoChance` machen Katapult und Wasserfall gnädiger bzw. strenger. Befehl `tempo.set` (Spielleitung, nicht rückgängig, ohne Ticker-Eintrag).
 - **Brett** (`board.ts`): deterministische Verteilung der Sonderfelder per Seed. Die Verteilung wird in der Spielkonfiguration gespeichert und ändert sich nur bewusst.
 - **Inselplan** (`island.ts`): die Insel in 2D – Küstenlinie, Lagune, Fluss mit Wasserfall und Furt, Schlucht, Vulkan mit Kraterrand und der Weg (Wegpunkte + Serpentinen als Catmull-Rom-Kurve). `buildIslandPlan(felder)` verteilt die Felder nach Bogenlänge und bestimmt aus der Geometrie die festen Inselfelder: **Liane** (`vine`), **Fässer in der Furt** (`river`), **Lavahöhle** (`cave`, mit Ausgangsfeld `caveExit`) und **Kraterloch** (`crater`). Engine, Brett-Editor (Karte) und 3D-Insel nutzen denselben Plan.
 - **Liane**: Landet ein Team auf `vine`, setzt die Engine `dice.vine` und wartet auf den Befehl `vine.roll` (Team am Handy oder Regie); erst danach geht die Runde weiter.
@@ -59,7 +60,7 @@ Module: `engine/teams.ts` (Lobby, Teams, Spieler), `engine/content.ts` (Inhalte,
 |---|---|
 | `main.ts` | Start: DB, Seed, Spiele-Hub, Fastify, Socket.IO, statische Auslieferung der Weboberfläche |
 | `hub.ts` | **Mehrere Spiele gleichzeitig:** geöffnete Spiele (je eine `GameRuntime`), Besitzer, Spielcode, Beamer-Einstellungen je Spiel, „gewähltes Spiel“ je Konto |
-| `runtime.ts` | Ein Spiel im Speicher, Befehle ausführen, speichern, **Rückgängig** (40 Schritte), Countdown-Timer |
+| `runtime.ts` | Ein Spiel im Speicher, Befehle ausführen, speichern, **Rückgängig** (40 Schritte; Spieldauer/Tempo bleiben dabei erhalten), Countdown-Timer |
 | `access.ts` | Wer darf was: geprüftes Konto, zu welchem Spiel ein Gerät gehört, Rolle im Spiel (Konto → `admin` für eigene Spiele) – gemeinsam für HTTP und Socket.IO |
 | `users.ts`, `mail.ts` | Konten (scrypt-Passwörter, Schlüssel je Konto, Einladungs-/Zurücksetzen-Links), E-Mail über SMTP (nodemailer) |
 | `live.ts` | Socket.IO: ein Raum je Spiel (`g:<id>`), Sitzung prüfen, Befehle annehmen, Zustand je Rolle senden, Geräte-Anwesenheit, **Beamer-Show** je Spiel |

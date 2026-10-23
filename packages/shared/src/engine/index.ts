@@ -10,6 +10,7 @@ import { handleContentCommand } from './content.ts';
 import { handleDiceCommand } from './dice.ts';
 import { mayExecute } from './permissions.ts';
 import { handleTeamCommand } from './teams.ts';
+import { handleTempoCommand } from './tempo.ts';
 import { fail, feed, goalOf, teamLabel, type EngineContext, type Tx } from './tx.ts';
 
 export { EngineError, type EngineContext } from './tx.ts';
@@ -18,6 +19,7 @@ export { projectState, stripItemSecrets, isPrivileged } from './project.ts';
 export { effectDuration, effectsDuration, DURATION } from './durations.ts';
 export { currentTeamId, barrierText } from './dice.ts';
 export { timerRemaining, isQuestion, computeQuestionRanking } from './content.ts';
+export { tempoStatus, tempoLabel, tempoDie, tempoFactor, ROUND_MINUTES_GUESS, type TempoStatus } from './tempo.ts';
 
 export interface EngineResult {
   state: GameState;
@@ -42,6 +44,7 @@ export function createGame(params: { id: string; config: GameConfig; now: number
     playedItemIds: [],
     planIndex: 0,
     history: [],
+    tempo: { startedAt: null, manual: 0 },
     feed: [],
     feedSeq: 0,
     winnerTeamId: null,
@@ -62,6 +65,7 @@ function handleGameCommand(
       s.status = 'running';
       s.phase = { name: 'idle' };
       s.registrationOpen = false;
+      s.tempo.startedAt = tx.ctx.now;
       tx.label = 'Spiel gestartet';
       feed(tx, '🏝️', 'Das Abenteuer beginnt!');
       return;
@@ -85,6 +89,7 @@ function handleGameCommand(
       s.phase = { name: 'lobby' };
       s.winnerTeamId = null;
       s.registrationOpen = true;
+      s.tempo.startedAt = null;
       if (s.round > 0) {
         // Neustart mit denselben Teams
         s.round = 0;
@@ -198,6 +203,9 @@ export function applyCommand(state: GameState, cmd: Command, actor: Actor, ctx: 
     case 'plan.set':
     case 'config.update':
       handleGameCommand(tx, cmd);
+      break;
+    case 'tempo.set':
+      handleTempoCommand(tx, cmd);
       break;
     default: {
       const never: never = cmd;

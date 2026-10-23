@@ -14,5 +14,10 @@
 
 ## Offen
 
+- [ ] **Spiel-Tempo** (in Arbeit): Spieldauer vorab einstellen, Moderator/Regie „Spiel verlangsamen“ / „Spiel beschleunigen“ – fair für alle Teams, für Teams unbemerkt.
+- [ ] **Spieleinrichtung als geführter Ablauf** (als Nächstes): interaktive Schritte statt versteckter Menüs – erst Anzahl Felder, dann Feldarten an-/abwählen und ihre Häufigkeit, dann welche Fragen- und Spielarten drankommen, dann die Inhalte/Sammlungen …
+  - Einstieg mit grober Spieldauer: schlägt Felderzahl und Sonderfelder vor (anpassbar).
+  - Oder „manuell einrichten“: ohne spielbeeinflussende Algorithmen (kein Tempo, reine Zufallswürfe, keine Tempo-Knöpfe).
+
 - [ ] Auf einem echten iPhone (Safari) gegenprüfen – getestet wurde in der Browser-Emulation bei 375 und 390 px.
 - [ ] **SSH-Zugang für Claude auf den VPS einrichten** (Schlüssel auf dem Mac, Adresse + Benutzer nennen) – dann kann Claude den Container selbst aktualisieren und prüfen. Bis dahin gibt Claude nach jedem Update die fertigen Befehle für den VPS aus.

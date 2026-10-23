@@ -52,6 +52,7 @@ export const COMMAND_ROLES: Record<CommandType, Role[]> = {
   'fieldgame.result': STAFF,
   'fieldgame.cancel': STAFF,
   'round.next': STAFF,
+  'tempo.set': STAFF,
   'volcano.set': ADMIN,
   'volcano.erupt': ADMIN,
   'plan.set': ADMIN,
@@ -64,6 +65,8 @@ export function mayExecute(type: CommandType, role: Role): boolean {
 
 /** Befehle, die nie ein eigener Rückgängig-Schritt sind (hochfrequent). */
 export const NON_UNDOABLE: ReadonlySet<CommandType> = new Set<CommandType>([
+  // Einstellung, kein Spielzug – „Rückgängig“ soll den letzten Zug zurücknehmen
+  'tempo.set',
   'timer.start',
   'timer.pause',
   'timer.add',

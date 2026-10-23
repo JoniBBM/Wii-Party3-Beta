@@ -111,6 +111,9 @@ export class GameRuntime extends EventEmitter<RuntimeEvents> {
     const entry = this.undoStack.pop();
     if (!entry) throw new EngineError('Es gibt nichts rückgängig zu machen');
     const restored = structuredClone(entry.state);
+    // Einstellungen der Spielleitung sind keine Spielzüge: Spieldauer/Tempo bleiben wie eingestellt
+    restored.config.targetMinutes = this.state.config.targetMinutes;
+    restored.tempo = { ...restored.tempo, manual: this.state.tempo.manual };
     // Ein inzwischen abgelaufener Countdown würde sofort wieder schließen → anhalten
     if (restored.phase.name === 'content') {
       const t = restored.phase.content.timer;

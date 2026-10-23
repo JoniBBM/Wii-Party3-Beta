@@ -80,5 +80,13 @@ export function projectState(state: GameState, viewer: Session): GameState {
       dice: { ...state.phase.dice, fieldGame: { ...fg, item: stripItemSecrets(fg.item!) } },
     };
   }
+  // Spiel-Tempo ist Sache der Spielleitung: Teams und Beamer sehen weder Zielzeit noch Tempo
+  s.config = { ...state.config, targetMinutes: null };
+  s.tempo = { startedAt: null, manual: 0 };
+  s.history = state.history.map(({ tempo: _tempo, ...h }) => h);
+  if (s.phase.name === 'dice') {
+    const { tempo: _t, ...dice } = s.phase.dice;
+    s.phase = { ...s.phase, dice };
+  }
   return s;
 }

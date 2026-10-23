@@ -186,6 +186,8 @@ export type DeviceMode = 'personal' | 'shared';
 
 export interface GameConfig {
   name: string;
+  /** Gewünschte Spieldauer in Minuten (null = ohne Vorgabe). Steuert das Spiel-Tempo, siehe engine/tempo.ts. */
+  targetMinutes: number | null;
   devices: DeviceMode;
   collectionIds: string[];
   board: BoardConfig;
@@ -364,6 +366,11 @@ export interface DiceRound {
   vine?: { teamId: string; position: number } | null;
   /** Bis zu diesem Zeitpunkt laufen auf dem Beamer noch Animationen. */
   busyUntil: number;
+  /**
+   * Spiel-Tempo dieser Würfelrunde (−1 … +1), beim Start der Runde festgelegt – gilt für alle
+   * Teams gleich. Nur die Spielleitung sieht es.
+   */
+  tempo?: number;
 }
 
 export type Phase =
@@ -384,7 +391,14 @@ export interface RoundSummary {
   eruption: boolean;
 }
 
+export interface TempoState {
+  startedAt: number | null;
+  manual: number;
+}
+
 export interface HistoryEntry {
+  /** Tempo dieser Würfelrunde (−1 … +1) – nur für die Spielleitung */
+  tempo?: number;
   round: number;
   itemId: string | null;
   title: string;
@@ -421,6 +435,8 @@ export interface GameState {
   playedItemIds: string[];
   planIndex: number;
   history: HistoryEntry[];
+  /** Spiel-Tempo (nur Spielleitung sieht es): Startzeit und Handregler ohne Zielzeit (−2 … +2) */
+  tempo: TempoState;
   feed: FeedEntry[];
   feedSeq: number;
   winnerTeamId: string | null;

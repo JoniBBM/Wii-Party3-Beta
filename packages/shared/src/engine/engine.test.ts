@@ -4,10 +4,10 @@ import { generateBoard, countFields } from '../board.ts';
 import { islandLandmarks } from '../island.ts';
 import type { FieldType } from '../constants.ts';
 import { buildItem, defaultConfig, upgradeState } from '../defaults.ts';
-import { seededRng } from '../rng.ts';
+import { randInt, seededRng } from '../rng.ts';
 import { commandSchema, type ContentItemInput } from '../schemas.ts';
 import type { Actor, ContentItem, GameConfig, GameState } from '../types.ts';
-import { applyCommand, createGame, EngineError, projectState, type EngineContext } from './index.ts';
+import { applyCommand, createGame, EngineError, projectState, tempoDie, tempoStatus, type EngineContext } from './index.ts';
 import { moodAfterTurn } from './dice.ts';
 
 const ADMIN: Actor = { role: 'admin' };
@@ -892,5 +892,121 @@ describe('Sicherheit: Sichten und keine Leerlast', () => {
     h.run({ type: 'content.open' });
     expect(h.run({ type: 'buzz' }, { role: 'team', teamId: a.id }).meta.noop).toBeFalsy();
     expect(h.run({ type: 'buzz' }, { role: 'team', teamId: a.id }).meta.noop).toBe(true);
+  });
+});
+
+describe('Spiel-Tempo', () => {
+  const sample = (t: number, n = 30_000, sides = 6) => {
+    const rng = seededRng(7);
+    const counts = Array<number>(sides).fill(0);
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const v = tempoDie(rng, sides, t);
+      counts[v - 1]! += 1;
+      sum += v;
+    }
+    return { mean: sum / n, counts };
+  };
+
+  it('normales Tempo ist exakt ein gewöhnlicher Würfel; sonst nur sanft geneigt, jede Zahl bleibt möglich', () => {
+    const a = seededRng(3);
+    const b = seededRng(3);
+    for (let i = 0; i < 200; i++) expect(tempoDie(a, 6, 0)).toBe(randInt(b, 1, 6));
+    const slow = sample(-1);
+    const normal = sample(0);
+    const fast = sample(1);
+    expect(normal.mean).toBeCloseTo(3.5, 1);
+    expect(fast.mean).toBeGreaterThan(4.2);
+    expect(fast.mean).toBeLessThan(4.6);
+    expect(slow.mean).toBeLessThan(2.8);
+    expect(slow.mean).toBeGreaterThan(2.4);
+    // jede Augenzahl kommt noch regelmäßig vor (mindestens ~5 %)
+    for (const c of [...fast.counts, ...slow.counts]) expect(c / 30_000).toBeGreaterThan(0.05);
+  });
+
+  it('Zielzeit bestimmt die Richtung; ohne Zielzeit zählt der Handregler', () => {
+    const h = harness({ config: { board: boardWith({}, 40) } }).setup(3);
+    h.run({ type: 'tempo.set', targetMinutes: 20 });
+    expect(tempoStatus(h.s, 1_000_000).tempo).toBeGreaterThan(0.5);
+    h.run({ type: 'tempo.set', targetMinutes: 120 });
+    expect(tempoStatus(h.s, 1_000_000).tempo).toBeLessThan(-0.5);
+    h.run({ type: 'tempo.set', targetMinutes: null, manual: 1 });
+    expect(tempoStatus(h.s, 1_000_000).tempo).toBe(0.5);
+    // nur die Spielleitung darf das
+    expect(() => h.run({ type: 'tempo.set', manual: 2 }, { role: 'team', teamId: h.team(0).id })).toThrow();
+    expect(() => h.run({ type: 'tempo.set', manual: 2 }, MOD)).not.toThrow();
+  });
+
+  it('Teams und Beamer sehen weder Zielzeit noch Tempo; im Verlauf steht nichts', () => {
+    const h = harness({ config: { board: boardWith({}, 40) } }).setup(2);
+    h.run({ type: 'tempo.set', targetMinutes: 25 });
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q1' });
+    h.run({ type: 'content.open' });
+    h.run({ type: 'content.close' });
+    h.run({ type: 'content.reveal' });
+    h.run({ type: 'content.finish' });
+    h.run({ type: 'results.confirm' });
+    expect(phase(h.s, 'dice').dice.tempo).toBeGreaterThan(0);
+    for (const viewer of [{ role: 'team' as const, teamId: h.team(0).id }, { role: 'beamer' as const }, { role: 'guest' as const }]) {
+      const v = projectState(h.s, viewer);
+      expect(v.config.targetMinutes).toBeNull();
+      expect(v.tempo).toEqual({ startedAt: null, manual: 0 });
+      expect(phase(v, 'dice').dice.tempo).toBeUndefined();
+    }
+    expect(projectState(h.s, MOD).config.targetMinutes).toBe(25);
+    expect(h.s.feed.some((f) => /Tempo|Spieldauer|Minuten/.test(f.text))).toBe(false);
+  });
+
+  it('fair: ein Tempo je Würfelrunde für alle Teams – eine Änderung wirkt erst ab der nächsten Runde', () => {
+    const h = harness({ config: { board: boardWith({}, 40) } }).setup(3);
+    h.run({ type: 'tempo.set', targetMinutes: 20 });
+    h.run({ type: 'content.select', source: 'manual', itemId: 'q1' });
+    h.run({ type: 'content.open' });
+    h.run({ type: 'content.close' });
+    h.run({ type: 'content.reveal' });
+    h.run({ type: 'content.finish' });
+    h.run({ type: 'results.confirm' });
+    const before = phase(h.s, 'dice').dice.tempo;
+    h.run({ type: 'dice.roll', force: true });
+    h.run({ type: 'tempo.set', targetMinutes: 200 });
+    expect(phase(h.s, 'dice').dice.tempo).toBe(before);
+    // das Tempo hängt nicht davon ab, welches Team gerade dran ist oder vorne liegt
+    const s1 = JSON.parse(JSON.stringify(h.s)) as GameState;
+    s1.teams[0]!.position = 30;
+    const s2 = JSON.parse(JSON.stringify(h.s)) as GameState;
+    s2.teams[1]!.position = 30;
+    expect(tempoStatus(s1, 2_000_000).tempo).toBe(tempoStatus(s2, 2_000_000).tempo);
+  });
+
+  it('Simulation: kurze Zielzeit → weniger Runden, lange Zielzeit → mehr Runden', () => {
+    /** Ganzes Spiel spielen: je Runde eine Frage (6 Min.), dann würfeln alle; liefert die Rundenzahl. */
+    const play = (seed: number, targetMinutes: number | null) => {
+      const h = harness({ seed, config: { board: boardWith({}, 40) } }).setup(3);
+      if (targetMinutes) h.run({ type: 'tempo.set', targetMinutes });
+      for (let round = 1; round <= 40; round++) {
+        h.run({ type: 'content.select', source: 'manual', itemId: 'q1' });
+        h.run({ type: 'content.open' });
+        h.run({ type: 'content.close' });
+        h.run({ type: 'content.reveal' });
+        h.run({ type: 'content.finish' });
+        h.tick(4 * 60_000);
+        h.run({ type: 'results.confirm' });
+        while (h.s.phase.name === 'dice') h.run({ type: 'dice.roll', force: true });
+        h.tick(2 * 60_000);
+        if (h.s.status === 'finished') return round;
+        h.run({ type: 'round.next' });
+      }
+      return 40;
+    };
+    const avg = (target: number | null) => {
+      let sum = 0;
+      for (let seed = 1; seed <= 40; seed++) sum += play(seed, target);
+      return sum / 40;
+    };
+    const fast = avg(20);
+    const normal = avg(null);
+    const slow = avg(150);
+    expect(fast).toBeLessThan(normal - 0.5);
+    expect(slow).toBeGreaterThan(normal + 0.5);
   });
 });

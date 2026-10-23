@@ -1,6 +1,7 @@
 /** Würfelrunde: Wurf, Bewegung, Sonderfelder, Vulkan, Feld-Minispiele, Sieg. */
 import { FIELD_GAME_MODE_LABEL, FIELD_INFO, type FieldGameMode, type FieldType } from '../constants.ts';
 import { pick, randInt } from '../rng.ts';
+import { tempoChance, tempoDie, tempoInt } from './tempo.ts';
 import type { CommandOf } from '../schemas.ts';
 import type { BarrierCondition, ChallengeKind, DiceRound, EffectInput, GameState, Mood, Phase, RollRecord, Team } from '../types.ts';
 import { drawForTeams, undoDraw } from './draw.ts';
@@ -210,14 +211,14 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'pending' | 
 
   switch (field) {
     case 'catapult_forward': {
-      const dist = randInt(tx.ctx.rng, rules.catapultForward.min, rules.catapultForward.max);
+      const dist = tempoInt(tx.ctx.rng, rules.catapultForward.min, rules.catapultForward.max, phase.dice.tempo ?? 0, 1);
       tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: `+${Math.min(dist, goal - pos)}` });
       advance(tx, team, dist, 'catapult');
       feed(tx, FIELD_INFO[field].icon, `Katapult! ${teamLabel(team)} fliegt ${team.position - pos} Felder vor`, team.id);
       return checkArrival(tx, team) ? 'finished' : 'done';
     }
     case 'catapult_backward': {
-      const dist = randInt(tx.ctx.rng, rules.catapultBackward.min, rules.catapultBackward.max);
+      const dist = tempoInt(tx.ctx.rng, rules.catapultBackward.min, rules.catapultBackward.max, phase.dice.tempo ?? 0, -1);
       const to = Math.max(0, pos - dist);
       tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: `−${pos - to}` });
       move(tx, team, to, 'catapult');
@@ -371,6 +372,7 @@ function pushHistory(tx: Tx, phase: DicePhase) {
   const positions: Record<string, number> = {};
   for (const t of s.teams) positions[t.id] = t.position;
   s.history.push({
+    tempo: phase.dice.tempo ?? 0,
     round: s.round,
     itemId: phase.results?.itemId ?? null,
     title: phase.results?.title ?? '',
@@ -443,9 +445,11 @@ export function handleDiceCommand(
 
       const start = tx.effects.length;
       const goal = goalOf(s);
-      const main = staff && cmd.main ? cmd.main : randInt(tx.ctx.rng, 1, 6);
+      // Spiel-Tempo der Runde (für alle Teams gleich); echte, eingetragene Würfe bleiben unverändert
+      const tempo = dice.tempo ?? 0;
+      const main = staff && cmd.main ? cmd.main : tempoDie(tx.ctx.rng, 6, tempo);
       const bonusDie = team.bonusDie;
-      const bonus = bonusDie > 0 ? (staff && cmd.bonus ? Math.min(cmd.bonus, bonusDie) : randInt(tx.ctx.rng, 1, bonusDie)) : 0;
+      const bonus = bonusDie > 0 ? (staff && cmd.bonus ? Math.min(cmd.bonus, bonusDie) : tempoDie(tx.ctx.rng, bonusDie, tempo)) : 0;
       const total = main + bonus;
       const manual = Boolean(staff && cmd.main);
       const from = team.position;
@@ -580,7 +584,7 @@ export function handleDiceCommand(
       let note = '';
       if (c.kind === 'vine') {
         const sides = rules.vine?.sides ?? 6;
-        const roll = staff && cmd.value ? Math.min(cmd.value, sides) : randInt(tx.ctx.rng, 1, sides);
+        const roll = staff && cmd.value ? Math.min(cmd.value, sides) : tempoDie(tx.ctx.rng, sides, dice.tempo ?? 0);
         tx.effects.push({ type: 'vine', teamId: team.id, position: team.position, stage: 'swing', roll, sides, remaining: c.remaining });
         // Der Schwung reicht höchstens bis zur nächsten Mutprobe (z. B. Ufer vor dem Fluss) –
         // was übrig ist, zählt zum restlichen Wurf
@@ -606,7 +610,7 @@ export function handleDiceCommand(
         } else result = checkArrival(tx, team) ? 'finished' : walk(tx, phase, team, rest, 'dice');
       } else {
         const need = rules.cave.need;
-        const roll = staff && cmd.value ? Math.min(cmd.value, 6) : randInt(tx.ctx.rng, 1, 6);
+        const roll = staff && cmd.value ? Math.min(cmd.value, 6) : tempoDie(tx.ctx.rng, 6, dice.tempo ?? 0);
         const success = roll >= need;
         tx.effects.push({ type: 'cave', teamId: team.id, position: team.position, stage: 'roll', roll, need, success, remaining: c.remaining });
         tx.label = `Mutprobe ${teamLabel(team)}: ${roll}`;
@@ -643,7 +647,7 @@ export function handleDiceCommand(
       if (now < dice.busyUntil - 300 && !(staff && cmd.force)) fail('Einen Moment – auf dem Spielbrett läuft noch die Animation', 'busy');
       const start = tx.effects.length;
       dice.challenge = null;
-      const fall = staff && cmd.result ? cmd.result === 'fall' : randInt(tx.ctx.rng, 1, 100) <= rules.river.fallChance;
+      const fall = staff && cmd.result ? cmd.result === 'fall' : randInt(tx.ctx.rng, 1, 100) <= tempoChance(rules.river.fallChance, dice.tempo ?? 0);
       const what = cmd.choice === 'barrels' ? 'Fässer' : 'Kisten';
       tx.effects.push({ type: 'river', teamId: team.id, position: team.position, stage: 'cross', choice: cmd.choice, result: fall ? 'fall' : 'safe', remaining: c.remaining });
       const span = riverSpan(s.config.board.fields);
