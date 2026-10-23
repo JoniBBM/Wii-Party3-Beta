@@ -8,7 +8,12 @@
 import type { CommentaryLevel, Theme } from '@insel/shared';
 import type { SightKind } from './animals.ts';
 import type { BoardAudio } from './audio.ts';
-import { BLOCK_VOICE_LINES, VOICE_LINES, voiceUrl, type VoiceCategory } from './voice-lines.ts';
+import { BLOCK_VOICE_LINES, SPACE_VOICE_LINES, VOICE_LINES, voiceUrl, type VoiceCategory } from './voice-lines.ts';
+
+/** Begriffe, die es nur auf der Insel gibt – solche Sprüche fallen in anderen Welten weg */
+const ISLAND_ONLY = /insel|liane|flugzeug|ufo|käfig|totenkopf|fäss|palme|affe|papagei|tukan|dschungel|kokos|strand|wasserfall|delfin|krabbe|schildkröte|flamingo|möwe|lava|südsee|tropen|hawaii|piraten|hängematte/i;
+/** im Weltall zusätzlich: kein Wasser, keine Sprungfeder, kein Flugzeug-Flug */
+const NOT_IN_SPACE = /fluss|wasser|bade|platsch|schwimm|dusche|sprungfeder|fallschirm|\bflug|vogel/i;
 
 /** Grundwahrscheinlichkeit je Anlass bei „ab und zu“ (bei „viel“ deutlich höher). */
 const CHANCE: Partial<Record<VoiceCategory, number>> = {
@@ -212,9 +217,17 @@ export class Commentator {
     void this.audio.say(voiceUrl(id));
   }
 
+  /**
+   * Sprüche einer Kategorie für die Welt des Spiels: eigene (Blockwelt, Weltall), sonst die der Insel – in
+   * anderen Welten ohne Sätze, die es dort nicht gibt (Liane, Flugzeug, Palmen …). Bleibt nichts
+   * übrig, schweigt der Kommentator an der Stelle.
+   */
   private linesOf(cat: VoiceCategory): readonly (readonly [string, string])[] {
-    const own = this.theme === 'blocks' ? BLOCK_VOICE_LINES[cat] : undefined;
-    return own?.length ? own : VOICE_LINES[cat];
+    const own = this.theme === 'blocks' ? BLOCK_VOICE_LINES[cat] : this.theme === 'space' ? SPACE_VOICE_LINES[cat] : undefined;
+    if (own?.length) return own;
+    const lines = VOICE_LINES[cat];
+    if (this.theme === 'island') return lines;
+    return lines.filter(([, text]) => !ISLAND_ONLY.test(text) && !(this.theme === 'space' && NOT_IN_SPACE.test(text)));
   }
 
   private pick(cat: VoiceCategory): string | null {

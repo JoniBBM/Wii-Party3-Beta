@@ -51,7 +51,7 @@ try {
   await regie.getByPlaceholder('Passwort', { exact: true }).fill(PASS);
   await regie.getByRole('button', { name: 'Anmelden', exact: true }).click();
   // „Neues Spiel“ legt sofort an und öffnet den Assistenten – hier direkt zur Live-Seite
-  await regie.getByRole('button', { name: 'Neues Spiel', exact: true }).click();
+  await regie.getByRole('button', { name: 'Neues Spiel erstellen', exact: true }).click();
   await regie.waitForURL('**/regie/einrichten');
   await regie.goto(`${base}/regie`);
   await regie.getByText('Anmeldung offen').waitFor();
@@ -101,6 +101,19 @@ try {
   await shot(phones[0], 'handy-team-lobby');
   await shot(beamer, 'beamer-lobby');
   await regie.getByRole('button', { name: 'Spiel starten' }).click();
+
+  // Spiel läuft: „Neues Spiel erstellen“ verschwindet, der Server lehnt neue Spiele ab
+  await new Promise((r) => setTimeout(r, 800));
+  const spiele = await regieCtx.newPage();
+  watch(spiele, 'regie-spiele');
+  await spiele.goto(`${base}/regie/spiele`);
+  await spiele.getByText('Spiele & Vorlagen').waitFor();
+  await new Promise((r) => setTimeout(r, 600));
+  if (await spiele.getByRole('button', { name: 'Neues Spiel erstellen' }).count()) errors.push('„Neues Spiel erstellen“ trotz laufendem Spiel sichtbar');
+  const adminToken = await spiele.evaluate(() => localStorage.getItem('insel.token.admin'));
+  const blocked = await fetch(`${base}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${adminToken}` }, body: JSON.stringify({ name: 'Zweites Spiel' }) });
+  if (blocked.status !== 409) errors.push(`Server legt trotz laufendem Spiel ein neues an (Status ${blocked.status})`);
+  await spiele.close();
 
   // Frage aus der Liste wählen
   await regie.getByRole('tab', { name: /Auswahl/ }).click();

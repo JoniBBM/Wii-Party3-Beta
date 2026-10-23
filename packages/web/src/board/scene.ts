@@ -52,6 +52,15 @@ import { buildBlockVolcano } from './blocks/volcano.ts';
 import { BlockStunts } from './blocks/stunts.ts';
 import { NetherInside } from './blocks/nether.ts';
 import { buildBlockAnimals } from './blocks/animals.ts';
+import { SpaceStunts } from './space/stunts.ts';
+import { SpaceInside } from './space/inside.ts';
+import { buildSpaceVolcano } from './space/volcano.ts';
+import { buildSpaceAnimals } from './space/animals.ts';
+import { buildSpaceFields } from './space/fields.ts';
+import { SPACE_AMBIENT, SPACE_LIGHT, SPACE_SKY, SPACE_WATER } from './space/palette.ts';
+import { buildSpaceProps } from './space/props.ts';
+import { createSpaceSky, spaceEnvironment } from './space/sky.ts';
+import { buildSpaceGrass, buildSpaceTerrain } from './space/terrain.ts';
 import { AtmosphereFx } from './atmosphere.ts';
 import { buildFestive, type FestiveFx } from './festive.ts';
 
@@ -117,7 +126,7 @@ export class BoardScene {
   private detachManual: (() => void) | null = null;
   private water!: Water;
   private river!: RiverFx;
-  private sky!: Sky;
+  private sky!: Sky & { setStars?: (k: number) => void; setClouds?: (k: number) => void };
   private props: Props | null = null;
   private ambient: Ambient | null = null;
   private animals: AnimalWorld | null = null;
@@ -220,18 +229,23 @@ export class BoardScene {
     const preset = PRESETS[opts.quality];
     const progress = opts.onProgress ?? (() => {});
     const blocks = opts.theme === 'blocks';
-    this.theme = blocks ? 'blocks' : 'island';
+    const space = opts.theme === 'space';
+    this.theme = blocks ? 'blocks' : space ? 'space' : 'island';
     this.commentator.theme = this.theme;
-    progress(0.05, blocks ? 'Welt wird generiert …' : 'Insel wird vermessen …');
+    progress(0.05, blocks ? 'Welt wird generiert …' : space ? 'Planet wird angeflogen …' : 'Insel wird vermessen …');
     this.layout = buildLayout(opts.fieldCount);
     const layout = this.layout;
 
     // Licht
-    this.scene.fog = blocks ? new THREE.Fog(BLOCK_SKY.horizon, 110, 360) : new THREE.Fog(HORIZON, 140, 420);
-    const hemi = blocks ? new THREE.HemisphereLight('#e8f0ff', '#8a9a70', 1.15) : new THREE.HemisphereLight('#dff2ff', '#86b06a', 0.9);
+    this.scene.fog = blocks ? new THREE.Fog(BLOCK_SKY.horizon, 110, 360) : space ? new THREE.Fog(SPACE_SKY.horizon, SPACE_LIGHT.fogNear, SPACE_LIGHT.fogFar) : new THREE.Fog(HORIZON, 140, 420);
+    const hemi = blocks
+      ? new THREE.HemisphereLight('#e8f0ff', '#8a9a70', 1.15)
+      : space
+        ? new THREE.HemisphereLight(SPACE_LIGHT.hemiSky, SPACE_LIGHT.hemiGround, SPACE_LIGHT.hemiIntensity)
+        : new THREE.HemisphereLight('#dff2ff', '#86b06a', 0.9);
     this.scene.add(hemi);
     this.hemi = hemi;
-    this.sun = new THREE.DirectionalLight('#fff1d6', blocks ? 2.1 : 3.1);
+    this.sun = new THREE.DirectionalLight(space ? SPACE_LIGHT.sun : '#fff1d6', blocks ? 2.1 : space ? SPACE_LIGHT.sunIntensity : 3.1);
     this.sun.position.set(-44, 46, 36);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(preset.shadow, preset.shadow);
@@ -246,8 +260,13 @@ export class BoardScene {
     this.scene.add(this.sun, this.sun.target);
 
     // Himmel (HDRI als Hintergrund und Umgebungslicht)
-    progress(0.12, 'Himmel wird aufgezogen …');
-    if (!blocks) try {
+    progress(0.12, space ? 'Sterne werden angeknipst …' : 'Himmel wird aufgezogen …');
+    if (space) {
+      // Weltall: kein Insel-HDRI – Umgebungslicht aus dem eigenen Himmelsverlauf
+      this.envBase = spaceEnvironment(this.renderer);
+      this.scene.environment = this.envBase;
+      this.scene.environmentIntensity = 0.6;
+    } else if (!blocks) try {
       const hdr = await new HDRLoader().loadAsync('/assets/hdri/sky.hdr');
       hdr.mapping = THREE.EquirectangularReflectionMapping;
       const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -260,15 +279,16 @@ export class BoardScene {
     } catch {
       /* ohne Umgebungslicht geht es auch */
     }
-    this.scene.background = blocks ? BLOCK_SKY.horizon : HORIZON;
-    this.sky = blocks ? createBlockSky(this.sun.position) : createSky({ horizon: HORIZON, sunDir: this.sun.position, clouds: 16 });
+    this.scene.background = blocks ? BLOCK_SKY.horizon : space ? SPACE_SKY.horizon.clone() : HORIZON;
+    this.sky = blocks ? createBlockSky(this.sun.position) : space ? createSpaceSky(this.sun.position) : createSky({ horizon: HORIZON, sunDir: this.sun.position, clouds: 16 });
     this.scene.add(this.sky.group);
 
     // Gelände & Wasser
-    progress(0.25, blocks ? 'Blöcke werden gesetzt …' : 'Insel wird geformt …');
+    progress(0.25, blocks ? 'Blöcke werden gesetzt …' : space ? 'Planet wird geformt …' : 'Insel wird geformt …');
     await nextFrame();
     const field = buildHeightfield(layout, BUILD.terrain);
     if (blocks) await this.buildBlockWorld(layout, field, progress);
+    else if (space) await this.buildSpaceWorld(layout, field, preset, progress);
     else await this.buildIsland(layout, field, preset, progress);
     this.finishBuild(layout, field, preset, progress);
   }
@@ -292,6 +312,57 @@ export class BoardScene {
       this.scene.add(this.animals.group);
     }
     await nextFrame();
+  }
+
+  /**
+   * Weltall: Alien-Planet auf dem Insel-Gelände (gleiche Form, eigene Farben, Plasma statt Wasser,
+   * Kristalle, Alien-Pflanzen, Mondbasis, Raketenrampe, Bewohner) – Bausteine in board/space/.
+   */
+  private async buildSpaceWorld(layout: IslandLayout, field: ReturnType<typeof buildHeightfield>, preset: Preset, progress: (p: number, label: string) => void) {
+    const hTex = heightTexture(field);
+    const terrain = buildSpaceTerrain(layout, field);
+    this.terrain = terrain;
+    this.terrainBase = terrain.material as THREE.Material;
+    this.scene.add(terrain);
+    this.water = createWater(hTex, { segments: BUILD.water, fog: SPACE_SKY.horizon, fogNear: SPACE_LIGHT.fogNear, fogFar: SPACE_LIGHT.fogFar, look: SPACE_WATER });
+    this.water.setSun(this.sun.position, this.sun.color);
+    this.scene.add(this.water.mesh);
+    this.river = createRiver(hTex, { mist: true, creek: layout.creek, basin: layout.fordBasin, look: SPACE_WATER });
+    this.scene.add(this.river.group);
+
+    progress(0.45, 'Landeplätze werden gelegt …');
+    this.fields = buildSpaceFields(layout);
+    this.fields.setFields(layout.fields.map((_, i) => (i === 0 ? 'start' : i === layout.fields.length - 1 ? 'goal' : 'normal')));
+    this.scene.add(this.fields.group);
+
+    progress(0.55, 'Kristalle wachsen …');
+    try {
+      if (!new URLSearchParams(location.search).has('noprops')) {
+        this.props = await buildSpaceProps(layout, field, { density: BUILD.density });
+        this.scene.add(this.props.group);
+        this.ambient = createAmbient(this.props.fires, this.props.smokes, SPACE_AMBIENT);
+        this.scene.add(this.ambient.group);
+      }
+      progress(0.75, 'Alien-Gras sprießt …');
+      await nextFrame();
+      if (!PERF.has('nograss')) {
+        this.grass = buildSpaceGrass(field, terrainColorSampler(terrain, BUILD.terrain), { count: BUILD.grass, pathClear: layout.fieldRadius * 1.3 });
+        this.grassFull = this.grass.count;
+        this.grass.count = Math.round(this.grassFull * preset.grass);
+        this.scene.add(this.grass);
+      }
+    } catch (e) {
+      console.warn('Deko konnte nicht geladen werden', e);
+    }
+    if (!new URLSearchParams(location.search).has('noanimals')) {
+      progress(0.8, 'Aliens ziehen ein …');
+      const aliens = buildSpaceAnimals({ layout, field, groundAt: (x, z) => field.height(x, z), blockers: this.props?.blockers ?? [], camera: this.camera });
+      if (aliens) {
+        if (this.animals) this.scene.remove(this.animals.group);
+        this.animals = aliens;
+        this.scene.add(aliens.group);
+      }
+    }
   }
 
   private async buildIsland(layout: IslandLayout, field: ReturnType<typeof buildHeightfield>, preset: Preset, progress: (p: number, label: string) => void) {
@@ -357,7 +428,11 @@ export class BoardScene {
     progress(0.85, 'Vulkan wird angeheizt …');
     this.scene.add(this.effects.group);
     this.effects.setPixel(this.theme === 'blocks');
-    this.volcano = this.voxel ? buildBlockVolcano(this.effects, this.voxel.lavaY) : buildVolcano(layout, this.effects, { light: true, field });
+    this.volcano = this.voxel
+      ? buildBlockVolcano(this.effects, this.voxel.lavaY)
+      : this.theme === 'space'
+        ? buildSpaceVolcano(layout, this.effects, { light: true, field })
+        : buildVolcano(layout, this.effects, { light: true, field });
     this.scene.add(this.volcano.group);
 
     // Figuren, Kamera, Würfel, Regie
@@ -373,7 +448,7 @@ export class BoardScene {
       },
     }, this.theme);
     this.scene.add(this.pieces.group);
-    this.stunts = new (this.theme === 'blocks' ? BlockStunts : Stunts)(layout, field, this.pieces, this.tweens, this.effects, this.audio);
+    this.stunts = new (this.theme === 'blocks' ? BlockStunts : this.theme === 'space' ? SpaceStunts : Stunts)(layout, field, this.pieces, this.tweens, this.effects, this.audio);
     this.scene.add(this.stunts.group);
     this.rig = new CameraRig(this.camera, layout);
     this.islandHeightAt = (x, z) => field.height(x, z);
@@ -655,7 +730,7 @@ export class BoardScene {
 
   /** Wetter und Festzeit: Materialien für Schnee/Herbst anmelden, Bodenhöhe für Dekoration */
   private setupAtmosphere(field: ReturnType<typeof buildHeightfield>) {
-    const fx = new AtmosphereFx({ scene: this.scene, sun: this.sun, hemi: this.hemi, camera: this.camera, theme: this.theme, audio: this.audio, water: this.voxel ? undefined : this.water.mesh });
+    const fx = new AtmosphereFx({ scene: this.scene, sun: this.sun, hemi: this.hemi, camera: this.camera, theme: this.theme, audio: this.audio, water: this.voxel ? undefined : this.water.mesh, sky: this.sky });
     this.atmosphere = fx;
     this.scene.add(fx.group);
     if (this.voxel) {
@@ -723,6 +798,8 @@ export class BoardScene {
         }
         this.water.setUltra(tex.water);
         this.renderer.shadowMap.needsUpdate = true;
+        // Weltall: Umgebungslicht bleibt der eigene Himmel (kein Insel-HDRI)
+        if (this.theme === 'space') return;
         if (!this.envUltra) {
           const hdr = await new HDRLoader().loadAsync('/assets/ultra/hdri/sky_2k.hdr');
           hdr.mapping = THREE.EquirectangularReflectionMapping;
@@ -749,7 +826,7 @@ export class BoardScene {
     const shout = r?.shout ?? 4;
     const key = `${length}|${shout}`;
     if (!this.inside) {
-      this.inside = new (this.theme === 'blocks' ? NetherInside : VolcanoInside)({ length, shout, quality: this.quality });
+      this.inside = new (this.theme === 'blocks' ? NetherInside : this.theme === 'space' ? SpaceInside : VolcanoInside)({ length, shout, quality: this.quality });
       const inside = this.inside;
       this.pieces.inside = { root: inside.scene, spot: (st, i, n, g) => inside.spot(st, i, n, g), facing: (st) => inside.facing(st) };
       this.scheduleWarm();

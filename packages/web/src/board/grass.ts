@@ -55,7 +55,14 @@ function clumpGeometry(blades: number, seed: number): THREE.BufferGeometry {
 export function buildGrass(
   field: Heightfield,
   colorAt: (x: number, z: number, out: THREE.Color) => THREE.Color,
-  opts: { count: number; pathClear: number },
+  opts: {
+    count: number;
+    pathClear: number;
+    /** Boden, auf dem Gras wächst (Standard: grüner Boden – kein Sand, Fels, Asche) */
+    accept?: (c: THREE.Color) => boolean;
+    /** Farbe der Halme aus der Bodenfarbe (Standard: Bodenfarbe) */
+    tint?: (c: THREE.Color) => void;
+  },
 ): THREE.InstancedMesh {
   const geo = clumpGeometry(6, 11);
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide });
@@ -85,7 +92,8 @@ export function buildGrass(
     if (dv < 16 && h > 8) continue;
     colorAt(x, z, c);
     // nur auf grünem Boden (kein Sand, Fels, Asche)
-    if (!(c.g > c.r * 1.12 && c.g > c.b * 1.5)) continue;
+    if (opts.accept ? !opts.accept(c) : !(c.g > c.r * 1.12 && c.g > c.b * 1.5)) continue;
+    opts.tint?.(c);
     const k = 0.8 + R() * 0.3;
     c.multiplyScalar(k);
     q.setFromAxisAngle(up, R() * Math.PI * 2);

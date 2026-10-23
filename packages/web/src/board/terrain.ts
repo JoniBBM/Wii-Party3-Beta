@@ -8,7 +8,7 @@ import { GORGE, RIVER, RIVER_POOL, VOLCANO } from '@insel/shared';
 import { blobMask, coastDistance, CRATER, natural, TERRAIN_SIZE } from './ground.ts';
 import { basinWeight, riverLevelAt, type IslandLayout } from './layout.ts';
 import { fbm, lerp, noise2, smoothstep } from './noise.ts';
-import { patchTerrainMaterial } from './worldfx.ts';
+import { patchTerrainMaterial, type TerrainLook } from './worldfx.ts';
 
 export { TERRAIN_SIZE };
 export const SEA_LEVEL = 0;
@@ -265,7 +265,8 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
 export const MAT = { sand: 0, grass: 1, rock: 2, path: 3, volcanic: 4, pebbles: 5 } as const;
 
 const C = (hex: string) => new THREE.Color(hex);
-const COL = {
+/** Geländefarben der Insel (andere Welten bringen eine eigene Palette mit gleichen Namen mit) */
+export const TERRAIN_COLORS = {
   seabed: C('#c9bd8a'),
   seagrass: C('#7f9a5c'),
   seabedDeep: C('#8fa58a'),
@@ -297,8 +298,14 @@ const COL = {
   sulfur: C('#cdb64e'),
   crater: C('#241a18'),
 };
+export type TerrainPalette = Record<keyof typeof TERRAIN_COLORS, THREE.Color>;
 
-export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THREE.Mesh {
+/**
+ * Gelände-Mesh mit Vertex-Farben. `palette` färbt eine andere Welt um (gleiche Flächen, andere
+ * Farben), `look` ändert Glühen und Lichtnetze im Shader (siehe patchTerrainMaterial).
+ */
+export function buildTerrainMesh(layout: IslandLayout, field: Heightfield, palette: TerrainPalette = TERRAIN_COLORS, look?: TerrainLook): THREE.Mesh {
+  const COL = palette;
   const { res, heights } = field;
   const geo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, res, res);
   geo.rotateX(-Math.PI / 2);
@@ -433,7 +440,7 @@ export function buildTerrainMesh(layout: IslandLayout, field: Heightfield): THRE
   geo.setAttribute('matB', new THREE.BufferAttribute(matB, 2));
 
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0 });
-  patchTerrainMaterial(material);
+  patchTerrainMaterial(material, look);
   const mesh = new THREE.Mesh(geo, material);
   mesh.receiveShadow = true;
   mesh.castShadow = true;

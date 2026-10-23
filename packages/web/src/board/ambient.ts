@@ -83,7 +83,18 @@ export interface Ambient {
   dispose: () => void;
 }
 
-export function createAmbient(fires: Emitter[], smokes: Emitter[]): Ambient {
+/** Farben der Flammen (innen → außen) und des Rauchs (hell → dunkel) – andere Welten färben um */
+export interface AmbientLook {
+  fire: [string, string];
+  smoke: [string, string];
+}
+
+const glsl = (c: string) => {
+  const k = new THREE.Color(c);
+  return `vec3(${k.r.toFixed(3)}, ${k.g.toFixed(3)}, ${k.b.toFixed(3)})`;
+};
+
+export function createAmbient(fires: Emitter[], smokes: Emitter[], look?: AmbientLook): Ambient {
   const group = new THREE.Group();
   group.name = 'ambient';
   const parts: { points: THREE.Points; mat: THREE.ShaderMaterial }[] = [];
@@ -99,7 +110,7 @@ export function createAmbient(fires: Emitter[], smokes: Emitter[]): Ambient {
           vec2 c = gl_PointCoord - 0.5;
           float d = length(c * vec2(1.0, 0.8));
           float a = smoothstep(0.5, 0.0, d) * (1.0 - vLife);
-          vec3 col = mix(vec3(1.0, 0.85, 0.35), vec3(1.0, 0.3, 0.05), vLife + vSeed * 0.2);
+          vec3 col = mix(${look ? glsl(look.fire[0]) : 'vec3(1.0, 0.85, 0.35)'}, ${look ? glsl(look.fire[1]) : 'vec3(1.0, 0.3, 0.05)'}, vLife + vSeed * 0.2);
           gl_FragColor = vec4(col * 1.6 * a, a);
         }
       `,
@@ -118,7 +129,7 @@ export function createAmbient(fires: Emitter[], smokes: Emitter[]): Ambient {
         void main() {
           float d = length(gl_PointCoord - 0.5);
           float a = smoothstep(0.5, 0.1, d) * sin(vLife * 3.1416) * 0.42;
-          vec3 col = mix(vec3(0.96), vec3(0.78, 0.8, 0.84), vSeed);
+          vec3 col = mix(${look ? glsl(look.smoke[0]) : 'vec3(0.96)'}, ${look ? glsl(look.smoke[1]) : 'vec3(0.78, 0.8, 0.84)'}, vSeed);
           gl_FragColor = vec4(col, a);
           #include <colorspace_fragment>
         }

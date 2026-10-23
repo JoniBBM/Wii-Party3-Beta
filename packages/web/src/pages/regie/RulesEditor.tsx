@@ -16,6 +16,7 @@ export interface RulesProps {
 const WORDS: Record<Theme, { toInside: string; skull: string; path: string; exit: string }> = {
   island: { toInside: 'ins Vulkan-Innere', skull: 'Totenkopf-Felder', path: 'Lava-Inseln', exit: 'Ausgangsfeld' },
   blocks: { toInside: 'in den Nether', skull: '„Boden bricht weg“-Felder', path: 'Netherziegel', exit: 'Glowstone-Feld' },
+  space: { toInside: 'in die Alien-Höhle', skull: 'Wurmloch-Felder', path: 'Kristallinseln', exit: 'Teleporter-Feld' },
 };
 
 /** Eine Einstellung: Titel (mit Symbol aus dem Verzeichnis) links, Regler rechts */

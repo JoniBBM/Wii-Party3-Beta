@@ -187,7 +187,7 @@ export function SetupPage() {
                   <p className="mt-3 text-sm text-muted">
                     {draft.theme !== state.config.theme
                       ? `Nach dem Speichern wechseln Beamer, Handys, Figuren, Musik und Kommentator in die Welt „${THEME_INFO[theme].label}“.`
-                      : 'Nur die Optik ändert sich: Beamer, Handys, Figuren, Musik und Kommentator. Regeln und Spielfeld sind in beiden Welten gleich.'}
+                      : 'Nur die Optik ändert sich: Beamer, Handys, Figuren, Musik und Kommentator. Regeln und Spielfeld sind in allen Welten gleich.'}
                   </p>
                 </div>
               </Card>

@@ -317,7 +317,9 @@ function ExplainerControl() {
 function CameraPad() {
   const state = useLive((s) => s.state);
   const beamer = useLive((x) => x.beamers[0]);
-  const blocks = state?.config.theme === 'blocks';
+  const theme = state?.config.theme ?? 'island';
+  const blocks = theme === 'blocks';
+  const space = theme === 'space';
   const inside = beamer?.view === 'inside';
   const busy = !!beamer?.busy || !!beamer?.explaining;
   return (
@@ -325,10 +327,10 @@ function CameraPad() {
       {/* Ins Vulkan-Innere und zurück – nur, wenn auf dem Beamer gerade nichts passiert */}
       <div data-setting="b.cameraInside" className="flex flex-wrap items-center gap-2 rounded-2xl">
         <Button size="sm" variant={inside ? 'soft' : 'primary'} disabled={busy || inside} onClick={() => camera({ action: 'inside' })}>
-          {blocks ? '🔥 In den Nether' : '🌋 In den Vulkan'}
+          {blocks ? '🔥 In den Nether' : space ? '👽 In die Alien-Höhle' : '🌋 In den Vulkan'}
         </Button>
         <Button size="sm" disabled={busy || !inside} onClick={() => camera({ action: 'island' })}>
-          {blocks ? '🧱 Zurück in die Blockwelt' : '🏝️ Zurück auf die Insel'}
+          {blocks ? '🧱 Zurück in die Blockwelt' : space ? '🪐 Zurück auf den Planeten' : '🏝️ Zurück auf die Insel'}
         </Button>
         <span className="text-xs text-muted">{busy ? 'Gerade läuft ein Zug – kurz warten.' : 'Geht, wenn gerade nichts passiert; der nächste Zug holt die Kamera zurück.'}</span>
       </div>
@@ -337,7 +339,7 @@ function CameraPad() {
           Automatik
         </Button>
         <Button size="sm" onClick={() => camera({ action: 'overview' })}>
-          {blocks ? '🧱 Blockwelt' : '🏝️ Insel'}
+          {blocks ? '🧱 Blockwelt' : space ? '🪐 Planet' : '🏝️ Insel'}
         </Button>
         <Button size="sm" onClick={() => camera({ action: 'start' })}>
           🚩 Start

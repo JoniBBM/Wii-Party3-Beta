@@ -8,6 +8,7 @@ import {
   teamById,
   type ActiveContent,
   type GameState,
+  worldWords,
 } from '@insel/shared';
 import { useCommand } from '../../lib/hooks.ts';
 import { parseEstimate } from '../../lib/parse.ts';
@@ -370,7 +371,7 @@ function Finished({ state, me }: { state: GameState; me: Me }) {
   const place = standings(state).find((s) => s.team.id === me.team!.id)?.place;
   return (
     <Hero icon={won ? '🏆' : placeLabel(place ?? 0)} title={won ? 'Ihr habt gewonnen!' : `Platz ${place}`}>
-      {won ? 'Herzlichen Glückwunsch! Ihr seid die Herrscher der Insel.' : `${teamById(state, state.winnerTeamId)?.name} hat gewonnen. Stark gespielt!`}
+      {won ? `Herzlichen Glückwunsch! Ihr seid die ${worldWords(state.config.theme).ruler.replace('!', '.')}` : `${teamById(state, state.winnerTeamId)?.name} hat gewonnen. Stark gespielt!`}
     </Hero>
   );
 }

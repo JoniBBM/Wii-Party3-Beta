@@ -73,6 +73,9 @@ const OCEAN_FRAGMENT = /* glsl */ `
   uniform float uDim;
   uniform float uUltra;
   uniform sampler2D uWaterNormal;
+  uniform vec3 uFoam;
+  uniform float uGlow;
+  uniform vec3 uGlowColor;
   varying vec3 vWorld;
   varying vec3 vNormalW;
   varying float vWave;
@@ -142,7 +145,15 @@ const OCEAN_FRAGMENT = /* glsl */ `
     float foam = shore * smoothstep(0.62, 0.95, bands) * smoothstep(0.25, 0.7, foamNoise);
     foam = max(foam, edge * (0.65 + 0.35 * foamNoise));
 
-    col = mix(col, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.88);
+    col = mix(col, uFoam, clamp(foam, 0.0, 1.0) * 0.88);
+    // Plasma (andere Welten): ziehende, pulsierende Leuchtadern
+    if (uGlow > 0.0) {
+      vec2 g = vWorld.xz * 0.06;
+      float vein = 1.0 - abs(fxNoise(g + vec2(uTime * 0.04, -uTime * 0.03)) * 2.0 - 1.0);
+      vein = pow(vein, 9.0) + pow(1.0 - abs(fxNoise(g * 2.3 - uTime * 0.05) * 2.0 - 1.0), 12.0) * 0.5;
+      float pulse = 0.75 + 0.25 * sin(uTime * 1.3 + vWorld.x * 0.08 + vWorld.z * 0.05);
+      col += uGlowColor * uGlow * (vein * pulse + 0.15 + shore * 0.5);
+    }
 
     // Durchsicht im flachen Wasser
     float alpha = mix(0.5, 0.97, smoothstep(0.05, 3.2, depth));
@@ -175,7 +186,32 @@ export interface Water {
   dispose: () => void;
 }
 
-export function createWater(heightTex: THREE.Texture, opts: { segments: number; fog: THREE.Color; fogNear: number; fogFar: number }): Water {
+/**
+ * Aussehen des Wassers einer anderen Welt (z. B. leuchtendes Plasma im Weltall). Ohne Angabe: Insel.
+ * Farben als CSS-Farbe; `glow` = Stärke des Eigenleuchtens.
+ */
+export interface WaterLook {
+  shallow: string;
+  mid: string;
+  deep: string;
+  far: string;
+  sky: string;
+  foam: string;
+  glow: number;
+  glowColor: string;
+  /** Fluss, Bach: flach, tief, Schaum, Himmelsglanz */
+  river: { shallow: string; deep: string; foam: string; sheen: string };
+  /** Wasserfall: Vorhang (oben → Streifen), Schaum und Gischt */
+  fall: { body: string; streak: string; foam: string; mist: string };
+}
+
+const rgb = (c: string) => {
+  const k = new THREE.Color(c);
+  return `vec3(${k.r.toFixed(3)}, ${k.g.toFixed(3)}, ${k.b.toFixed(3)})`;
+};
+
+export function createWater(heightTex: THREE.Texture, opts: { segments: number; fog: THREE.Color; fogNear: number; fogFar: number; look?: WaterLook }): Water {
+  const look = opts.look;
   // Fein unterteilt nur im Inselbereich wäre schöner; ein Raster genügt bei dieser Auflösung
   // Raster zur Mitte hin verdichtet: feine Wellen an der Insel, grob am Horizont
   const geo = new THREE.PlaneGeometry(2, 2, opts.segments, opts.segments);
@@ -192,11 +228,11 @@ export function createWater(heightTex: THREE.Texture, opts: { segments: number; 
       uTime: { value: 0 },
       uHeight: { value: heightTex },
       uTerrainSize: { value: TERRAIN_SIZE },
-      uShallow: { value: new THREE.Color('#3fe3d2') },
-      uMid: { value: new THREE.Color('#25c3d6') },
-      uDeep: { value: new THREE.Color('#1688cc') },
-      uFar: { value: new THREE.Color('#145fae') },
-      uSky: { value: new THREE.Color('#c6e9ff') },
+      uShallow: { value: new THREE.Color(look?.shallow ?? '#3fe3d2') },
+      uMid: { value: new THREE.Color(look?.mid ?? '#25c3d6') },
+      uDeep: { value: new THREE.Color(look?.deep ?? '#1688cc') },
+      uFar: { value: new THREE.Color(look?.far ?? '#145fae') },
+      uSky: { value: new THREE.Color(look?.sky ?? '#c6e9ff') },
       uSunDir: { value: new THREE.Vector3(0.5, 0.7, 0.3).normalize() },
       uSunColor: { value: new THREE.Color('#fff2d6') },
       uFogColor: { value: opts.fog.clone() },
@@ -205,6 +241,9 @@ export function createWater(heightTex: THREE.Texture, opts: { segments: number; 
       uDim: { value: 1 },
       uUltra: { value: 0 },
       uWaterNormal: { value: FLAT_NORMAL },
+      uFoam: { value: new THREE.Color(look?.foam ?? '#ffffff') },
+      uGlow: { value: look?.glow ?? 0 },
+      uGlowColor: { value: new THREE.Color(look?.glowColor ?? '#ffffff') },
       uFxTime: fx.uTime,
       uFxCloud: fx.uCloud,
       uFxDrift: fx.uCloudDrift,
@@ -241,6 +280,11 @@ const RIVER_FRAGMENT = /* glsl */ `
   uniform sampler2D uHeight;
   uniform float uTerrainSize;
   uniform vec3 uSunDir;
+  uniform vec3 uShallow;
+  uniform vec3 uDeep;
+  uniform vec3 uFoam;
+  uniform vec3 uSheen;
+  uniform float uGlow;
   varying vec2 vUv;
   varying vec3 vWorld;
   varying float vSlope;
@@ -257,21 +301,21 @@ const RIVER_FRAGMENT = /* glsl */ `
     vec2 fuv = vec2(vUv.x * 3.0, vUv.y * 0.9 - uTime * speed);
     float flow = fxNoise(fuv) * 0.6 + fxNoise(fuv * 2.7 + 3.1) * 0.4;
     float streak = smoothstep(0.62, 0.86, fxNoise(vec2(vUv.x * 9.0, vUv.y * 2.2 - uTime * speed * 1.4)));
-    vec3 shallow = vec3(0.42, 0.86, 0.80);
-    vec3 deep = vec3(0.07, 0.48, 0.62);
-    vec3 col = mix(shallow, deep, smoothstep(0.05, 0.9, depth));
+    vec3 col = mix(uShallow, uDeep, smoothstep(0.05, 0.9, depth));
     col = mix(col, col * 1.18, flow);
     // Stromschnellen + Ufer schäumen
     float rapids = smoothstep(0.02, 0.09, vSlope);
     float bank = 1.0 - smoothstep(0.0, 0.08, depth);
     float foam = max(streak * (0.2 + rapids * 0.7), bank * (0.3 + 0.4 * flow));
     foam = max(foam, rapids * smoothstep(0.4, 0.8, flow));
-    col = mix(col, vec3(0.97, 1.0, 1.0), clamp(foam, 0.0, 1.0) * 0.85);
+    col = mix(col, uFoam, clamp(foam, 0.0, 1.0) * 0.85);
     // Wolkenschatten + etwas Himmelsglanz
     col *= mix(0.84, 1.0, fxCloudShade(vWorld.xz));
     vec3 view = normalize(cameraPosition - vWorld);
     float fres = pow(1.0 - max(view.y, 0.0), 3.0);
-    col = mix(col, vec3(0.8, 0.92, 1.0), fres * 0.35);
+    col = mix(col, uSheen, fres * 0.35);
+    // Plasma: leuchtet von selbst, Strömung als helle Bänder
+    col += uShallow * uGlow * (0.35 + flow * 0.5 + streak * 0.8);
     float alpha = mix(0.45, 0.94, smoothstep(0.02, 0.7, depth));
     alpha = max(alpha, foam * 0.9);
     gl_FragColor = vec4(col, alpha);
@@ -370,7 +414,8 @@ export interface RiverFx {
   fallBase: THREE.Vector3;
 }
 
-export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; creek?: { x: number; y: number; z: number; w: number }[]; basin?: FordBasin | null }): RiverFx {
+export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; creek?: { x: number; y: number; z: number; w: number }[]; basin?: FordBasin | null; look?: WaterLook }): RiverFx {
+  const look = opts.look;
   const group = new THREE.Group();
   group.name = 'river';
   const material = new THREE.ShaderMaterial({
@@ -384,6 +429,11 @@ export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; cre
       uHeight: { value: heightTex },
       uTerrainSize: { value: TERRAIN_SIZE },
       uSunDir: { value: new THREE.Vector3(0.5, 0.7, 0.3).normalize() },
+      uShallow: { value: look ? new THREE.Color(look.river.shallow) : new THREE.Color().setRGB(0.42, 0.86, 0.8, THREE.LinearSRGBColorSpace) },
+      uDeep: { value: look ? new THREE.Color(look.river.deep) : new THREE.Color().setRGB(0.07, 0.48, 0.62, THREE.LinearSRGBColorSpace) },
+      uFoam: { value: look ? new THREE.Color(look.river.foam) : new THREE.Color().setRGB(0.97, 1, 1, THREE.LinearSRGBColorSpace) },
+      uSheen: { value: look ? new THREE.Color(look.river.sheen) : new THREE.Color().setRGB(0.8, 0.92, 1, THREE.LinearSRGBColorSpace) },
+      uGlow: { value: look?.glow ?? 0 },
       uFxTime: fx.uTime,
       uFxCloud: fx.uCloud,
       uFxDrift: fx.uCloudDrift,
@@ -460,10 +510,10 @@ export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; cre
       void main() {
         float y = 1.0 - vUv.y;
         float streak = fxNoise(vec2(vUv.x * 14.0, y * 3.0 - uTime * 3.2)) * 0.6 + fxNoise(vec2(vUv.x * 31.0, y * 6.0 - uTime * 4.4)) * 0.4;
-        vec3 col = mix(vec3(0.55, 0.85, 0.92), vec3(1.0), smoothstep(0.35, 0.8, streak) * 0.85 + y * 0.25);
+        vec3 col = mix(${look ? rgb(look.fall.body) : 'vec3(0.55, 0.85, 0.92)'}, ${look ? rgb(look.fall.streak) : 'vec3(1.0)'}, smoothstep(0.35, 0.8, streak) * 0.85 + y * 0.25);
         float edge = smoothstep(0.0, 0.14, vUv.x) * smoothstep(1.0, 0.86, vUv.x);
         float a = (0.62 + streak * 0.38) * edge * smoothstep(0.0, 0.04, vUv.y);
-        gl_FragColor = vec4(col * 1.1, a);
+        gl_FragColor = vec4(col * ${look ? (1.1 + look.glow * 0.6).toFixed(2) : '1.1'}, a);
         #include <colorspace_fragment>
       }
     `,
@@ -493,7 +543,7 @@ export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; cre
         float r = length(c) * 2.0;
         float n = fxNoise(c * 9.0 + vec2(0.0, -uTime * 1.5)) * 0.5 + fxNoise(c * 17.0 - uTime * 0.8) * 0.5;
         float a = smoothstep(1.0, 0.2, r) * smoothstep(0.3, 0.7, n + (1.0 - r) * 0.4);
-        gl_FragColor = vec4(vec3(1.0), a * 0.9);
+        gl_FragColor = vec4(${look ? rgb(look.fall.foam) : 'vec3(1.0)'}, a * 0.9);
         #include <colorspace_fragment>
       }
     `,
@@ -542,7 +592,7 @@ export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; cre
       void main() {
         float d = length(gl_PointCoord - 0.5);
         float a = smoothstep(0.5, 0.0, d) * vA;
-        gl_FragColor = vec4(vec3(1.0), a * 0.55);
+        gl_FragColor = vec4(${look ? rgb(look.fall.mist) : 'vec3(1.0)'}, a * 0.55);
         #include <colorspace_fragment>
       }
     `,

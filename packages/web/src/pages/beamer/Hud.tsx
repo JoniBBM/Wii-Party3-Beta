@@ -58,7 +58,10 @@ export function Ranking({ state }: { state: GameState }) {
                 </div>
               </div>
               <div className="flex flex-col items-end">
-                <span className={`font-display text-xl leading-none font-semibold tabular-nums ${active ? 'text-white' : 'text-ink'}`}>{team.position}</span>
+                {/* Zeile ist hell (Teamfarbe mit Weiß) – Zahl daher in dunkler Teamfarbe, nicht in Textfarbe der Welt */}
+                <span className={`font-display text-xl leading-none font-semibold tabular-nums ${active ? 'text-white' : ''}`} style={active ? undefined : { color: c.dark }}>
+                  {team.position}
+                </span>
                 <span className="flex gap-0.5">
                   {team.blocked && <span title="gesperrt">🚧</span>}
                   {team.crater && <span title="im Krater">🕳️</span>}

@@ -35,7 +35,7 @@ export type FigureMode =
 // ---------------------------------------------------------------------------
 // Geteilte Geometrien (einmal pro Seite)
 // ---------------------------------------------------------------------------
-const G = {
+export const G = {
   sphere: new THREE.SphereGeometry(1, 32, 24),
   sphereLow: new THREE.SphereGeometry(1, 16, 12),
   capsule: new THREE.CapsuleGeometry(1, 1, 8, 16),
@@ -60,7 +60,7 @@ const G = {
 };
 
 const matCache = new Map<string, THREE.MeshStandardMaterial>();
-function mat(color: string, opts: { rough?: number; metal?: number; emissive?: string; transparent?: number } = {}) {
+export function mat(color: string, opts: { rough?: number; metal?: number; emissive?: string; transparent?: number } = {}) {
   const key = `${color}|${opts.rough ?? 0.6}|${opts.metal ?? 0}|${opts.emissive ?? ''}|${opts.transparent ?? 1}`;
   let m = matCache.get(key);
   if (!m) {
@@ -110,7 +110,7 @@ export interface FigureRig {
 
 const DARK = '#1d1f2a';
 
-function buildEye(style: FigureConfig['eyes'], side: 1 | -1, isWinking: boolean): THREE.Object3D {
+export function buildEye(style: FigureConfig['eyes'], side: 1 | -1, isWinking: boolean): THREE.Object3D {
   const g = new THREE.Group();
   const dark = mat(DARK, { rough: 0.25 });
   if (style === 'happy' || (style === 'wink' && isWinking)) {
@@ -129,7 +129,7 @@ function buildEye(style: FigureConfig['eyes'], side: 1 | -1, isWinking: boolean)
   return g;
 }
 
-function buildMouth(style: FigureConfig['mouth']): THREE.Object3D {
+export function buildMouth(style: FigureConfig['mouth']): THREE.Object3D {
   const g = new THREE.Group();
   const lip = mat('#8a2f2a', { rough: 0.5 });
   switch (style) {
@@ -156,7 +156,7 @@ function buildMouth(style: FigureConfig['mouth']): THREE.Object3D {
   return g;
 }
 
-function buildHair(style: FigureConfig['hairStyle'], color: string, headR: number): THREE.Group {
+export function buildHair(style: FigureConfig['hairStyle'], color: string, headR: number): THREE.Group {
   const g = new THREE.Group();
   if (style === 'bald') return g;
   const m = mat(color, { rough: 0.55 });
@@ -217,7 +217,7 @@ function buildHair(style: FigureConfig['hairStyle'], color: string, headR: numbe
   return g;
 }
 
-function buildAccessory(kind: FigureConfig['accessory'], team: string, headR: number): THREE.Group {
+export function buildAccessory(kind: FigureConfig['accessory'], team: string, headR: number): THREE.Group {
   const g = new THREE.Group();
   const top = headR * 0.95;
   switch (kind) {

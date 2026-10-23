@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router';
 import { CornerDownLeft, Search, X } from 'lucide-react';
 import { useAccount } from '../../lib/account.ts';
 import { useLive } from '../../lib/live.ts';
-import { goToSetting, searchSettings, settingById, settingPlace, settingTitle, SUGGESTED, type SettingEntry } from '../../lib/settingsIndex.ts';
+import { goToSetting, otherNames, searchSettings, settingById, settingPlace, settingTitle, SUGGESTED, type SettingEntry } from '../../lib/settingsIndex.ts';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -138,7 +138,7 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
                       <span className={`block truncate font-bold ${i === active ? 'text-accent' : ''}`}>{settingTitle(e, theme)}</span>
                       <span className="block truncate text-xs text-muted">
                         {settingPlace(e, theme)}
-                        {e.blocks && ` · ${theme === 'blocks' ? `Insel: ${e.title}` : `Blockwelt: ${e.blocks}`}`}
+                        {e.alt && ` · ${otherNames(e, theme)}`}
                         {e.hint && ` · ${e.hint}`}
                       </span>
                     </span>

@@ -35,7 +35,8 @@ export function disposeTree(o: THREE.Object3D) {
     }
   });
 }
-function mat(color: string, o: { rough?: number; metal?: number; emissive?: string; flat?: boolean } = {}) {
+/** Gemeinsames (zwischengespeichertes) Material für Kulissen und Auftritte – wird nie freigegeben */
+export function mat(color: string, o: { rough?: number; metal?: number; emissive?: string; flat?: boolean } = {}) {
   const key = `${color}|${o.rough ?? 0.7}|${o.metal ?? 0}|${o.emissive ?? ''}|${o.flat ? 1 : 0}`;
   let m = matCache.get(key);
   if (!m) {
@@ -51,7 +52,7 @@ function mat(color: string, o: { rough?: number; metal?: number; emissive?: stri
   return m;
 }
 
-function mesh(geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, shadow = true) {
+export function mesh(geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, shadow = true) {
   const me = new THREE.Mesh(geo, m);
   me.position.set(x, y, z);
   me.castShadow = shadow;
@@ -402,9 +403,12 @@ export class Stunts {
       const f = this.layout.fields[i]!;
       // Fass
       const barrel = bigBarrel(fr * 1.0, 1.7);
-      barrel.position.set(f.x, top - 1.7, f.z);
+      // Halter steht an der Stelle des Teils: das Schaukeln dreht dann um das Teil selbst
+      // (am Weltursprung drehte es um die Inselmitte und hob/senkte es um bis zu 1 m)
+      barrel.position.set(0, top - 1.7, 0);
       barrel.rotation.y = k * 1.3;
       const bHolder = new THREE.Group();
+      bHolder.position.set(f.x, 0, f.z);
       bHolder.add(barrel);
       this.group.add(bHolder);
       this.lanes.barrels.push({ o: bHolder, top: new THREE.Vector3(f.x, top, f.z), ph: k * 1.7, hidden: 0, rise: 0 });
@@ -413,9 +417,10 @@ export class Stunts {
       const cz = f.z + up.z * gap;
       const crate = floatingCrate(fr * 1.75);
       crate.scale.y = 1.7 / (fr * 1.75);
-      crate.position.set(cx, top - 0.85, cz);
+      crate.position.set(0, top - 0.85, 0);
       crate.rotation.y = Math.atan2(flow.x, flow.z) + 0.08 * (k % 2 ? 1 : -1);
       const cHolder = new THREE.Group();
+      cHolder.position.set(cx, 0, cz);
       cHolder.add(crate);
       this.group.add(cHolder);
       this.lanes.crates.push({ o: cHolder, top: new THREE.Vector3(cx, top + 0.02, cz), ph: k * 2.3 + 1, hidden: 0, rise: 0 });
@@ -569,11 +574,11 @@ export class Stunts {
             g.holder.position.y += Math.sin(t * Math.PI) * 0.5;
           }, ease.in);
           this.guard(epoch);
-          this.audio.splash(1);
-          this.effects.splash(b.x, water, b.z, true);
+          this.plunge(b.x, water, b.z);
           // ans andere Ufer schwimmen, die Strömung zieht ein Stück mit – aber nur im Wasser:
           // bis zur Uferkante schwimmen, dann über das Gelände hinaus aufs Feld klettern
           g.rig.setMode('swim');
+          this.swimming(g.holder, true);
           const exit = this.pieces.slotOn(teamId, exitField);
           const swimY = water - 0.5;
           const wet = (x: number, z: number) => this.field.height(x, z) < water - 0.15;
@@ -599,6 +604,7 @@ export class Stunts {
             g.holder.rotation.y = Math.atan2(tan.x, tan.z) + Math.sin(t * 10) * 0.25;
           }, ease.inOut);
           this.guard(epoch);
+          this.swimming(g.holder, false);
           // herausklettern: immer auf (nie in) dem Ufer, am Ende auf dem Feld
           g.rig.setMode('climb');
           const s0 = g.holder.position.clone();
@@ -639,6 +645,15 @@ export class Stunts {
       this.pieces.release(teamId, exitField, 'cheer');
     });
   }
+
+  /** Figur fällt in den Fluss (andere Welten: anderes Spritzen). */
+  protected plunge(x: number, y: number, z: number) {
+    this.audio.splash(1);
+    this.effects.splash(x, y, z, true);
+  }
+
+  /** Figur schwimmt ab jetzt bzw. nicht mehr (andere Welten: z. B. Schutzblase um die Figur). */
+  protected swimming(_holder: THREE.Group, _on: boolean) {}
 
   /** Fass bzw. Kiste zerbirst: Bretter fliegen, das Teil taucht später wieder auf. */
   protected burst(item: LaneItem, choice: RiverChoice) {

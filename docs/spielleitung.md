@@ -12,13 +12,12 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 1. **Laptop vorbereiten**: Docker Desktop starten, im Projektordner `./start.sh` ausführen. Die Regie öffnet sich im Browser.
 2. **Anmelden**: Spielleiter melden sich in der Regie mit **E-Mail und Passwort** an (Konto vom Admin, siehe [Spielleiter-Konten](#spielleiter-konten-und-mehrere-spiele)). Der Admin gibt als Benutzernamen `admin` ein und dazu das Passwort aus der Datei `.env` (`ADMIN_PASSWORD`).
 3. **Inhalte prüfen**: Unter *Bibliothek* die Sammlungen ansehen, ggf. eigene Spiele und Fragen anlegen (siehe [Inhalte erstellen](inhalte.md)).
-4. **Spiel anlegen**: Unter *Live* (ohne Spiel) oder *Spiele* auf **Neues Spiel** – mehr nicht. Das Spiel entsteht sofort (Name „Spieleabend <Datum>“, Standard-Vorlage), danach geht es direkt in die **geführte Einrichtung**, die Welt, Dauer, Spielfeld, Inhalte, Handys und Namen abfragt. Wer von einer eigenen Vorlage starten will: *Spiele → Vorlagen → Neues Spiel daraus*. Jedes Spiel bekommt einen **Spielcode** (z. B. `KX7P`) – er steht oben in der Regie und steckt in allen QR-Codes.
+4. **Spiel anlegen**: Unter *Live* (ohne Spiel) oder *Spiele* auf **Neues Spiel erstellen** – mehr nicht. Das Spiel entsteht sofort (Name „Spieleabend <Datum>“, Standard-Vorlage), danach geht es direkt in die **geführte Einrichtung**. Eine eigene Vorlage lässt sich dort auf der ersten Folie übernehmen (*Von einer gespeicherten Vorlage starten*). Solange dein Spiel läuft, gibt es den Knopf nicht – erst beenden oder unter *Spiele* schließen. Jedes Spiel bekommt einen **Spielcode** (z. B. `KX7P`) – er steht oben in der Regie und steckt in allen QR-Codes.
 5. **Spiel einrichten – geführt** (*Spiel einrichten → Geführt*, vor dem Spiel die Standardansicht): Folie für Folie, nichts gilt, bevor du am Ende **Übernehmen** drückst. Oben siehst du alle Schritte und kannst zu bereits besuchten zurückspringen.
-   - **Welt**: *Insel der Abenteuer* oder *Blockwelt* (siehe [Welten](#welten-insel-oder-blockwelt)).
-   - **Einrichtung**: *Nach Spieldauer* (empfohlen) oder *Manuell*.
-     - *Nach Spieldauer*: Du gibst ein, wie lange ungefähr gespielt wird (und mit wie vielen Teams). Der Assistent schlägt Länge und Sonderfelder vor – kurze Spiele mit weniger Bremsen und Minispielen, lange Abende mit mehr Minispielen und Platztausch. Das Spiel-Tempo (siehe unten) hält die Zeit danach unauffällig ein.
-     - *Manuell*: alles selbst festlegen, **reine Zufallswürfe ohne Spiel-Tempo** – keine Algorithmen, die das Spiel beeinflussen, keine Tempo-Knöpfe.
-   - **Spielfeld**: Anzahl Felder eintippen oder schieben; daneben die Insel als Vorschau und wie lange das Spiel damit dauert (bei *Nach Spieldauer* auch, ob es zur Wunschzeit passt – sonst ein Knopf, der die Länge anpasst).
+   - **Welt**: *Insel der Abenteuer*, *Blockwelt* oder *Weltall* (siehe [Welten](#welten-insel-blockwelt-oder-weltall)).
+   - **Spieldauer**: wie lange ungefähr gespielt wird und mit wie vielen Teams. Der Assistent schlägt Länge und Sonderfelder vor – kurze Spiele mit weniger Bremsen und Minispielen, lange Abende mit mehr Minispielen und Platztausch. Ein Algorithmus (Spiel-Tempo, siehe unten) hält die Zeit danach unauffällig ein. Der Vorschlag plant ein leicht beschleunigtes Tempo ein (z. B. 50 Minuten, 4 Teams → ca. 46 Felder), das Tempo hat trotzdem nach beiden Seiten Luft.
+     - *Spieldauer überspringen*: alles selbst festlegen, **reine Zufallswürfe ohne Spiel-Tempo** – keine Algorithmen, die das Spiel beeinflussen, keine Tempo-Knöpfe. „Doch eine Spieldauer festlegen“ holt sie zurück.
+   - **Spielfeld**: Anzahl Felder eintippen oder schieben; daneben die Insel als Vorschau und wie lange das Spiel damit dauert (mit Spieldauer auch, ob es zur Wunschzeit passt – sonst ein Knopf, der die Länge anpasst).
    - **Sonderfelder**: jedes Sonderfeld *Aus / Selten / Normal / Oft / Sehr oft* – mit Anzahl und Live-Vorschau. Die Mutproben der Insel (Liane, Fässer oder Kisten, Lavahöhle, Kraterloch, Vulkanausbruch) an- oder ausschalten. Die Häufigkeiten bleiben gespeichert, auch wenn du später die Länge änderst oder neu verteilst.
    - **Was kommt dran?**: Spiele, Auswahl-, Freitext-, Schätz- und Buzzer-Fragen an- oder abwählen. Das gilt für den Zufall; im Ablaufplan und bei der Auswahl von Hand bist du frei. Feld-Minispiele kommen weiter über die Minispiel-Felder.
    - **Sammlungen**: Sammlungen wählen (aufklappen zeigt die passenden Inhalte). Unten steht, ob die Inhalte für die erwarteten Runden reichen.
@@ -66,7 +65,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 
 ## Spiel-Tempo: Spieldauer und „schneller/langsamer“
 
-**Vor dem Spiel** steht in der Regie (Live, rechts) und beim Moderator die Karte **Spieldauer**: *Ohne Vorgabe*, 30–120 Minuten oder eine eigene Zahl (am bequemsten gleich in der geführten Einrichtung *Nach Spieldauer*). Darunter steht, wie lange das gewählte Spielfeld mit den aktuellen Teams ohne Vorgabe ungefähr dauert. Ist die Wunschzeit für das Spielfeld zu knapp (oder zu lang), sagt die Karte, was unauffällig machbar ist – für deutlich kürzere Spiele ein kürzeres Spielfeld wählen (*Spiel einrichten*). Mit *Ohne Spiel-Tempo spielen* (bzw. *Manuell* in der Einrichtung) ist das Tempo ganz aus: reine Zufallswürfe, keine Tempo-Knöpfe; *Spieldauer vorgeben* schaltet es wieder ein.
+**Vor dem Spiel** steht in der Regie (Live, rechts) und beim Moderator die Karte **Spieldauer**: *Ohne Vorgabe*, 30–120 Minuten oder eine eigene Zahl (am bequemsten gleich in der geführten Einrichtung). Darunter steht, wie lange das gewählte Spielfeld mit den aktuellen Teams ohne Vorgabe ungefähr dauert. Ist die Wunschzeit für das Spielfeld zu knapp (oder zu lang), sagt die Karte, was unauffällig machbar ist – für deutlich kürzere Spiele ein kürzeres Spielfeld wählen (*Spiel einrichten*). Mit *Ohne Spiel-Tempo spielen* (bzw. *Spieldauer überspringen* in der Einrichtung) ist das Tempo ganz aus: reine Zufallswürfe, keine Tempo-Knöpfe; *Spieldauer vorgeben* schaltet es wieder ein.
 
 **Während des Spiels** zeigt die Karte **Spiel-Tempo**, wie lange schon gespielt wird, wie lange es voraussichtlich noch dauert (mit Uhrzeit fürs Ende) und ob es im Plan liegt. Mit **Spiel beschleunigen** bzw. **Spiel verlangsamen** öffnet sich ein Fenster: mit Spieldauer „5/10/15/20 Minuten früher bzw. später“ oder eine neue Gesamtdauer, ohne Spieldauer „etwas“ oder „deutlich“ schneller/langsamer. *Normales Tempo* setzt alles zurück.
 
@@ -77,9 +76,9 @@ So funktioniert es – fair und für die Teams unsichtbar:
 - Handys und Beamer bekommen Spieldauer und Tempo gar nicht erst zu sehen; im Verlauf steht nichts davon. Echte Würfe, die die Regie einträgt, bleiben unverändert.
 - Unauffällig lässt sich ein Spiel so um etwa ein Drittel verkürzen oder um ein Viertel verlängern (Standard-Spielfeld mit 72 Feldern: ca. 60–115 statt ca. 90 Minuten). Die Prognose lernt aus den gespielten Runden mit (Rundendauer, Vorankommen).
 
-## Welten: Insel oder Blockwelt
+## Welten: Insel, Blockwelt oder Weltall
 
-Jedes Spiel hat eine **Welt** (*Spiel einrichten* → erste Folie bzw. *Alle Einstellungen → Welt & Stimmung*). Regeln, Spielfeld und Ablauf sind in beiden gleich – nur die Optik wechselt:
+Jedes Spiel hat eine **Welt** (*Spiel einrichten* → erste Folie bzw. *Alle Einstellungen → Welt & Stimmung*). Regeln, Spielfeld und Ablauf sind in allen gleich – nur Optik, Begriffe, Musik und Sprüche wechseln (Verlauf, Handys, Regie und Beamer nennen die Mutproben und Sonderfelder jeweils beim Namen der Welt):
 
 - **Insel der Abenteuer**: tropische Vulkaninsel (Standard).
 - **Blockwelt** (Minecraft-Stil, alles mit eigenen Pixel-Texturen gezeichnet): Die Insel besteht aus Blöcken – Gras, Erde, Stein, Sandstrände, Kiesweg, Wasserfall und Fluss als Wasserblöcke, Eichen-, Birken- und Dschungelbäume, Blumen. Die Felder sind Woll-Platten mit Pixel-Symbolen (Start: Smaragd, Ziel: Gold mit Diamant). Figuren sind Kastenmännchen aus denselben Editor-Einstellungen (Hemd = Teamfarbe). Auf den Wiesen grasen Schafe, Kühe, Schweine und Hühner, in den Wäldern streifen Zombies und Skelette, an der Höhle Spinnen und Fledermäuse, am Wasser hüpfen Schleime, am Vulkanfuß schleichen Knaller.
@@ -88,6 +87,14 @@ Jedes Spiel hat eine **Welt** (*Spiel einrichten* → erste Folie bzw. *Alle Ein
   - **Vulkan-Inneres = Nether**: Netherrack-Höhle mit Glowstone, Lavasee und Lavafällen, Strafweg über Netherziegel-Pfeiler, Ausgangsfeld als Glowstone mit Leuchtfeuer, Ausgang durch ein Obsidian-Portal, darüber schweben Glutgeister.
   - Handys und Beamer-Einblendungen bekommen den Pixel-Look (Pixelschrift für Überschriften und Knöpfe, graue Menü-Kästen, Erd-Hintergrund). Fragen, Antworten, Lösungen und Zahlen stehen in einer klar lesbaren, kantigen Schrift (Chakra Petch), damit sich nichts verwechseln lässt (2/Z, 5/S, 8/B). Die Regie bleibt wie gewohnt.
   - Eigene Kommentator-Sprüche (Knaller, Teleport-Perle, Spinnennetz, Ranke, Nether …), eigene Spielerklärung und eigene ruhige Musik (freie Stücke im Blockspiel-Stil, im Nether düster).
+- **Weltall** (bunter Alien-Planet im Low-Poly-Stil): violette und türkise Böden, rosa Strände, ein leuchtendes Plasma-Meer, Plasma-Fluss und -Wasserfall. Leuchtbäume, Kristalle, Pilze, eine Mondbasis mit Kuppeln, Landeplattformen und Raumschiffen, am Himmel ein Ringplanet und zwei Monde. Die Felder sind leuchtende Sechseck-Plattformen (Start: Landeplatz, Ziel: goldene Plattform an der **Raketenrampe** auf dem Gipfel). Gespielt wird im **Astronautenanzug** in Teamfarbe mit Glashelm – Gesicht, Frisur und Zubehör aus dem Figuren-Editor sind im Helm zu sehen.
+  - Sonderfelder: *Katapult vorwärts* = **Jetpack**, *Katapult rückwärts* = **Schwarzes Loch**, *Platztausch* = **Teleporter**, *Sperre* = **Energiekäfig**, *Totenkopf* = **Wurmloch**.
+  - Mutproben: **Greifhaken** über den Plasma-Bach, **Kapseln oder Kisten** am Plasmafall, **Kristallhöhle** statt Lavahöhle, Kraterloch.
+  - **Alien-Vulkan**: Plasma im Krater; beim Ausbruch fliegen Kristallbrocken und Meteoriten mit Leuchtspur. Das Innere ist die **Alien-Höhle** (Strafweg über Kristallinseln, Ausgang per Teleporter).
+  - Bewohner: kleine Aliens, Roboter-Drohnen und andere Wesen.
+  - Wetter wird zu Sporenregen, Kristallstaub, Ionensturm mit violetten Blitzen und Staubdunst; Halloween mit Kürbis-Kapseln und Geister-Aliens, Weihnachten mit Kristallbäumen und Lichterketten an der Basis.
+  - Handys und Beamer-Einblendungen: dunkler Sternenhimmel-Look mit Neon-Akzenten (Überschriften in Exo 2), Fragen bleiben in der gut lesbaren Standardschrift.
+  - Eigene Kommentator-Sprüche und Spielerklärung (vertont) sowie eigene freie Musik (Weltraum-Synth, in der Höhle geheimnisvoll, eigenes Finale).
 
 ## Wetter, Jahreszeit und Festzeit
 

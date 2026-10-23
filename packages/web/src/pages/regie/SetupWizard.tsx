@@ -1,14 +1,13 @@
 /**
- * Geführte Spiel-Einrichtung in Folien: Art der Einrichtung → Spieldauer → Spielfeld → Sonderfelder →
- * Was kommt dran? → Sammlungen → Handys & Sieg → Übersicht. Alles bleibt ein Entwurf, bis
- * „Übernehmen“ gedrückt wird.
+ * Geführte Spiel-Einrichtung in Folien: Welt → Spieldauer → Spielfeld → Sonderfelder → Was kommt
+ * dran? → Sammlungen → Handys & Sieg → Übersicht. Alles bleibt ein Entwurf, bis „Übernehmen“
+ * gedrückt wird.
  *
- * „Nach Spieldauer“: Aus der gewünschten Dauer werden Länge und Sonderfelder vorgeschlagen, das
- * Spiel-Tempo hält die Zeit danach unauffällig ein. „Manuell“: alles selbst festlegen, reine
- * Zufallswürfe ohne Spiel-Tempo.
+ * Mit Spieldauer: Länge und Sonderfelder werden vorgeschlagen, das Spiel-Tempo hält die Zeit danach
+ * unauffällig ein. Spieldauer übersprungen: alles selbst festlegen, reine Zufallswürfe ohne Spiel-Tempo.
  */
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Minus, Plus, Shuffle, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Gauge, Minus, Plus, Shuffle, Sparkles, Timer, Wand2 } from 'lucide-react';
 import {
   buildBoard,
   CONTENT_KIND_INFO,
@@ -43,11 +42,10 @@ import { ThemePicker } from '../../game/ThemePicker.tsx';
 import { BoardMap, MAP_BACKGROUND } from './BoardEditor.tsx';
 
 type Mode = 'auto' | 'manual';
-type StepKey = 'world' | 'mode' | 'duration' | 'board' | 'fields' | 'kinds' | 'content' | 'devices' | 'summary';
+type StepKey = 'world' | 'duration' | 'board' | 'fields' | 'kinds' | 'content' | 'devices' | 'summary';
 
 const STEP_LABEL: Record<StepKey, string> = {
   world: 'Welt',
-  mode: 'Einrichtung',
   duration: 'Dauer',
   board: 'Spielfeld',
   fields: 'Sonderfelder',
@@ -75,11 +73,20 @@ const LANDMARKS: { key: 'vine' | 'river' | 'cave' | 'crater' | 'volcano'; icon: 
   { key: 'crater', icon: '🕳️', title: 'Kraterloch', text: 'Kurz vor dem Gipfel hineinfallen und Augen sammeln, um herauszuklettern.' },
   { key: 'volcano', icon: '🌋', title: 'Vulkanausbruch', text: 'Der Druck steigt jede Runde – beim Ausbruch rutschen Teams am Gipfel zurück.' },
 ];
-/** Mutproben mit den Namen der gewählten Welt (Blockwelt: Ranke, Nether) */
-const landmarksFor = (theme: Theme) =>
-  theme === 'blocks'
-    ? LANDMARKS.map((l) => (l.key === 'vine' ? { ...l, title: 'Ranke', text: 'Mutprobe über den Bach – würfeln, wie weit man an der Ranke schwingt.' } : l.key === 'cave' ? { ...l, text: 'Hoch genug würfeln, sonst geht es in den Nether.' } : l))
-    : LANDMARKS;
+/** Mutproben mit den Namen der gewählten Welt (Blockwelt: Ranke, Nether · Weltall: Greifhaken, Alien-Höhle) */
+const LANDMARK_WORLD: Partial<Record<Theme, Partial<Record<(typeof LANDMARKS)[number]['key'], { title?: string; icon?: string; text: string }>>>> = {
+  blocks: {
+    vine: { title: 'Ranke', text: 'Mutprobe über den Bach – würfeln, wie weit man an der Ranke schwingt.' },
+    cave: { text: 'Hoch genug würfeln, sonst geht es in den Nether.' },
+  },
+  space: {
+    vine: { title: 'Greifhaken', icon: '🪝', text: 'Mutprobe über den Plasma-Bach – würfeln, wie weit man am Greifhaken schwingt.' },
+    river: { title: 'Kisten oder Kapseln', icon: '📦', text: 'Am Plasmafall eine Seite wählen – versinkt sie, ist der Wurf vorbei.' },
+    cave: { title: 'Kristallhöhle', icon: '💎', text: 'Hoch genug würfeln, sonst geht es in die Alien-Höhle.' },
+    volcano: { title: 'Ausbruch des Alien-Vulkans', text: 'Der Druck steigt jede Runde – beim Ausbruch hageln Meteoriten, Teams am Gipfel rutschen zurück.' },
+  },
+};
+const landmarksFor = (theme: Theme) => LANDMARKS.map((l) => ({ ...l, ...LANDMARK_WORLD[theme]?.[l.key] }));
 
 const WIN_RULES: { value: Rules['winRule']; icon: string; title: string; text: string }[] = [
   { value: 'final_roll', icon: '🎲', title: 'Siegeswurf auf dem Gipfel', text: 'Oben angekommen braucht es noch einen hohen Wurf – spannend bis zum Schluss.' },
@@ -98,7 +105,8 @@ export function SetupWizard({ state, onDone }: { state: GameState; onDone: () =>
   const [index, setIndex] = useState(0);
   const [dir, setDir] = useState<'next' | 'prev'>('next');
 
-  const steps: StepKey[] = mode === 'auto' ? ['world', 'mode', 'duration', 'board', 'fields', 'kinds', 'content', 'devices', 'summary'] : ['world', 'mode', 'board', 'fields', 'kinds', 'content', 'devices', 'summary'];
+  // immer geführt; nur die Spieldauer lässt sich überspringen (dann reine Zufallswürfe ohne Spiel-Tempo)
+  const steps: StepKey[] = ['world', 'duration', 'board', 'fields', 'kinds', 'content', 'devices', 'summary'];
   const step = steps[Math.min(index, steps.length - 1)]!;
   const goal = draft.board.fields.length - 1;
   const range = useMemo(() => estimateRange(draft, teams), [draft, teams]);
@@ -159,32 +167,43 @@ export function SetupWizard({ state, onDone }: { state: GameState; onDone: () =>
         <div key={step} className={`p-5 sm:p-6 ${dir === 'next' ? 'animate-slide-next' : 'animate-slide-prev'}`}>
           {step === 'world' && (
             <div>
-              <StepTitle title="In welcher Welt wird gespielt?" sub="Nur die Optik ändert sich – Regeln und Spielfeld sind in beiden Welten gleich." />
+              <StepTitle title="In welcher Welt wird gespielt?" sub="Nur die Optik ändert sich – Regeln und Spielfeld sind in allen Welten gleich." />
               <ThemePicker
                 large
                 value={draft.theme}
                 onChange={(theme) => {
                   setDraft((d) => ({ ...d, theme }));
+                  // neues Spiel: Spielfeld gleich passend zur vorgeschlagenen Dauer
+                  if (mode === 'auto' && !state.config.targetMinutes) applySuggestion(minutes, teams);
                   go(1);
+                }}
+              />
+              <TemplatePick
+                onPick={(cfg) => {
+                  setDraft((d) => ({ ...structuredClone(cfg), name: d.name, theme: cfg.theme ?? d.theme }));
+                  if (cfg.tempoEnabled === false) setMode('manual');
+                  else {
+                    setMode('auto');
+                    if (cfg.targetMinutes) setMinutes(cfg.targetMinutes);
+                  }
                 }}
               />
             </div>
           )}
-          {step === 'mode' && (
-            <ModeStep
-              mode={mode}
-              onPick={(m) => {
-                setMode(m);
-                if (m === 'auto' && !state.config.targetMinutes) applySuggestion(minutes, teams);
-                go(2);
-              }}
-            />
-          )}
           {step === 'duration' && (
             <DurationStep
+              mode={mode}
               minutes={minutes}
               teams={teams}
               config={draft}
+              onSkip={() => {
+                setMode('manual');
+                go(index + 1);
+              }}
+              onUse={() => {
+                setMode('auto');
+                applySuggestion(minutes, teams);
+              }}
               onMinutes={(m) => {
                 setMinutes(m);
                 applySuggestion(m, teams);
@@ -249,7 +268,7 @@ export function SetupWizard({ state, onDone }: { state: GameState; onDone: () =>
           )}
         </div>
 
-        {step !== 'world' && step !== 'mode' && (
+        {step !== 'world' && (
           <div className="flex items-center justify-between gap-2 border-t border-line bg-bg-2/60 px-5 py-3 sm:px-6">
             <Button variant="ghost" icon={<ArrowLeft className="size-4" />} onClick={() => go(index - 1)}>
               Zurück
@@ -267,6 +286,43 @@ export function SetupWizard({ state, onDone }: { state: GameState; onDone: () =>
         )}
       </Card>
     </div>
+  );
+}
+
+/** Eigene Vorlage übernehmen (Spielfeld, Regeln, Inhalte, Ablaufplan) – danach geht es normal weiter. */
+function TemplatePick({ onPick }: { onPick: (c: GameConfig) => void }) {
+  const templates = useLibrary((s) => s.templates);
+  const [picked, setPicked] = useState<string | null>(null);
+  if (!templates.length) return null;
+  return (
+    <details className="group mt-5 rounded-2xl border border-line">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-bold text-ink-2">
+        <ChevronDown className="size-4 transition group-open:rotate-180" /> Von einer gespeicherten Vorlage starten
+        {picked && <Badge tone="good">{picked}</Badge>}
+      </summary>
+      <div className="flex flex-col gap-1.5 px-3 pb-3">
+        <p className="px-1 text-xs text-muted">Übernimmt Spielfeld, Regeln, Inhalte und Ablaufplan der Vorlage. Danach wählst du wie gewohnt die Welt.</p>
+        {templates.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => {
+              onPick(t.config);
+              setPicked(t.name);
+              toast.success(`Vorlage „${t.name}“ übernommen`);
+            }}
+            className="flex items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-bg-2"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-bold">{t.name}</span>
+              <span className="block truncate text-xs text-muted">
+                {t.config.board.fields.length - 1} Felder{t.description ? ` · ${t.description}` : ''}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -297,31 +353,6 @@ function ChoiceCard({ active, onClick, icon, title, text, badge }: { active: boo
         <span className="mt-0.5 block text-sm text-muted">{text}</span>
       </span>
     </button>
-  );
-}
-
-function ModeStep({ mode, onPick }: { mode: Mode; onPick: (m: Mode) => void }) {
-  return (
-    <div>
-      <StepTitle title="Wie möchtest du das Spiel einrichten?" sub="Du kannst alles später unter „Alle Einstellungen“ noch feiner anpassen." />
-      <div className="grid gap-3 md:grid-cols-2" role="radiogroup">
-        <ChoiceCard
-          active={mode === 'auto'}
-          onClick={() => onPick('auto')}
-          icon="⏱️"
-          title="Nach Spieldauer"
-          badge="Empfohlen"
-          text="Du sagst, wie lange gespielt wird. Ich schlage Spielfeld und Sonderfelder vor – und das Spiel hält die Zeit unauffällig ein, fair für alle Teams."
-        />
-        <ChoiceCard
-          active={mode === 'manual'}
-          onClick={() => onPick('manual')}
-          icon="🛠️"
-          title="Manuell"
-          text="Du legst alles selbst fest. Reine Zufallswürfe – ohne Spiel-Tempo und ohne Algorithmen, die das Spiel beeinflussen."
-        />
-      </div>
-    </div>
   );
 }
 
@@ -376,11 +407,40 @@ function specialsLine(config: GameConfig): string {
   return parts.length ? parts.join(' · ') : 'keine Sonderfelder';
 }
 
-function DurationStep({ minutes, teams, config, onMinutes, onTeams }: { minutes: number; teams: number; config: GameConfig; onMinutes: (m: number) => void; onTeams: (t: number) => void }) {
+function DurationStep({
+  mode,
+  minutes,
+  teams,
+  config,
+  onMinutes,
+  onTeams,
+  onSkip,
+  onUse,
+}: {
+  mode: Mode;
+  minutes: number;
+  teams: number;
+  config: GameConfig;
+  onMinutes: (m: number) => void;
+  onTeams: (t: number) => void;
+  onSkip: () => void;
+  onUse: () => void;
+}) {
+  if (mode === 'manual') {
+    return (
+      <div className="flex flex-col gap-5">
+        <StepTitle title="Spieldauer übersprungen" sub="Das Spiel läuft mit reinen Zufallswürfen – ohne Spiel-Tempo und ohne Algorithmus, der die Würfel beeinflusst." />
+        <div className="rounded-2xl bg-bg-2 p-4 text-sm text-ink-2">Länge und Sonderfelder legst du auf den nächsten Folien selbst fest. Wie lange das Spiel dann ungefähr dauert, siehst du dort.</div>
+        <Button className="self-start" icon={<Timer className="size-4" />} onClick={onUse}>
+          Doch eine Spieldauer festlegen
+        </Button>
+      </div>
+    );
+  }
   const s = suggestSetup(minutes, teams, config);
   return (
     <div className="flex flex-col gap-6">
-      <StepTitle title="Wie lange soll das Spiel ungefähr dauern?" sub="Grob reicht – das Spiel passt sein Tempo unterwegs unauffällig an." />
+      <StepTitle title="Wie lange soll das Spiel ungefähr dauern?" sub="Grob reicht – Spielfeld und Sonderfelder werden passend vorgeschlagen." />
       <BigNumber value={minutes} onChange={onMinutes} min={15} max={300} step={5} unit="Min." label="Spieldauer" />
       <div className="flex flex-wrap justify-center gap-2">
         {DURATIONS.map((d) => (
@@ -408,6 +468,15 @@ function DurationStep({ minutes, teams, config, onMinutes, onTeams }: { minutes:
         {s.limit === 'max' && <p className="mt-2 font-semibold text-ink-2">Länger als ca. {min(s.minutes)} wird es mit dem größten Spielfeld nicht – das Spiel-Tempo streckt es noch etwas.</p>}
         <p className="mt-2 text-xs text-muted">Auf den nächsten Folien kannst du Länge und Sonderfelder anpassen.</p>
       </div>
+      <div className="flex items-start gap-3 rounded-2xl border border-line p-4 text-sm">
+        <Gauge className="mt-0.5 size-5 shrink-0 text-accent" />
+        <p className="text-ink-2">
+          <b>Die Dauer wird eingehalten:</b> Ein Algorithmus beobachtet während des Spiels die Zeit und lässt die Würfel unauffällig etwas besser oder schlechter fallen – für alle Teams gleich, also fair. Die Teams merken davon nichts. Während des Spiels kannst du es zusätzlich von Hand beschleunigen oder bremsen.
+        </p>
+      </div>
+      <Button variant="ghost" className="self-center" onClick={onSkip}>
+        Spieldauer überspringen (reine Zufallswürfe)
+      </Button>
     </div>
   );
 }
@@ -433,7 +502,7 @@ function EstimateNote({ mode, minutes, range, fit }: { mode: Mode; minutes: numb
   return (
     <div className={`rounded-2xl px-4 py-3 text-sm ${fits ? 'bg-good-soft' : 'bg-warn-soft'}`}>
       <p>
-        Bei normalem Tempo ca. <b>{min(range.normal)}</b> – mit Spiel-Tempo machbar: {min(range.fast)} bis {min(range.slow)}
+        Mit Spiel-Tempo machbar: ca. <b>{min(range.fast)}</b> bis <b>{min(range.slow)}</b>
       </p>
       <p className="mt-1 font-semibold">
         {fits ? `✓ Passt zu deinen ${minutes} Minuten.` : minutes < range.fast ? `${minutes} Minuten sind dafür zu knapp – weniger Felder wählen.` : `Für ${minutes} Minuten reicht das nicht – mehr Felder wählen.`}
@@ -565,7 +634,7 @@ function FieldsStep({
         </ul>
 
         <div>
-          <p className="mb-2 text-sm font-extrabold uppercase tracking-wide text-muted">Mutproben {config.theme === 'blocks' ? 'in der Blockwelt' : 'auf der Insel'} (feste Orte)</p>
+          <p className="mb-2 text-sm font-extrabold uppercase tracking-wide text-muted">Mutproben {config.theme === 'blocks' ? 'in der Blockwelt' : config.theme === 'space' ? 'auf dem Planeten' : 'auf der Insel'} (feste Orte)</p>
           <ul className="grid gap-2 sm:grid-cols-2">
             {landmarksFor(config.theme).map((l) => (
               <li key={l.key} className="flex items-start justify-between gap-3 rounded-2xl border border-line p-3">
@@ -749,9 +818,8 @@ function SummaryStep({
   const names = collections.filter((c) => config.collectionIds.includes(c.id)).map((c) => c.name);
   const rows: { key: StepKey; label: string; value: string }[] = [
     { key: 'world', label: 'Welt', value: THEME_INFO[config.theme].label },
-    { key: 'mode', label: 'Einrichtung', value: mode === 'auto' ? 'Nach Spieldauer (mit Spiel-Tempo)' : 'Manuell (reine Zufallswürfe)' },
-    ...(mode === 'auto' ? [{ key: 'duration' as const, label: 'Spieldauer', value: `ca. ${minutes} Minuten · ${teams} Teams` }] : []),
-    { key: 'board', label: 'Spielfeld', value: `${goal} Felder · ca. ${min(range.normal)} bei normalem Tempo` },
+    { key: 'duration', label: 'Spieldauer', value: mode === 'auto' ? `ca. ${minutes} Minuten · ${teams} Teams · der Algorithmus hält die Zeit ein` : 'übersprungen – reine Zufallswürfe ohne Spiel-Tempo' },
+    { key: 'board', label: 'Spielfeld', value: mode === 'auto' ? `${goal} Felder · passend zu ca. ${minutes} Min.` : `${goal} Felder · ca. ${min(range.normal)}` },
     {
       key: 'fields',
       label: 'Sonderfelder',

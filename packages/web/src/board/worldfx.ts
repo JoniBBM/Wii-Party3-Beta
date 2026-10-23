@@ -96,11 +96,26 @@ export function cloudShadowChunk(shader: Shader) {
   }
 }
 
+/** Andere Welt: Farbe des Glühens (Kraterboden) und der Lichtnetze unter Wasser, Name fürs Shader-Cache */
+export interface TerrainLook {
+  key: string;
+  glow: [number, number, number];
+  caustic: [number, number, number];
+  /** Schneedecke (snowify) als heller Raureif auch über kräftigen Bodenfarben */
+  frost?: boolean;
+}
+
+const vec3 = (c: [number, number, number]) => `vec3(${c.map((v) => v.toFixed(3)).join(', ')})`;
+
 /**
  * Gelände: Detailrauschen, Kaustiken unter Wasser, Wolkenschatten, Glühen aus dem
  * Vertex-Attribut `glow` (Lavarisse, Kraterboden).
  */
-export function patchTerrainMaterial(material: THREE.MeshStandardMaterial) {
+export function patchTerrainMaterial(material: THREE.MeshStandardMaterial, look?: TerrainLook) {
+  const glow = look ? vec3(look.glow) : 'vec3(1.0, 0.32, 0.06)';
+  const caustic = look ? vec3(look.caustic) : 'vec3(0.75, 0.95, 1.0)';
+  // Weltall: Schneedecke als Raureif über den kräftigen Bodenfarben (snowify setzt SNOW_FX)
+  const frost = look?.frost ? '#ifdef SNOW_FX\n diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.94, 1.0), snowAmt * 0.85);\n #endif' : '';
   material.onBeforeCompile = (shader) => {
     cloudShadowChunk(shader);
     shader.vertexShader = shader.vertexShader
@@ -126,14 +141,15 @@ export function patchTerrainMaterial(material: THREE.MeshStandardMaterial) {
           }
           // Lichtnetze am Meeresgrund (nur im flachen Wasser)
           float under = smoothstep(0.15, -0.35, vFxWorld.y) * smoothstep(-4.5, -0.6, vFxWorld.y);
-          if (under > 0.0) diffuseColor.rgb += vec3(0.75, 0.95, 1.0) * fxCaustic(vFxWorld.xz, uFxTime) * under * 0.55;
+          if (under > 0.0) diffuseColor.rgb += ${caustic} * fxCaustic(vFxWorld.xz, uFxTime) * under * 0.55;
+          ${frost}
         }`,
       )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-        totalEmissiveRadiance += vec3(1.0, 0.32, 0.06) * vGlow * (2.2 + 0.8 * sin(uFxTime * 2.3 + vFxWorld.x * 0.7 + vFxWorld.z * 0.4));`,
+        totalEmissiveRadiance += ${glow} * vGlow * (2.2 + 0.8 * sin(uFxTime * 2.3 + vFxWorld.x * 0.7 + vFxWorld.z * 0.4));`,
       );
   };
-  material.customProgramCacheKey = () => 'insel-terrain';
+  material.customProgramCacheKey = () => (look ? `${look.key}-terrain` : 'insel-terrain');
 }

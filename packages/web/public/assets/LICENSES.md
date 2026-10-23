@@ -11,6 +11,8 @@ Alle Assets sind frei verwendbar. Die meisten stehen unter **CC0 1.0 (Public Dom
 | `models/veg/palm1–3`, `plant`, `plant_big`, `fern` | Quaternius (https://quaternius.com), über Poly Pizza |
 | `models/veg/monstera`, `monstera_small` | Isa Lousberg, über Poly Pizza |
 | `models/animals/dolphin`, `whale`, `manta`, `crab`, `frog` | Quaternius (https://quaternius.com), über Poly Pizza – mit Animationen |
+| Weltall: `models/space/plants/` (alle), `models/space/rocks/rock_a–d`, `rock_large_a–c`, `models/space/base/base_large`, `dome`, `house_cylinder`, `house_single`, `house_support`, `roof_antenna`, `roof_radar`, `solar_ground`, `solar_structure`, `metal_support`, `models/space/craft/ship_a`, `ship_b` | Quaternius – „Ultimate Space Kit“, über Poly Pizza (https://poly.pizza/bundle/Ultimate-Space-Kit-YWh743lqGX); Dateien nach dem Modellnamen umbenannt (z. B. `tree_spiral_a` = „Tree Spiral“, `ship_a` = „Spaceship“), sonst unverändert |
+| Weltall: `models/space/craft/rocket_*`, `craft_*`, `rover`, `models/space/base/satelliteDish_large`, `machine_*`, `platform_large`, `barrels`, `structure_detailed`, `models/space/rocks/rock`, `rock_largeA/B`, `rocks_small*`, `rock_crystals*`, `meteor_*`, `crater` | Kenney – Space Kit 2.0 (https://kenney.nl/assets/space-kit), Originalnamen, unverändert (Farben werden zur Laufzeit angepasst) |
 | `audio/dice-*` | Kenney – Casino Audio |
 | `audio/step-*`, `land`, `thud`, `bell`, `rumble` | Kenney – Impact Sounds |
 | `audio/confirm`, `select`, `bong`, `question`, `wrong`, `tick`, `whoosh-*`, `sparkle`, `pop` | Kenney – Interface Sounds |
@@ -30,6 +32,21 @@ Alle Assets sind frei verwendbar. Die meisten stehen unter **CC0 1.0 (Public Dom
 | `audio/music/block-spannung.m4a` | „Lonely Night“ (`night_tune3.ogg`) | Centurion_of_war | https://opengameart.org/content/lonely-night |
 | `audio/music/block-nether-1.m4a` | „Entering the Volcano“ aus „Ambience of a Fallen Age“ | Umplix | https://opengameart.org/content/ambience-of-a-fallen-age |
 | `audio/music/block-nether-2.m4a` | „The Abyss“ aus „Ambience of a Fallen Age“ | Umplix | https://opengameart.org/content/ambience-of-a-fallen-age |
+
+## Musik des Weltalls (`audio/music/space-*.m4a`)
+
+**CC0 1.0 (Public Domain)** – https://creativecommons.org/publicdomain/zero/1.0/ – alle von OpenGameArt, Lizenz jeweils auf der Seite des Stücks geprüft (Stand 23.10.2026). Eigene Stücke der Urheber, keine Bearbeitungen von Film- oder Spielmusik. Für dieses Projekt als AAC (160 kbit/s) neu gespeichert und in der Lautstärke an die übrigen Stücke angeglichen (leiser bzw. lauter, einzelne Spitzen weich begrenzt), Stille am Anfang/Ende gekürzt; beim Finale sind Jingle und Schleife aneinandergefügt. Sonst unverändert. Namensnennung freiwillig – gern gegeben.
+
+| Datei | Stück | Urheber | Quelle |
+|---|---|---|---|
+| `audio/music/space-lobby.m4a` | „Sparkling Cosmic Dust“ (`sparkling_cosmic_dust.wav`) | Zane Little Music | https://opengameart.org/content/sparkling-cosmic-dust |
+| `audio/music/space-planet-1.m4a` | „Space Adventure“ (`space_adventure_bpm140.ogg`) | MintoDog | https://opengameart.org/content/space-adventure |
+| `audio/music/space-planet-2.m4a` | „Bright Stars“ (`bright_stars.flac`) | Gena Sealov | https://opengameart.org/content/bright-stars |
+| `audio/music/space-planet-3.m4a` | „Celestial Harmony“ (`celestial_harmony.flac`) | vitalezzz | https://opengameart.org/content/celestial-harmony |
+| `audio/music/space-spannung.m4a` | „Sci-fi Puzzle In-Game 2“ (`sci-fi_puzzle_in-game_2_bpm95.ogg`) | MintoDog | https://opengameart.org/content/sci-fi-puzzle-in-game-2 |
+| `audio/music/space-hoehle-1.m4a` | „Crystal Cave (song18)“ (`song18.mp3`) | cynicmusic (The Cynic Project) | https://opengameart.org/content/crystal-cave-song18 |
+| `audio/music/space-hoehle-2.m4a` | „Energy Crystal“ (`_energy_crystal.wav`) | Umplix | https://opengameart.org/content/energy-crystal |
+| `audio/music/space-finale.m4a` | „Sci-fi Puzzle Clear (Jingle)“ + „Sci-fi Puzzle Clear (Loop)“ aus „Sci-fi Puzzle Jingle & Result“ | MintoDog | https://opengameart.org/content/sci-fi-puzzle-jingle-result |
 
 ## Ultra-Grafik (`ultra/`)
 
@@ -88,4 +105,4 @@ Lizenztext: https://creativecommons.org/licenses/by/3.0/ – Modelle unveränder
 | Pixelify Sans | Pixelschrift der Blockwelt (Überschriften, Etiketten, Knöpfe) | The Pixelify Sans Project Authors | https://github.com/eifetx/Pixelify-Sans |
 | Chakra Petch | Gut lesbare Schrift der Blockwelt für Fragen, Antworten, Lösungen und Zahlen | The Chakra Petch Project Authors (Cadson Demak) | https://github.com/m4rc1e/Chakra-Petch |
 
-Danke an ElevenLabs, Kenney (www.kenney.nl), Quaternius (quaternius.com), Isa Lousberg, Poly Haven (polyhaven.com), ambientCG (ambientcg.com), die three.js-Autoren, Poly by Google, alle Urheber auf Poly Pizza (poly.pizza) sowie Yoiyami, Umplix, SpringySpringo, Alex McCulloch und Centurion_of_war auf OpenGameArt (opengameart.org)!
+Danke an ElevenLabs, Kenney (www.kenney.nl), Quaternius (quaternius.com), Isa Lousberg, Poly Haven (polyhaven.com), ambientCG (ambientcg.com), die three.js-Autoren, Poly by Google, alle Urheber auf Poly Pizza (poly.pizza) sowie Yoiyami, Umplix, SpringySpringo, Alex McCulloch, Centurion_of_war, Zane Little Music, MintoDog, Gena Sealov, vitalezzz und cynicmusic auf OpenGameArt (opengameart.org)!

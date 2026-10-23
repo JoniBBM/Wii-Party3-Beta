@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { teamColor, type FigureConfig, type Mood, type Team, type TeamColorKey, type Theme } from '@insel/shared';
 import { createFigure, type FigureRig } from '../figure/figure3d.ts';
 import { createBlockFigure } from '../figure/figureBlocks.ts';
+import { createSpaceFigure } from '../figure/figureSpace.ts';
+import { buildEnergyCage } from './space/cage.ts';
 import { blockAtlas } from './blocks/atlas.ts';
 import { buildMob } from './blocks/mobs.ts';
 import type { FieldMeshes } from './fields.ts';
@@ -71,14 +73,19 @@ export class Pieces {
     private fields: FieldMeshes,
     private tweens: Tweens,
     private cb: PieceCallbacks = {},
-    /** Welt: Blockwelt hat Kastenfiguren und Spinnennetz statt Käfig */
+    /** Welt: Blockwelt hat Kastenfiguren und Spinnennetz, das Weltall Astronauten und Energiekäfig */
     readonly theme: Theme = 'island',
   ) {
     this.group.name = 'pieces';
   }
 
   private makeFigure(figure: FigureConfig, color: TeamColorKey): FigureRig {
-    return this.theme === 'blocks' ? createBlockFigure(figure, color) : createFigure(figure, color);
+    return this.theme === 'blocks' ? createBlockFigure(figure, color) : this.theme === 'space' ? createSpaceFigure(figure, color) : createFigure(figure, color);
+  }
+
+  /** Sperre je Welt: Spinnennetz (Blockwelt), Energiekäfig (Weltall) oder Käfig */
+  private cageFor(): THREE.Group {
+    return this.theme === 'blocks' ? buildWebCage() : (this.theme === 'space' && buildEnergyCage()) || buildCage();
   }
 
   get(teamId: string) {
@@ -123,7 +130,7 @@ export class Pieces {
         const rig = this.makeFigure(t.figure, t.color);
         rig.root.scale.setScalar(SCALE);
         body.add(rig.root);
-        const cage = this.theme === 'blocks' ? buildWebCage() : buildCage();
+        const cage = this.cageFor();
         cage.visible = false;
         body.add(cage);
         this.group.add(holder);
@@ -149,7 +156,7 @@ export class Pieces {
     body.add(rig.root);
     const c = teamColor(color);
     this.tags.set(id, name, c.hex, c.dark);
-    const cage = this.theme === 'blocks' ? buildWebCage() : buildCage();
+    const cage = this.cageFor();
     cage.visible = false;
     body.add(cage);
     this.group.add(holder);

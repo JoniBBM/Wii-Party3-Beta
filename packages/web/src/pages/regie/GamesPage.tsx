@@ -37,20 +37,22 @@ const STATUS: Record<GameSummary['status'], { label: string; tone: 'accent' | 'g
 };
 
 /**
- * Neues Spiel mit einem Klick: Name mit Datum, Standard-Vorlage (oder die gewählte) – alles Weitere
- * (Welt, Dauer, Spielfeld, Inhalte, Handys, Name) fragt danach der Einrichtungs-Assistent ab.
+ * Neues Spiel mit einem Klick: Name mit Datum, Standard-Vorlage – alles Weitere (Welt, Dauer,
+ * Spielfeld, Inhalte, Handys, Name, ggf. eigene Vorlage) fragt danach der Assistent ab.
+ * Solange das gewählte Spiel läuft, gibt es den Knopf nicht (`allowed`; der Server prüft es auch).
  */
 export function useNewGame() {
   const navigate = useNavigate();
   const templates = useLibrary((s) => s.templates);
+  const running = useLive((s) => s.state?.status === 'running');
   const { busy, run } = useAsync();
-  const create = async (templateId?: string) => {
-    const tpl = templateId ?? (templates.find((t) => t.name.startsWith('Standard')) ?? templates[0])?.id;
+  const create = async () => {
+    const tpl = (templates.find((t) => t.name.startsWith('Standard')) ?? templates[0])?.id;
     const name = `Spieleabend ${new Date().toLocaleDateString('de-DE')}`;
     const r = await run(() => api('/api/games', { slot: 'admin', body: { name, ...(tpl ? { templateId: tpl } : {}) } }), 'Neues Spiel angelegt');
     if (r) navigate('/regie/einrichten');
   };
-  return { create, busy };
+  return { create, busy, allowed: !running };
 }
 
 export function GamesPage() {
@@ -140,9 +142,11 @@ export function GamesPage() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Spiele & Vorlagen</h1>
-        <Button variant="primary" icon={<Plus className="size-4" />} loading={newGame.busy} onClick={() => void newGame.create()}>
-          Neues Spiel
-        </Button>
+        {newGame.allowed && (
+          <Button variant="primary" icon={<Plus className="size-4" />} loading={newGame.busy} onClick={() => void newGame.create()}>
+            Neues Spiel erstellen
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -161,7 +165,7 @@ export function GamesPage() {
       )}
 
       <Card>
-        <CardHeader title="Vorlagen" sub="Spielfeld, Regeln, Sammlungen und Ablaufplan zum Wiederverwenden. „Neues Spiel“ oben nimmt die Standard-Vorlage; neue Vorlagen entstehen unter „Spiel einrichten“." />
+        <CardHeader title="Vorlagen" sub="Spielfeld, Regeln, Sammlungen und Ablaufplan zum Wiederverwenden. Übernehmen lassen sie sich im Assistenten auf der ersten Folie; neue Vorlagen entstehen unter „Spiel einrichten“." />
         {templates.length === 0 ? (
           <EmptyState icon="📋" title="Keine Vorlagen" />
         ) : (
@@ -175,9 +179,6 @@ export function GamesPage() {
                     {t.description && ` · ${t.description}`}
                   </p>
                 </div>
-                <Button size="sm" icon={<Plus className="size-4" />} loading={newGame.busy} onClick={() => void newGame.create(t.id)}>
-                  Neues Spiel daraus
-                </Button>
                 {t.editable ? (
                   <IconButton
                     label="Vorlage löschen"

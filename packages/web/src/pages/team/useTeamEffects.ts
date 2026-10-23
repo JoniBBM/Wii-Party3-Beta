@@ -1,9 +1,12 @@
 /** Effekte fürs Handy: Vibration bei „Ihr seid dran“, Würfelergebnis, Hinweise zu Sonderfeldern. */
 import { useEffect } from 'react';
 import { create } from 'zustand';
-import { effectDuration, FIELD_INFO, type Effect } from '@insel/shared';
-import { onEffects } from '../../lib/live.ts';
+import { effectDuration, FIELD_INFO, worldWords, type Effect } from '@insel/shared';
+import { onEffects, useLive } from '../../lib/live.ts';
 import { toast } from '../../ui/toast.tsx';
+
+/** Namen der aktuellen Welt (Liane/Ranke/Greifhaken …) zum Zeitpunkt der Meldung */
+const w = () => worldWords(useLive.getState().state?.config.theme);
 
 type DiceEffect = Extract<Effect, { type: 'dice' }>;
 
@@ -98,9 +101,9 @@ export function useTeamEffects(teamId: string | null) {
             else if (e.result === 'fall')
               later(at + 1800, () => {
                 vibrate([150, 80, 150]);
-                toast.error(`💦 Platsch! Die ${e.choice === 'crates' ? 'Kisten' : 'Fässer'} sind eingebrochen – ihr schwimmt rüber, der Rest des Wurfs verfällt.`);
+                toast.error(`💦 ${w().splash} Die ${e.choice === 'crates' ? w().crates : w().barrels} sind eingebrochen – das Team ${w().swims}, der Rest des Wurfs verfällt.`);
               });
-            else later(at + 1500, () => toast.success(`${e.choice === 'crates' ? '📦' : '🛢️'} Geschafft – trocken über den Fluss!`));
+            else later(at + 1500, () => toast.success(`${e.choice === 'crates' ? w().cratesIcon : w().barrelsIcon} Geschafft – trocken rüber!`));
             break;
           case 'crater':
             if (e.teamId !== teamId) break;
@@ -133,9 +136,9 @@ export function useTeamEffects(teamId: string | null) {
             if (e.stage === 'enter')
               later(at + 1200, () => {
                 vibrate([200, 100, 200, 100, 200]);
-                toast.error('🌋 Ihr seid ins Innere des Vulkans gefallen! Lauft den Weg über die Lava-Inseln, um wieder herauszukommen.');
+                toast.error(`${w().insideIcon} Ihr seid ${w().toInside} gefallen! Lauft den Weg über ${w().insidePath}, um wieder herauszukommen.`);
               });
-            else if (e.stage === 'exit') later(at + 1500, () => toast.success(e.shout ? '✨ Ausgangsfeld! Ihr seid sofort wieder draußen.' : '🌋 Geschafft – ihr seid zurück auf der Insel!'));
+            else if (e.stage === 'exit') later(at + 1500, () => toast.success(e.shout ? '✨ Ausgangsfeld! Ihr seid sofort wieder draußen.' : `${w().insideIcon} Geschafft – ihr seid wieder draußen!`));
             break;
           case 'buzz':
             if (e.teamId === teamId) vibrate(120);

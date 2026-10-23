@@ -10,6 +10,9 @@
 @import '@fontsource/chakra-petch/500.css';
 @import '@fontsource/chakra-petch/600.css';
 @import '@fontsource/chakra-petch/700.css';
+@import '@fontsource/exo-2/600.css';
+@import '@fontsource/exo-2/700.css';
+@import '@fontsource/exo-2/800.css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
@@ -42,6 +45,8 @@
 }
 
 :root[data-theme='dark'] {
+  /* Teamnamen (teamInk) auf dunklem Grund in heller Teamfarbe */
+  --team-ink-lift: 100%;
   --bg: #0e1620;
   --bg-2: #121d29;
   --surface: #16222f;
@@ -435,4 +440,105 @@
 /* Grün als Schriftfarbe dunkler – auf den grauen Kästen sonst kaum lesbar */
 :root[data-world='blocks'] .text-good {
   color: #1f6b16;
+}
+
+/*
+ * Weltall (Handys und Beamer-Einblendungen, data-world="space" am <html>): dunkler Sternenhimmel,
+ * Kästen wie Bildschirme eines Raumschiffs (dunkles Glas, leuchtender Rand), Neon-Akzente.
+ * Überschriften in Exo 2 (OFL), Fließtext bleibt Nunito – Fragen damit gut lesbar.
+ */
+:root[data-world='space'] {
+  --bg: #0b0a22;
+  --bg-2: #18163e;
+  --surface: #1b1946;
+  --surface-2: #232057;
+  --line: #3b3880;
+  --ink: #f1f2ff;
+  --ink-2: #cdd0f5;
+  --muted: #9a9ed3;
+  --accent: #36dfe8;
+  --accent-ink: #061a20;
+  --accent-soft: #143b52;
+  --good: #4ee38c;
+  --good-soft: #123a2a;
+  --bad: #ff5c80;
+  --bad-soft: #451a2c;
+  --warn: #ffc54d;
+  --warn-soft: #3f3214;
+  --gold: #ffd84a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 24px rgb(5 0 40 / 0.45);
+  --shadow-lg: 0 4px 10px rgb(0 0 0 / 0.4), 0 24px 60px rgb(5 0 40 / 0.55);
+  --font-display: 'Exo 2', 'Nunito Variable', system-ui, sans-serif;
+  --team-ink-lift: 100%;
+  color-scheme: dark;
+}
+:root[data-world='space'] body {
+  background-color: #0b0a22;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, #ffffffcc 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 12%, #ffffffaa 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 38% 64%, #bfe9ffcc 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 52%, #ffffff99 50%, transparent 51%),
+    radial-gradient(1px 1px at 22% 84%, #ffe3ffaa 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 58% 36%, #ffffffaa 50%, transparent 51%),
+    radial-gradient(ellipse 80% 55% at 85% 0%, #5b2b9a55, transparent 70%),
+    radial-gradient(ellipse 70% 50% at 0% 100%, #127a8a44, transparent 70%),
+    linear-gradient(180deg, #0b0a22, #141038);
+  background-size: 220px 220px, 260px 260px, 300px 300px, 180px 180px, 240px 240px, 340px 340px, auto, auto, auto;
+  background-attachment: fixed;
+}
+:root[data-world='space'] .font-display {
+  letter-spacing: 0.01em;
+}
+/* Kästen wie Raumschiff-Bildschirme: dunkles Glas, feiner leuchtender Rand */
+:root[data-world='space'] .card {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid #4b48a8;
+  box-shadow:
+    0 0 0 1px rgb(54 223 232 / 0.08),
+    0 0 24px rgb(54 223 232 / 0.08),
+    var(--shadow);
+}
+:root[data-world='space'] .glass {
+  background: color-mix(in srgb, #15133a 84%, transparent);
+  border: 1px solid rgb(54 223 232 / 0.35);
+  box-shadow: 0 0 30px rgb(54 223 232 / 0.12), 0 10px 40px rgb(0 0 0 / 0.45);
+}
+:root[data-world='space'] :is(.btn-primary, .btn-good) {
+  background: linear-gradient(180deg, #4ff0f4, #1fb8cf);
+  color: #061a20;
+  box-shadow: 0 0 18px rgb(54 223 232 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.5);
+}
+:root[data-world='space'] .btn-bad {
+  box-shadow: 0 0 18px rgb(255 92 128 / 0.3);
+}
+:root[data-world='space'] .field {
+  background: #0f0e2c;
+  color: var(--ink);
+  border-color: #4b48a8;
+}
+:root[data-world='space'] .field::placeholder {
+  color: #7f83bb;
+}
+:root[data-world='space'] .field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(54 223 232 / 0.25);
+}
+/* Antwortfelder: Leuchtrand und leichter Schatten unter der Schrift */
+:root[data-world='space'] .answer-tile {
+  border: 1px solid rgb(255 255 255 / 0.35);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+  box-shadow:
+    var(--tw-ring-offset-shadow, 0 0 #0000),
+    var(--tw-ring-shadow, 0 0 #0000),
+    0 0 16px rgb(255 255 255 / 0.12);
+}
+/* Text direkt auf dem Sternenhimmel */
+:root[data-world='space'] .on-ground {
+  color: #dfe2ff;
+}
+/* Helle Textkästen (durchscheinendes Weiß) werden dunkles Glas – reines Weiß (QR-Codes, Schalter) bleibt */
+:root[data-world='space'] :is(.bg-white\/70, .bg-white\/80, .bg-white\/85, .bg-white\/90, .bg-white\/95) {
+  background-color: color-mix(in srgb, #1e1b4f 86%, transparent);
+  color: var(--ink);
 }

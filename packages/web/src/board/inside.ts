@@ -6,6 +6,7 @@
  * Feld 0 ist das Landefeld direkt unter der Öffnung, danach folgen 1 … length. Das Ausgangsfeld
  * (shout) leuchtet grün-golden: Wer genau dort landet, darf sofort raus.
  * Alles prozedural (Geometrie, Canvas- und Shader-Texturen), wenige Zeichenaufrufe.
+ * Teile der Szene sind `protected`: die Alien-Höhle des Weltalls (space/inside.ts) baut darauf auf.
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -674,12 +675,12 @@ export class VolcanoInside {
   readonly portal = new THREE.Vector3();
 
   private quality: InsideQuality;
-  private length = 9;
-  private shout = 4;
-  private plates: PlateSpot[] = [];
+  protected length = 9;
+  protected shout = 4;
+  protected plates: PlateSpot[] = [];
   private obstacles: Obstacle[] = [];
   private opening = new THREE.Vector3();
-  private time = { value: 0 };
+  protected time = { value: 0 };
   private viewportScale = 810;
   private viewportH = 0;
   private tmpV2 = new THREE.Vector2();
@@ -687,14 +688,14 @@ export class VolcanoInside {
   private textures: THREE.Texture[] = [];
 
   // gemeinsame Materialien
-  private rockMat: THREE.MeshStandardMaterial;
-  private hotSpots: THREE.Vector4[] = [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()];
+  protected rockMat: THREE.MeshStandardMaterial;
+  protected hotSpots: THREE.Vector4[] = [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()];
 
   // Höhle
-  private lavaMat: THREE.ShaderMaterial;
-  private fallMat: THREE.ShaderMaterial;
+  protected lavaMat: THREE.ShaderMaterial;
+  protected fallMat: THREE.ShaderMaterial;
   private ceiling: THREE.Mesh;
-  private stalactites: THREE.InstancedMesh;
+  protected stalactites: THREE.InstancedMesh;
   private columns: THREE.InstancedMesh;
   private boulders: THREE.InstancedMesh;
   private stalCand: DecoCandidate[] = [];
@@ -704,21 +705,21 @@ export class VolcanoInside {
   private boulderCand: DecoCandidate[] = [];
 
   // Route
-  private pillars: THREE.Mesh;
-  private plateBodies: THREE.InstancedMesh;
-  private plateCaps: THREE.InstancedMesh;
-  private plateRims: THREE.InstancedMesh;
+  protected pillars: THREE.Mesh;
+  protected plateBodies: THREE.InstancedMesh;
+  protected plateCaps: THREE.InstancedMesh;
+  protected plateRims: THREE.InstancedMesh;
   private decals: THREE.InstancedMesh;
   private atlasCanvas: HTMLCanvasElement;
   private atlas: THREE.CanvasTexture;
 
   // Deckenöffnung
-  private skyDisc: THREE.Mesh;
-  private skyHalo: THREE.Mesh;
+  protected skyDisc: THREE.Mesh;
+  protected skyHalo: THREE.Mesh;
   private shaft: THREE.Mesh;
-  private shaftMat: THREE.ShaderMaterial;
+  protected shaftMat: THREE.ShaderMaterial;
   private motes: THREE.Points;
-  private moteMat: THREE.ShaderMaterial;
+  protected moteMat: THREE.ShaderMaterial;
 
   // Ausgangsfeld
   private shoutGroup = new THREE.Group();
@@ -734,28 +735,28 @@ export class VolcanoInside {
   private hlBase = 1;
 
   // Portal
-  private portalGroup = new THREE.Group();
-  private vortexMat: THREE.ShaderMaterial;
+  protected portalGroup = new THREE.Group();
+  protected vortexMat: THREE.ShaderMaterial;
   private funnel: THREE.Mesh;
-  private funnelMat: THREE.ShaderMaterial;
-  private runes: THREE.InstancedMesh;
+  protected funnelMat: THREE.ShaderMaterial;
+  protected runes: THREE.InstancedMesh;
   private warp = 0;
 
   // Licht
-  private hemi: THREE.HemisphereLight;
-  private key: THREE.SpotLight;
-  private fallLight: THREE.PointLight;
-  private fall2Light: THREE.PointLight;
-  private lavaLights: THREE.PointLight[] = [];
-  private portalLight: THREE.PointLight;
+  protected hemi: THREE.HemisphereLight;
+  protected key: THREE.SpotLight;
+  protected fallLight: THREE.PointLight;
+  protected fall2Light: THREE.PointLight;
+  protected lavaLights: THREE.PointLight[] = [];
+  protected portalLight: THREE.PointLight;
   private shoutLight: THREE.PointLight;
 
   // Partikel
   private embers: THREE.Points;
-  private emberMat: THREE.ShaderMaterial;
-  private glow = new ParticleSystem(900, 'soft', { additive: true });
-  private smoke = new ParticleSystem(420, 'soft');
-  private stars = new ParticleSystem(320, 'star', { additive: true });
+  protected emberMat: THREE.ShaderMaterial;
+  protected glow = new ParticleSystem(900, 'soft', { additive: true });
+  protected smoke = new ParticleSystem(420, 'soft');
+  protected stars = new ParticleSystem(320, 'star', { additive: true });
   private steamAcc = 0;
   private smokeAcc = 0;
   private popAcc = 0;

@@ -37,7 +37,7 @@ export const MUSIC_MOOD_LABEL: Record<MusicMood, string> = {
   lobby: 'Lobby & Pausen',
   insel: 'Würfeln auf der Insel',
   spannung: 'Fragen & Minispiele',
-  vulkan: 'Im Vulkan / Nether',
+  vulkan: 'Im Vulkan / Nether / Alien-Höhle',
   finale: 'Siegerehrung',
 };
 /** Ein Musikstück: Datei /assets/audio/music/<id>.<ext>. */
@@ -72,6 +72,15 @@ export const MUSIC_TRACKS = [
   { id: 'block-spannung', title: 'Einsame Nacht', mood: 'spannung', world: 'blocks', ext: 'm4a' },
   { id: 'block-nether-1', title: 'Abstieg in den Nether', mood: 'vulkan', world: 'blocks', ext: 'm4a' },
   { id: 'block-nether-2', title: 'Der Abgrund', mood: 'vulkan', world: 'blocks', ext: 'm4a' },
+  // Weltall: freie Stücke (CC0) von OpenGameArt, freundliche Synth-/Space-Klänge – Quellen in assets/LICENSES.md
+  { id: 'space-lobby', title: 'Sternenstaub', mood: 'lobby', world: 'space', ext: 'm4a' },
+  { id: 'space-planet-1', title: 'Weltraum-Abenteuer', mood: 'insel', world: 'space', ext: 'm4a' },
+  { id: 'space-planet-2', title: 'Helle Sterne', mood: 'insel', world: 'space', ext: 'm4a' },
+  { id: 'space-planet-3', title: 'Sphärenklang', mood: 'insel', world: 'space', ext: 'm4a' },
+  { id: 'space-spannung', title: 'Rätsel im All', mood: 'spannung', world: 'space', ext: 'm4a' },
+  { id: 'space-hoehle-1', title: 'Kristallhöhle', mood: 'vulkan', world: 'space', ext: 'm4a' },
+  { id: 'space-hoehle-2', title: 'Energiekristall', mood: 'vulkan', world: 'space', ext: 'm4a' },
+  { id: 'space-finale', title: 'Mission erfüllt', mood: 'finale', world: 'space', ext: 'm4a' },
 ] as const satisfies readonly MusicTrackInfo[];
 export type MusicTrackId = (typeof MUSIC_TRACKS)[number]['id'];
 const TRACK_IDS = MUSIC_TRACKS.map((t) => t.id) as [MusicTrackId, ...MusicTrackId[]];

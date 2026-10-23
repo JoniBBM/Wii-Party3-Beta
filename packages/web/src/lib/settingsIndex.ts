@@ -2,7 +2,8 @@
  * Verzeichnis aller Einstellungen der Regie – Grundlage für die Suche (Kopfzeile, Strg/⌘+K) und
  * die Bereiche unter „Spiel einrichten“. Jede Einstellung steht auf ihrer Seite in einem Element
  * mit `data-setting="<id>"`; die Suche springt dorthin und hebt es kurz hervor.
- * Titel können je Welt anders heißen (Insel: Liane · Blockwelt: Ranke); gefunden wird beides.
+ * Titel können je Welt anders heißen (Insel: Liane · Blockwelt: Ranke · Weltall: Greifhaken);
+ * gefunden werden alle Namen.
  */
 import { useEffect, useRef } from 'react';
 import { useLocation, type NavigateFunction } from 'react-router';
@@ -21,7 +22,7 @@ export const GAME_SECTIONS = [
   { id: 'sieg', group: 'Spielfeld & Regeln', icon: '🏆', title: 'Würfel & Sieg', sub: 'Bonuswürfel für die Besten und wie man gewinnt.' },
   { id: 'felder', group: 'Spielfeld & Regeln', icon: '✨', title: 'Sonderfelder', sub: 'Was auf den Sonderfeldern passiert.' },
   { id: 'mutproben', group: 'Spielfeld & Regeln', icon: '💪', title: 'Mutproben', sub: 'Feste Stationen auf dem Weg – jede lässt sich abschalten.' },
-  { id: 'vulkan', group: 'Spielfeld & Regeln', icon: '🌋', title: 'Vulkan', blocks: 'Vulkan & Nether', sub: 'Druck, Ausbruch und das Innere des Vulkans.' },
+  { id: 'vulkan', group: 'Spielfeld & Regeln', icon: '🌋', title: 'Vulkan', alt: { blocks: 'Vulkan & Nether', space: 'Alien-Vulkan' }, sub: 'Druck, Ausbruch und das Innere des Vulkans.' },
   { id: 'fragen', group: 'Spielfeld & Regeln', icon: '❓', title: 'Fragen & Antworten', sub: 'Wie Fragen ausgewertet werden.' },
 ] as const;
 export type GameSection = (typeof GAME_SECTIONS)[number]['id'];
@@ -33,8 +34,8 @@ export interface SettingEntry {
   section: string;
   icon: string;
   title: string;
-  /** Titel in der Blockwelt, falls anders */
-  blocks?: string;
+  /** Titel in den anderen Welten, falls anders */
+  alt?: Partial<Record<Exclude<Theme, 'island'>, string>>;
   /** weitere Suchbegriffe (auch die der anderen Welt) */
   keywords?: string;
   hint?: string;
@@ -63,7 +64,7 @@ export const SETTINGS: SettingEntry[] = [
   g('allgemein', 'name', '📝', 'Name des Spiels', { keywords: 'titel umbenennen bezeichnung' }),
   g('allgemein', 'devices', '📱', 'Handys: eigenes Gerät oder geteilt', { keywords: 'anmeldestation tablet team-pin pin selfie geräte gruppen teilen smartphone' }),
   g('allgemein', 'template', '🔖', 'Als Vorlage speichern', { keywords: 'vorlage template wiederverwenden kopie' }),
-  g('welt', 'world', '🌍', 'Welt: Insel oder Blockwelt', { keywords: 'minecraft blockwelt insel theme optik aussehen design welt wechseln pixel klötzchen' }),
+  g('welt', 'world', '🌍', 'Welt: Insel, Blockwelt oder Weltall', { keywords: 'minecraft blockwelt insel weltall weltraum all planet astronaut theme optik aussehen design welt wechseln pixel klötzchen' }),
   g('welt', 'weather', '🌦️', 'Wetter', { keywords: 'regen schnee gewitter blitz nebel sonne sonnig wolken bewölkt sturm', hint: 'wirkt sofort auf dem Beamer' }),
   g('welt', 'season', '🍂', 'Jahreszeit', { keywords: 'frühling sommer herbst winter datum', hint: 'wirkt sofort auf dem Beamer' }),
   g('welt', 'festive', '🎃', 'Halloween & Weihnachten', { keywords: 'festzeit fest feiertag deko kürbis weihnachtsbaum geschenke advent', hint: 'wirkt sofort auf dem Beamer' }),
@@ -76,22 +77,22 @@ export const SETTINGS: SettingEntry[] = [
   g('spielfeld', 'boardMap', '🗺️', 'Einzelne Felder ändern (Karte)', { keywords: 'feldtyp karte draufsicht editor feld ändern' }),
   g('sieg', 'bonusDice', '🎲', 'Bonuswürfel nach Platz', { keywords: 'zusatzwürfel extra würfel platzierung platz w6 w4 belohnung' }),
   g('sieg', 'winRule', '🏆', 'Siegbedingung', { keywords: 'gewinnen sieg siegeswurf ziel gipfel genau exakt zurückprallen ende' }),
-  g('felder', 'catapultForward', '🚀', 'Katapult vorwärts', { blocks: 'Schleimblock (Katapult vorwärts)', keywords: 'sprungfeder feder schleim slime schleimblock vorwärts nach vorne' }),
-  g('felder', 'catapultBackward', '💥', 'Katapult rückwärts', { blocks: 'Knaller (Katapult rückwärts)', keywords: 'flugzeug creeper knaller explosion zurück rückwärts' }),
-  g('felder', 'swap', '🔄', 'Platztausch', { blocks: 'Teleport-Perle (Platztausch)', keywords: 'ufo tausch enderperle teleport perle tauschen abstand' }),
-  g('felder', 'barrier', '🚧', 'Sperre: zum Befreien würfeln', { blocks: 'Spinnennetz: zum Befreien würfeln', keywords: 'käfig sperre spinnennetz gefangen festsitzen befreien' }),
-  g('felder', 'barrierAuto', '🔓', 'Sperre öffnet sich automatisch', { blocks: 'Spinnennetz löst sich automatisch', keywords: 'fehlversuche käfig sperre spinnennetz automatisch öffnen' }),
+  g('felder', 'catapultForward', '🚀', 'Katapult vorwärts', { alt: { blocks: 'Schleimblock (Katapult vorwärts)', space: 'Jetpack (Katapult vorwärts)' }, keywords: 'sprungfeder feder schleim slime schleimblock jetpack rakete vorwärts nach vorne' }),
+  g('felder', 'catapultBackward', '💥', 'Katapult rückwärts', { alt: { blocks: 'Knaller (Katapult rückwärts)', space: 'Schwarzes Loch (Katapult rückwärts)' }, keywords: 'flugzeug creeper knaller explosion schwarzes loch zurück rückwärts' }),
+  g('felder', 'swap', '🔄', 'Platztausch', { alt: { blocks: 'Teleport-Perle (Platztausch)', space: 'Teleporter (Platztausch)' }, keywords: 'ufo tausch enderperle teleport perle teleporter beamen tauschen abstand' }),
+  g('felder', 'barrier', '🚧', 'Sperre: zum Befreien würfeln', { alt: { blocks: 'Spinnennetz: zum Befreien würfeln', space: 'Energiekäfig: zum Befreien würfeln' }, keywords: 'käfig sperre spinnennetz energiekäfig kraftfeld gefangen festsitzen befreien' }),
+  g('felder', 'barrierAuto', '🔓', 'Sperre öffnet sich automatisch', { alt: { blocks: 'Spinnennetz löst sich automatisch', space: 'Energiekäfig öffnet sich automatisch' }, keywords: 'fehlversuche käfig sperre spinnennetz energiekäfig automatisch öffnen' }),
   g('felder', 'fieldGames', '🎮', 'Feld-Minispiele', { keywords: 'minispiel-feld duell alle gegen modus' }),
   g('felder', 'fieldReward', '🏃', 'Belohnung & Strafe beim Feld-Minispiel', { keywords: 'felder vor zurück sieg niederlage' }),
-  g('mutproben', 'vine', '🌿', 'Liane', { blocks: 'Ranke', keywords: 'liane ranke bach schwingen mutprobe' }),
-  g('mutproben', 'river', '🛢️', 'Fässer oder Kisten', { keywords: 'fluss wasserfall fässer kisten einbrechen schwimmen mutprobe chance' }),
-  g('mutproben', 'cave', '🦇', 'Lavahöhle', { keywords: 'höhle lavahöhle serpentinen mindestens würfeln mutprobe' }),
+  g('mutproben', 'vine', '🌿', 'Liane', { alt: { blocks: 'Ranke', space: 'Greifhaken' }, keywords: 'liane ranke greifhaken seil bach schwingen mutprobe' }),
+  g('mutproben', 'river', '🛢️', 'Fässer oder Kisten', { alt: { space: 'Kisten oder Kapseln' }, keywords: 'fluss wasserfall fässer kisten kapseln einbrechen schwimmen mutprobe chance' }),
+  g('mutproben', 'cave', '🦇', 'Lavahöhle', { alt: { space: 'Kristallhöhle' }, keywords: 'höhle lavahöhle kristallhöhle serpentinen mindestens würfeln mutprobe' }),
   g('mutproben', 'crater', '🕳️', 'Kraterloch', { keywords: 'krater loch rausklettern augen sammeln mutprobe' }),
   g('vulkan', 'volcano', '🌋', 'Vulkanausbruch an/aus', { keywords: 'vulkan ausbruch druck vulkanfeld eruption' }),
   g('vulkan', 'volcanoPressure', '🌡️', 'Druck bis zum Ausbruch', { keywords: 'druck runde vulkanfeld schwelle anheizen vulkandruck' }),
   g('vulkan', 'volcanoZone', '⛰️', 'Gefahrenzone & Rückschlag', { keywords: 'gefahrenzone zurückfliegen rückschlag gipfel ausbruch' }),
-  g('vulkan', 'inside', '🔥', 'Vulkan-Inneres', { blocks: 'Nether', keywords: 'vulkan-inneres inneres nether totenkopf boden bricht weg strafweg lava' }),
-  g('vulkan', 'insideLength', '🪜', 'Strafweg im Vulkan-Inneren', { blocks: 'Strafweg im Nether', keywords: 'länge ausgangsfeld glowstone netherziegel lava-inseln nether' }),
+  g('vulkan', 'inside', '🔥', 'Vulkan-Inneres', { alt: { blocks: 'Nether', space: 'Alien-Höhle' }, keywords: 'vulkan-inneres inneres nether alien-höhle totenkopf wurmloch boden bricht weg strafweg lava' }),
+  g('vulkan', 'insideLength', '🪜', 'Strafweg im Vulkan-Inneren', { alt: { blocks: 'Strafweg im Nether', space: 'Strafweg in der Alien-Höhle' }, keywords: 'länge ausgangsfeld glowstone netherziegel lava-inseln kristallinseln teleporter nether' }),
   g('fragen', 'bonusCorrect', '✅', 'Bonus nur für richtige Antworten', { keywords: 'bonuswürfel falsch richtig fragen' }),
   g('fragen', 'autoClose', '⏹️', 'Antworten automatisch schließen', { keywords: 'alle geantwortet automatisch schließen fragen' }),
   // Beamer
@@ -116,7 +117,7 @@ export const SETTINGS: SettingEntry[] = [
   b('kommentator', 'chatter', '🤪', 'Zwischendurch plaudern (Quatschkopf)', { keywords: 'sprüche pro minute plaudern' }),
   b('kamera', 'cameraStyle', '🎥', 'Kamera: ruhig oder lebhaft', { keywords: 'kamera stil ruhig lebhaft' }),
   b('kamera', 'reactions', '😮', 'Reaktion nach jedem Zug', { keywords: 'reaktion zug kamera' }),
-  b('kamera', 'cameraInside', '🌋', 'In den Vulkan schauen', { blocks: 'In den Nether schauen', keywords: 'vulkan nether inneres besuch kamera' }),
+  b('kamera', 'cameraInside', '🌋', 'In den Vulkan schauen', { alt: { blocks: 'In den Nether schauen', space: 'In die Alien-Höhle schauen' }, keywords: 'vulkan nether alien-höhle inneres besuch kamera' }),
   b('kamera', 'cameraPad', '🕹️', 'Kamera steuern (Steuerkreuz)', { keywords: 'kamera steuern zoomen drehen schieben team ansicht' }),
   b('kamera', 'reset', '♻️', 'Beamer-Einstellungen zurücksetzen', { keywords: 'reset standard zurücksetzen' }),
   // Einstellungen
@@ -135,8 +136,14 @@ export const SETTINGS: SettingEntry[] = [
 ];
 
 export const settingById = (id: string) => SETTINGS.find((e) => e.id === id);
-export const settingTitle = (e: SettingEntry, theme: Theme) => (theme === 'blocks' && e.blocks) || e.title;
-export const sectionTitle = (s: (typeof GAME_SECTIONS)[number], theme: Theme) => (theme === 'blocks' && 'blocks' in s && s.blocks) || s.title;
+export const settingTitle = (e: SettingEntry, theme: Theme) => (theme !== 'island' && e.alt?.[theme]) || e.title;
+export const sectionTitle = (s: (typeof GAME_SECTIONS)[number], theme: Theme) => (theme !== 'island' && 'alt' in s && s.alt[theme]) || s.title;
+/** Namen derselben Einstellung in den anderen Welten, z. B. „Insel: Liane · Weltall: Greifhaken“ */
+export function otherNames(e: SettingEntry, theme: Theme): string {
+  const names: [string, string][] = [['Insel', e.title], ['Blockwelt', e.alt?.blocks ?? e.title], ['Weltall', e.alt?.space ?? e.title]];
+  const own = settingTitle(e, theme);
+  return e.alt ? names.filter(([, n]) => n !== own).map(([w, n]) => `${w}: ${n}`).join(' · ') : '';
+}
 
 /** Wo die Einstellung steht, z. B. „Spiel einrichten › Vulkan“ */
 export function settingPlace(e: SettingEntry, theme: Theme): string {
@@ -165,7 +172,7 @@ export function searchSettings(query: string, theme: Theme, admin: boolean): Set
   const scored: { e: SettingEntry; score: number; i: number }[] = [];
   SETTINGS.forEach((e, i) => {
     if (e.admin && !admin) return;
-    const title = normalize(`${settingTitle(e, theme)} ${e.blocks && theme !== 'blocks' ? e.blocks : e.title}`);
+    const title = normalize([e.title, ...Object.values(e.alt ?? {})].join(' '));
     const rest = normalize(`${e.keywords ?? ''} ${settingPlace(e, theme)} ${e.hint ?? ''}`);
     let score = 0;
     for (const t of tokens) {

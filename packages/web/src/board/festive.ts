@@ -1,7 +1,8 @@
 /**
- * Festzeiten für beide Welten: Halloween (Kürbislaternen am Weg, Grabsteine, Gespenster,
+ * Festzeiten für alle Welten: Halloween (Kürbislaternen am Weg, Grabsteine, Gespenster,
  * Fledermäuse, Mond) und Weihnachten (geschmückte Tannen, Lichterkette entlang des Wegs,
- * Geschenke an Start und Ziel, Schneemann). Insel: runde Formen, Blockwelt: aus Blöcken.
+ * Geschenke an Start und Ziel, Schneemann). Insel: runde Formen, Blockwelt: aus Blöcken,
+ * Weltall: eigene Deko in space/festive.ts.
  */
 import * as THREE from 'three';
 import { VOLCANO, type Festive, type Theme } from '@insel/shared';
@@ -10,6 +11,7 @@ import { blockAtlas } from './blocks/atlas.ts';
 import { atlasMat, boxGeo, cube } from './blocks/cube.ts';
 import { buildMob } from './blocks/mobs.ts';
 import { BLOCK } from './blocks/world.ts';
+import { buildSpaceFestive } from './space/festive.ts';
 
 export interface FestiveFx {
   group: THREE.Group;
@@ -18,7 +20,7 @@ export interface FestiveFx {
 }
 
 /** Plätze neben dem Weg: jedes n-te Feld, abwechselnd links/rechts, nicht an Mutproben/Furt/Brücke */
-function spots(layout: IslandLayout, every: number, off: number, groundAt: (x: number, z: number) => number) {
+export function festiveSpots(layout: IslandLayout, every: number, off: number, groundAt: (x: number, z: number) => number) {
   const busy = new Set<number>([layout.plan.vineField, layout.plan.caveField, layout.plan.caveExit, layout.craterField, ...layout.fordFields]);
   const out: { x: number; y: number; z: number; face: number }[] = [];
   layout.fields.forEach((f, i) => {
@@ -86,6 +88,7 @@ function text(label: string, w: number, h: number, bg: string, fg: string, font:
 const BULBS = ['#ff4040', '#ffd34d', '#4fd0ff', '#7dff6a', '#ff7ae0'];
 
 export function buildFestive(kind: Exclude<Festive, 'off'>, theme: Theme, layout: IslandLayout, groundAt: (x: number, z: number) => number): FestiveFx {
+  if (theme === 'space') return buildSpaceFestive(kind, layout, groundAt);
   const group = new THREE.Group();
   group.name = `festive-${kind}`;
   const blocks = theme === 'blocks';
@@ -105,7 +108,7 @@ export function buildFestive(kind: Exclude<Festive, 'off'>, theme: Theme, layout
     const face = blocks ? null : own(faceTexture());
     const orange = std('#e8761c', { roughness: 0.55 });
     const stem = std('#5a6a2a');
-    for (const s of spots(layout, 4, fr * 2.1, groundAt)) {
+    for (const s of festiveSpots(layout, 4, fr * 2.1, groundAt)) {
       let p: THREE.Object3D;
       if (blocks) {
         p = new THREE.Mesh(boxGeo(BLOCK, BLOCK, BLOCK, { top: 'pumpkin_top', side: 'pumpkin_side' }), atlasMat());
@@ -254,7 +257,7 @@ export function buildFestive(kind: Exclude<Festive, 'off'>, theme: Theme, layout
   } else {
     // Weihnachten: Tannen am Weg
     const ornaments = BULBS.map((c) => own(new THREE.MeshBasicMaterial({ color: c, toneMapped: false })));
-    for (const s of spots(layout, 6, fr * 2.4, groundAt)) {
+    for (const s of festiveSpots(layout, 6, fr * 2.4, groundAt)) {
       const tree = new THREE.Group();
       if (blocks) {
         const log = { top: 'log_top', side: 'log_side' } as const;

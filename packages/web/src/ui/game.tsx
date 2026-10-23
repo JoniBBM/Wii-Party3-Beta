@@ -14,6 +14,12 @@ import {
 } from '@insel/shared';
 import { useServerNow } from '../lib/hooks.ts';
 
+/**
+ * Schriftfarbe für Teamnamen auf dem Hintergrund der Oberfläche: hell → dunkle Teamfarbe, dunkel
+ * (dunkles Design, Weltall: --team-ink-lift) → helle Teamfarbe. Nicht für fest helle Flächen.
+ */
+export const teamInk = (c: { hex: string; dark: string }) => `color-mix(in srgb, ${c.dark}, color-mix(in srgb, ${c.hex}, white 30%) var(--team-ink-lift, 0%))`;
+
 export function TeamDot({ team, size = 12 }: { team: Pick<Team, 'color'> | undefined; size?: number }) {
   const c = teamColor(team?.color ?? 'red');
   return (
@@ -37,7 +43,7 @@ export function TeamChip({ team, className = '', size = 'md' }: { team: Team | u
     <span
       // min-w-0: darf in Zeilen schrumpfen, lange Teamnamen werden dann mit „…“ gekürzt
       className={`inline-flex max-w-full min-w-0 items-center rounded-full font-bold ${cls} ${className}`}
-      style={{ background: `color-mix(in srgb, ${c.hex} 16%, var(--surface))`, color: `color-mix(in srgb, ${c.dark} 85%, var(--ink))` }}
+      style={{ background: `color-mix(in srgb, ${c.hex} 16%, var(--surface))`, color: teamInk(c) }}
     >
       <TeamDot team={team} size={size === 'lg' ? 14 : size === 'sm' ? 8 : 10} />
       <span className="truncate">{team.name}</span>

@@ -1,7 +1,8 @@
-// Rundgang durch die Blockwelt: eigenes Spiel mit Welt „Blockwelt“, dann Handy (Figur, Frage) und
-// Beamer (Lobby, Frage, Würfeln, Nether) fotografieren und auf Fehler prüfen.
+// Rundgang durch eine Welt (Standard: Blockwelt): eigenes Spiel mit dieser Welt, dann Handy (Figur,
+// Frage) und Beamer (Lobby, Frage, Würfeln, Inneres, Sieg) fotografieren und auf Fehler prüfen.
 // Startet einen eigenen Server mit leerer Datenbank (gebaute Weboberfläche nötig: npm run build).
-//   node e2e/blocks.mjs [ordner-für-bilder]
+//   node e2e/blocks.mjs [ordner-für-bilder]          (Blockwelt)
+//   WORLD=space node e2e/blocks.mjs [ordner]           (Weltall)
 import { chromium, devices } from 'playwright';
 import { io } from 'socket.io-client';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
@@ -10,7 +11,8 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { audit } from './audit.mjs';
 
-const out = process.argv[2] ?? join(tmpdir(), 'insel-blocks');
+const world = process.env.WORLD ?? 'blocks';
+const out = process.argv[2] ?? join(tmpdir(), `insel-${world}`);
 mkdirSync(out, { recursive: true });
 const dataDir = mkdtempSync(join(tmpdir(), 'insel-blocks-'));
 const port = 8095;
@@ -34,7 +36,7 @@ const problems = [];
 const browser = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 try {
   const { token: admin } = await post('/api/auth/admin', { password: PASS });
-  const { code } = await post('/api/games', { name: 'Blockwelt-Test' }, admin);
+  const { code } = await post('/api/games', { name: `Welt-Test ${world}` }, admin);
   const sock = io(base, { auth: { token: admin, view: 'regie' }, transports: ['websocket'] });
   let state = null;
   sock.on('state', (p) => (state = p.state));
@@ -45,7 +47,7 @@ try {
   await sleep(300);
   await cmd({ type: 'teams.auto', count: 3 });
   await sleep(200);
-  const r = await cmd({ type: 'config.update', config: { ...state.config, theme: 'blocks' } });
+  const r = await cmd({ type: 'config.update', config: { ...state.config, theme: world } });
   if (!r.ok) problems.push(`Welt setzen: ${r.error}`);
   await sleep(300);
   const { token: beamerToken } = await post('/api/auth/beamer-link', {}, admin);
@@ -57,7 +59,7 @@ try {
   const beamer = await bctx.newPage();
   beamer.on('pageerror', (e) => errors.push(`Beamer: ${e.message}`));
   await beamer.goto(`${base}/beamer?debug`);
-  await beamer.waitForFunction(() => window.__board?.theme === 'blocks', null, { timeout: 120_000 });
+  await beamer.waitForFunction((w) => window.__board?.theme === w, world, { timeout: 120_000 });
   await sleep(3000);
   await beamer.screenshot({ path: join(out, 'beamer-lobby.png') });
   // Handy
@@ -73,7 +75,7 @@ try {
     await page.screenshot({ path: join(out, `${name}.png`) });
   };
   await shot(phone, 'handy-lobby');
-  if ((await phone.evaluate(() => document.documentElement.dataset.world)) !== 'blocks') problems.push('Handy: Pixel-Oberfläche nicht aktiv');
+  if ((await phone.evaluate(() => document.documentElement.dataset.world)) !== world) problems.push(`Handy: Oberfläche der Welt „${world}“ nicht aktiv`);
 
   // Spiel starten, Frage
   await cmd({ type: 'game.start' });
@@ -94,21 +96,22 @@ try {
   }
   await beamer.screenshot({ path: join(out, 'beamer-wuerfeln.png') });
   await shot(phone, 'handy-wuerfeln');
-  // Nether ansehen (Innen-Ansicht direkt)
-  await beamer.evaluate(() => {
-    const b = window.__board;
-    b.setView?.('inside');
-    const s = b.inside?.overviewShot();
-    if (s) b.rig.manualShot(s, 60);
-  });
-  await sleep(2500);
-  await beamer.screenshot({ path: join(out, 'beamer-nether.png') });
+  // Inneres ansehen (Nether bzw. Alien-Höhle, Innen-Ansicht direkt)
+  // wie der Regie-Knopf: geht erst, wenn auf dem Beamer gerade nichts passiert
+  const visit = (to) =>
+    beamer.evaluate(async (t) => {
+      for (let i = 0; i < 30; i++) {
+        if (await window.__board.visit(t)) return true;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      return false;
+    }, to);
+  if (!(await visit('inside'))) problems.push('Besuch im Inneren nicht möglich');
+  await sleep(3000);
+  await beamer.screenshot({ path: join(out, 'beamer-inneres.png') });
   // Siegerehrung
-  await beamer.evaluate(() => {
-    const b = window.__board;
-    b.setView?.('island');
-    b.rig.endManual?.();
-  });
+  await visit('island');
+  await sleep(1500);
   await cmd({ type: 'game.finish' });
   await sleep(7000);
   await beamer.screenshot({ path: join(out, 'beamer-sieg.png') });
@@ -125,4 +128,4 @@ if (problems.length) {
   console.log(`${problems.length} Problem(e):\n- ${problems.join('\n- ')}\nBilder: ${out}`);
   process.exit(1);
 }
-console.log(`✅ Blockwelt-Rundgang ohne Fehler. Bilder: ${out}`);
+console.log(`✅ Rundgang „${world}“ ohne Fehler. Bilder: ${out}`);

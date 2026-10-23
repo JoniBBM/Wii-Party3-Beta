@@ -1,7 +1,9 @@
 /**
- * Wetter, Jahreszeit und Festzeit auf dem Beamer (Insel und Blockwelt): Himmelstönung, Nebel, Licht,
+ * Wetter, Jahreszeit und Festzeit auf dem Beamer (Insel, Blockwelt, Weltall): Himmelstönung, Nebel, Licht,
  * Regen/Schnee (auf der Grafikkarte animiert, folgt der Kamera), Blitze mit Donner, wachsende
  * Schneedecke auf allen nach oben zeigenden Flächen, Herbstlaub. Übergänge laufen weich.
+ * Weltall: leuchtender Sporenregen, Kristallstaub, Ionensturm mit violetten Blitzen, Staubdunst,
+ * Nebelschwaden; Jahreszeiten als Farbstimmungen (Frühling minzig, Herbst warm-magenta, Winter eisig).
  */
 import * as THREE from 'three';
 import type { Atmosphere, Theme } from '@insel/shared';
@@ -20,7 +22,7 @@ export function snowify(material: THREE.Material, uSnow: { value: number }) {
       .replace('#include <common>', '#include <common>\nvarying float vSnowUp;')
       .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvSnowUp = normalize(mat3(modelMatrix) * objectNormal).y;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uSnow;\nvarying float vSnowUp;')
+      .replace('#include <common>', '#include <common>\n#define SNOW_FX\nuniform float uSnow;\nvarying float vSnowUp;')
       .replace(
         '#include <map_fragment>',
         '#include <map_fragment>\nfloat snowAmt = uSnow * smoothstep(0.55, 0.85, vSnowUp);\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.94, 1.0) * (0.8 + 0.3 * dot(diffuseColor.rgb, vec3(0.3, 0.5, 0.2))), snowAmt);',
@@ -113,7 +115,21 @@ export interface AtmosphereOptions {
   audio: BoardAudio;
   /** Insel-Wasser mit eigenem Dunst (ShaderMaterial mit uFogColor/uFogNear/uFogFar/uDim) */
   water?: THREE.Mesh;
+  /** Himmel mit Sternen (Weltall): bei Nacht heller, bei Wolken schwächer */
+  sky?: { setStars?: (k: number) => void; setClouds?: (k: number) => void };
 }
+
+/** Farben des Weltall-Wetters */
+const SPACE = {
+  cloud: new THREE.Color('#9a8fc8'),
+  haze: new THREE.Color('#f0d0e4'),
+  overlayTop: new THREE.Color('#6a4fa8'),
+  bolt: new THREE.Color('#b77dff'),
+  boltHemi: new THREE.Color('#b98cff'),
+  spring: { sun: new THREE.Color('#f0fff2'), hemi: new THREE.Color('#c4ffe6'), fog: new THREE.Color('#b4f7e0') },
+  autumn: { sun: new THREE.Color('#ffa874'), hemi: new THREE.Color('#ffc2d8'), fog: new THREE.Color('#f7bfd0') },
+  winter: { sun: new THREE.Color('#dce9ff'), hemi: new THREE.Color('#cfe2ff'), fog: new THREE.Color('#cde0ff') },
+};
 
 export class AtmosphereFx {
   readonly group = new THREE.Group();
@@ -130,6 +146,10 @@ export class AtmosphereFx {
   private leaves: { m: THREE.MeshLambertMaterial | THREE.MeshStandardMaterial; base: THREE.Color }[] = [];
   private hideInSnow: THREE.Object3D[] = [];
   private tmp = new THREE.Color();
+  private space: boolean;
+  /** Weltall: sichtbarer Blitz (Ionensturm) */
+  private bolt: THREE.Mesh | null = null;
+  private season = { spring: 0, winter: 0 };
 
   constructor(private o: AtmosphereOptions) {
     const fog = o.scene.fog as THREE.Fog;
@@ -164,11 +184,57 @@ export class AtmosphereFx {
     this.overlay.renderOrder = -5;
     this.overlay.frustumCulled = false;
     const pixel = o.theme === 'blocks';
-    this.rain = precipitation('rain', 7000, pixel);
-    this.snow = precipitation('snow', 5000, pixel);
+    this.space = o.theme === 'space';
+    if (this.space) {
+      // Sporenregen: langsam schwebende, leuchtende Kügelchen; Kristallstaub: funkelnd, leicht
+      this.rain = precipitation('snow', 6000, false);
+      this.rain.uniforms.uSpeed.value = 5;
+      this.rain.uniforms.uSize.value = 0.5;
+      this.rain.uniforms.uDrift.value = 1.8;
+      this.rain.uniforms.uColor.value.set('#8dffc4').multiplyScalar(1.6);
+      this.snow = precipitation('snow', 6000, false);
+      this.snow.uniforms.uSpeed.value = 1.6;
+      this.snow.uniforms.uSize.value = 0.26;
+      this.snow.uniforms.uDrift.value = 2.8;
+      this.snow.uniforms.uColor.value.set('#eef6ff').multiplyScalar(1.5);
+    } else {
+      this.rain = precipitation('rain', 7000, pixel);
+      this.snow = precipitation('snow', 5000, pixel);
+    }
     this.group.add(this.overlay, this.rain.pts, this.snow.pts);
     this.group.name = 'atmosphere';
   }
+
+  /** Ionensturm: gezackter, violett leuchtender Blitz vom Himmel bis zum Boden (neu bei jedem Einschlag) */
+  private strike() {
+    if (this.bolt) {
+      this.bolt.geometry.dispose();
+      this.bolt.removeFromParent();
+    }
+    // vor der Kamera (im Bild), seitlich zufällig versetzt
+    const cam = this.o.camera.position;
+    const fwd = this.o.camera.getWorldDirection(new THREE.Vector3()).setY(0);
+    if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1);
+    fwd.normalize();
+    const d = 30 + Math.random() * 30;
+    const lat = (Math.random() - 0.5) * d * 0.9;
+    const x = cam.x + fwd.x * d - fwd.z * lat;
+    const z = cam.z + fwd.z * d + fwd.x * lat;
+    const pts: THREE.Vector3[] = [];
+    let px = x;
+    let pz = z;
+    for (let y = 70; y > -1; y -= 6) {
+      pts.push(new THREE.Vector3(px, y, pz));
+      px += (Math.random() - 0.5) * 5;
+      pz += (Math.random() - 0.5) * 5;
+    }
+    const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.1), pts.length * 3, 0.34, 5, false);
+    if (!this.boltMat) this.boltMat = new THREE.MeshBasicMaterial({ color: SPACE.bolt.clone().multiplyScalar(1.6), transparent: true, depthWrite: false, fog: false });
+    this.bolt = new THREE.Mesh(geo, this.boltMat);
+    this.bolt.frustumCulled = false;
+    this.group.add(this.bolt);
+  }
+  private boltMat: THREE.MeshBasicMaterial | null = null;
 
   private waterUniforms(): WaterFog | null {
     const m = this.o.water?.material as THREE.ShaderMaterial | undefined;
@@ -233,10 +299,12 @@ export class AtmosphereFx {
         this.nextBolt = 5 + Math.random() * 9;
         const delay = 300 + Math.random() * 1400;
         this.o.audio.play('rumble', { volume: 0.9, delay: delay / 1000 });
+        if (this.space) this.strike();
       }
     }
     this.flash = Math.max(0, this.flash - dt * 3.2);
     const bolt = this.flash > 0 ? (Math.sin(this.flash * 40) > 0 ? this.flash : this.flash * 0.3) : 0;
+    if (this.space) return this.updateSpace(t, dt, bolt);
 
     // Farben und Licht
     const s = this.o.scene;
@@ -282,7 +350,81 @@ export class AtmosphereFx {
     for (const l of this.leaves) l.m.color.copy(l.base).lerp(new THREE.Color('#e8913a'), c.autumn * 0.75);
   }
 
+  /** Weltall: gleiche Übergänge, eigene Farben; Jahreszeiten als Farbstimmungen */
+  private updateSpace(t: number, dt: number, bolt: number) {
+    const a = this.target;
+    const c = this.cur;
+    const k = Math.min(1, dt * 0.6);
+    const ss = this.season;
+    ss.spring = lerp(ss.spring, a.season === 'spring' && a.festive === 'off' ? 1 : 0, k);
+    ss.winter = lerp(ss.winter, a.season === 'winter' || a.festive === 'christmas' ? 1 : 0, k);
+    const autumn = c.autumn * (1 - c.night);
+    const s = this.o.scene;
+    const fog = s.fog as THREE.Fog;
+    fog.color
+      .copy(this.base.fog)
+      .lerp(SPACE.spring.fog, ss.spring * 0.55)
+      .lerp(SPACE.autumn.fog, autumn * 0.65)
+      .lerp(SPACE.winter.fog, ss.winter * 0.6)
+      .lerp(SPACE.cloud, c.cloud * 0.55)
+      .lerp(SPACE.haze, c.fog * 0.6)
+      .lerp(new THREE.Color('#2b1f50'), c.night * 0.72);
+    fog.near = lerp(lerp(this.base.near, 22, c.fog), 60, c.night * 0.5);
+    fog.far = Math.max(150, lerp(this.base.far, 180, Math.max(c.fog, c.night * 0.7, c.rain * 0.4)));
+    const wu = this.waterUniforms();
+    if (wu) {
+      wu.uFogColor.value.copy(fog.color);
+      wu.uFogNear.value = lerp(this.base.wNear, 22, Math.max(c.fog, c.night * 0.5));
+      wu.uFogFar.value = Math.max(150, lerp(this.base.wFar, 190, Math.max(c.fog, c.night * 0.7, c.rain * 0.4)));
+      // Plasma leuchtet nachts weiter: kaum abdunkeln
+      wu.uDim.value = (1 - c.cloud * 0.3) * (1 - c.night * 0.5);
+    }
+    s.environmentIntensity = this.base.env * (1 - c.cloud * 0.4) * (1 - c.night * 0.6) + bolt * 0.8;
+    if (s.background instanceof THREE.Color) s.background.copy(fog.color);
+    this.overlayMat.uniforms.uOpacity!.value = Math.min(0.9, c.cloud * 0.6 + c.fog * 0.5 + c.night * 0.72) + bolt * 0.3;
+    (this.overlayMat.uniforms.uTop!.value as THREE.Color).copy(SPACE.overlayTop).lerp(new THREE.Color('#120a2e'), c.night).lerp(SPACE.bolt, bolt * 0.7);
+    (this.overlayMat.uniforms.uBottom!.value as THREE.Color).copy(fog.color);
+    const sun = this.o.sun;
+    sun.intensity = this.base.sunI * (1 - c.cloud * 0.6) * (1 - c.night * 0.6) * (1 - c.fog * 0.3);
+    sun.color
+      .copy(this.base.sun)
+      .lerp(SPACE.spring.sun, ss.spring * 0.6)
+      .lerp(SPACE.autumn.sun, autumn * 0.65)
+      .lerp(SPACE.winter.sun, ss.winter * 0.6)
+      .lerp(new THREE.Color('#c9a8ff'), c.night * 0.6);
+    const hemi = this.o.hemi;
+    hemi.intensity = this.base.hemiI * (1 - c.night * 0.4) * (1 + c.cover * 0.12) + bolt * 3;
+    hemi.color
+      .copy(this.base.hemiSky)
+      .lerp(SPACE.spring.hemi, ss.spring * 0.75)
+      .lerp(SPACE.autumn.hemi, autumn * 0.8)
+      .lerp(SPACE.winter.hemi, ss.winter * 0.75)
+      .lerp(new THREE.Color('#9d8cff'), c.night * 0.6)
+      .lerp(SPACE.boltHemi, Math.min(1, bolt));
+    hemi.groundColor.copy(this.base.hemiGround).lerp(new THREE.Color('#e3e8ff'), c.cover * 0.5);
+    this.o.sky?.setStars?.((1 - c.cloud * 0.8) * (1 - c.fog * 0.8) * (1 + c.night * 2.2));
+    this.o.sky?.setClouds?.(c.cloud);
+    // Ionenblitz sichtbar, solange es blitzt
+    if (this.bolt) {
+      this.bolt.visible = bolt > 0.05;
+      if (this.boltMat) this.boltMat.opacity = Math.min(1, bolt * 1.6);
+    }
+    for (const [p, amt] of [
+      [this.rain, c.rain],
+      [this.snow, c.snow],
+    ] as const) {
+      p.uniforms.uTime.value = t;
+      p.uniforms.uCam.value.copy(this.o.camera.position);
+      p.uniforms.uAmount.value = amt;
+      p.pts.visible = amt > 0.02;
+    }
+    this.uSnow.value = c.cover;
+    for (const o of this.hideInSnow) o.visible = c.cover < 0.45;
+  }
+
   dispose() {
+    if (this.bolt) this.bolt.geometry.dispose();
+    this.boltMat?.dispose();
     this.overlay.geometry.dispose();
     this.overlayMat.dispose();
     for (const p of [this.rain, this.snow]) {

@@ -44,7 +44,7 @@ function NoGame() {
         </EmptyState>
         <div className="flex flex-col gap-3">
           <Button variant="primary" size="lg" icon={<Sparkles className="size-5" />} loading={newGame.busy} onClick={() => void newGame.create()}>
-            Neues Spiel
+            Neues Spiel erstellen
           </Button>
           <Button variant="ghost" icon={<PlusCircle className="size-4" />} onClick={() => navigate('/regie/spiele')}>
             Gespeichertes Spiel laden

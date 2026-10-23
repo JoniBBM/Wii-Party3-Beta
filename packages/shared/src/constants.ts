@@ -24,11 +24,12 @@ export function teamColor(key: string) {
 }
 
 /** Welten (Optik von Beamer, Figuren und Handys) – Regeln und Spielfeld sind in allen gleich. */
-export const THEMES = ['island', 'blocks'] as const;
+export const THEMES = ['island', 'blocks', 'space'] as const;
 export type Theme = (typeof THEMES)[number];
 export const THEME_INFO: Record<Theme, { label: string; short: string; icon: string; description: string }> = {
   island: { label: 'Insel der Abenteuer', short: 'Insel', icon: '🏝️', description: 'Tropische Vulkaninsel mit Dschungel, Wasserfall und Tieren.' },
   blocks: { label: 'Blockwelt', short: 'Blockwelt', icon: '🧱', description: 'Alles aus Blöcken im Minecraft-Stil – mit Mobs, Höhlen und dem Nether im Vulkan.' },
+  space: { label: 'Weltall', short: 'Weltall', icon: '🚀', description: 'Bunter Alien-Planet mit Kristallen, Raketenbasis und zwei Monden – gespielt wird im Astronautenanzug.' },
 };
 
 export const MIN_TEAMS = 2;

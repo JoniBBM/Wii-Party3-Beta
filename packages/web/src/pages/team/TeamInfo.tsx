@@ -1,7 +1,7 @@
 /** Team-Seite am Handy: Figur gestalten, Teamname, Mitglieder, PIN zum Einladen, eigenes Profil. */
 import { useState } from 'react';
 import { Check, Pencil, UserPlus, UserRound } from 'lucide-react';
-import { teamColor, type GameState, type Team } from '@insel/shared';
+import { teamColor, worldWords, type GameState, type Team } from '@insel/shared';
 import { api } from '../../lib/api.ts';
 import { useCommand } from '../../lib/hooks.ts';
 import { uploadPhoto } from '../../lib/image.ts';
@@ -9,7 +9,7 @@ import { reauth, useLive } from '../../lib/live.ts';
 import { getToken, setToken } from '../../lib/storage.ts';
 import { FigureEditor } from '../../figure/FigureEditor.tsx';
 import { Button, Card, CardHeader } from '../../ui/basics.tsx';
-import { Avatar } from '../../ui/game.tsx';
+import { Avatar, teamInk } from '../../ui/game.tsx';
 import { PhotoPicker } from '../../ui/PhotoPicker.tsx';
 import { toast } from '../../ui/toast.tsx';
 import type { Me } from './TeamApp.tsx';
@@ -23,12 +23,13 @@ export function TeamDesigner({ team, intro = false }: { team: Team; intro?: bool
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(team.name);
   const c = teamColor(team.color);
+  const theme = useLive((x) => x.state?.config.theme);
   return (
     <>
       <Card className="overflow-hidden">
         <div className="px-4 py-3 text-white" style={{ background: `linear-gradient(135deg, ${c.hex}, ${c.dark})` }}>
           <p className="font-display text-2xl font-semibold drop-shadow-sm">{intro ? '🎨 Gestaltet euer Team!' : 'Eure Spielfigur'}</p>
-          <p className="text-sm font-bold text-white/90">{intro ? 'Name und Figur aussuchen – der Beamer zeigt es sofort.' : 'So lauft ihr über die Insel.'}</p>
+          <p className="text-sm font-bold text-white/90">{intro ? 'Name und Figur aussuchen – der Beamer zeigt es sofort.' : `So lauft ihr ${worldWords(theme).overHome}.`}</p>
         </div>
         <div className="border-b border-line p-4">
           <p className="label">Teamname</p>
@@ -50,7 +51,7 @@ export function TeamDesigner({ team, intro = false }: { team: Team; intro?: bool
             <button
               type="button"
               className="flex w-full items-center gap-2 rounded-2xl border-2 border-dashed border-line px-3 py-2 text-left font-display text-2xl font-semibold transition hover:border-accent"
-              style={{ color: c.dark }}
+              style={{ color: teamInk(c) }}
               onClick={() => {
                 setName(team.name);
                 setEditingName(true);

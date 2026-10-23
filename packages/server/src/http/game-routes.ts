@@ -48,6 +48,8 @@ export function gameRoutes(app: FastifyInstance, ctx: Ctx) {
     const body = z
       .object({ name: z.string().trim().min(1).max(80), templateId: z.string().optional(), config: gameConfigSchema.optional(), devices: deviceModeSchema.optional() })
       .parse(req.body);
+    // Während das eigene Spiel läuft, kein neues anlegen (erst beenden oder schließen)
+    if (hub.get(hub.currentOf(acc.userId))?.state.status === 'running') throw new HttpError(409, 'Es läuft gerade ein Spiel – ein neues lässt sich erst anlegen, wenn es beendet oder geschlossen ist.');
     const visible = new Set(visibleCollections(database, acc).map((c) => c.id));
     let cfg: GameConfig;
     if (body.config) cfg = body.config;

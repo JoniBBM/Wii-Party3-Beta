@@ -11,11 +11,13 @@ import {
   type ActiveContent,
   type GameState,
   type Player,
+  worldWords,
 } from '@insel/shared';
+import { useLive } from '../../lib/live.ts';
 import { FigureAvatar } from '../../figure/FigurePreview.tsx';
 import { useJoinUrl } from '../../lib/system.ts';
 import { useSpotlight } from '../../lib/spotlight.ts';
-import { Avatar, BonusDieBadge, Countdown, QrCode } from '../../ui/game.tsx';
+import { Avatar, BonusDieBadge, Countdown, QrCode, teamInk } from '../../ui/game.tsx';
 import { placeLabel } from '../../game/bits.tsx';
 
 const OPTION_COLORS = ['#2f7de1', '#e8423f', '#f5a623', '#3fae4f', '#8e4fd6', '#1fbcc9', '#ec5fa8', '#9a6a46'];
@@ -58,9 +60,10 @@ export function PhaseOverlay({ state }: { state: GameState }) {
 }
 
 function Welcome() {
+  const theme = useLive((x) => x.state?.config.theme);
   return (
     <div className="px-8 py-7">
-      <p className="font-display text-5xl font-semibold text-ink">Willkommen auf der Insel! 🌴</p>
+      <p className="font-display text-5xl font-semibold text-ink">{worldWords(theme).welcome}</p>
       <p className="mt-3 text-2xl font-bold text-ink-2">Gleich startet die erste Runde. Wer zuerst den Vulkangipfel erklimmt, gewinnt!</p>
     </div>
   );
@@ -97,14 +100,14 @@ function Lobby({ state }: { state: GameState }) {
               <motion.div layout key={t.id} className="flex items-center gap-3 rounded-3xl bg-white/80 p-2.5" style={{ boxShadow: `inset 0 0 0 3px ${c.hex}` }}>
                 <FigureAvatar figure={t.figure} color={t.color} size={56} />
                 <div className="min-w-0">
-                  <p className="truncate font-display text-2xl font-semibold" style={{ color: c.dark }}>
+                  <p className="truncate font-display text-2xl font-semibold" style={{ color: teamInk(c) }}>
                     {t.name}
                   </p>
                   <div className="flex -space-x-2">
                     {members.slice(0, 8).map((m) => (
                       <Avatar key={m.id} player={m} size={34} ring="#fff" />
                     ))}
-                    {members.length > 8 && <span className="grid size-[34px] place-items-center rounded-full bg-white text-sm font-bold">+{members.length - 8}</span>}
+                    {members.length > 8 && <span className="grid size-[34px] place-items-center rounded-full bg-white text-sm font-bold text-[#1b2a36]">+{members.length - 8}</span>}
                   </div>
                 </div>
               </motion.div>
@@ -586,9 +589,9 @@ function FieldGamePanel({ state }: { state: GameState }) {
       <span className="self-start rounded-full bg-[#ff6fb5] px-4 py-1 font-display text-lg font-semibold text-white">🎮 Minispiel-Feld · {fg.mode ? FIELD_GAME_MODE_LABEL[fg.mode] : ''}</span>
       <p className="readable font-display text-5xl leading-tight font-semibold text-ink">{fg.item?.title ?? 'Minispiel!'}</p>
       <div className="flex flex-wrap items-center gap-3 font-display text-3xl font-semibold">
-        <span style={{ color: teamColor(team?.color ?? 'red').dark }}>{team?.name}</span>
+        <span style={{ color: teamInk(teamColor(team?.color ?? 'red')) }}>{team?.name}</span>
         <span className="text-ink-2">gegen</span>
-        {fg.mode === 'duel' ? <span style={{ color: teamColor(opponents[0]?.color ?? 'red').dark }}>{opponents[0]?.name}</span> : <span className="text-ink">alle anderen</span>}
+        {fg.mode === 'duel' ? <span style={{ color: teamInk(teamColor(opponents[0]?.color ?? 'red')) }}>{opponents[0]?.name}</span> : <span className="text-ink">alle anderen</span>}
       </div>
       {fg.item?.description && <p className="readable text-2xl leading-relaxed font-semibold whitespace-pre-line text-ink-2">{fg.item.description}</p>}
       <Faces state={state} drawn={fg.drawn} />
@@ -618,7 +621,8 @@ function Finished({ state }: { state: GameState }) {
               <span className="flex-1 font-display" style={{ color: c.dark }}>
                 {team.name}
               </span>
-              <span className="text-lg text-ink-2">{st?.wins ?? 0}× Rundensieg · bester Wurf {st?.bestRoll ?? 0}</span>
+              {/* helle Zeile – feste dunkle Schrift, unabhängig von der Textfarbe der Welt */}
+              <span className="text-lg text-[#3a4d5c]">{st?.wins ?? 0}× Rundensieg · bester Wurf {st?.bestRoll ?? 0}</span>
             </div>
           );
         })}
@@ -718,7 +722,7 @@ export function VictoryBanner({ state }: { state: GameState }) {
             </motion.span>
             <FigureAvatar figure={winner.figure} color={winner.color} size={96} className="ring-[5px] ring-gold" />
             <div>
-              <p className="font-display text-2xl font-semibold text-white/90">{state.config.theme === 'blocks' ? 'Sieger der Blockwelt' : 'Sieger der Insel'}</p>
+              <p className="font-display text-2xl font-semibold text-white/90">{worldWords(state.config.theme).winnerOf}</p>
               <p className="font-display text-7xl leading-none font-semibold drop-shadow-md">{winner.name}</p>
             </div>
             <motion.span className="text-7xl drop-shadow-lg" animate={{ rotate: [8, -8, 8], y: [0, -8, 0] }} transition={{ duration: 1.6, repeat: Infinity, delay: 0.3 }}>

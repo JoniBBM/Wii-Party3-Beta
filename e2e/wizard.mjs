@@ -1,6 +1,6 @@
-// Geführte Einrichtung im echten Browser: neues Spiel anlegen → Assistent „Nach Spieldauer“ ganz
+// Geführte Einrichtung im echten Browser: neues Spiel anlegen → Assistent mit Spieldauer ganz
 // durchklicken (Dauer, Länge, Häufigkeiten, Mutproben, Arten, Sammlungen, Sieg) → prüfen, was im
-// Spiel ankommt. Danach „Manuell“ am Handy. Jede Folie wird auf Überstand geprüft und fotografiert.
+// Spiel ankommt. Danach am Handy mit übersprungener Spieldauer. Jede Folie wird auf Überstand geprüft und fotografiert.
 // Startet einen eigenen Server mit leerer Datenbank (gebaute Weboberfläche nötig: npm run build).
 //   node e2e/wizard.mjs [ordner-für-bilder]
 import { chromium, devices } from 'playwright';
@@ -53,27 +53,24 @@ try {
     await page.screenshot({ path: join(out, `${name}.png`), fullPage: true });
   };
 
-  // --- Laptop: „Nach Spieldauer“ ---------------------------------------------------------------
+  // --- Laptop: mit Spieldauer --------------------------------------------------------------------
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
   await ctx.addInitScript((t) => localStorage.setItem('insel.token.admin', t), admin);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${base}/regie/spiele`);
-  await page.getByRole('button', { name: 'Neues Spiel', exact: true }).click();
+  await page.getByRole('button', { name: 'Neues Spiel erstellen', exact: true }).click();
   await page.waitForURL('**/regie/einrichten');
   await page.getByText('In welcher Welt wird gespielt?').waitFor();
   check(true, 'Neues Spiel führt direkt in den Assistenten');
   await slide(page, '0-welt');
   await page.getByRole('radio', { name: /Blockwelt/ }).click();
-  await page.getByText('Wie möchtest du das Spiel einrichten?').waitFor();
-  await slide(page, '1-start');
-
-  await page.getByRole('radio', { name: /Nach Spieldauer/ }).click();
   await page.getByText('Wie lange soll das Spiel ungefähr dauern?').waitFor();
+  check(await page.getByText('Ein Algorithmus beobachtet').isVisible(), 'Hinweis auf den Algorithmus für die Dauer');
   await page.getByRole('button', { name: '45 Min.', exact: true }).click();
   await page.getByRole('button', { name: '3', exact: true }).click();
   const suggestion = Number((await page.getByText(/Vorschlag: \d+ Felder/).innerText()).match(/(\d+) Felder/)[1]);
-  check(suggestion >= 25 && suggestion <= 45, `Vorschlag für 45 Min. bei 3 Teams: ${suggestion} Felder`);
+  check(suggestion >= 35 && suggestion <= 60, `Vorschlag für 45 Min. bei 3 Teams: ${suggestion} Felder`);
   await slide(page, '2-dauer');
 
   await page.getByRole('button', { name: 'Weiter' }).click();
@@ -132,14 +129,14 @@ try {
   await slide(page, '9-live');
   await ctx.close();
 
-  // --- Handy: „Manuell“ ----------------------------------------------------------------------
+  // --- Handy: Spieldauer übersprungen ---------------------------------------------------------
   const phone = await browser.newContext({ ...devices['iPhone 13'] });
   await phone.addInitScript((t) => localStorage.setItem('insel.token.admin', t), admin);
   const p2 = await phone.newPage();
   p2.on('pageerror', (e) => errors.push(e.message));
   await p2.goto(`${base}/regie/einrichten`);
   await p2.getByRole('radio', { name: /Insel der Abenteuer/ }).click();
-  await p2.getByRole('radio', { name: /Manuell/ }).click();
+  await p2.getByRole('button', { name: /Spieldauer überspringen/ }).click();
   const input = p2.getByRole('textbox', { name: 'Anzahl Felder', exact: true });
   await input.fill('30');
   await input.blur();

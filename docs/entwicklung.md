@@ -59,7 +59,7 @@ Dann `http://localhost:5173` öffnen. Vite leitet `/api`, `/media` und `/socket.
 
 ## Ton & Kommentator (ElevenLabs)
 
-Musik (`public/assets/audio/music/`), Effekte (`audio/fx/`) und Sprache (`public/assets/voice/`) wurden einmalig mit ElevenLabs erzeugt und liegen als MP3 im Projekt (Ausnahme: die Blockwelt-Musik, freie CC0-Stücke, siehe unten) – zur Laufzeit braucht das Spiel keinen Dienst.
+Musik (`public/assets/audio/music/`), Effekte (`audio/fx/`) und Sprache (`public/assets/voice/`) wurden einmalig mit ElevenLabs erzeugt und liegen als MP3 im Projekt (Ausnahme: die Musik von Blockwelt und Weltall, freie CC0-Stücke, siehe unten) – zur Laufzeit braucht das Spiel keinen Dienst.
 
 - Kommentator-Texte und Spielerklärung stehen in `packages/web/src/board/voice-lines.ts` (Stimme „DiMario – Moderator“, Modell *eleven_v3*; `[laughs]` usw. sind Regieanweisungen und werden in Untertiteln ausgeblendet). Wer einen Text ändert, muss die Datei `voice/<id>.mp3` neu erzeugen (Kosten: ca. 1 Credit je Zeichen).
 - Neue Sprüche zuerst in `board/voice-lines-new.ts` sammeln (dort ohne Datei harmlos); nach dem Erzeugen der MP3s nach `voice-lines.ts` übernehmen. Tier-Sprüche (`seeMonkey` …) spielt der Kommentator nur, wenn das Tier gerade im Bild ist (`animals.inView`).
@@ -68,3 +68,4 @@ Musik (`public/assets/audio/music/`), Effekte (`audio/fx/`) und Sprache (`public
 - Umgebungsschleifen (`audio/ambience/strand|dschungel|vulkan.mp3`) wurden als nahtlose Schleifen erzeugt (Sound Effects v2, `loop`).
 - Musikstücke: Liste `MUSIC_TRACKS` in `packages/shared/src/show.ts` (Datei `audio/music/<id>.<ext>`, Standard `mp3`; Stimmung lobby/insel/spannung/vulkan/finale; Welt `world`, Standard Insel) – neue Stücke dort eintragen, die Regie zeigt sie automatisch an.
 - Blockwelt-Musik: `audio/music/block-*.m4a` – freie CC0-Stücke von OpenGameArt im ruhigen Minecraft-Geist (keine Original-Minecraft-Musik und keine Bearbeitungen davon), Quellen in `LICENSES.md`. Die Automatik spielt je Welt nur die eigenen Stücke (`musicTracksFor`); hat die Blockwelt für eine Stimmung keins (z. B. Siegerehrung), kommen die der Insel. Neue Stücke ohne ffmpeg mit `afconvert -f m4af -d aac -b 160000 ein.wav aus.m4a` (macOS) umwandeln.
+- Weltall-Musik: `audio/music/space-*.m4a` – freie CC0-Stücke von OpenGameArt, freundliche Synth-/Space-Klänge (Lobby, drei Würfel-Stücke, Rätsel-Musik, zwei Stücke für die Kristallhöhle, eigenes Finale), Quellen in `LICENSES.md`; Lautstärke beim Umwandeln auf die Blockwelt-Stücke angeglichen (ca. −17 dBFS RMS). `afconvert` liest auch OGG und FLAC.

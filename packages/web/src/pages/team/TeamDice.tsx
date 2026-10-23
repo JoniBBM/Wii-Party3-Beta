@@ -1,7 +1,7 @@
 /** Würfeln am Handy: großer Würfelknopf, Würfelanimation, Ergebnis, Feld-Minispiel-Hinweis. */
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { FIELD_GAME_MODE_LABEL, FIELD_INFO, barrierText, teamById, type Challenge, type GameState } from '@insel/shared';
+import { FIELD_GAME_MODE_LABEL, FIELD_INFO, barrierText, teamById, worldWords, type Challenge, type GameState } from '@insel/shared';
 import { useCommand, useServerNow } from '../../lib/hooks.ts';
 import { useShake } from '../../lib/shake.ts';
 import { Button, Card } from '../../ui/basics.tsx';
@@ -120,7 +120,7 @@ function ShakingDie({ busy, level, value = 5 }: { busy: boolean; level: number; 
   );
 }
 
-/** Mutprobe mit Würfel: Liane (wie weit schwingen) oder Lavahöhle (Vulkan oder nicht). */
+/** Mutprobe mit Würfel: Liane (wie weit schwingen) oder Lavahöhle (Vulkan oder nicht) – Namen je Welt. */
 function ChallengeRollPanel({ state, challenge }: { state: GameState; challenge: Challenge }) {
   const { run, pending } = useCommand();
   const now = useServerNow(200);
@@ -128,6 +128,7 @@ function ChallengeRollPanel({ state, challenge }: { state: GameState; challenge:
   const vine = challenge.kind === 'vine';
   const sides = vine ? (state.config.rules.vine?.sides ?? 6) : 6;
   const need = state.config.rules.cave?.need ?? 3;
+  const w = worldWords(state.config.theme);
   const roll = () => {
     if (busy > 0 || pending) return;
     void run({ type: 'challenge.roll' });
@@ -136,27 +137,26 @@ function ChallengeRollPanel({ state, challenge }: { state: GameState; challenge:
   const rest = challenge.remaining > 0 ? `Danach lauft ihr noch ${challenge.remaining} ${challenge.remaining === 1 ? 'Feld' : 'Felder'} weiter.` : '';
   return (
     <Card className="flex flex-col items-center gap-4 overflow-hidden p-6 text-center">
-      <span className="text-6xl animate-float">{vine ? '🌿' : '🦇'}</span>
-      <p className="font-display text-3xl font-semibold">{vine ? 'Ab an die Liane!' : 'Mutprobe: Vulkan oder nicht?'}</p>
+      <span className="text-6xl animate-float">{vine ? w.vineIcon : w.caveIcon}</span>
+      <p className="font-display text-3xl font-semibold">{vine ? `Ab ${w.toVine}!` : `Mutprobe: ${w.cave}!`}</p>
       <p className="text-ink-2">
-        {vine
-          ? `Würfelt (W${sides}), wie weit ihr über den Bach schwingt. ${rest}`
-          : `Würfelt mindestens eine ${need}, sonst fallt ihr ins Innere des Vulkans! ${rest}`}
+        {vine ? `Würfelt (W${sides}), wie weit ihr über den ${w.creek} schwingt. ${rest}` : `Würfelt mindestens eine ${need}, sonst geht es ${w.toInside}! ${rest}`}
       </p>
       <ShakingDie busy={busy > 0} level={shake.level} value={sides >= 6 ? 6 : sides} />
       <Button variant="primary" size="xl" block loading={pending === 'challenge.roll'} disabled={busy > 0} onClick={roll} className="animate-pulse-ring">
-        {busy > 0 ? `Moment … ${Math.ceil(busy / 1000)}` : vine ? '🌿 Lianen-Wurf!' : '🎲 Mutprobe würfeln!'}
+        {busy > 0 ? `Moment … ${Math.ceil(busy / 1000)}` : vine ? `${w.vineIcon} ${w.vine}-Wurf!` : '🎲 Mutprobe würfeln!'}
       </Button>
       <ShakeHint shake={shake} />
     </Card>
   );
 }
 
-/** Mutprobe am Wasserfall: Fässer oder Kisten? */
+/** Mutprobe am Wasserfall: Fässer oder Kisten? (Namen je Welt) */
 function RiverPanel({ state, challenge }: { state: GameState; challenge: Challenge }) {
   const { run, pending } = useCommand();
   const now = useServerNow(200);
   const busy = state.phase.name === 'dice' ? Math.max(0, state.phase.dice.busyUntil - now) : 0;
+  const w = worldWords(state.config.theme);
   const choose = (choice: 'barrels' | 'crates') => {
     if (busy > 0 || pending) return;
     void run({ type: 'challenge.choose', choice });
@@ -164,16 +164,16 @@ function RiverPanel({ state, challenge }: { state: GameState; challenge: Challen
   return (
     <Card className="flex flex-col items-center gap-4 overflow-hidden p-6 text-center">
       <span className="text-6xl animate-float">🌊</span>
-      <p className="font-display text-3xl font-semibold">Fässer oder Kisten?</p>
+      <p className="font-display text-3xl font-semibold">{w.riverChoice}?</p>
       <p className="text-ink-2">
-        Eine Seite trägt euch, die andere bricht vielleicht ein – dann fallt ihr ins Wasser und der Rest eures Wurfs verfällt.
+        Eine Seite trägt euch, die andere bricht vielleicht ein – dann fallt ihr {state.config.theme === 'space' ? 'ins Plasma' : 'ins Wasser'} und der Rest eures Wurfs verfällt.
         {challenge.remaining > 0 && ` Sonst geht es danach noch ${challenge.remaining} ${challenge.remaining === 1 ? 'Feld' : 'Felder'} weiter.`}
       </p>
       <div className="grid w-full grid-cols-2 gap-3">
         {(
           [
-            ['barrels', '🛢️', 'Fässer', '#c27a3a'],
-            ['crates', '📦', 'Kisten', '#a8743f'],
+            ['barrels', w.barrelsIcon, w.barrels, state.config.theme === 'space' ? '#4f8fd8' : '#c27a3a'],
+            ['crates', w.cratesIcon, w.crates, '#a8743f'],
           ] as const
         ).map(([value, icon, label, color]) => (
           <button
@@ -294,13 +294,23 @@ function Waiting({ state, currentId }: { state: GameState; currentId: string | n
   const t = teamById(state, currentId);
   const ch = state.phase.name === 'dice' ? state.phase.dice.challenge : null;
   const at = ch && ch.teamId === currentId ? ch.kind : null;
+  const ww = worldWords(state.config.theme);
   return (
     <Card className="flex flex-col items-center gap-3 p-6 text-center">
       <span className="text-5xl animate-float">🎲</span>
       <p className="font-display text-2xl font-semibold">Würfelrunde</p>
       {t && (
         <p className="flex items-center gap-2 text-ink-2">
-          <TeamChip team={t} /> {at === 'vine' ? 'hängt an der Liane 🌿' : at === 'river' ? 'wählt Fässer oder Kisten 🛢️' : at === 'cave' ? 'macht die Mutprobe an der Lavahöhle 🦇' : t.inside ? 'ist im Vulkan 🌋' : 'ist dran'}
+          <TeamChip team={t} />{' '}
+          {at === 'vine'
+            ? `hängt ${ww.atVine} ${ww.vineIcon}`
+            : at === 'river'
+              ? `wählt ${ww.riverChoice} ${ww.barrelsIcon}`
+              : at === 'cave'
+                ? `macht die Mutprobe an der ${ww.cave} ${ww.caveIcon}`
+                : t.inside
+                  ? `ist ${ww.inInside} ${ww.insideIcon}`
+                  : 'ist dran'}
         </p>
       )}
     </Card>

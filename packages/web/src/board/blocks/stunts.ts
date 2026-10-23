@@ -191,9 +191,11 @@ export class BlockStunts extends Stunts {
       const f = this.layout.fields[i]!;
       const barrel = new THREE.Mesh(boxGeo(size, 1.7, size, { top: 'barrel_top', side: 'barrel_side' }), atlasMat());
       barrel.castShadow = barrel.receiveShadow = true;
-      barrel.position.set(f.x, top - 0.85, f.z);
+      barrel.position.set(0, top - 0.85, 0);
       barrel.rotation.y = (k % 2) * 0.2;
       const bHolder = new THREE.Group();
+      // Halter an der Stelle des Teils (Schaukeln dreht um das Teil, nicht um die Weltmitte)
+      bHolder.position.set(f.x, 0, f.z);
       bHolder.add(barrel);
       this.group.add(bHolder);
       this.lanes.barrels.push({ o: bHolder, top: new THREE.Vector3(f.x, top, f.z), ph: k * 1.7, hidden: 0, rise: 0 });
@@ -201,9 +203,10 @@ export class BlockStunts extends Stunts {
       const cz = f.z + up.z * gap;
       const crate = new THREE.Mesh(boxGeo(size * 1.05, 1.7, size * 1.05, 'crate'), atlasMat());
       crate.castShadow = crate.receiveShadow = true;
-      crate.position.set(cx, top - 0.85, cz);
+      crate.position.set(0, top - 0.85, 0);
       crate.rotation.y = Math.atan2(flow.x, flow.z);
       const cHolder = new THREE.Group();
+      cHolder.position.set(cx, 0, cz);
       cHolder.add(crate);
       this.group.add(cHolder);
       this.lanes.crates.push({ o: cHolder, top: new THREE.Vector3(cx, top + 0.02, cz), ph: k * 2.3 + 1, hidden: 0, rise: 0 });

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { GAME_SECTIONS, searchSettings, SETTINGS, settingPlace, settingTitle, SUGGESTED, settingById } from './settingsIndex.ts';
 
-const first = (q: string, theme: 'island' | 'blocks' = 'island', admin = true) => searchSettings(q, theme, admin)[0]?.id;
+const first = (q: string, theme: 'island' | 'blocks' | 'space' = 'island', admin = true) => searchSettings(q, theme, admin)[0]?.id;
 
 describe('Suche', () => {
   it('findet Begriffe beider Welten', () => {
@@ -16,6 +16,9 @@ describe('Suche', () => {
     expect(first('liane', 'blocks')).toBe('g.vine');
     expect(first('minecraft')).toBe('g.world');
     expect(first('creeper')).toBe('g.catapultBackward');
+    expect(first('greifhaken')).toBe('g.vine');
+    expect(first('weltall')).toBe('g.world');
+    expect(first('schwarzes loch', 'space')).toBe('g.catapultBackward');
   });
   it('ist unempfindlich für Umlaute und Groß-/Kleinschreibung', () => {
     expect(first('Lautstaerke')).toBe('b.master');
@@ -36,7 +39,9 @@ describe('Suche', () => {
     const vine = settingById('g.vine')!;
     expect(settingTitle(vine, 'island')).toBe('Liane');
     expect(settingTitle(vine, 'blocks')).toBe('Ranke');
+    expect(settingTitle(vine, 'space')).toBe('Greifhaken');
     expect(settingPlace(settingById('g.inside')!, 'blocks')).toBe('Spiel einrichten › Vulkan & Nether');
+    expect(settingPlace(settingById('g.inside')!, 'space')).toBe('Spiel einrichten › Alien-Vulkan');
   });
 });
 

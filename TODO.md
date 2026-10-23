@@ -36,7 +36,21 @@
 - [x] **Fragen in der Blockwelt lesbar** (Chakra Petch für Fragen/Antworten/Zahlen, Pixelschrift nur für Überschriften).
 - [x] **Tiere**: kein Auftauchen/Verschwinden/Springen im Bild; Schleime und alle anderen Tiere laufen bzw. hüpfen sauber (beide Welten).
 
+- [x] **Neues Spiel erstellen**: ein Knopf, verschwindet (und der Server lehnt ab), solange das eigene Spiel läuft; eigene Vorlagen im Assistenten auf der ersten Folie.
+- [x] **Assistent immer geführt**: Schritt „Nach Spieldauer / Manuell“ entfällt, Spieldauer lässt sich überspringen; Hinweis auf den Algorithmus.
+- [x] **Weltall vertont**: 27 Kommentator-Sprüche (`sw_*`) und 13 Sätze der Spielerklärung (3.401 Credits).
+- [x] **Begriffe je Welt** zentral (`shared/worldWords.ts`): Verlauf, Handy, Regie und Beamer sagen Liane/Ranke/Greifhaken, Fässer/Kapseln usw.
+- [x] **Spieldauer-Schätzung weniger pessimistisch** (PLAN_TEMPO 0,3, Rundendauer 2,3 Min. Grundwert): 50 Min./4 Teams → 46 statt 38 Felder.
+
 ## Offen
+
+### Weitere Welten (Plan vom 2026-10-23, je mit Figuren, Handy-/Beamer-Look, Musik und eigenen Sprüchen)
+- [x] **🚀 Weltall / Alien-Planet** – fertig (2026-10-23): Planet, Himmel, Mondbasis, Raketenrampe, Alien-Vulkan mit Meteoriten, Alien-Höhle, Astronauten, Energiekäfig, Jetpack/Schwarzes Loch/Teleporter/Wurmloch, Greifhaken, Kapseln oder Kisten, Kristallhöhle, Bewohner, Wetter/Feste, Oberfläche, Musik (8 × CC0), Sprüche und Erklärung vertont.
+- [ ] **🏰 Ritterburg & Drache** – Burgberg mit Drachenhorst; der Drache speit Feuer statt Ausbruch, Drachenhöhle als Inneres, Seil über den Burggraben, Zugbrücke/Flöße, echtes Katapult, Pranger als Sperre.
+- [ ] **🦖 Urzeit / Dino-Insel** – Insel weitgehend wiederverwenden; Flugsaurier (vor), T-Rex (zurück), Triceratops (Sperre), Baumstämme statt Fässer, Höhle mit Skeletten.
+- [ ] **🌊 Unterwasser / Atlantis** – Unterwasservulkan mit Blasen-Ausbruch, Tiefseegraben als Inneres, Strömung statt Liane, Muscheln statt Fässer, Qualle als Sperre.
+- [ ] **🎢 Freizeitpark / Kirmes** – Freefall-Turm, Feuerwerk als Ausbruch, Geisterbahn als Inneres, Seilrutsche, Autoscooter, Kanonenkugel.
+- [ ] Kleinere Ideen: Tag/Nacht als Einstellung, Figuren-Kostüme je Welt/Festzeit, Siegerehrung je Welt.
 
 
 - [ ] Auf einem echten iPhone (Safari) gegenprüfen – getestet wurde in der Browser-Emulation bei 375 und 390 px.

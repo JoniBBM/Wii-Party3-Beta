@@ -10,6 +10,8 @@ import {
   type FieldGameMode,
   type GameState,
   type RollRecord,
+  type WorldWords,
+  worldWords,
 } from '@insel/shared';
 import { useCommand, useServerNow } from '../lib/hooks.ts';
 import { useLibrary } from '../lib/library.ts';
@@ -26,11 +28,12 @@ export function DiceControl({ state, dice }: { state: GameState; dice: DiceRound
   return <RollControl state={state} dice={dice} />;
 }
 
-const CHALLENGE_INFO = {
-  vine: { icon: '🌿', title: 'Liane', tone: 'good' },
-  river: { icon: '🛢️', title: 'Fässer oder Kisten', tone: 'accent' },
-  cave: { icon: '🦇', title: 'Mutprobe Lavahöhle', tone: 'bad' },
-} as const;
+/** Mutproben mit den Namen der Welt des Spiels */
+const challengeInfo = (w: WorldWords) => ({
+  vine: { icon: w.vineIcon, title: w.vine },
+  river: { icon: w.barrelsIcon, title: w.riverChoice },
+  cave: { icon: w.caveIcon, title: `Mutprobe ${w.cave}` },
+});
 
 /** Team steht an einer Mutprobe: abwarten, für das Team würfeln/wählen oder Ergebnis eintragen. */
 function ChallengeControl({ state, dice }: { state: GameState; dice: DiceRound }) {
@@ -39,16 +42,17 @@ function ChallengeControl({ state, dice }: { state: GameState; dice: DiceRound }
   const presence = useLive((s) => s.presence);
   const c = dice.challenge!;
   const team = teamById(state, c.teamId);
-  const info = CHALLENGE_INFO[c.kind];
+  const w = worldWords(state.config.theme);
+  const info = challengeInfo(w)[c.kind];
   const sides = c.kind === 'vine' ? (state.config.rules.vine?.sides ?? 6) : 6;
   const busyMs = Math.max(0, dice.busyUntil - now);
   const rest = c.remaining > 0 ? ` Danach noch ${c.remaining} ${c.remaining === 1 ? 'Feld' : 'Felder'}.` : '';
   const what =
     c.kind === 'vine'
-      ? `hält an der Liane und würfelt, wie weit es schwingt (W${sides}).${rest}`
+      ? `hält ${w.atVine} und würfelt, wie weit es schwingt (W${sides}).${rest}`
       : c.kind === 'cave'
-        ? `muss mindestens eine ${state.config.rules.cave.need} würfeln – sonst geht es ins Vulkan-Innere.${rest}`
-        : `wählt Fässer oder Kisten.${rest}`;
+        ? `muss mindestens eine ${state.config.rules.cave.need} würfeln – sonst geht es ${w.toInside}.${rest}`
+        : `wählt ${w.riverChoice}.${rest}`;
   return (
     <div className="flex flex-col gap-4 rounded-3xl border-2 border-accent/40 bg-accent-soft/30 p-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -66,10 +70,10 @@ function ChallengeControl({ state, dice }: { state: GameState; dice: DiceRound }
       {c.kind === 'river' ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" loading={pending === 'challenge.choose'} disabled={busyMs > 0} onClick={() => run({ type: 'challenge.choose', choice: 'barrels' })}>
-            🛢️ Fässer
+            {w.barrelsIcon} {w.barrels}
           </Button>
           <Button variant="primary" loading={pending === 'challenge.choose'} disabled={busyMs > 0} onClick={() => run({ type: 'challenge.choose', choice: 'crates' })}>
-            📦 Kisten
+            {w.cratesIcon} {w.crates}
           </Button>
           <span className="text-sm font-semibold text-muted">oder Ergebnis vorgeben:</span>
           <Button size="sm" variant="good" onClick={() => run({ type: 'challenge.choose', choice: 'barrels', result: 'safe', force: true })}>

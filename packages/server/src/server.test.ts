@@ -44,6 +44,13 @@ async function api<T = Record<string, unknown>>(path: string, opts: { method?: s
   return { status: res.status, data };
 }
 
+/** Neues Spiel anlegen – ein laufendes eigenes Spiel vorher schließen (sonst lehnt der Server ab) */
+async function freshGame(token: string, body: Record<string, unknown>) {
+  const cur = (await api<{ currentGameId: string | null }>('/api/games', { token })).data.currentGameId;
+  if (cur) await api(`/api/games/${cur}/close`, { token, body: {} });
+  return api<{ id: string; code: string }>('/api/games', { token, body });
+}
+
 function client(token: string | null, view = 'guest', code?: string): Promise<Client> {
   return new Promise((resolve) => {
     let state: GameState | null = null;
@@ -182,6 +189,8 @@ describe('Server', () => {
     // Teams dürfen nicht steuern
     expect((await anna.cmd({ type: 'game.start' })).error).toMatch(/Berechtigung/);
     expect((await regie.cmd({ type: 'game.start' })).ok).toBe(true);
+    // Solange das eigene Spiel läuft, gibt es kein neues
+    expect((await api('/api/games', { token: admin, body: { name: 'Zweites' } })).status).toBe(409);
 
     // Auswahlfrage
     const items = (await api<{ items: { id: string; kind: string; title: string }[] }>('/api/library/items', { token: admin })).data.items;
@@ -258,7 +267,7 @@ describe('Server', () => {
   it('schließt die im Review gefundenen Lücken', async () => {
     const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
     const { data: tpl } = await api<{ templates: { id: string; name: string }[] }>('/api/templates', { token: admin });
-    const { code } = (await api<{ code: string }>('/api/games', { token: admin, body: { name: 'Review', templateId: tpl.templates[0]!.id } })).data;
+    const { code } = (await freshGame(admin, { name: 'Review', templateId: tpl.templates[0]!.id })).data;
     const regie = await client(admin);
     const a = (await api<{ token: string }>('/api/auth/register', { body: { name: 'Ada', code } })).data.token;
     const b = await api<{ token: string; playerId: string }>('/api/auth/register', { body: { name: 'Bob', code } });
@@ -293,7 +302,7 @@ describe('Server', () => {
   it('Neue PIN macht auch gebundene Spieler-Tokens (become-player) ungültig', async () => {
     const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
     const { data: tpl } = await api<{ templates: { id: string }[] }>('/api/templates', { token: admin });
-    const { code } = (await api<{ code: string }>('/api/games', { token: admin, body: { name: 'Bindung', templateId: tpl.templates[0]!.id } })).data;
+    const { code } = (await freshGame(admin, { name: 'Bindung', templateId: tpl.templates[0]!.id })).data;
     const regie = await client(admin);
     const p = await api<{ playerId: string }>('/api/auth/register', { body: { name: 'Cara', code } });
     await api('/api/auth/register', { body: { name: 'Dani', code } });
@@ -311,7 +320,7 @@ describe('Server', () => {
 
   it('Spiel-Tempo: Moderator stellt es ein, Teams und Beamer merken nichts', async () => {
     const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
-    const { code } = (await api<{ code: string }>('/api/games', { token: admin, body: { name: 'Tempo' } })).data;
+    const { code } = (await freshGame(admin, { name: 'Tempo' })).data;
     const regie = await client(admin);
     const p = await api<{ token: string }>('/api/auth/register', { body: { name: 'Tim', code } });
     await api('/api/auth/register', { body: { name: 'Tara', code } });
@@ -334,7 +343,7 @@ describe('Server', () => {
 
   it('Einrichtungs-Assistent: übernimmt alles in einem Schritt, „Rückgängig“ holt die alte Einrichtung komplett zurück', async () => {
     const admin = (await api<{ token: string }>('/api/auth/admin', { body: { password: 'test-passwort' } })).data.token;
-    await api('/api/games', { token: admin, body: { name: 'Assistent' } });
+    await freshGame(admin, { name: 'Assistent' });
     const regie = await client(admin);
     const before = (await regie.waitFor((s) => s.config.name === 'Assistent')).config;
     const config = {

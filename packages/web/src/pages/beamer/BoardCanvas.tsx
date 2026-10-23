@@ -16,7 +16,7 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
   const stateRef = useRef(state);
   stateRef.current = state;
   const fieldCount = state?.config.board.fields.length ?? 73;
-  // ?world=blocks zum Ausprobieren ohne eingerichtetes Spiel
+  // ?world=blocks bzw. ?world=space zum Ausprobieren ohne eingerichtetes Spiel
   const theme = (new URLSearchParams(window.location.search).get('world') as Theme | null) ?? state?.config.theme ?? 'island';
   const [progress, setProgress] = useState<{ p: number; label: string } | null>({ p: 0, label: 'Lade Welt …' });
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
     let alive = true;
     let scene: BoardScene | null = null;
     let offCaption: (() => void) | undefined;
-    setProgress({ p: 0, label: theme === 'blocks' ? 'Lade Blockwelt …' : 'Lade Insel …' });
+    setProgress({ p: 0, label: theme === 'blocks' ? 'Lade Blockwelt …' : theme === 'space' ? 'Lade Weltall …' : 'Lade Insel …' });
     setError(null);
     // Anfangsstufe; danach schaltet useShowControl live um (ohne Neuaufbau)
     const q = useLive.getState().show.settings.quality;
@@ -72,12 +72,19 @@ export function BoardCanvas({ state, onCaption, onReady }: { state: GameState | 
         {(progress || error) && (
           <motion.div
             className="absolute inset-0 z-40 grid place-items-center"
-            style={{ background: theme === 'blocks' ? 'linear-gradient(180deg, #6b98ff 0%, #bcd4ff 60%, #5e9b35 100%)' : 'linear-gradient(180deg, #8fd8ff 0%, #c9efff 60%, #3fb4d6 100%)' }}
+            style={{
+              background:
+                theme === 'blocks'
+                  ? 'linear-gradient(180deg, #6b98ff 0%, #bcd4ff 60%, #5e9b35 100%)'
+                  : theme === 'space'
+                    ? 'linear-gradient(180deg, #120a2e 0%, #3b1f6e 55%, #1d6f78 100%)'
+                    : 'linear-gradient(180deg, #8fd8ff 0%, #c9efff 60%, #3fb4d6 100%)',
+            }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
           >
             <div className="flex flex-col items-center gap-4 text-center">
-              <span className="text-7xl animate-float">{theme === 'blocks' ? '⛏️' : '🏝️'}</span>
+              <span className="text-7xl animate-float">{theme === 'blocks' ? '⛏️' : theme === 'space' ? '🚀' : '🏝️'}</span>
               {error ? (
                 <p className="max-w-md font-display text-xl font-semibold text-bad">{error}</p>
               ) : (

@@ -27,11 +27,23 @@ describe('Musik je Welt', () => {
     for (const m of MUSIC_MOODS) {
       const island = musicTracksFor(m, 'island');
       expect(island.length).toBeGreaterThan(0);
-      expect(island.some((id) => id.startsWith('block-'))).toBe(false);
+      expect(island.some((id) => id.startsWith('block-') || id.startsWith('space-'))).toBe(false);
     }
     expect(musicTracksFor('insel', 'blocks')).toEqual(['block-overworld-1', 'block-overworld-2', 'block-overworld-3']);
     expect(musicTracksFor('vulkan', 'blocks')).toEqual(['block-nether-1', 'block-nether-2']);
     expect(musicTracksFor('lobby', 'blocks')).toEqual(['block-lobby']);
+  });
+
+  it('das Weltall hat für jede Stimmung eigene Stücke', () => {
+    for (const m of MUSIC_MOODS) {
+      const space = musicTracksFor(m, 'space');
+      expect(space.length).toBeGreaterThan(0);
+      expect(space.every((id) => id.startsWith('space-'))).toBe(true);
+    }
+    expect(musicTracksFor('insel', 'space')).toEqual(['space-planet-1', 'space-planet-2', 'space-planet-3']);
+    expect(musicTracksFor('vulkan', 'space')).toEqual(['space-hoehle-1', 'space-hoehle-2']);
+    expect(musicTracksFor('finale', 'space')).toEqual(['space-finale']);
+    expect(musicUrl('space-lobby')).toBe('/assets/audio/music/space-lobby.m4a');
   });
 
   it('fehlt der Blockwelt eine Stimmung, kommen die Inselstücke', () => {
@@ -44,6 +56,7 @@ describe('Musik je Welt', () => {
     const ids = MUSIC_TRACKS.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const t of MUSIC_TRACKS) expect(t.id.startsWith('block-')).toBe(musicWorld(t) === 'blocks');
+    for (const t of MUSIC_TRACKS) expect(t.id.startsWith('space-')).toBe(musicWorld(t) === 'space');
   });
 
   it('feste Wahl eines Blockwelt-Stücks ist gültig, alte Werte bleiben lesbar', () => {

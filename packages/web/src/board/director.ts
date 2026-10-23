@@ -3,7 +3,7 @@
  * (Würfel → Laufen → Sonderfeld → …), führt die Kamera und liefert Einblendungen fürs HUD.
  */
 import * as THREE from 'three';
-import { FIELD_INFO, standings, teamById, teamColor, TEAM_COLORS, type Effect, type GameState, type Mood } from '@insel/shared';
+import { FIELD_INFO, standings, teamById, teamColor, TEAM_COLORS, worldWords, type Effect, type GameState, type Mood } from '@insel/shared';
 import type { VoiceCategory } from './voice-lines.ts';
 import type { BoardScene } from './scene.ts';
 import { setSpotlightHold } from '../lib/spotlight.ts';
@@ -338,13 +338,15 @@ export class Director {
       await this.viewFor('teamId' in e && typeof e.teamId === 'string' ? e.teamId : null);
       if (stale()) return;
     }
+    // Namen der Mutproben und Sonderfelder in der Welt dieses Spiels (Liane/Ranke/Greifhaken …)
+    const w = worldWords(s.theme);
     switch (e.type) {
       case 'vine': {
         const { name, color } = this.teamCaption(e.teamId);
         const rest = e.remaining ? ` – danach noch ${e.remaining} ${e.remaining === 1 ? 'Feld' : 'Felder'}` : '';
         if (e.stage === 'grab') {
           s.rig.set({ kind: 'focus', ...s.stunts.vineShot() }, 2);
-          this.say({ icon: '🌿', title: `Halt – hier geht’s nur mit der ${this.s.theme === 'blocks' ? 'Ranke' : 'Liane'}!`, sub: `${name} würfelt gleich, wie weit es über den Bach schwingt${rest}`, tone: 'team', color }, 3600);
+          this.say({ icon: w.vineIcon, title: `Halt – hier geht’s nur ${w.atVine} weiter!`, sub: `${name} würfelt gleich, wie weit es über den ${w.creek} schwingt${rest}`, tone: 'team', color }, 3600);
           A.play('liane');
           this.voice('vine');
           await s.stunts.vineGrab(e.teamId);
@@ -356,7 +358,7 @@ export class Director {
           await (e.sides === 6 ? s.dice.roll(e.roll, 0, 0) : s.dice.roll(0, e.roll, e.sides));
           if (stale()) return;
           A.play('pop', { volume: 0.7 });
-          this.say({ icon: '🌿', title: `${name} schwingt ${e.roll} ${e.roll === 1 ? 'Feld' : 'Felder'} weit!`, sub: e.remaining ? `und läuft dann noch ${e.remaining} weiter` : undefined, tone: 'good', color }, 2600);
+          this.say({ icon: w.vineIcon, title: `${name} schwingt ${e.roll} ${e.roll === 1 ? 'Feld' : 'Felder'} weit!`, sub: e.remaining ? `und läuft dann noch ${e.remaining} weiter` : undefined, tone: 'good', color }, 2600);
           this.voice('swing', { delay: 600 });
           void s.dice.hide(0.6);
           await s.tweens.wait(300);
@@ -369,7 +371,7 @@ export class Director {
         // von der Seeseite: Bergflanke mit der Höhle hinter der Figur statt neben der Kamera
         s.rig.set({ kind: 'focus', ...s.rig.fieldShot(e.position, 8.5, 5, true) }, 2.2);
         if (e.stage === 'stop') {
-          this.say({ icon: '🦇', title: 'Mutprobe an der Lavahöhle!', sub: `${name} braucht mindestens eine ${e.need} – sonst geht’s ${this.s.theme === 'blocks' ? 'in den Nether' : 'ins Vulkan-Innere'}`, tone: 'team', color }, 3600);
+          this.say({ icon: w.caveIcon, title: `Mutprobe an der ${w.cave}!`, sub: `${name} braucht mindestens eine ${e.need} – sonst geht’s ${w.toInside}`, tone: 'team', color }, 3600);
           A.play('hoehle', { volume: 0.7 });
           A.play('rumble', { volume: 0.4 });
           s.pieces.setMode(e.teamId, 'shock');
@@ -393,7 +395,7 @@ export class Director {
           s.pieces.setMode(e.teamId, 'idle');
           return;
         }
-        this.say({ icon: '🦇', title: `Nur eine ${e.roll}!`, sub: `${name} fällt in die Lavahöhle …`, tone: 'bad', color }, 3000);
+        this.say({ icon: w.caveIcon, title: `Nur eine ${e.roll}!`, sub: `${name} fällt in die ${w.cave} …`, tone: 'bad', color }, 3000);
         A.play('hoehle');
         this.voice('cave', { delay: 400 });
         await s.stunts.caveFall(e.teamId);
@@ -405,7 +407,7 @@ export class Director {
         if (e.stage === 'choose') {
           s.rig.set({ kind: 'focus', ...s.stunts.riverShot() }, 2);
           const rest = e.remaining ? ` – danach noch ${e.remaining} ${e.remaining === 1 ? 'Feld' : 'Felder'}` : '';
-          this.say({ icon: '🛢️', title: 'Fässer oder Kisten?', sub: `${name} muss wählen – eine Seite bricht ein${rest}`, tone: 'team', color }, 3800);
+          this.say({ icon: w.barrelsIcon, title: `${w.riverChoice}?`, sub: `${name} muss wählen – eine Seite bricht ein${rest}`, tone: 'team', color }, 3800);
           A.creak();
           this.voice('riverChoose', { delay: 500 });
           void s.stunts.riverPonder(e.teamId);
@@ -413,9 +415,9 @@ export class Director {
           if (stale()) return;
           return;
         }
-        const what = e.choice === 'crates' ? 'Kisten' : 'Fässer';
+        const what = e.choice === 'crates' ? w.crates : w.barrels;
         s.rig.set({ kind: 'focus', ...s.stunts.riverShot() }, 2);
-        this.say({ icon: e.choice === 'crates' ? '📦' : '🛢️', title: `${name} nimmt die ${what}!`, tone: 'team', color }, 2000);
+        this.say({ icon: e.choice === 'crates' ? w.cratesIcon : w.barrelsIcon, title: `${name} nimmt die ${what}!`, tone: 'team', color }, 2000);
         // die Bewegung über den Fluss folgt als eigener Effekt
         this.riverPick = { choice: e.choice ?? 'barrels', result: e.result ?? 'safe' };
         return;
@@ -472,12 +474,12 @@ export class Director {
           });
           if (stale()) return;
           s.rig.set({ kind: 'focus', ...ins.plateShot(0) }, 1.3);
-          this.say(this.s.theme === 'blocks' ? { icon: '🔥', title: 'Ab in den Nether!', sub: `${name} muss über die Netherziegel zum Portal`, tone: 'bad', color } : { icon: '🌋', title: 'Ab ins Vulkan-Innere!', sub: `${name} muss über die Lava-Inseln zum Ausgang`, tone: 'bad', color }, 3600);
+          this.say({ icon: w.insideIcon, title: `Ab ${w.toInside}!`, sub: `${name} muss über ${w.insidePath} ${w.insideGoal}`, tone: 'bad', color }, 3600);
           this.voice('insideEnter', { delay: 300 });
           A.play('whoosh-down');
           await s.pieces.insideDrop(e.teamId, ins.dropPoint);
           if (stale()) return;
-          A.play('lavaplatsch');
+          A.play(s.theme === 'space' ? 'blase' : 'lavaplatsch');
           ins.lavaBurst(s.pieces.worldPos(e.teamId) ?? ins.dropPoint);
           s.rig.shake(0.2, 0.5);
           await s.tweens.wait(900);
@@ -506,7 +508,7 @@ export class Director {
         this.say(
           e.shout
             ? { icon: '✨', title: 'Volltreffer aufs Ausgangsfeld!', sub: `${name} darf sofort raus`, tone: 'gold', color }
-            : { icon: '🌀', title: 'Geschafft!', sub: `${name} verlässt den Vulkan`, tone: 'good', color },
+            : { icon: '🌀', title: 'Geschafft!', sub: `${name} ${w.leaveInside}`, tone: 'good', color },
           3000,
         );
         this.voice(e.shout ? 'insideShout' : 'insideExit', { delay: 200 });
@@ -595,7 +597,7 @@ export class Director {
           } else {
             const t = this.team(e.teamId);
             // Blockwelt: Knaller statt Flugzeug (eigene Geräusche im Auftritt, eigene Sprüche)
-            if (s.theme !== 'blocks') A.play('flugzeug', { volume: 0.8 });
+            if (s.theme === 'island') A.play('flugzeug', { volume: 0.8 });
             this.voice('plane', { delay: 900 });
             await s.stunts.plane(e.teamId, e.to, teamColor(t?.color ?? 'red').hex);
             if (stale()) return;
@@ -611,7 +613,7 @@ export class Director {
           if (pick.result === 'fall') {
             window.setTimeout(() => {
               if (stale()) return;
-              this.say({ icon: '💦', title: 'Krach – Platsch!', sub: `${name} schwimmt rüber, der restliche Wurf ist futsch`, tone: 'bad', color }, 3200);
+              this.say({ icon: '💦', title: w.splash, sub: `${name} ${w.swims}, der restliche Wurf ist futsch`, tone: 'bad', color }, 3200);
               this.voice('riverFall');
             }, 900);
           } else {
@@ -650,7 +652,7 @@ export class Director {
         return;
       }
       case 'field': {
-        const info = FIELD_INFO[e.field];
+        const info = { ...FIELD_INFO[e.field], ...w.fields[e.field] };
         const { name, color } = this.teamCaption(e.teamId);
         const spot = s.layout.fields[e.position]!;
         const y = s.fields.topY[e.position]!;
@@ -696,7 +698,7 @@ export class Director {
       case 'swap': {
         const a = this.teamCaption(e.a);
         const b = this.teamCaption(e.b);
-        this.say({ icon: '🔄', title: 'Platztausch!', sub: `${a.name} ⇄ ${b.name}`, tone: 'info' }, 3200);
+        this.say({ icon: w.fields.swap?.icon ?? '🔄', title: `${w.fields.swap?.label ?? 'Platztausch'}!`, sub: `${a.name} ⇄ ${b.name}`, tone: 'info' }, 3200);
         this.voice('ufo', { delay: 800 });
         // Kamera begleitet das UFO
         const pa = s.pieces.worldPos(e.a) ?? new THREE.Vector3();
@@ -722,7 +724,7 @@ export class Director {
         } else if (e.result === 'stuck') {
           s.pieces.setMode(e.teamId, 'stuck');
           A.play('wrong', { volume: 0.7 });
-          this.say({ icon: '🚧', title: `${name} sitzt fest`, sub: `Gewürfelt: ${e.roll}`, tone: 'bad', color }, 2400);
+          this.say({ icon: w.fields.barrier?.icon ?? '🚧', title: `${name} sitzt fest`, sub: `Gewürfelt: ${e.roll}`, tone: 'bad', color }, 2400);
         } else {
           void s.pieces.setCage(e.teamId, false);
           s.pieces.setMode(e.teamId, 'cheer');
@@ -798,7 +800,7 @@ export class Director {
         s.pieces.setMode(e.teamId, 'cheer');
         A.play('jingle-win');
         this.voice('victory', { force: true });
-        this.say({ icon: '🏆', title: `${name} gewinnt!`, sub: this.s.theme === 'blocks' ? 'Herrscher der Blockwelt!' : 'Herrscher der Insel!', tone: 'gold', color }, 9000);
+        this.say({ icon: '🏆', title: `${name} gewinnt!`, sub: w.ruler, tone: 'gold', color }, 9000);
         const p = s.pieces.worldPos(e.teamId) ?? new THREE.Vector3();
         s.effects.confettiBurst(p.x, p.y + 1.5, p.z, TEAM_COLORS.map((c) => c.hex), 260);
         s.pieces.setAllModes('clap', e.teamId);

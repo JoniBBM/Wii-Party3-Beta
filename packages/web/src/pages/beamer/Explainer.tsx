@@ -13,7 +13,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import * as THREE from 'three';
 import { DEFAULT_FIGURE, DEFAULT_RULES, FIELD_INFO, THEME_INFO, islandLandmarks, type ExplainerState, type FieldType, type GameState } from '@insel/shared';
 import type { BoardScene } from '../../board/scene.ts';
-import { BLOCK_EXPLAINER_LINES, EXPLAINER_LINES, stripTags, voiceUrl, type ExplainerLineId } from '../../board/voice-lines.ts';
+import { BLOCK_EXPLAINER_LINES, EXPLAINER_LINES, SPACE_EXPLAINER_LINES, stripTags, voiceUrl, type ExplainerLineId } from '../../board/voice-lines.ts';
 import { beamerReport } from '../../lib/live.ts';
 import { boardAudio } from './BoardCanvas.tsx';
 
@@ -362,12 +362,13 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   const kbMax = Math.max(vr.knockback.min, vr.knockback.max);
   const kbText = kbMin === kbMax ? `${kbMax}` : `${kbMin}–${kbMax}`;
   const blocks = s.theme === 'blocks';
+  const space = s.theme === 'space';
 
   // Sprachdateien vorab laden (Dauer für den Fall ohne Ton)
-  /** Blockwelt: eigene Aufnahme, wo es eine gibt (bw_<id>), sonst die Insel-Aufnahme */
+  /** Blockwelt/Weltall: eigene Aufnahme, wo es eine gibt (bw_<id> bzw. sw_<id>), sonst die Insel-Aufnahme */
   const lineOf = (id: ExplainerLineId) => {
-    const own = blocks ? BLOCK_EXPLAINER_LINES[id] : undefined;
-    return { text: own ?? EXPLAINER_LINES.find(([k]) => k === id)?.[1] ?? '', url: voiceUrl(own ? `bw_${id}` : id) };
+    const own = blocks ? BLOCK_EXPLAINER_LINES[id] : space ? SPACE_EXPLAINER_LINES[id] : undefined;
+    return { text: own ?? EXPLAINER_LINES.find(([k]) => k === id)?.[1] ?? '', url: voiceUrl(own ? `${blocks ? 'bw' : 'sw'}_${id}` : id) };
   };
   await Promise.all(EXPLAINER_LINES.map(([id]) => boardAudio.prepare(lineOf(id).url)));
   run.check();
@@ -534,8 +535,8 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   await beat('ex_devices');
 
   // 3) Teams und Figuren – zwei Vorführ-Figuren am Start
-  s.pieces.addDemo(DEMO_A, { ...DEFAULT_FIGURE, hairStyle: 'spiky' }, 'blue', blocks ? 'Die Diamanten' : 'Die Papageien', 1);
-  s.pieces.addDemo(DEMO_B, { ...DEFAULT_FIGURE, hairStyle: 'long', hairColor: 3 }, 'orange', blocks ? 'Die Schleime' : 'Die Kokosnüsse', 1);
+  s.pieces.addDemo(DEMO_A, { ...DEFAULT_FIGURE, hairStyle: 'spiky' }, 'blue', blocks ? 'Die Diamanten' : space ? 'Die Kometen' : 'Die Papageien', 1);
+  s.pieces.addDemo(DEMO_B, { ...DEFAULT_FIGURE, hairStyle: 'long', hairColor: 3 }, 'orange', blocks ? 'Die Schleime' : space ? 'Die Marsmännchen' : 'Die Kokosnüsse', 1);
   await go(rig.portraitShot(s.pieces.worldPos(DEMO_A) ?? new THREE.Vector3(), 6), 1.4);
   next({
     icon: '👥',
@@ -611,7 +612,14 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
           { icon: '🔮', text: 'Teleport-Perle', color: FIELD_INFO.swap.color },
           { icon: '🕸️', text: 'Spinnennetz', color: FIELD_INFO.barrier.color },
         ]
-      : (['catapult_forward', 'catapult_backward', 'swap', 'barrier'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: FIELD_INFO[t].short, color: FIELD_INFO[t].color })),
+      : space
+        ? [
+            { icon: '🚀', text: 'Jetpack', color: FIELD_INFO.catapult_forward.color },
+            { icon: '🕳️', text: 'Schwarzes Loch', color: FIELD_INFO.catapult_backward.color },
+            { icon: '🌀', text: 'Teleporter', color: FIELD_INFO.swap.color },
+            { icon: '⚡', text: 'Energiekäfig', color: FIELD_INFO.barrier.color },
+          ]
+        : (['catapult_forward', 'catapult_backward', 'swap', 'barrier'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: FIELD_INFO[t].short, color: FIELD_INFO[t].color })),
   });
   // „Unterwegs warten Sonderfelder. Die Sprungfeder …“
   place(DEMO_A, Math.max(1, springField - 1));
@@ -631,7 +639,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   place(DEMO_B, planeField);
   await goFollow(DEMO_B, 14, 9);
   await beat('ex_plane', async () => {
-    if (!blocks) boardAudio.play('flugzeug', { volume: 0.7 });
+    if (!blocks && !space) boardAudio.play('flugzeug', { volume: 0.7 });
     await s.stunts.plane(DEMO_B, Math.max(1, planeField - 5), '#f5a623');
   });
   // „Das UFO tauscht euren Platz …“
@@ -713,11 +721,15 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
 
   // 10) Mutproben: Liane, Fässer oder Kisten, Lavahöhle, Totenkopf + Vulkan-Inneres, Krater
   //     (Blockwelt: Ranke, Boden bricht weg, Nether)
-  const blockLabel: Partial<Record<FieldType, string>> = { vine: 'Ranke', skull: 'Boden bricht weg' };
+  const worldLabel: Partial<Record<FieldType, string>> = blocks
+    ? { vine: 'Ranke', skull: 'Boden bricht weg' }
+    : space
+      ? { vine: 'Greifhaken', river: 'Kisten oder Kapseln', cave: 'Kristallhöhle', skull: 'Wurmloch' }
+      : {};
   next({
     icon: '💪',
     title: 'Mutproben',
-    items: (['vine', 'river', 'cave', 'skull', 'crater'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: (blocks && blockLabel[t]) || FIELD_INFO[t].label, color: FIELD_INFO[t].color })),
+    items: (['vine', 'river', 'cave', 'skull', 'crater'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: worldLabel[t] ?? FIELD_INFO[t].label, color: FIELD_INFO[t].color })),
   });
   place(DEMO_A, vineField);
   await go(s.stunts.vineShot(), 1.4);
@@ -746,7 +758,11 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   place(DEMO_A, caveField);
   // von der Seeseite: die Bergflanke mit der Höhle liegt hinter der Figur, nicht neben der Kamera
   await go(rig.fieldShot(caveField, 8.5, 5, true), 1.4);
-  show({ icon: '🦇', title: 'Lavahöhle', items: [{ icon: '🎲', text: `mind. ${caveNeed} würfeln` }, blocks ? { icon: '🔥', text: 'sonst: ab in den Nether' } : { icon: '🌋', text: 'sonst: ab ins Innere' }] });
+  show({
+    icon: space ? '💎' : '🦇',
+    title: space ? 'Kristallhöhle' : 'Lavahöhle',
+    items: [{ icon: '🎲', text: `mind. ${caveNeed} würfeln` }, blocks ? { icon: '🔥', text: 'sonst: ab in den Nether' } : space ? { icon: '👽', text: 'sonst: ab in die Alien-Höhle' } : { icon: '🌋', text: 'sonst: ab ins Innere' }],
+  });
   await beat('ex_cave', async () => {
     s.pieces.setMode(DEMO_A, 'shock');
     await run.wait(2600);
@@ -764,7 +780,9 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   show(
     blocks
       ? { icon: '🔥', title: 'Nether', items: [{ icon: '💀', text: 'Boden bricht weg' }, { icon: '🧱', text: 'Strafweg über Netherziegel' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: ab durchs Portal` }] : [{ icon: '🌀', text: 'bis zum Portal laufen' }]), { icon: '🟩', text: 'zurück, wo man fiel' }] }
-      : { icon: '💀', title: 'Vulkan-Inneres', items: [{ icon: '💀', text: 'Totenkopf-Feld' }, { icon: '🔥', text: 'Strafweg über Lava' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: sofort raus` }] : [{ icon: '🏁', text: 'bis zum Ende laufen' }]), { icon: '🏝️', text: 'zurück, wo man fiel' }] },
+      : space
+        ? { icon: '👽', title: 'Alien-Höhle', items: [{ icon: '🌀', text: 'Wurmloch' }, { icon: '💎', text: 'Strafweg über Kristallinseln' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: Teleporter raus` }] : [{ icon: '🏁', text: 'bis zum Ende laufen' }]), { icon: '🪐', text: 'zurück, wo man fiel' }] }
+        : { icon: '💀', title: 'Vulkan-Inneres', items: [{ icon: '💀', text: 'Totenkopf-Feld' }, { icon: '🔥', text: 'Strafweg über Lava' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: sofort raus` }] : [{ icon: '🏁', text: 'bis zum Ende laufen' }]), { icon: '🏝️', text: 'zurück, wo man fiel' }] },
   );
   await beat('ex_skull', async () => {
     await run.wait(500);
@@ -794,7 +812,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     boardAudio.play('whoosh-down');
     await s.pieces.insideDrop(DEMO_B, ins.dropPoint);
     run.check();
-    boardAudio.play('lavaplatsch');
+    boardAudio.play(space ? 'blase' : 'lavaplatsch');
     ins.lavaBurst(s.pieces.worldPos(DEMO_B) ?? ins.dropPoint);
     s.rig.shake(0.15, 0.4);
     await run.wait(350);

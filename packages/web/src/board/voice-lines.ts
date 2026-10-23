@@ -515,6 +515,74 @@ export const BLOCK_EXPLAINER_LINES: Partial<Record<ExplainerLineId, string>> = {
   explain_11: '[warmly] Das war’s auch schon! Seid fair, habt Spaß, und möge das beste Team gewinnen. [excited] Und jetzt: Ab in die Blockwelt!',
 };
 
+/** Kommentator im Weltall (Jetpack, Schwarzes Loch, Teleporter, Energiekäfig, Greifhaken, Wurmloch, Alien-Höhle) */
+export const SPACE_VOICE_LINES: Partial<Record<VoiceCategory, [string, string][]>> = {
+  spring: [
+    ['sw_spring_1', '[excited] Jetpack an! Drei, zwei, eins – Abflug!'],
+    ['sw_spring_2', 'Feuer frei aus dem Rucksack! [laughs] Und ab nach vorne!'],
+    ['sw_spring_3', 'Turbo-Schub! Bitte festhalten, es wird kurz etwas … schnell.'],
+  ],
+  plane: [
+    ['sw_plane_1', '[dramatically] Oh nein – ein Schwarzes Loch! Das zieht euch ein paar Felder zurück.'],
+    ['sw_plane_2', '[laughs] Schlürf! Das Schwarze Loch hat euch verschluckt – und weiter hinten wieder ausgespuckt.'],
+    ['sw_plane_3', 'Tja, gegen die Schwerkraft kommt keiner an. Rückwärtsgang!'],
+  ],
+  ufo: [
+    ['sw_ufo_1', 'Teleporter! Bsssss … und schwupps, ihr seid jetzt da drüben.'],
+    ['sw_ufo_2', '[mischievously] Beam me up! Platztausch per Teleporter!'],
+  ],
+  cage: [
+    ['sw_cage_1', 'Bzzzt! Energiekäfig! [laughs] Jetzt hilft nur noch die richtige Zahl.'],
+    ['sw_cage_2', 'Gefangen im Kraftfeld! Bitte nicht die Gitter anfassen – kribbelt.'],
+  ],
+  vine: [
+    ['sw_vine_1', 'Halt! Über den Plasma-Bach geht es nur am Greifhaken.'],
+    ['sw_vine_2', '[excited] Greifhaken auswerfen … und schwingen!'],
+  ],
+  riverChoose: [
+    ['sw_river_1', '[mischievously] Kapseln oder Kisten? Eins davon trägt, eins davon versinkt im Plasma.'],
+  ],
+  riverFall: [
+    ['sw_riverfall_1', '[laughs] Blubb – versunken! Ab durchs Plasma, der Rest des Wurfs ist futsch.'],
+    ['sw_riverfall_2', 'Glibber-Bad! Leuchtet hübsch, kostet aber den restlichen Wurf.'],
+  ],
+  riverSafe: [['sw_riversafe_1', '[relieved] Hält! Trocken – naja, plasmafrei – rüber!']],
+  caveStop: [['sw_cavestop_1', '[dramatically] Mutprobe an der Kristallhöhle! Hoch würfeln, sonst geht’s zu den Aliens!']],
+  cave: [['sw_cave_1', '[laughs] Zu klein gewürfelt! Einmal Alien-Höhle, bitte – mit Kristallblick.']],
+  skull: [
+    ['sw_skull_1', '[dramatically] Ein Wurmloch! Und weg seid ihr – direkt in die Alien-Höhle!'],
+    ['sw_skull_2', 'Wurmloch! [laughs] Ab durch den Strudel, unten warten schon die Aliens.'],
+  ],
+  insideEnter: [
+    ['sw_inenter_1', '[dramatically] Willkommen in der Alien-Höhle! Kristalle links, Plasma rechts, Plasma unten.'],
+    ['sw_inenter_2', 'Hier unten leuchtet alles. [whispers] Und irgendwas beobachtet euch …'],
+  ],
+  insideShout: [['sw_inshout_1', '[shouting] Volltreffer aufs Teleporter-Feld! Beam me up – raus hier!']],
+  insideExit: [['sw_inexit_1', '[relieved] Durch den Teleporter und zurück auf den Planeten!']],
+  eruption: [
+    ['sw_eruption_1', '[shouting] Ausbruch! Der Alien-Vulkan spuckt – und Meteoriten hageln vom Himmel!'],
+    ['sw_eruption_2', '[excited] Kristallbrocken überall! Alle in Deckung!'],
+  ],
+  victory: [['sw_victory_1', '[shouting] Wir haben einen Sieger! Herrscher des Planeten – Applaus bis zum Mond!']],
+};
+
+/** Spielerklärung im Weltall (Dateien sw_<id>.mp3) – nur die Sätze, die von der Insel abweichen */
+export const SPACE_EXPLAINER_LINES: Partial<Record<ExplainerLineId, string>> = {
+  ex_welcome: '[excited] Hallo und herzlich willkommen auf dem Alien-Planeten! Ich bin euer Kommentator, und in drei Minuten wisst ihr alles, was ihr wissen müsst. Helme auf!',
+  ex_spring: 'Unterwegs warten Sonderfelder. Das Jetpack schießt euch nach vorne!',
+  ex_plane: '[dramatically] Das Schwarze Loch zieht euch leider wieder zurück.',
+  ex_ufo: 'Der Teleporter tauscht euren Platz mit einem anderen Team – mal Glück, mal Pech.',
+  ex_cage: 'Und im Energiekäfig sitzt ihr fest, bis ihr die richtige Zahl würfelt.',
+  ex_volcanofield: 'Und die Vulkanfelder? Wer da drauf landet, heizt den Alien-Vulkan an. Seht ihr? Der Druck steigt – [mischievously] und im Krater brodelt schon das Plasma …',
+  ex_vine: 'Dann die Mutproben! Am Greifhaken kommt keiner vorbei: Ihr schwingt über den Plasma-Bach, der Würfel sagt, wie weit – und der Rest eures Wurfs zählt weiter.',
+  ex_river: 'Am Plasmafall heißt es: Kapseln oder Kisten? Eins davon trägt, das andere versinkt. [laughs] Wer reinfällt, schwebt rüber – und der restliche Wurf ist futsch.',
+  ex_cave: 'Vor der Kristallhöhle braucht ihr eine Drei oder mehr. Sonst geht’s ab in die Alien-Höhle!',
+  ex_skull: '[dramatically] Genau wie auf den Wurmloch-Feldern! In der Alien-Höhle lauft ihr über Kristallinseln. Wer genau das leuchtende Feld trifft, darf früher durch den Teleporter.',
+  ex_pressure: 'Apropos Vulkan: Auch nach jeder Runde steigt der Druck, ganz von allein. Bis der Balken voll ist …',
+  ex_eruption: '[dramatically] Dann bricht er aus – und Meteoriten hageln vom Himmel! Wer nah am Gipfel steht … [laughs] fliegt im hohen Bogen ein paar Felder zurück.',
+  explain_11: '[warmly] Das war’s auch schon! Seid fair, habt Spaß, und möge das beste Team gewinnen. [excited] Und jetzt: Countdown läuft – drei, zwei, eins, los!',
+};
+
 export const voiceUrl = (id: string) => `/assets/voice/${id}.mp3`;
 
 /** Regieanweisungen wie [laughs] für Untertitel entfernen. */

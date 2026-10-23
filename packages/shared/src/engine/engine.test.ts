@@ -7,7 +7,7 @@ import { buildItem, defaultConfig, upgradeConfig, upgradeState } from '../defaul
 import { randInt, seededRng } from '../rng.ts';
 import { commandSchema, type ContentItemInput } from '../schemas.ts';
 import type { Actor, ContentItem, GameConfig, GameState } from '../types.ts';
-import { applyCommand, createGame, EngineError, estimateMinutes, projectState, suggestSetup, tempoDie, tempoStatus, type EngineContext } from './index.ts';
+import { applyCommand, createGame, EngineError, estimateMinutes, estimateRange, PLAN_TEMPO, projectState, suggestSetup, tempoDie, tempoStatus, type EngineContext } from './index.ts';
 import { moodAfterTurn } from './dice.ts';
 
 const ADMIN: Actor = { role: 'admin' };
@@ -1035,8 +1035,15 @@ describe('Geführte Einrichtung', () => {
       const s = suggestSetup(minutes, 4, base);
       expect(s.goal).toBeGreaterThanOrEqual(last);
       last = s.goal;
-      expect(Math.abs(estimateMinutes({ ...base, board: buildBoard(s.goal, 1, s.mix) }, 4) - minutes)).toBeLessThan(6);
+      const cfg = { ...base, board: buildBoard(s.goal, 1, s.mix) };
+      expect(Math.abs(estimateMinutes(cfg, 4, PLAN_TEMPO) - minutes)).toBeLessThan(6);
+      // das Spiel-Tempo hat nach beiden Seiten Luft
+      const r = estimateRange(cfg, 4);
+      expect(r.fast).toBeLessThan(minutes);
+      expect(r.slow).toBeGreaterThan(minutes);
     }
+    // 50 Minuten mit 4 Teams: nicht zu knapp geplant
+    expect(suggestSetup(50, 4, base).goal).toBeGreaterThanOrEqual(42);
     expect(suggestSetup(30, 4, base).mix.skull).toBe(0);
     expect(suggestSetup(10, 4, base).limit).toBe('min');
     expect(suggestSetup(400, 4, base).limit).toBe('max');

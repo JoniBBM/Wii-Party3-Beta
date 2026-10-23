@@ -23,8 +23,8 @@ import { fail, goalOf, type Tx } from './tx.ts';
 const BETA_MAX = 0.35;
 /** Erste Schätzung für die Dauer einer Runde (Inhalt + Würfeln) bei 4 Teams, bis echte Runden gemessen sind. */
 export const ROUND_MINUTES_GUESS = 5;
-/** Runde = Inhalt (~2,6 Min.) + Würfeln (~0,35 Min. je Team) + Feld-Minispiele (~3 Min. je Spiel) */
-const ROUND_BASE_MIN = 2.6;
+/** Runde = Inhalt (~2,3 Min.) + Würfeln (~0,35 Min. je Team) + Feld-Minispiele (~3 Min. je Spiel) */
+const ROUND_BASE_MIN = 2.3;
 const ROUND_PER_TEAM_MIN = 0.35;
 const FIELD_GAME_MIN = 3;
 /** Feld-Minispiele je Runde ≈ 0,65 × Teams × Anteil der Minispiel-Felder (Simulation) */
@@ -147,6 +147,12 @@ export function estimateRange(config: GameConfig, teams: number): { fast: number
   return { fast: estimateMinutes(config, teams, 1), normal: estimateMinutes(config, teams, 0), slow: estimateMinutes(config, teams, -1) };
 }
 
+/**
+ * Mit welchem Tempo ein Vorschlag rechnet: leicht beschleunigt statt normal – das Spielfeld wird
+ * dadurch etwas länger (vorher wirkte es zu kurz), das Spiel-Tempo hat trotzdem nach beiden Seiten
+ * genug Luft (schnellstes Tempo ≈ 15 % unter der Wunschdauer).
+ */
+export const PLAN_TEMPO = 0.3;
 /** Vorschlag für Spielfeld-Länge und Sonderfelder zu einer gewünschten Spieldauer. */
 export interface SetupSuggestion {
   goal: number;
@@ -159,8 +165,8 @@ export interface SetupSuggestion {
 
 /**
  * Kurze Spiele: weniger Bremsen und Minispiele (die kosten Zeit), lange Abende: mehr Minispiele
- * und Platztausch. Die Länge wird so gewählt, dass das Spiel bei normalem Tempo ungefähr passt –
- * das Spiel-Tempo hat dann nach beiden Seiten Luft.
+ * und Platztausch. Die Länge wird so gewählt, dass das Spiel bei leicht beschleunigtem Tempo
+ * (PLAN_TEMPO) ungefähr passt – das Spiel-Tempo hat dann nach beiden Seiten Luft.
  */
 export function suggestSetup(minutes: number, teams: number, config: GameConfig, fixedMix?: FieldMix): SetupSuggestion {
   const mix: FieldMix =
@@ -172,7 +178,7 @@ export function suggestSetup(minutes: number, teams: number, config: GameConfig,
         : { minigame: 1.5, swap: 1.5 });
   let best: SetupSuggestion | null = null;
   for (let goal = MIN_GOAL; goal <= MAX_GOAL; goal++) {
-    const est = estimateMinutes({ ...config, board: buildBoard(goal, config.board.seed, mix) }, teams);
+    const est = estimateMinutes({ ...config, board: buildBoard(goal, config.board.seed, mix) }, teams, PLAN_TEMPO);
     if (!best || Math.abs(est - minutes) < Math.abs(best.minutes - minutes)) best = { goal, mix, minutes: est, limit: null };
   }
   const out = best!;

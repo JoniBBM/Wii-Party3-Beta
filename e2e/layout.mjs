@@ -119,7 +119,6 @@ try {
   };
   const wizard = async (p, next) => {
     await p.getByRole('radio', { name: /Insel der Abenteuer/ }).click();
-    await p.getByRole('radio', { name: /Nach Spieldauer/ }).click();
     for (let i = 0; i < next; i++) await p.getByRole('button', { name: 'Weiter' }).click();
   };
   const DIALOGS = [
@@ -182,6 +181,9 @@ try {
     const item = items.find((i) => i.kind === kind);
     if (!item) continue;
     console.log(`… ${label}`);
+    // neues Spiel erst, wenn das laufende beendet ist (Server lehnt es sonst ab)
+    await cmd({ type: 'game.finish' });
+    await sleep(200);
     const g = await newGame(`Testabend ${label}`);
     await cmd({ type: 'game.start' });
     await cmd({ type: 'content.select', source: 'manual', itemId: item.id });

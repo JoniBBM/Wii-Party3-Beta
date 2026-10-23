@@ -9,3 +9,4 @@ export * from './answers.ts';
 export * from './selectors.ts';
 export * from './engine/index.ts';
 export * from './show.ts';
+export * from './worldWords.ts';

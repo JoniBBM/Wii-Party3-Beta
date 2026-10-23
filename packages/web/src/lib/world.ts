@@ -1,6 +1,7 @@
 /**
  * Oberfläche passend zur Welt: In der Blockwelt bekommen Handys und Beamer-Einblendungen den
- * Pixel-Look (Pixelschrift, graue Rahmen mit Kanten, Erd-Hintergrund) – über data-world am <html>.
+ * Pixel-Look (Pixelschrift, graue Rahmen mit Kanten, Erd-Hintergrund), im Weltall einen dunklen
+ * Sci-Fi-Look – über data-world am <html>.
  * Fragen, Antworten und Zahlen bleiben lesbar: Elemente mit class="readable" bekommen dort eine klare
  * Schrift (siehe styles.css, Abschnitt Blockwelt).
  */
@@ -11,6 +12,13 @@ import { blockAtlas } from '../board/blocks/atlas.ts';
 export function useWorldStyle(theme: Theme | undefined) {
   useEffect(() => {
     const root = document.documentElement;
+    if (theme === 'space') {
+      // Weltall: eigener Look nur über CSS ([data-world='space'] in styles.css)
+      root.dataset.world = 'space';
+      return () => {
+        delete root.dataset.world;
+      };
+    }
     if (theme !== 'blocks') {
       delete root.dataset.world;
       return;

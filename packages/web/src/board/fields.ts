@@ -199,7 +199,8 @@ const ICONS: Partial<Record<FieldType, IconDrawer>> = {
 };
 
 const textureCache = new Map<string, THREE.CanvasTexture>();
-function iconTexture(type: FieldType): THREE.CanvasTexture | null {
+/** Symbol einer Feldart als Textur (weiß, mit Schatten) – auch für die Felder anderer Welten */
+export function iconTexture(type: FieldType): THREE.CanvasTexture | null {
   const draw = ICONS[type];
   if (!draw) return null;
   let tex = textureCache.get(type);

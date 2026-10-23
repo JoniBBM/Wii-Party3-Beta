@@ -28,6 +28,7 @@ export {
   estimateRange,
   roundMinutesGuess,
   suggestSetup,
+  PLAN_TEMPO,
   ROUND_MINUTES_GUESS,
   type TempoStatus,
   type SetupSuggestion,

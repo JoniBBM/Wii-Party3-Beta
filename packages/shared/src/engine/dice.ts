@@ -2,6 +2,7 @@
 import { FIELD_GAME_MODE_LABEL, FIELD_INFO, type FieldGameMode, type FieldType } from '../constants.ts';
 import { pick, randInt } from '../rng.ts';
 import { tempoChance, tempoDie, tempoInt } from './tempo.ts';
+import { worldWords } from '../worldWords.ts';
 import type { CommandOf } from '../schemas.ts';
 import type { BarrierCondition, ChallengeKind, DiceRound, EffectInput, GameState, Mood, Phase, RollRecord, Team } from '../types.ts';
 import { drawForTeams, undoDraw } from './draw.ts';
@@ -92,15 +93,16 @@ function startChallenge(tx: Tx, phase: DicePhase, team: Team, kind: ChallengeKin
   const position = team.position;
   phase.dice.challenge = { teamId: team.id, kind, position, remaining };
   const rest = remaining > 0 ? ` (danach noch ${felder(remaining)})` : '';
+  const w = worldWords(tx.s.config.theme);
   if (kind === 'vine') {
     tx.effects.push({ type: 'vine', teamId: team.id, position, stage: 'grab', roll: 0, sides: rules.vine.sides, remaining });
-    feed(tx, '🌿', `${teamLabel(team)} hält an der Liane – jetzt würfeln, wie weit es über den Bach schwingt${rest}`, team.id);
+    feed(tx, w.vineIcon, `${teamLabel(team)} hält ${w.atVine} – jetzt würfeln, wie weit es über den ${w.creek} schwingt${rest}`, team.id);
   } else if (kind === 'river') {
     tx.effects.push({ type: 'river', teamId: team.id, position, stage: 'choose', choice: null, result: null, remaining });
-    feed(tx, '🛢️', `${teamLabel(team)} steht am Wasserfall: Fässer oder Kisten?${rest}`, team.id);
+    feed(tx, w.barrelsIcon, `${teamLabel(team)} steht am ${w.falls}: ${w.riverChoice}?${rest}`, team.id);
   } else {
     tx.effects.push({ type: 'cave', teamId: team.id, position, stage: 'stop', roll: 0, need: rules.cave.need, success: false, remaining });
-    feed(tx, '🦇', `${teamLabel(team)} muss an der Lavahöhle mindestens eine ${rules.cave.need} würfeln – sonst geht es ins Vulkan-Innere`, team.id);
+    feed(tx, w.caveIcon, `${teamLabel(team)} muss an der ${w.cave} mindestens eine ${rules.cave.need} würfeln – sonst geht es ${w.toInside}`, team.id);
   }
 }
 
@@ -110,7 +112,8 @@ function enterInside(tx: Tx, team: Team) {
   team.blocked = null;
   team.crater = null;
   tx.effects.push({ type: 'inside', teamId: team.id, stage: 'enter', from: 0, to: 0, returnTo: team.position, shout: false });
-  feed(tx, '🌋', `${teamLabel(team)} fällt ins Innere des Vulkans und muss ${tx.s.config.rules.inside.length} Felder über die Lava-Inseln laufen`, team.id);
+  const w = worldWords(tx.s.config.theme);
+  feed(tx, w.insideIcon, `${teamLabel(team)} fällt ${w.toInside} und muss ${tx.s.config.rules.inside.length} Felder über ${w.insidePath} laufen`, team.id);
 }
 
 /**
@@ -270,7 +273,7 @@ function applyField(tx: Tx, phase: DicePhase, team: Team): 'done' | 'pending' | 
     }
     case 'skull': {
       if (!rules.inside?.enabled) return 'done';
-      tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: 'Ab ins Vulkan-Innere!' });
+      tx.effects.push({ type: 'field', teamId: team.id, field, position: pos, text: `Ab ${worldWords(tx.s.config.theme).toInside}!` });
       enterInside(tx, team);
       return 'done';
     }
@@ -435,7 +438,10 @@ export function handleDiceCommand(
       const phase = dicePhase(tx);
       const dice = phase.dice;
       if (dice.fieldGame) fail('Zuerst muss das Feld-Minispiel abgeschlossen werden');
-      if (dice.challenge) fail(dice.challenge.kind === 'river' ? 'Zuerst müssen Fässer oder Kisten gewählt werden' : dice.challenge.kind === 'vine' ? 'Zuerst muss an der Liane gewürfelt werden' : 'Zuerst muss die Mutprobe an der Lavahöhle gewürfelt werden');
+      if (dice.challenge) {
+        const w = worldWords(s.config.theme);
+        fail(dice.challenge.kind === 'river' ? `Zuerst müssen ${w.riverChoice} gewählt werden` : dice.challenge.kind === 'vine' ? `Zuerst muss ${w.atVine} gewürfelt werden` : `Zuerst muss die Mutprobe an der ${w.cave} gewürfelt werden`);
+      }
       const currentId = currentTeamId(dice);
       if (!currentId) fail('Alle Teams haben schon gewürfelt');
       const staff = isStaff(tx.actor);
@@ -483,11 +489,12 @@ export function handleDiceCommand(
         if (shout || reached >= len) {
           tx.effects.push({ type: 'inside', teamId: team.id, stage: 'exit', from: to, to, returnTo: ins.returnTo, shout });
           team.inside = null;
-          feed(tx, '🌋', shout ? `${teamLabel(team)} trifft das Ausgangsfeld und darf sofort aus dem Vulkan!` : `${teamLabel(team)} hat den Weg durch den Vulkan geschafft und ist zurück auf der Insel`, team.id);
+          const w = worldWords(s.config.theme);
+          feed(tx, w.insideIcon, shout ? `${teamLabel(team)} trifft das Ausgangsfeld und ${w.leaveInside} sofort!` : `${teamLabel(team)} hat den Strafweg geschafft und ${w.leaveInside}`, team.id);
           outcome = shout ? 'Ausgangsfeld – raus aus dem Vulkan' : 'Raus aus dem Vulkan';
         } else {
           ins.step = to;
-          feed(tx, '🌋', `${teamLabel(team)} würfelt ${rollText} im Vulkan – noch ${len - to} Felder bis zum Ausgang`, team.id);
+          feed(tx, worldWords(s.config.theme).insideIcon, `${teamLabel(team)} würfelt ${rollText} – noch ${len - to} Felder ${worldWords(s.config.theme).insideGoal}`, team.id);
           outcome = `Im Vulkan (${to}/${len})`;
         }
       } else if (team.crater) {
@@ -599,9 +606,10 @@ export function handleDiceCommand(
           }
         }
         move(tx, team, landing, 'vine');
-        feed(tx, '🌿', `${teamLabel(team)} würfelt ${roll} und schwingt über den Bach bis Feld ${team.position}${rest ? ` – jetzt noch ${felder(rest)}` : ''}`, team.id);
-        note = `Liane +${roll}`;
-        tx.label = `Lianen-Wurf ${teamLabel(team)}: ${roll}`;
+        const w = worldWords(s.config.theme);
+        feed(tx, w.vineIcon, `${teamLabel(team)} würfelt ${roll} und schwingt über den ${w.creek} bis Feld ${team.position}${rest ? ` – jetzt noch ${felder(rest)}` : ''}`, team.id);
+        note = `${w.vine} +${roll}`;
+        tx.label = `${w.vine}-Wurf ${teamLabel(team)}: ${roll}`;
         // Landet der Schwung genau an einer Mutprobe, beginnt sie (mit dem restlichen Wurf)
         const next = challengeAt(s, landing);
         if (next && landing > c.position) {
@@ -648,15 +656,16 @@ export function handleDiceCommand(
       const start = tx.effects.length;
       dice.challenge = null;
       const fall = staff && cmd.result ? cmd.result === 'fall' : randInt(tx.ctx.rng, 1, 100) <= tempoChance(rules.river.fallChance, dice.tempo ?? 0);
-      const what = cmd.choice === 'barrels' ? 'Fässer' : 'Kisten';
+      const w = worldWords(s.config.theme);
+      const what = cmd.choice === 'barrels' ? w.barrels : w.crates;
       tx.effects.push({ type: 'river', teamId: team.id, position: team.position, stage: 'cross', choice: cmd.choice, result: fall ? 'fall' : 'safe', remaining: c.remaining });
       const span = riverSpan(s.config.board.fields);
       if (span) move(tx, team, span.exit, 'river');
       let result: 'done' | 'pending' | 'finished' = 'done';
       if (fall) {
-        feed(tx, '💦', `${teamLabel(team)} wählt die ${what} – die brechen ein! Platsch, ans andere Ufer schwimmen, der restliche Wurf verfällt`, team.id);
+        feed(tx, '💦', `${teamLabel(team)} wählt die ${what} – die brechen ein! ${w.splash} Das Team ${w.swims}, der restliche Wurf verfällt`, team.id);
       } else {
-        feed(tx, '🛢️', `${teamLabel(team)} wählt die ${what} und kommt trocken rüber${c.remaining ? ` – noch ${felder(c.remaining)}` : ''}`, team.id);
+        feed(tx, cmd.choice === 'barrels' ? w.barrelsIcon : w.cratesIcon, `${teamLabel(team)} wählt die ${what} und kommt trocken rüber${c.remaining ? ` – noch ${felder(c.remaining)}` : ''}`, team.id);
         result = checkArrival(tx, team) ? 'finished' : walk(tx, phase, team, c.remaining, 'dice');
       }
       const record = [...dice.rolls].reverse().find((r) => r.teamId === team.id);
