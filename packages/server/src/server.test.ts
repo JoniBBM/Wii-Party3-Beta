@@ -520,7 +520,8 @@ describe('Spielleiter-Konten und mehrere Spiele', () => {
     const regie = await client(ida.token);
     expect(regie.state()).toBeNull();
     const beamer = await client((await api<{ token: string }>('/api/auth/beamer-link', { token: ida.token, body: {} })).data.token, 'beamer');
-    let seen: Show | null = null;
+    // (Zuweisung im Callback – sonst verengt TypeScript auf null)
+    let seen = null as Show | null;
     beamer.socket.on('show', (sh: Show) => (seen = sh));
     const set = await showCmd(regie, { type: 'set', patch: { quality: 'eco', commentary: 'crazy' } });
     expect(set).toMatchObject({ ok: true });
@@ -533,7 +534,7 @@ describe('Spielleiter-Konten und mehrere Spiele', () => {
     // Idas Einstellungen gelten auch für ihr neues Spiel – und ändern die des Admins nicht
     await api('/api/games', { token: ida.token, body: { name: 'Ida-Abend' } });
     const adminRegie = await client(admin);
-    let adminShow: Show | null = null;
+    let adminShow = null as Show | null;
     adminRegie.socket.on('show', (sh: Show) => (adminShow = sh));
     expect(await showCmd(adminRegie, { type: 'set', patch: { quality: 'ultra' } })).toMatchObject({ ok: true });
     await new Promise((r) => setTimeout(r, 100));
