@@ -195,11 +195,11 @@ export function buildHeightfield(layout: IslandLayout, res: number): Heightfield
         const k = basinWeight(basin, x, z, 0.55);
         if (k > 0) h = Math.min(h, lerp(h, basin.y - 0.9 - noise2(x * 0.7, z * 0.7) * 0.12, k));
       }
-      // Bach hinter der Liane: schmales Bett mit flachen Ufern
+      // Bach hinter der Liane: Bett mit flachen Ufern, in der Mitte tief genug für kräftiges Blau
       const ck = creekInfo(x, z);
       if (ck && !ck.first) {
-        const k = 1 - smoothstep(ck.w * 0.6, ck.w + 0.4, ck.d);
-        h = Math.min(h, lerp(h, ck.level - 0.28 - ck.w * 0.2, k));
+        const k = 1 - smoothstep(ck.w * 0.5, ck.w + 0.45, ck.d);
+        h = Math.min(h, lerp(h, ck.level - 0.32 - ck.w * 0.3, k));
       }
       // Becken unter dem Wasserfall
       const dp = Math.hypot(x - pool.x, z - pool.z);

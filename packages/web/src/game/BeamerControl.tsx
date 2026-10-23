@@ -39,6 +39,7 @@ import {
   MUSIC_MOOD_LABEL,
   MUSIC_MOODS,
   MUSIC_TRACKS,
+  musicWorld,
   QUALITY_INFO,
   QUALITY_LEVELS,
   RESOLUTION_INFO,
@@ -310,8 +311,22 @@ function ExplainerControl() {
 
 function CameraPad() {
   const state = useLive((s) => s.state);
+  const beamer = useLive((x) => x.beamers[0]);
+  const blocks = state?.config.theme === 'blocks';
+  const inside = beamer?.view === 'inside';
+  const busy = !!beamer?.busy || !!beamer?.explaining;
   return (
     <div className="flex flex-col gap-3">
+      {/* Ins Vulkan-Innere und zurück – nur, wenn auf dem Beamer gerade nichts passiert */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={inside ? 'soft' : 'primary'} disabled={busy || inside} onClick={() => camera({ action: 'inside' })}>
+          {blocks ? '🔥 In den Nether' : '🌋 In den Vulkan'}
+        </Button>
+        <Button size="sm" disabled={busy || !inside} onClick={() => camera({ action: 'island' })}>
+          {blocks ? '🧱 Zurück in die Blockwelt' : '🏝️ Zurück auf die Insel'}
+        </Button>
+        <span className="text-xs text-muted">{busy ? 'Gerade läuft ein Zug – kurz warten.' : 'Geht, wenn gerade nichts passiert; der nächste Zug holt die Kamera zurück.'}</span>
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="primary" icon={<Camera className="size-4" />} onClick={() => camera({ action: 'auto' })}>
           Automatik
@@ -548,7 +563,7 @@ export function BeamerControl() {
                 <optgroup key={m} label={MUSIC_MOOD_LABEL[m]}>
                   {MUSIC_TRACKS.filter((t) => t.mood === m).map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.title}
+                      {musicWorld(t) === 'blocks' ? `🧱 Blockwelt: ${t.title}` : t.title}
                     </option>
                   ))}
                 </optgroup>

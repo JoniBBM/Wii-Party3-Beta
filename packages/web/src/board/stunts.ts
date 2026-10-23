@@ -16,6 +16,7 @@ import type { Effects } from './particles.ts';
 import type { Pieces } from './pieces.ts';
 import type { Heightfield } from './terrain.ts';
 import { ease, type Tweens } from './tweens.ts';
+import { fordLanes, LIANA_LEN, riverView, swingView, vineFrame, vineTree, vineView } from './views.ts';
 
 const matCache = new Map<string, THREE.MeshStandardMaterial>();
 const shared = new WeakSet<THREE.Material>();
@@ -81,7 +82,7 @@ export class Stunts {
   // Liane
   protected liana: THREE.Group | null = null;
   protected lianaAxis = new THREE.Vector3(1, 0, 0);
-  protected lianaLen = 5;
+  protected lianaLen = LIANA_LEN;
   protected lianaAngle = 0;
   protected lianaTarget = 0;
   protected lianaVel = 0;
@@ -162,21 +163,15 @@ export class Stunts {
   // Liane am Riesenbaum
   // =========================================================================
   protected vineFrame() {
-    const f = this.layout.fields[this.layout.plan.vineField]!;
-    const dir = new THREE.Vector3(Math.cos(f.heading), 0, Math.sin(f.heading));
-    const side = new THREE.Vector3(-dir.z, 0, dir.x);
-    return { f, dir, side };
+    return vineFrame(this.layout);
   }
 
   protected buildVineTree() {
-    const { f, dir, side } = this.vineFrame();
-    // Liane hängt so, dass die Figur gut einen Meter über dem Boden baumelt
-    const pivot = new THREE.Vector3(f.x, f.y + this.lianaLen + 2.9, f.z);
-    // Baum neben dem Weg auf der Seite mit mehr Platz (höher gelegen = weg vom Strand)
-    const sx = this.field.height(f.x + side.x * 4, f.z + side.z * 4) >= this.field.height(f.x - side.x * 4, f.z - side.z * 4) ? 1 : -1;
+    const { dir, side } = this.vineFrame();
+    // Baum neben dem Weg auf der Seite mit mehr Platz (höher gelegen = weg vom Strand), Liane hängt
+    // so, dass die Figur gut einen Meter über dem Boden baumelt (Lage wie in views.ts)
+    const { sx, tx, tz, pivot } = vineTree(this.layout, this.field);
     this.treeSide = sx;
-    const tx = f.x + side.x * sx * 4.6 - dir.x * 0.6;
-    const tz = f.z + side.z * sx * 4.6 - dir.z * 0.6;
     const ty = this.field.height(tx, tz);
     const tree = new THREE.Group();
     const bark = mat('#7a5232', { flat: true });
@@ -235,38 +230,17 @@ export class Stunts {
 
   protected treeSide = 1;
 
-  /** Freie Sicht (von scene.ts gesetzt: Kamera prüft Gelände, Gebäude, Baumkronen). */
-  shotPicker: ((target: THREE.Vector3, dist: number, height: number, prefer?: THREE.Vector3) => { position: THREE.Vector3; lookAt: THREE.Vector3 }) | null = null;
-
-  /** Kamera für die Liane: Liane, Bach und Landeplätze im Bild, möglichst ohne Palmen davor. */
+  /**
+   * Kamera für die Liane: Liane, Bach und Landeplätze im Bild. Fester Blick aus dem Plan (views.ts) –
+   * Bäume und Säulen halten genau diese Sichtachse frei (beide Welten, Spiel und Erklärung).
+   */
   vineShot() {
-    const { f, dir, side } = this.vineFrame();
-    const s = -this.treeSide;
-    const target = new THREE.Vector3(f.x + dir.x * 1.6, f.y + 1.2, f.z + dir.z * 1.6);
-    const prefer = side.clone().multiplyScalar(s).addScaledVector(dir, -0.5);
-    if (this.shotPicker) return this.shotPicker(target, 8.5, 6.5, prefer);
-    return {
-      position: new THREE.Vector3(f.x + side.x * s * 9 - dir.x * 4, f.y + 5.5, f.z + side.z * s * 9 - dir.z * 4),
-      lookAt: new THREE.Vector3(f.x + dir.x * 2, f.y + 2, f.z + dir.z * 2),
-    };
+    return vineView(this.layout, this.field);
   }
 
-  /** Kamera für den Schwung: seitlich, so dass Liane und Landefeld im Bild sind. */
+  /** Kamera für den Schwung: von hinten oben, so dass Liane, Bach und Landefeld im Bild sind. */
   swingShot(to: THREE.Vector3) {
-    const { f } = this.vineFrame();
-    const a = new THREE.Vector3(f.x, f.y + 1.5, f.z);
-    const mid = a.clone().lerp(to, 0.5);
-    const d = new THREE.Vector3(to.x - a.x, 0, to.z - a.z);
-    const len = Math.max(2, d.length());
-    d.normalize();
-    const perp = new THREE.Vector3(-d.z, 0, d.x);
-    const ref = this.vineShot().position;
-    const sign = Math.sign(perp.dot(ref.clone().sub(a))) || 1;
-    // von hinten-oben über die Liane hinweg in Flugrichtung (der Weg hinter der Liane ist frei)
-    return {
-      position: a.clone().addScaledVector(d, -6).addScaledVector(perp, sign * 3).add(new THREE.Vector3(0, 7.5 + len * 0.3, 0)),
-      lookAt: mid.clone().add(new THREE.Vector3(0, -0.5, 0)),
-    };
+    return swingView(this.layout, this.field, to);
   }
 
   /** Untere Spitze der Liane in Weltkoordinaten. */
@@ -421,12 +395,7 @@ export class Stunts {
     const fr = this.layout.fieldRadius;
     const top = this.layout.ford.raftY - 0.08;
     // Kisten liegen flussaufwärts (zum Wasserfall hin) im Furtbecken, Fässer auf dem Weg
-    const basin = this.layout.fordBasin;
-    const a = RIVER[RIVER_FORD - 1]!;
-    const b = RIVER[RIVER_FORD + 1]!;
-    const flow = basin ? new THREE.Vector3(basin.along.x, 0, basin.along.z) : new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
-    const up = flow.clone().negate();
-    const gap = Math.min(fr * 2.3 + 0.5, (basin?.halfAlong ?? 6) - fr * 0.95 - 0.35);
+    const { flow, up, gap } = fordLanes(this.layout);
     const rope = mat('#c9a66b', { rough: 1 });
     ff.forEach((i, k) => {
       const f = this.layout.fields[i]!;
@@ -509,21 +478,12 @@ export class Stunts {
     this.blockers.push({ x: px, z: pz, r: 0.5, top: py + 2.2 });
   }
 
-  /** Kamera fürs Wählen und Überqueren: vom Ufer aus, beide Wege im Bild. */
+  /** Kamera fürs Wählen und Überqueren: vom Ufer aus, beide Wege im Bild (Sichtachse bleibt frei, views.ts). */
   riverShot() {
-    const span = this.fordSpan();
-    const bank = this.layout.fields[span.bank]!;
-    const exit = this.layout.fields[span.exit]!;
-    const mid = new THREE.Vector3((bank.x + exit.x) / 2, this.layout.ford.y + 0.6, (bank.z + exit.z) / 2);
-    const crates = this.lanes.crates;
-    if (crates.length) mid.lerp(crates[Math.floor(crates.length / 2)]!.top, 0.35);
-    const dir = new THREE.Vector3(exit.x - bank.x, 0, exit.z - bank.z).normalize();
-    const side = new THREE.Vector3(-dir.z, 0, dir.x);
-    const toCrates = crates.length ? Math.sign(side.dot(crates[0]!.top.clone().sub(mid))) : 1;
-    return {
-      position: new THREE.Vector3(bank.x - dir.x * 6.5 - side.x * toCrates * 3.2, bank.y + 5.2, bank.z - dir.z * 6.5 - side.z * toCrates * 3.2),
-      lookAt: mid,
-    };
+    const shot = riverView(this.layout, this.field);
+    if (shot) return shot;
+    const f = this.layout.fields[0]!;
+    return { position: new THREE.Vector3(f.x + 6, f.y + 5, f.z + 6), lookAt: new THREE.Vector3(f.x, f.y + 0.6, f.z) };
   }
 
   /** Am Ufer: Figur schaut abwechselnd zu den Fässern und zu den Kisten. */

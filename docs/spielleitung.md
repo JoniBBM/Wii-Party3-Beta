@@ -75,7 +75,7 @@ Jedes Spiel hat eine **Welt** (*Spiel einrichten* → erste Folie bzw. *Alle Ein
   - Mutproben: Eiche mit **Ranke** über den Bach, Fass- und Kistenblöcke am Wasserfall, Höhleneingang aus Bruchstein.
   - **Vulkan-Inneres = Nether**: Netherrack-Höhle mit Glowstone, Lavasee und Lavafällen, Strafweg über Netherziegel-Pfeiler, Ausgangsfeld als Glowstone mit Leuchtfeuer, Ausgang durch ein Obsidian-Portal, darüber schweben Glutgeister.
   - Handys und Beamer-Einblendungen bekommen den Pixel-Look (Pixelschrift, graue Menü-Kästen, Erd-Hintergrund). Die Regie bleibt wie gewohnt.
-  - Die Kommentator-Sprüche sind noch die der Insel (eigene Blockwelt-Sprüche folgen).
+  - Eigene Kommentator-Sprüche (Knaller, Teleport-Perle, Spinnennetz, Ranke, Nether …), eigene Spielerklärung und eigene ruhige Musik (freie Stücke im Blockspiel-Stil, im Nether düster).
 
 ## Wetter, Jahreszeit und Festzeit
 
@@ -182,6 +182,7 @@ Alles wirkt sofort auf allen Beamern – auch ohne Spiel und in der Lobby. Eine 
 
 | Bereich | Was geht |
 |---|---|
+| Kamera | Automatik, feste Blicke, Teams · **In den Vulkan / Nether** und **Zurück auf die Insel** (nur, wenn gerade kein Zug läuft; der nächste Wurf holt die Kamera zurück) |
 | Status | Jeder verbundene Beamer mit Bildrate, Grafikstufe, Auflösung, Ton frei?, Vollbild, freie Kamera · **Neu laden** · **Spielerklärung starten/stoppen** |
 | Bild | Grafik **Automatisch / Ultra / Schön / Ausgewogen / Sparsam** (ohne Neuladen), **Auflösung** (Automatisch, Bildschirm, 720p, 1080p, 1440p, 4K – darunter steht, was gerade wirklich gerendert wird), Vollbild, Rangliste & Kopfzeile, Namensschilder, Foto-Blasen beim Ziehen, Bildrate anzeigen |
 | Ton & Musik | Gesamtlautstärke; Musik, Effekte, Kommentator, Umgebungsgeräusche je an/aus mit eigener Lautstärke und **Test**-Knopf; **Musikstück** (automatisch passend zum Spiel oder ein festes Stück) und **Stücke abwechseln**; wie oft der Kommentator spricht (nie / ab und zu / viel / Quatschkopf), beim Quatschkopf zusätzlich **Zwischendurch plaudern** (Sprüche pro Minute) |

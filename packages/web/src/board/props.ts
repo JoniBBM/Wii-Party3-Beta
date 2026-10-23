@@ -12,6 +12,7 @@ import { buildLandmarks, LANDMARK_MODELS, type KeepOut } from './landmarks.ts';
 import type { IslandLayout } from './layout.ts';
 import { rand } from './noise.ts';
 import type { Heightfield } from './terrain.ts';
+import { inCorridor, stuntCorridors } from './views.ts';
 
 const N = (n: string) => `nature/${n}`;
 const P = (n: string) => `pirate/${n}`;
@@ -97,6 +98,10 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   root.add(lm.group);
   const keepOut: KeepOut[] = [...lm.keepOut, ...lavaFlowPoints().map((p) => ({ x: p.x, z: p.z, r: p.w + 1.4 }))];
   const blocked = (x: number, z: number, extra = 0) => keepOut.some((k) => Math.hypot(x - k.x, z - k.z) < k.r + extra);
+  // Sichtachsen der Kamera an Liane und Furt: dort keine Bäume (sonst hängt eine Krone vor dem Bild)
+  const views = stuntCorridors(layout, field);
+  /** Würde ein Gewächs mit Höhe `tall` an (x, z) in eine Sichtachse ragen? */
+  const inView = (x: number, z: number, h: number, tall: number) => inCorridor(views, x, z, h + tall, tall * 0.45 + 0.5);
   const occupied: Pt[] = [];
   const canopies: THREE.Vector3[] = [];
   const flowerSpots: THREE.Vector3[] = [];
@@ -106,7 +111,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   const scatter = (
     count: number,
     accept: (x: number, z: number, h: number, slope: number, cd: number) => boolean,
-    o: { clear?: number; spacing?: number; area?: [number, number, number, number]; water?: boolean; cone?: boolean } = {},
+    o: { clear?: number; spacing?: number; area?: [number, number, number, number]; water?: boolean; cone?: boolean; tall?: number } = {},
   ) => {
     const pts: Pt[] = [];
     const clear = o.clear ?? fr * 1.6 + 0.5;
@@ -126,6 +131,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
       if (!o.water && field.riverDistance(x, z) < 0.6) continue;
       if (field.gorgeDistance(x, z) < 0.8) continue;
       if (blocked(x, z)) continue;
+      if (o.tall && inView(x, z, h, o.tall)) continue;
       if (sp > 0 && (pts.some((p) => Math.hypot(p.x - x, p.z - z) < sp) || occupied.some((p) => Math.hypot(p.x - x, p.z - z) < sp * 0.7))) continue;
       pts.push({ x, z, y: h });
     }
@@ -181,7 +187,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   // --- Palmen: Strände, Lagune, Dorf, Inselchen ---------------------------------
   plant(
     PALMS,
-    scatter(Math.round(85 * d), (x, z, h, s, cd) => cd > 1.2 && cd < 11 && h > 0.45 && h < 3 && s < 0.4 && dv(x, z) > 18 && !inLagoon(x, z), { clear: fr * 1.5 + 1.2, spacing: 2.1 }),
+    scatter(Math.round(85 * d), (x, z, h, s, cd) => cd > 1.2 && cd < 11 && h > 0.45 && h < 3 && s < 0.4 && dv(x, z) > 18 && !inLagoon(x, z), { clear: fr * 1.5 + 1.2, spacing: 2.1, tall: 6.0 }),
     [3.4, 6.0],
     { wind: 0.045, tilt: 0.22, canopy: true, vary: 0.12 },
   );
@@ -199,19 +205,19 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   // --- Dschungel: Kronendach, Unterholz, Bambus am Fluss ---------------------------
   plant(
     [...BROADLEAF, V('palm1'), V('palm3')],
-    scatter(Math.round(120 * d), (x, z, h, s) => jungleK(x, z) > 0.35 && h > 1.2 && h < 7 && s < 0.5, { clear: fr * 1.6 + 1.3, spacing: 2.0 }),
+    scatter(Math.round(120 * d), (x, z, h, s) => jungleK(x, z) > 0.35 && h > 1.2 && h < 7 && s < 0.5, { clear: fr * 1.6 + 1.3, spacing: 2.0, tall: 5.4 }),
     [3.2, 5.4],
     { wind: 0.025, canopy: true, vary: 0.18 },
   );
   const jungleFloor = scatter(Math.round(40 * d), (x, z, h, s) => jungleK(x, z) > 0.3 && h > 1.1 && s < 0.5, { spacing: 3 });
-  plant(JUNGLE_LOW, clusters(jungleFloor, 5, 2.4, (x, z) => jungleK(x, z) > 0.2), [0.9, 2.0], { wind: 0.06, vary: 0.15 });
+  plant(JUNGLE_LOW, clusters(jungleFloor, 5, 2.4, (x, z, h) => jungleK(x, z) > 0.2 && !inView(x, z, h, 2.0)), [0.9, 2.0], { wind: 0.06, vary: 0.15 });
   plant(
     [V('bamboo'), N('crops_bambooStageB')],
     clusters(
       RIVER.slice(RIVER_POOL, RIVER_POOL + 7).map((p) => ({ x: p.x + p.w + 2.2, z: p.z + 1.5, y: 0 })),
       6,
       1.8,
-      (x, z) => field.riverDistance(x, z) > 0.6,
+      (x, z, h) => field.riverDistance(x, z) > 0.6 && !inView(x, z, h, 4.2),
     ),
     [2.6, 4.2],
     { wind: 0.03 },
@@ -226,19 +232,19 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   // --- Wiesen und Hochebenen ------------------------------------------------------
   plant(
     BROADLEAF,
-    scatter(Math.round(26 * d), (x, z, h, s) => meadow(x, z, h) && s < 0.35, { clear: fr * 1.6 + 1.6, spacing: 3.5 }),
+    scatter(Math.round(26 * d), (x, z, h, s) => meadow(x, z, h) && s < 0.35, { clear: fr * 1.6 + 1.6, spacing: 3.5, tall: 4.4 }),
     [2.6, 4.4],
     { wind: 0.025, canopy: true, vary: 0.18 },
   );
   plant(
     HIGHLAND,
-    scatter(Math.round(70 * d), (x, z, h, s) => highland(x, z, h) && s < 0.4 && dv(x, z) > 15, { clear: fr * 1.6 + 1.2, spacing: 2.4 }),
+    scatter(Math.round(70 * d), (x, z, h, s) => highland(x, z, h) && s < 0.4 && dv(x, z) > 15, { clear: fr * 1.6 + 1.2, spacing: 2.4, tall: 4.2 }),
     [2.4, 4.2],
     { wind: 0.02, canopy: true, vary: 0.2 },
   );
   plant(
     BUSHES,
-    scatter(Math.round(150 * d), (x, z, h, s) => h > 1.25 && s < 0.5 && (dv(x, z) > 15 || h < 9), { clear: fr * 1.45 + 0.4, spacing: 1.2 }),
+    scatter(Math.round(150 * d), (x, z, h, s) => h > 1.25 && s < 0.5 && (dv(x, z) > 15 || h < 9), { clear: fr * 1.45 + 0.4, spacing: 1.2, tall: 1.6 }),
     [0.8, 1.6],
     { wind: 0.06, vary: 0.2 },
   );
@@ -247,7 +253,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   const flowerPts = clusters(beds, 9, 1.6, (x, z, h) => h > 1.3 && field.slope(x, z) < 0.4);
   plant(FLOWERS, flowerPts, [0.42, 0.7], { wind: 0.12, castShadow: false });
   for (const b of beds) flowerSpots.push(new THREE.Vector3(b.x, b.y + 0.5, b.z));
-  plant([N('grass_large'), N('grass_leafsLarge'), P('grass-plant')], scatter(Math.round(70 * d), (x, z, h, s) => h > 1.2 && s < 0.45, { clear: fr * 1.3, spacing: 0.9 }), [0.5, 0.9], {
+  plant([N('grass_large'), N('grass_leafsLarge'), P('grass-plant')], scatter(Math.round(70 * d), (x, z, h, s) => h > 1.2 && s < 0.45, { clear: fr * 1.3, spacing: 0.9, tall: 0.9 }), [0.5, 0.9], {
     wind: 0.12,
     castShadow: false,
   });
@@ -261,7 +267,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
   );
   plant(
     ROCKS_L,
-    scatter(Math.round(30 * d), (x, z, h, s) => s > 0.12 && s < 0.4 && h > 1.5 && dv(x, z) > 17 && field.riverDistance(x, z) > 2.5, { clear: fr * 1.5 + 0.8, spacing: 2.4 }),
+    scatter(Math.round(30 * d), (x, z, h, s) => s > 0.12 && s < 0.4 && h > 1.5 && dv(x, z) > 17 && field.riverDistance(x, z) > 2.5, { clear: fr * 1.5 + 0.8, spacing: 2.4, tall: 1.4 }),
     [0.7, 1.4],
     { sink: 0.35 },
   );
@@ -302,7 +308,7 @@ export async function buildProps(layout: IslandLayout, field: Heightfield, opts:
     scatter(Math.round(70 * d), (x, z, h) => {
       const rd = field.riverDistance(x, z);
       return rd > 0.1 && rd < 1.4 && h > 0.4;
-    }, { clear: fr * 1.4, spacing: 0.7 }),
+    }, { clear: fr * 1.4, spacing: 0.7, tall: 1.3 }),
     [0.7, 1.3],
     { wind: 0.1, castShadow: false },
   );

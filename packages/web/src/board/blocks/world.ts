@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { RIVER, RIVER_LIP, RIVER_POOL, VOLCANO } from '@insel/shared';
 import type { IslandLayout } from '../layout.ts';
 import type { Heightfield } from '../terrain.ts';
+import { inCorridor, stuntCorridors } from '../views.ts';
 import type { RiverFx, Water } from '../water.ts';
 import { blockAtlas, type Tile } from './atlas.ts';
 import { rngFor } from './pixels.ts';
@@ -289,6 +290,7 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
   spot(0, 10);
   spot(layout.fields.length - 1, 8);
   const clearOf = (x: number, z: number) => keepClear.every((k) => Math.hypot(x - k.x, z - k.z) > k.r);
+  const views = stuntCorridors(layout, field);
   for (let j = 2; j < N - 2; j++)
     for (let i = 2; i < N - 2; i++) {
       const c = idx(i, j);
@@ -333,9 +335,12 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
       const leaf: Kind = birch ? 'birch_leaves' : 'leaves';
       const base = top[c]! + 1;
       const height = big ? 6 + Math.floor(rng.next() * 2) : 4 + Math.floor(rng.next() * 2) + (birch ? 1 : 0);
-      for (let y = 0; y < height; y++) extra.set(key(i, base + y, j), trunk);
       const crownY = base + height;
       const rad = big ? 3 : 2;
+      // ragt die Krone in eine Sichtachse der Kamera (Liane, Schwung, Furt)? Dann bleibt der Platz
+      // frei (Zufallsfolge läuft gleich weiter, damit der übrige Wald derselbe bleibt)
+      const hidden = inCorridor(views, x, z, (crownY + 2) * B, (rad + 0.5) * B + 0.3);
+      if (!hidden) for (let y = 0; y < height; y++) extra.set(key(i, base + y, j), trunk);
       for (let dy = -2; dy <= 1; dy++) {
         const rr = dy >= 0 ? (dy === 1 ? 1 : rad - 1) : rad;
         for (let dj = -rr; dj <= rr; dj++)
@@ -343,9 +348,10 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
             const corner = Math.abs(di) === rr && Math.abs(dj) === rr;
             if (corner && (dy === 1 || rng.next() < 0.6)) continue;
             const kk = key(i + di, crownY + dy, j + dj);
-            if (!extra.has(kk)) extra.set(kk, leaf);
+            if (!hidden && !extra.has(kk)) extra.set(kk, leaf);
           }
       }
+      if (hidden) continue;
       const wx = x;
       const wz = z;
       crowns.push(new THREE.Vector3(wx, (crownY + 0.5) * B, wz));

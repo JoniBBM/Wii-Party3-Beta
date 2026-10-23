@@ -463,6 +463,8 @@ export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {
       fullscreen: z.boolean(),
       manual: z.boolean(),
       explaining: z.boolean(),
+      view: z.enum(['island', 'inside']).optional(),
+      busy: z.boolean().optional(),
     });
     socket.on('beamer:stats', (raw: unknown) => {
       const owner = showOwnerOf(socket);

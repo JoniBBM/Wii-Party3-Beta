@@ -14,6 +14,7 @@ import { CRATER } from './ground.ts';
 import type { IslandLayout } from './layout.ts';
 import { noise2, rand } from './noise.ts';
 import type { Heightfield } from './terrain.ts';
+import { inCorridor, stuntCorridors } from './views.ts';
 
 const N = (n: string) => `nature/${n}`;
 const P = (n: string) => `pirate/${n}`;
@@ -224,7 +225,9 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
     torch(px + fz * 1.4 + fx * (size / 2 + 0.6), pz - fx * 1.4 + fz * (size / 2 + 0.6));
     torch(px - fz * 1.4 + fx * (size / 2 + 0.6), pz + fx * 1.4 + fz * (size / 2 + 0.6));
 
-    // Säulenallee entlang des Weges im Ruinenbereich
+    // Säulenallee entlang des Weges im Ruinenbereich (nicht im Bach hinter der Liane, nicht in den
+    // Sichtachsen der Lianen-Kamera)
+    const views = stuntCorridors(layout, field);
     const ruins = layout.path.filter((p) => p.zone === 'ruins');
     for (let i = 4; i < ruins.length - 4; i += 9) {
       const a = ruins[i]!;
@@ -236,6 +239,7 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
         const z = a.z + Math.sin(hd + Math.PI / 2) * off * side;
         if (Math.hypot(x - px, z - pz) < size * 0.8) continue;
         const broken = R() < 0.4;
+        if (field.creekDistance(x, z) < 0.7 || inCorridor(views, x, z, H(x, z) + 2.4, 0.5)) continue;
         add(N(broken ? 'statue_columnDamaged' : 'statue_column'), { ...ground(x, z, -0.1), rotY: R() * 0.3, scale: 1 }, broken ? 1.7 : 2.4, { stone: SANDSTONE, stoneDark: SANDSTONE_DARK });
         perches.push(new THREE.Vector3(x, H(x, z) + (broken ? 1.6 : 2.3), z));
       }
@@ -243,7 +247,7 @@ export function buildLandmarks(models: Map<string, THREE.Group>, field: Heightfi
     add(N('statue_obelisk'), { ...ground(4.6, 14.6), rotY: 0.4, scale: 1 }, 3.4, { stone: SANDSTONE, stoneDark: SANDSTONE_DARK });
     add(N('statue_ring'), { ...ground(9.6, 16.2), rotY: -0.5, scale: 1 }, 2.4, { stone: SANDSTONE, stoneDark: SANDSTONE_DARK });
     add(N('statue_head'), { ...ground(-8.6, 20.6, -0.15), rotY: 0.9, scale: 1 }, 2.1, { stone: SANDSTONE, stoneDark: SANDSTONE_DARK });
-    add(N('statue_block'), { ...ground(-0.4, 21.6, -0.1), rotY: 0.2, scale: 1 }, 0.7, { stone: SANDSTONE, stoneDark: SANDSTONE_DARK });
+    if (field.creekDistance(-0.4, 21.6) > 0.6) add(N('statue_block'), { ...ground(-0.4, 21.6, -0.1), rotY: 0.2, scale: 1 }, 0.7, { stone: SANDSTONE, stoneDark: SANDSTONE_DARK });
     keepOut.push({ x: 4.6, z: 14.6, r: 1.2 }, { x: 9.6, z: 16.2, r: 1.8 }, { x: -8.6, z: 20.6, r: 1.6 });
   }
 

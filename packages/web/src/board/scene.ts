@@ -221,6 +221,7 @@ export class BoardScene {
     const progress = opts.onProgress ?? (() => {});
     const blocks = opts.theme === 'blocks';
     this.theme = blocks ? 'blocks' : 'island';
+    this.commentator.theme = this.theme;
     progress(0.05, blocks ? 'Welt wird generiert …' : 'Insel wird vermessen …');
     this.layout = buildLayout(opts.fieldCount);
     const layout = this.layout;
@@ -380,7 +381,6 @@ export class BoardScene {
     this.islandBlockers = [...(this.props?.blockers ?? []), ...this.stunts.blockers];
     this.rig.setBlockers(this.islandBlockers);
     this.rig.canopies = [...(this.props?.canopies ?? []), ...this.stunts.crowns];
-    this.stunts.shotPicker = (target, dist, height, prefer) => this.rig.clearShot(target, dist, height, prefer);
     this.islandSight = (from, to) => this.rig.occlusion(from, to, true) < 0.08;
     this.pieces.lineOfSight = this.islandSight;
     this.pieces.isShown = (p) => this.pieces.isInside(p.teamId) === (this.view === 'inside');
@@ -463,6 +463,27 @@ export class BoardScene {
     composer.addPass(new EffectPass(this.camera, ...effects));
     composer.addPass(new EffectPass(this.camera, new SMAAEffect()));
     return composer;
+  }
+
+  /**
+   * Regie: ins Vulkan-Innere (Nether) schauen bzw. zurück auf die Insel – nur, wenn gerade kein Zug
+   * oder Auftritt läuft und keine Spielerklärung. Der nächste Zug holt die Kamera wieder dorthin,
+   * wo das Team ist.
+   */
+  /** Regie-Besuch im Vulkan-Inneren läuft (Automatik lässt die Kamera dort, bis gewürfelt wird) */
+  visiting = false;
+
+  async visit(to: 'inside' | 'island'): Promise<boolean> {
+    if (this.director.busy || this.rig.locked || this.view === to) return false;
+    this.visiting = to === 'inside';
+    const ins = this.inside;
+    if (to === 'inside' && !ins) return false;
+    this.rig.endManual();
+    await this.travel(to, {
+      fade: 700,
+      arrive: () => (to === 'inside' && ins ? this.rig.set({ kind: 'focus', ...ins.overviewShot() }, 2) : this.rig.set({ kind: 'overview' }, 1)),
+    });
+    return true;
   }
 
   /** Wetter und Festzeit: Materialien für Schnee/Herbst anmelden, Bodenhöhe für Dekoration */

@@ -1,11 +1,11 @@
 /**
  * Ton für den Beamer – vier Spuren mit eigener Lautstärke (live aus der Regie):
  * - Effekte: Kenney-Klänge (CC0) und eigene Effekte (ElevenLabs), lautheitsangeglichen
- * - Musik: Stücke im Inselstil, gestreamt, mit weicher Überblendung (auch beim Wiederholen)
+ * - Musik: Stücke je Welt (Inselstil bzw. Blockwelt), gestreamt, mit weicher Überblendung (auch beim Wiederholen)
  * - Sprache: Kommentator und Spielerklärung; die Musik wird dabei leiser
  * - Umgebung: aufgenommene Schleifen (Strand, Dschungel, Vulkan-Inneres); Meeresrauschen und Vögel als Synthese, falls die Dateien fehlen
  */
-import type { ShowSettings } from '@insel/shared';
+import { musicUrl, type ShowSettings } from '@insel/shared';
 
 const KENNEY = [
   'dice-shake', 'dice-throw-1', 'dice-throw-2', 'step-grass-000', 'step-grass-001', 'step-grass-002', 'step-grass-003', 'step-grass-004',
@@ -23,7 +23,7 @@ export const FX = [
 
 export type FxName = (typeof FX)[number];
 export type SampleName = (typeof KENNEY)[number] | FxName;
-/** Dateiname unter /assets/audio/music/ (siehe MUSIC_TRACKS in @insel/shared) */
+/** Stück-ID (Datei unter /assets/audio/music/, siehe MUSIC_TRACKS und musicUrl in @insel/shared) */
 export type MusicTrack = string;
 
 interface Sample {
@@ -254,7 +254,7 @@ export class BoardAudio {
 
   private startDeck(track: MusicTrack, fade: number, at: number) {
     const ctx = this.ctx!;
-    const el = new Audio(`/assets/audio/music/${track}.mp3`);
+    const el = new Audio(musicUrl(track));
     el.preload = 'auto';
     el.crossOrigin = 'anonymous';
     el.currentTime = at;

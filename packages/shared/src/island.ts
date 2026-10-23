@@ -396,6 +396,7 @@ export function buildIslandPlan(fieldCount: number): IslandPlan {
   const vineField = pickFree(sNear(VINE_ANCHOR));
   const caveField = pickFree(sNear(CAVE_ANCHOR));
   const caveExit = Math.max(1, Math.min(caveField - 1, Math.round(sNear(CAVE_EXIT_ANCHOR) / spacing)));
+  widenCreekGap(path, sOf, vineField, fieldRadiusFor({ spacing }), new Set([...taken, caveExit]));
 
   const fields: PlanField[] = sOf.map((s, i) => {
     const p = pointAt(path, s);
@@ -435,8 +436,57 @@ export function buildIslandPlan(fieldCount: number): IslandPlan {
 }
 
 /** Feldgröße passend zum Abstand der Felder. */
-export function fieldRadiusFor(plan: IslandPlan): number {
+export function fieldRadiusFor(plan: Pick<IslandPlan, 'spacing'>): number {
   return Math.max(0.6, Math.min(1.15, plan.spacing * 0.34));
+}
+
+/**
+ * Bach hinter der Liane (quert den Weg zwischen Lianenfeld und nächstem Feld): halbe Breite des
+ * Wassers und Abstand vom Wasser bis zum Feldrand (Böschung). Zusammen ergibt das den Mindestabstand
+ * der beiden Felder.
+ */
+export const CREEK = { halfWidth: 1.45, bank: 0.95 };
+
+/** Abstand (Mitte zu Mitte) zwischen Lianenfeld und nächstem Feld, damit der Bach breit genug ist. */
+export function creekGapFor(radius: number): number {
+  return 2 * (radius + CREEK.bank + CREEK.halfWidth);
+}
+
+/**
+ * Lianenfeld und nächstes Feld auseinanderrücken, damit dazwischen ein breiter Bach Platz hat
+ * (gemessen in Luftlinie – der Weg knickt am Ruinentor). Die Felder davor und danach rücken dafür
+ * gleichmäßig etwas zusammen (höchstens je 10 Felder, nie über Start oder ein anderes Sonderfeld
+ * hinweg, nie enger als zwei Feldbreiten plus Rand).
+ */
+function widenCreekGap(path: PlanPoint[], sOf: number[], vine: number, radius: number, fixed: Set<number>) {
+  const n = sOf.length;
+  if (vine < 1 || vine + 1 >= n - 1) return;
+  const target = creekGapFor(radius);
+  let lo = vine - 1;
+  while (lo > 0 && vine - lo < 10 && !fixed.has(lo)) lo--;
+  let hi = vine + 2;
+  while (hi < n - 1 && hi - (vine + 1) < 10 && !fixed.has(hi)) hi++;
+  const minGap = radius * 2 + 0.5;
+  // Bogen ist länger als Luftlinie: in wenigen Schritten nachbessern
+  for (let round = 0; round < 4; round++) {
+    const a = pointAt(path, sOf[vine]!);
+    const b = pointAt(path, sOf[vine + 1]!);
+    const want = target - Math.hypot(b.x - a.x, b.z - a.z);
+    if (want <= 0.02) return;
+    const roomBack = Math.max(0, sOf[vine]! - sOf[lo]! - (vine - lo) * minGap);
+    const roomFwd = fixed.has(vine + 1) ? 0 : Math.max(0, sOf[hi]! - sOf[vine + 1]! - (hi - vine - 1) * minGap);
+    let back = Math.min(want / 2, roomBack);
+    const fwd = Math.min(want - back, roomFwd);
+    back = Math.min(want - fwd, roomBack);
+    if (back + fwd < 0.01) return;
+    // linear umverteilen: Anker (lo, hi) bleiben, Lianenfeld rückt um `back` zurück, das nächste um `fwd` vor
+    const a0 = sOf[lo]!;
+    const a1 = sOf[vine]!;
+    const b0 = sOf[vine + 1]!;
+    const b1 = sOf[hi]!;
+    for (let i = lo + 1; i <= vine; i++) sOf[i] = a0 + ((sOf[i]! - a0) * (a1 - back - a0)) / (a1 - a0);
+    for (let i = vine + 1; i < hi; i++) sOf[i] = b1 - ((b1 - sOf[i]!) * (b1 - b0 - fwd)) / (b1 - b0);
+  }
 }
 
 /** Geglättete, geschlossene Küstenlinie. */

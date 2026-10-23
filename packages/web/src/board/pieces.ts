@@ -334,7 +334,9 @@ export class Pieces {
       const b = last ? this.slotFor(teamId, next) : this.centerOf(next);
       const yaw = Math.atan2(b.x - a.x, b.z - a.z);
       const r0 = p.holder.rotation.y;
-      const hop = 0.45 + Math.abs(b.y - a.y) * 0.4;
+      // über den Bach hinter der Liane (z. B. rückwärts oder ohne Liane) ein großer Satz
+      const overCreek = Math.min(cur, next) === this.layout.plan.vineField;
+      const hop = 0.45 + Math.abs(b.y - a.y) * 0.4 + (overCreek ? 1.1 : 0);
       await this.tweens.run(DURATION.step / 1000, (t) => {
         p.holder.position.lerpVectors(a, b, t);
         p.holder.position.y += Math.sin(t * Math.PI) * hop;

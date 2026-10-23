@@ -3,6 +3,7 @@
  * (Grafikstufe, Musik, Lautstärken, Kommentator, Kamera …) und die Spielerklärung.
  */
 import { z } from 'zod';
+import type { Theme } from './constants.ts';
 
 export const QUALITY_LEVELS = ['auto', 'ultra', 'high', 'balanced', 'eco'] as const;
 export type QualityLevel = (typeof QUALITY_LEVELS)[number];
@@ -29,16 +30,26 @@ export const RESOLUTION_INFO: Record<Resolution, string> = {
   '2160': '4K',
 };
 
-/** Musikstücke (Dateien unter /assets/audio/music/<id>.mp3) mit ihrer Stimmung. */
+/** Musikstücke (Dateien unter /assets/audio/music/<id>.<ext>) mit Stimmung und Welt. */
 export const MUSIC_MOODS = ['lobby', 'insel', 'spannung', 'vulkan', 'finale'] as const;
 export type MusicMood = (typeof MUSIC_MOODS)[number];
 export const MUSIC_MOOD_LABEL: Record<MusicMood, string> = {
   lobby: 'Lobby & Pausen',
   insel: 'Würfeln auf der Insel',
   spannung: 'Fragen & Minispiele',
-  vulkan: 'Im Vulkan',
+  vulkan: 'Im Vulkan / Nether',
   finale: 'Siegerehrung',
 };
+/** Ein Musikstück: Datei /assets/audio/music/<id>.<ext>. */
+export interface MusicTrackInfo {
+  id: string;
+  title: string;
+  mood: MusicMood;
+  /** Welt, in der die Automatik das Stück spielt (Standard: Insel) */
+  world?: Theme;
+  /** Dateiendung (Standard: mp3) */
+  ext?: 'mp3' | 'm4a';
+}
 export const MUSIC_TRACKS = [
   { id: 'lobby', title: 'Lagunen-Lounge', mood: 'lobby' },
   { id: 'lobby-bossa', title: 'Strand-Bossa', mood: 'lobby' },
@@ -53,9 +64,34 @@ export const MUSIC_TRACKS = [
   { id: 'vulkan', title: 'Im Vulkan', mood: 'vulkan' },
   { id: 'finale', title: 'Siegesfanfare', mood: 'finale' },
   { id: 'finale-karneval', title: 'Karnevals-Finale', mood: 'finale' },
-] as const satisfies readonly { id: string; title: string; mood: MusicMood }[];
+  // Blockwelt: freie Stücke (CC0) von OpenGameArt im ruhigen Minecraft-Geist – Quellen in assets/LICENSES.md
+  { id: 'block-lobby', title: 'Tiefblaues Klavier', mood: 'lobby', world: 'blocks', ext: 'm4a' },
+  { id: 'block-overworld-1', title: 'Unendliche Welt', mood: 'insel', world: 'blocks', ext: 'm4a' },
+  { id: 'block-overworld-2', title: 'Grillenzirpen', mood: 'insel', world: 'blocks', ext: 'm4a' },
+  { id: 'block-overworld-3', title: 'Bastel-Abenteuer', mood: 'insel', world: 'blocks', ext: 'm4a' },
+  { id: 'block-spannung', title: 'Einsame Nacht', mood: 'spannung', world: 'blocks', ext: 'm4a' },
+  { id: 'block-nether-1', title: 'Abstieg in den Nether', mood: 'vulkan', world: 'blocks', ext: 'm4a' },
+  { id: 'block-nether-2', title: 'Der Abgrund', mood: 'vulkan', world: 'blocks', ext: 'm4a' },
+] as const satisfies readonly MusicTrackInfo[];
 export type MusicTrackId = (typeof MUSIC_TRACKS)[number]['id'];
 const TRACK_IDS = MUSIC_TRACKS.map((t) => t.id) as [MusicTrackId, ...MusicTrackId[]];
+const TRACK_LIST: readonly MusicTrackInfo[] = MUSIC_TRACKS;
+
+/** Welt eines Musikstücks (ohne Angabe: Insel). */
+export const musicWorld = (t: MusicTrackInfo): Theme => t.world ?? 'island';
+
+/** Adresse der Musikdatei zu einer Stück-ID. */
+export function musicUrl(id: string): string {
+  const t = TRACK_LIST.find((x) => x.id === id);
+  return `/assets/audio/music/${id}.${t?.ext ?? 'mp3'}`;
+}
+
+/** Stücke einer Stimmung für eine Welt; hat die Welt dafür keine eigenen, kommen die der Insel. */
+export function musicTracksFor(mood: MusicMood, world: Theme): MusicTrackId[] {
+  const of = (w: Theme) => TRACK_LIST.filter((t) => t.mood === mood && musicWorld(t) === w).map((t) => t.id as MusicTrackId);
+  const own = of(world);
+  return own.length || world === 'island' ? own : of('island');
+}
 
 export const COMMENTARY_LEVELS = ['off', 'some', 'lots', 'crazy'] as const;
 export type CommentaryLevel = (typeof COMMENTARY_LEVELS)[number];
@@ -311,7 +347,8 @@ export const showCommandSchema = z.discriminatedUnion('type', [
   /** Kamera fernsteuern: feste Einstellung, Schubsen (drehen/zoomen/schieben) oder zurück zur Automatik. */
   z.object({
     type: z.literal('camera'),
-    action: z.enum(['auto', 'overview', 'volcano', 'start', 'goal', 'team', 'nudge']),
+    /** inside/island: ins Vulkan-Innere bzw. zurück auf die Insel (nur, wenn gerade nichts passiert) */
+    action: z.enum(['auto', 'overview', 'volcano', 'start', 'goal', 'team', 'nudge', 'inside', 'island']),
     teamId: z.string().max(64).optional(),
     yaw: z.number().min(-3).max(3).optional(),
     pitch: z.number().min(-1).max(1).optional(),
@@ -335,4 +372,8 @@ export interface BeamerStats {
   /** Kamera gerade frei geführt */
   manual: boolean;
   explaining: boolean;
+  /** Welche Welt der Beamer zeigt (Insel oder Vulkan-Inneres) */
+  view?: 'island' | 'inside';
+  /** Auf dem Spielbrett läuft gerade ein Zug/Auftritt */
+  busy?: boolean;
 }

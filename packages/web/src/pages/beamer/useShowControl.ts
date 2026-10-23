@@ -3,7 +3,7 @@
  * Ton und Musik, Kommentator, Kamera, Vollbild, Neu laden. Meldet Bildrate & Co. zurück.
  */
 import { useEffect, useRef, useState } from 'react';
-import { effectiveChatter, MUSIC_TRACKS, parseShow, type GameState, type MusicMood, type RenderQuality, type ShowSettings } from '@insel/shared';
+import { effectiveChatter, musicTracksFor, parseShow, type GameState, type MusicMood, type RenderQuality, type ShowSettings, type Theme } from '@insel/shared';
 import type { MusicTrack } from '../../board/audio.ts';
 import type { BoardScene } from '../../board/scene.ts';
 import { beamerReport, onShowCommand, onShowTest, useLive } from '../../lib/live.ts';
@@ -23,10 +23,12 @@ function moodFor(state: GameState | null, explaining: boolean, insideView: boole
   return 'insel';
 }
 
-const tracksOf = (mood: MusicMood) => MUSIC_TRACKS.filter((t) => t.mood === mood).map((t) => t.id as MusicTrack);
-
-/** Musik-Wunsch aus Phase und Regie-Einstellung (festes Stück oder automatisch, rotierend). */
-function musicFor(settings: ShowSettings, mood: MusicMood): { list: MusicTrack[]; loop: boolean; rotate: boolean; then?: MusicTrack } {
+/**
+ * Musik-Wunsch aus Phase und Regie-Einstellung (festes Stück oder automatisch, rotierend).
+ * Automatisch spielen nur Stücke der eigenen Welt (Blockwelt: eigene, sonst die der Insel).
+ */
+function musicFor(settings: ShowSettings, mood: MusicMood, world: Theme): { list: MusicTrack[]; loop: boolean; rotate: boolean; then?: MusicTrack } {
+  const tracksOf = (m: MusicMood): MusicTrack[] => musicTracksFor(m, world);
   if (mood === 'finale') return { list: tracksOf('finale'), loop: false, rotate: true, then: tracksOf('lobby')[0] };
   if (settings.musicTrack !== 'auto') return { list: [settings.musicTrack], loop: true, rotate: false };
   return { list: tracksOf(mood), loop: true, rotate: settings.musicRotate };
@@ -143,13 +145,15 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
         fullscreen: !!document.fullscreenElement,
         manual: !!scene.rig.manual,
         explaining: s.explainer.running,
+        view: scene.view,
+        busy: scene.director.busy,
       });
     }, 2000);
     return () => clearInterval(id);
   }, [scene]);
 
   // Musik passend zur Phase (oder fest gewählt), auf Wunsch rotierend
-  const music = musicFor(settings, moodFor(state, explainer.running, insideView));
+  const music = musicFor(settings, moodFor(state, explainer.running, insideView), state?.config.theme ?? 'island');
   const musicKey = `${music.list.join('|')}|${music.loop}|${music.rotate}`;
   useEffect(() => {
     // Finale: aus der Liste ein Stück zufällig, einmal
@@ -221,6 +225,10 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
           }
           case 'nudge':
             rig.nudge({ yaw: cmd.yaw, pitch: cmd.pitch, zoom: cmd.zoom, panX: cmd.panX, panZ: cmd.panZ }, HOLD);
+            break;
+          case 'inside':
+          case 'island':
+            void scene.visit(cmd.action);
             break;
         }
       }),

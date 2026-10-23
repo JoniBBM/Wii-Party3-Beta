@@ -4,24 +4,39 @@
  * Liane, Fässer oder Kisten, Lavahöhle, Vulkan-Inneres & Co. Jeder Satz ist eine eigene
  * Sprachdatei – die Vorführung startet genau mit dem Satz, der sie ankündigt.
  * Gestartet und gestoppt wird aus der Regie.
+ *
+ * Blockwelt: gleiche Abläufe (die Auftritte sind dort schon aus Blöcken), aber eigene Begriffe auf
+ * Karten und im Untertitel – Schleimblock, Knaller, Teleport-Perle, Spinnennetz, Ranke, Nether …
  */
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import * as THREE from 'three';
-import { DEFAULT_FIGURE, FIELD_INFO, islandLandmarks, type ExplainerState, type FieldType, type GameState } from '@insel/shared';
+import { DEFAULT_FIGURE, DEFAULT_RULES, FIELD_INFO, THEME_INFO, islandLandmarks, type ExplainerState, type FieldType, type GameState } from '@insel/shared';
 import type { BoardScene } from '../../board/scene.ts';
-import { EXPLAINER_LINES, stripTags, voiceUrl, type ExplainerLineId } from '../../board/voice-lines.ts';
+import { BLOCK_EXPLAINER_LINES, EXPLAINER_LINES, stripTags, voiceUrl, type ExplainerLineId } from '../../board/voice-lines.ts';
 import { beamerReport } from '../../lib/live.ts';
 import { boardAudio } from './BoardCanvas.tsx';
+
+/** Vulkandruck der Vorführung (Balken in der Karte); `bump` = Zuwachs als kleine Blase */
+interface Meter {
+  value: number;
+  max: number;
+  bump?: { id: number; text: string };
+}
 
 interface Card {
   icon: string;
   title: string;
   items?: { icon: string; text: string; color?: string }[];
+  /** Punkte untereinander statt zweispaltig (längere Sätze) */
+  wide?: boolean;
   steps?: string[];
   /** Vorführung: Antwort per Doppeltipp */
   tap?: boolean;
+  meter?: Meter;
 }
+
+const UP = new THREE.Vector3(0, 1, 0);
 
 /** Abschnitte der Erklärung (für die Fortschrittspunkte oben). */
 const SECTIONS = 12;
@@ -148,7 +163,7 @@ export function Explainer({ scene, state, explainer }: { scene: BoardScene | nul
             )}
             {card.tap && <TapDemo />}
             {card.items && (
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className={`mt-5 grid gap-3 ${card.wide ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 {card.items.map((it, i) => (
                   <motion.div
                     key={it.text}
@@ -164,6 +179,7 @@ export function Explainer({ scene, state, explainer }: { scene: BoardScene | nul
                 ))}
               </div>
             )}
+            {card.meter && <PressureMeter meter={card.meter} />}
           </motion.div>
         )}
       </AnimatePresence>
@@ -237,9 +253,56 @@ function TapDemo() {
   );
 }
 
+/** Vulkandruck groß wie im Spiel: ein Kästchen je Druckpunkt (bei vielen ein durchgehender Balken), Zuwachs als Blase. */
+function PressureMeter({ meter }: { meter: Meter }) {
+  const { value, max, bump } = meter;
+  const full = value >= max;
+  const fill = 'linear-gradient(90deg, #f5b031, #f2555a 70%, #b3261e)';
+  return (
+    <div className={`mt-4 rounded-3xl bg-white/85 px-5 py-4 transition-shadow ${full ? 'shadow-[inset_0_0_0_4px_#e5484d]' : ''}`}>
+      <div className="flex items-center justify-between text-2xl font-bold text-ink">
+        <span>🌡️ Vulkandruck</span>
+        <span className={`relative font-display text-3xl tabular-nums ${full ? 'text-bad' : ''}`}>
+          {value} / {max}
+          <AnimatePresence>
+            {bump && (
+              <motion.span
+                key={bump.id}
+                initial={{ y: 12, opacity: 0, scale: 0.6 }}
+                animate={{ y: -38, opacity: [0, 1, 1, 0], scale: 1 }}
+                transition={{ duration: 2.2, times: [0, 0.15, 0.75, 1] }}
+                className="absolute -top-2 right-0 rounded-full bg-bad px-3 py-0.5 font-sans text-xl font-bold whitespace-nowrap text-white shadow"
+              >
+                {bump.text}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </span>
+      </div>
+      {max <= 12 ? (
+        <div className="mt-3 flex gap-1.5">
+          {Array.from({ length: max }, (_, i) => (
+            <div key={i} className="h-7 flex-1 overflow-hidden rounded-full bg-black/10">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: i < value ? '100%' : '0%', background: fill }} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 h-7 overflow-hidden rounded-full bg-black/10">
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(1, value / max) * 100}%`, background: fill }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function cleanup(scene: BoardScene, setCard: (c: Card | null) => void, setSubtitle: (s: string | null) => void) {
   setCard(null);
   setSubtitle(null);
+  // Vulkandruck der Vorführung zurück auf den echten Stand
+  const st = scene.state;
+  const v = st?.config.rules.volcano;
+  scene.volcano.setPressure(st && v?.enabled ? st.volcano.pressure / Math.max(1, v.threshold) : 0);
   const wasInside = scene.view === 'inside';
   // laufende Vorführungen (UFO, Flugzeug, Bretter …) sofort wegräumen
   scene.stunts.abortAll();
@@ -285,17 +348,36 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   const finalMin = st?.config.rules.winRule === 'final_roll' ? st.config.rules.finalRollMin : null;
   const ins = s.inside;
   const shout = st?.config.rules.inside?.shout ?? 4;
+  const reward = st?.config.rules.fieldGame.rewardWin ?? DEFAULT_RULES.fieldGame.rewardWin;
+  // Vulkan: echte Regeln dieses Spiels (Karten, Druckbalken und Vorführung richten sich danach)
+  const vr = st?.config.rules.volcano ?? DEFAULT_RULES.volcano;
+  // Vulkan in diesem Spiel abgeschaltet: Vulkanfelder und Ausbruch werden nicht erklärt
+  const volcanoOn = vr.enabled;
+  const threshold = Math.max(1, vr.threshold);
+  const perField = vr.pressurePerField;
+  const perRound = vr.pressurePerRound;
+  const zoneSize = Math.max(1, Math.min(goal, vr.zoneSize));
+  const zoneStart = goal - zoneSize + 1;
+  const kbMin = Math.min(vr.knockback.min, vr.knockback.max);
+  const kbMax = Math.max(vr.knockback.min, vr.knockback.max);
+  const kbText = kbMin === kbMax ? `${kbMax}` : `${kbMin}–${kbMax}`;
+  const blocks = s.theme === 'blocks';
 
   // Sprachdateien vorab laden (Dauer für den Fall ohne Ton)
-  await Promise.all(EXPLAINER_LINES.map(([id]) => boardAudio.prepare(voiceUrl(id))));
+  /** Blockwelt: eigene Aufnahme, wo es eine gibt (bw_<id>), sonst die Insel-Aufnahme */
+  const lineOf = (id: ExplainerLineId) => {
+    const own = blocks ? BLOCK_EXPLAINER_LINES[id] : undefined;
+    return { text: own ?? EXPLAINER_LINES.find(([k]) => k === id)?.[1] ?? '', url: voiceUrl(own ? `bw_${id}` : id) };
+  };
+  await Promise.all(EXPLAINER_LINES.map(([id]) => boardAudio.prepare(lineOf(id).url)));
   run.check();
 
   let section = -1;
   /** Satz sprechen (ohne Ton: Untertitel so lange zeigen, wie das Vorlesen dauern würde). */
   const speak = async (id: ExplainerLineId) => {
-    const text = EXPLAINER_LINES.find(([k]) => k === id)?.[1] ?? '';
+    const { text, url } = lineOf(id);
     ui.setSubtitle(stripTags(text));
-    const spoken = await boardAudio.say(voiceUrl(id), { interrupt: true });
+    const spoken = await boardAudio.say(url, { interrupt: true });
     run.check();
     if (!spoken) await run.wait(Math.max(2500, stripTags(text).length * 62));
     await run.wait(250);
@@ -305,10 +387,24 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     await Promise.all([speak(id), demo ? demo() : Promise.resolve()]);
     run.check();
   };
+  /** gerade gezeigte Karte (für Änderungen am Druckbalken) */
+  let shown: Card | null = null;
+  const show = (c: Card | null) => {
+    shown = c;
+    ui.setCard(c);
+  };
   const next = (c: Card | null) => {
     section += 1;
     ui.setStep(section);
-    ui.setCard(c);
+    show(c);
+  };
+  let pressure = 0;
+  let bumpId = 0;
+  /** Vulkandruck der Vorführung: Balken in der Karte, Glut und Rauch am Vulkan */
+  const setPressure = (value: number, bump?: string) => {
+    pressure = Math.max(0, Math.min(threshold, value));
+    s.volcano.setPressure(pressure / threshold);
+    if (shown?.meter) show({ ...shown, meter: { value: pressure, max: threshold, bump: bump ? { id: ++bumpId, text: bump } : undefined } });
   };
   type Shot = { position: THREE.Vector3; lookAt: THREE.Vector3 };
   /** weit weg von der jetzigen Kamera? Dann Schwarzblende statt Flug quer über die Insel */
@@ -344,10 +440,82 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     const p = s.pieces.get(id);
     if (p) p.holder.visible = true;
   };
+  /** Vulkanfeld von der Bergseite weg, erhöht: Figur unten, rauchender Gipfel oben im Bild */
+  const heatShot = (field: number): Shot => {
+    const f = s.pieces.slotOn(DEMO_A, field);
+    const top = s.volcano.craterTop;
+    const out = new THREE.Vector3(f.x - top.x, 0, f.z - top.z);
+    if (out.lengthSq() < 1) out.set(0, 0, 1);
+    out.normalize().applyAxisAngle(UP, 0.3);
+    return { position: f.clone().addScaledVector(out, 24).setY(f.y + 14), lookAt: f.clone().lerp(top, 0.4) };
+  };
+  /**
+   * Ausbruch: Krater, Figur am Gipfel, Flugbogen und Landeplatz zugleich im Bild. Schräg von der
+   * Seite (frontal flöge die Figur nur auf die Kamera zu), mit freier Sicht auf Start, Landeplatz
+   * und Krater; das Motiv rechts oben (links steht die Karte, unten der Untertitel).
+   */
+  const eruptionShot = (from: THREE.Vector3, to: THREE.Vector3): Shot => {
+    const lift = new THREE.Vector3(0, 0.8, 0);
+    const a = from.clone().add(lift);
+    const b = to.clone().add(lift);
+    const top = s.volcano.craterTop.clone().setY(s.volcano.craterTop.y + 2.5);
+    const points = [top, a, b, a.clone().lerp(b, 0.5).setY(Math.max(a.y, b.y) + 5)];
+    const center = new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());
+    const r = Math.max(4, ...points.map((p) => p.distanceTo(center)));
+    const v = s.layout.volcano;
+    const out = new THREE.Vector3(center.x - v.x, 0, center.z - v.z);
+    if (out.lengthSq() < 1) out.set(0, 0, 1);
+    out.normalize();
+    const base = (r / Math.tan(THREE.MathUtils.degToRad(s.camera.fov / 2))) * 1.3;
+    const pitch = 0.5;
+    // Kraterrand mit ins Motiv (sonst steckt ein Teil des Kraters hinter der Karte)
+    const rim = [0, 1, 2, 3].map((i) => top.clone().add(new THREE.Vector3(Math.cos((i * Math.PI) / 2) * 3, -1.5, Math.sin((i * Math.PI) / 2) * 3)));
+    const motif = [...points, ...rim];
+    const cam = s.camera.clone();
+    /** liegt alles rechts neben der Karte (linke Bildhälfte) und über dem Untertitel? */
+    const fits = (sh: Shot) => {
+      cam.position.copy(sh.position);
+      cam.lookAt(sh.lookAt);
+      cam.updateMatrixWorld();
+      return motif.every((p) => {
+        const q = p.clone().project(cam);
+        return q.z < 1 && q.x > 0.02 && q.x < 0.96 && q.y > -0.55 && q.y < 0.9;
+      });
+    };
+    const shotFrom = (angle: number, shift: number, far: number): Shot => {
+      const dist = base * far;
+      const dir = out.clone().applyAxisAngle(UP, angle);
+      const position = center.clone().addScaledVector(dir, dist * Math.cos(pitch)).setY(center.y + dist * Math.sin(pitch));
+      const right = new THREE.Vector3().crossVectors(dir.clone().negate(), UP).normalize();
+      return { position, lookAt: center.clone().addScaledVector(right, -r * shift).setY(center.y - r * 0.3) };
+    };
+    const angles = [-0.9, -0.6, -1.2, 0.9, 0.6, 1.2, -0.3, 0.3];
+    const free = (sh: Shot) => [a, b, top].every((p) => rig.occlusion(sh.position, p, true) === 0);
+    // erst die engste Einstellung, die frei ist und neben die Karte passt; dann nur frei; dann irgendwas
+    for (const [shift, far] of [[0.3, 1], [0.45, 1.1], [0.6, 1.25], [0.7, 1.45], [0.8, 1.7]] as const) {
+      for (const angle of angles) {
+        const sh = shotFrom(angle, shift, far);
+        if (free(sh) && fits(sh)) return sh;
+      }
+    }
+    for (const angle of angles) {
+      const sh = shotFrom(angle, 0.6, 1.25);
+      if (free(sh)) return sh;
+    }
+    return shotFrom(0, 0.6, 1.25);
+  };
+  /** Gefahrenzone am Gipfel: rote Funken laufen die Felder hinauf */
+  const flashZone = async () => {
+    for (let i = zoneStart; i <= goal; i++) {
+      const f = s.layout.fields[i];
+      if (f) s.effects.sparkle(f.x, s.fields.topY[i] ?? f.y, f.z, new THREE.Color('#ff4a3a'), 16, 1.1);
+      await run.wait(70);
+    }
+  };
 
-  // 1) Begrüßung über der Insel
+  // 1) Begrüßung über der Insel (bzw. der Blockwelt)
   rig.set({ kind: 'overview' }, 0.9);
-  next({ icon: '🏝️', title: 'Insel der Abenteuer' });
+  next({ icon: THEME_INFO[s.theme].icon, title: THEME_INFO[s.theme].label });
   s.effects.confettiBurst(0, 12, 0, ['#ffd23f', '#ff6fb5', '#5fe0d8', '#ffffff'], 160, 1.2);
   await beat('ex_welcome');
 
@@ -366,8 +534,8 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   await beat('ex_devices');
 
   // 3) Teams und Figuren – zwei Vorführ-Figuren am Start
-  s.pieces.addDemo(DEMO_A, { ...DEFAULT_FIGURE, hairStyle: 'spiky' }, 'blue', 'Die Papageien', 1);
-  s.pieces.addDemo(DEMO_B, { ...DEFAULT_FIGURE, hairStyle: 'long', hairColor: 3 }, 'orange', 'Die Kokosnüsse', 1);
+  s.pieces.addDemo(DEMO_A, { ...DEFAULT_FIGURE, hairStyle: 'spiky' }, 'blue', blocks ? 'Die Diamanten' : 'Die Papageien', 1);
+  s.pieces.addDemo(DEMO_B, { ...DEFAULT_FIGURE, hairStyle: 'long', hairColor: 3 }, 'orange', blocks ? 'Die Schleime' : 'Die Kokosnüsse', 1);
   await go(rig.portraitShot(s.pieces.worldPos(DEMO_A) ?? new THREE.Vector3(), 6), 1.4);
   next({
     icon: '👥',
@@ -415,9 +583,9 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     ],
   });
   await beat('ex_questions');
-  ui.setCard({ icon: '👆', title: 'Doppelt tippen = eingeloggt', tap: true });
+  show({ icon: '👆', title: 'Doppelt tippen = eingeloggt', tap: true });
   await beat('ex_doubletap');
-  ui.setCard({ icon: '🎮', title: 'Minispiele', items: [{ icon: '🎲', text: 'Spieler werden gezogen' }, { icon: '🙋', text: 'immer bereit sein!' }] });
+  show({ icon: '🎮', title: 'Minispiele', items: [{ icon: '🎲', text: 'Spieler werden gezogen' }, { icon: '🙋', text: 'immer bereit sein!' }] });
   await beat('ex_minigames');
 
   // 7) Würfeln
@@ -436,7 +604,14 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   next({
     icon: '✨',
     title: 'Sonderfelder',
-    items: (['catapult_forward', 'catapult_backward', 'swap', 'barrier'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: FIELD_INFO[t].short, color: FIELD_INFO[t].color })),
+    items: blocks
+      ? [
+          { icon: '🟩', text: 'Schleimblock', color: FIELD_INFO.catapult_forward.color },
+          { icon: '💥', text: 'Knaller', color: FIELD_INFO.catapult_backward.color },
+          { icon: '🔮', text: 'Teleport-Perle', color: FIELD_INFO.swap.color },
+          { icon: '🕸️', text: 'Spinnennetz', color: FIELD_INFO.barrier.color },
+        ]
+      : (['catapult_forward', 'catapult_backward', 'swap', 'barrier'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: FIELD_INFO[t].short, color: FIELD_INFO[t].color })),
   });
   // „Unterwegs warten Sonderfelder. Die Sprungfeder …“
   place(DEMO_A, Math.max(1, springField - 1));
@@ -452,11 +627,11 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     run.check();
     boardAudio.play('land');
   });
-  // „Das Flugzeug bringt euch leider wieder zurück.“
+  // „Das Flugzeug bringt euch leider wieder zurück.“ (Blockwelt: der Knaller, mit eigenen Geräuschen)
   place(DEMO_B, planeField);
   await goFollow(DEMO_B, 14, 9);
   await beat('ex_plane', async () => {
-    boardAudio.play('flugzeug', { volume: 0.7 });
+    if (!blocks) boardAudio.play('flugzeug', { volume: 0.7 });
     await s.stunts.plane(DEMO_B, Math.max(1, planeField - 5), '#f5a623');
   });
   // „Das UFO tauscht euren Platz …“
@@ -483,28 +658,66 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   await go(close(DEMO_A, gameField, 8, 5), 1.4);
   next({
     icon: '🎮',
-    title: 'Minispiel- & Vulkanfelder',
+    title: 'Minispiel-Feld',
     items: [
       { icon: FIELD_INFO.minigame.icon, text: 'Extra-Minispiel', color: FIELD_INFO.minigame.color },
-      { icon: FIELD_INFO.volcano.icon, text: 'Vulkan heizt auf', color: FIELD_INFO.volcano.color },
+      { icon: '🏃', text: reward > 0 ? `Sieg: ${reward} Felder vor` : 'Sieger ziehen vor' },
     ],
   });
   s.stunts.stageOn(gameField);
   boardAudio.play('pfiff', { volume: 0.7 });
   await beat('ex_gamefield');
   s.stunts.stageOff();
-  await go(rig.fieldShot(volcanoField, 9, 6, true), 1.6);
-  await beat('ex_volcanofield', async () => {
-    await run.wait(1700);
-    s.stunts.geyser(volcanoField);
-    boardAudio.play('lava');
-  });
+  // „Und die Vulkanfelder? …“ – Figur landet drauf, der Druckbalken steigt, am Ende der Runde noch
+  // einmal; der Vulkan oben im Bild raucht und glüht stärker. Startwert so, dass danach genau noch
+  // eine Runde bis zum Ausbruch fehlt (wird in Abschnitt 11 vorgeführt).
+  if (volcanoOn) {
+    const heatFrom = Math.max(0, volcanoField - 2);
+    setPressure(threshold - perField - 2 * perRound);
+    show({
+      icon: FIELD_INFO.volcano.icon,
+      title: 'Vulkanfelder',
+      wide: true,
+      items: [
+        ...(perField > 0 ? [{ icon: FIELD_INFO.volcano.icon, text: `Auf dem Vulkanfeld landen: +${perField} Druck`, color: FIELD_INFO.volcano.color }] : []),
+        ...(perRound > 0 ? [{ icon: '🔁', text: `Nach jeder Runde: +${perRound} Druck` }] : []),
+        { icon: '💥', text: `Druck voll (${threshold}): Ausbruch!`, color: '#e5484d' },
+      ],
+      meter: { value: pressure, max: threshold },
+    });
+    // Ortswechsel mit Blende: die Figur springt nicht sichtbar ans andere Ende der Insel
+    const heat = heatShot(volcanoField);
+    await cut(() => {
+      place(DEMO_A, heatFrom);
+      rig.set({ kind: 'focus', ...heat }, 1.2);
+    });
+    await beat('ex_volcanofield', async () => {
+      await run.wait(700);
+      await s.pieces.walk(DEMO_A, heatFrom, volcanoField);
+      run.check();
+      s.stunts.geyser(volcanoField);
+      boardAudio.play('lava');
+      s.rig.shake(0.15, 0.6);
+      s.pieces.setMode(DEMO_A, 'shock');
+      if (perField > 0) setPressure(pressure + perField, `+${perField} Vulkanfeld`);
+      await run.wait(2400);
+      if (perRound > 0) {
+        boardAudio.play('rumble', { volume: 0.6 });
+        s.rig.shake(0.1, 0.8);
+        setPressure(pressure + perRound, `+${perRound} Rundenende`);
+        await run.wait(1800);
+      }
+      s.pieces.setMode(DEMO_A, 'idle');
+    });
+  }
 
   // 10) Mutproben: Liane, Fässer oder Kisten, Lavahöhle, Totenkopf + Vulkan-Inneres, Krater
+  //     (Blockwelt: Ranke, Boden bricht weg, Nether)
+  const blockLabel: Partial<Record<FieldType, string>> = { vine: 'Ranke', skull: 'Boden bricht weg' };
   next({
     icon: '💪',
     title: 'Mutproben',
-    items: (['vine', 'river', 'cave', 'skull', 'crater'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: FIELD_INFO[t].label, color: FIELD_INFO[t].color })),
+    items: (['vine', 'river', 'cave', 'skull', 'crater'] as FieldType[]).map((t) => ({ icon: FIELD_INFO[t].icon, text: (blocks && blockLabel[t]) || FIELD_INFO[t].label, color: FIELD_INFO[t].color })),
   });
   place(DEMO_A, vineField);
   await go(s.stunts.vineShot(), 1.4);
@@ -533,7 +746,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   place(DEMO_A, caveField);
   // von der Seeseite: die Bergflanke mit der Höhle liegt hinter der Figur, nicht neben der Kamera
   await go(rig.fieldShot(caveField, 8.5, 5, true), 1.4);
-  ui.setCard({ icon: '🦇', title: 'Lavahöhle', items: [{ icon: '🎲', text: `mind. ${caveNeed} würfeln` }, { icon: '🌋', text: 'sonst: ab ins Innere' }] });
+  show({ icon: '🦇', title: 'Lavahöhle', items: [{ icon: '🎲', text: `mind. ${caveNeed} würfeln` }, blocks ? { icon: '🔥', text: 'sonst: ab in den Nether' } : { icon: '🌋', text: 'sonst: ab ins Innere' }] });
   await beat('ex_cave', async () => {
     s.pieces.setMode(DEMO_A, 'shock');
     await run.wait(2600);
@@ -548,7 +761,11 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   //  Wer genau das leuchtende Feld trifft, kommt früher raus.“
   place(DEMO_B, skullField);
   await go(close(DEMO_B, skullField, 7, 4.5), 1.8);
-  ui.setCard({ icon: '💀', title: 'Vulkan-Inneres', items: [{ icon: '💀', text: 'Totenkopf-Feld' }, { icon: '🔥', text: 'Strafweg über Lava' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: sofort raus` }] : [{ icon: '🏁', text: 'bis zum Ende laufen' }]), { icon: '🏝️', text: 'zurück, wo man fiel' }] });
+  show(
+    blocks
+      ? { icon: '🔥', title: 'Nether', items: [{ icon: '💀', text: 'Boden bricht weg' }, { icon: '🧱', text: 'Strafweg über Netherziegel' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: ab durchs Portal` }] : [{ icon: '🌀', text: 'bis zum Portal laufen' }]), { icon: '🟩', text: 'zurück, wo man fiel' }] }
+      : { icon: '💀', title: 'Vulkan-Inneres', items: [{ icon: '💀', text: 'Totenkopf-Feld' }, { icon: '🔥', text: 'Strafweg über Lava' }, ...(shout > 0 ? [{ icon: '✨', text: `genau aufs Feld ${shout}: sofort raus` }] : [{ icon: '🏁', text: 'bis zum Ende laufen' }]), { icon: '🏝️', text: 'zurück, wo man fiel' }] },
+  );
   await beat('ex_skull', async () => {
     await run.wait(500);
     await s.stunts.trapdoor(DEMO_B, skullField);
@@ -611,7 +828,7 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
   place(DEMO_A, s.layout.craterField);
   // Schnitt statt Flug: der Weg dorthin führt sonst dicht über den Kraterrand an den Gipfelfeldern vorbei
   await cut(() => rig.set({ kind: 'focus', ...rig.craterShot() }, 1.4));
-  ui.setCard({ icon: FIELD_INFO.crater.icon, title: 'Kraterloch', items: [{ icon: '🕳️', text: 'hineinrutschen' }, { icon: '🧗', text: 'Augen sammeln, rausklettern' }] });
+  show({ icon: FIELD_INFO.crater.icon, title: 'Kraterloch', items: [{ icon: '🕳️', text: 'hineinrutschen' }, { icon: '🧗', text: 'Augen sammeln, rausklettern' }] });
   await beat('ex_crater', async () => {
     await run.wait(2200);
     boardAudio.play('fallen');
@@ -621,20 +838,65 @@ async function play(run: Run, s: BoardScene, getState: () => GameState | null, u
     await s.pieces.climb(DEMO_A, 0.5);
   });
 
-  // 11) Vulkanausbruch
-  await go(rig.volcanoShot(), 1.1);
-  next({ icon: '🌋', title: 'Achtung, Vulkan!', items: [{ icon: '🌡️', text: 'Druck steigt jede Runde' }, { icon: '💥', text: 'Ausbruch: alle zurück!' }] });
-  await beat('ex_pressure', async () => {
-    await run.wait(1500);
-    boardAudio.play('rumble', { volume: 0.7 });
-    s.rig.shake(0.2, 1.2);
-  });
-  await beat('ex_eruption', async () => {
-    await run.wait(1200);
-    boardAudio.play('vulkan');
-    s.volcano.erupt();
-    s.rig.shake(0.6, 2);
-  });
+  // 11) Vulkanausbruch: Druck läuft voll, der Vulkan bricht aus und wirft die Figur am Gipfel
+  //     zurück – wie im Spiel (Gefahrenzone = letzte Felder, Rückwurf aus den Regeln)
+  // Figur auf den Weg kurz unter dem Gipfel, in die Gefahrenzone (nicht aufs Kraterloch)
+  if (volcanoOn) {
+    let victimField = Math.max(zoneStart, goal - 3);
+    if (victimField === s.layout.craterField && victimField - 1 >= zoneStart) victimField -= 1;
+    const victimTo = Math.max(0, victimField - kbMax);
+    const from = s.pieces.slotOn(DEMO_B, victimField);
+    const to = s.pieces.slotOn(DEMO_B, victimTo);
+    const eShot = eruptionShot(from, to);
+    await cut(() => {
+      s.pieces.removeDemo(DEMO_A); // sitzt noch im Krater – beim Ausbruch nur im Weg
+      place(DEMO_B, victimField);
+      rig.set({ kind: 'focus', ...eShot }, 1.1);
+    });
+    next({
+      icon: '🌋',
+      title: 'Achtung, Vulkan!',
+      wide: true,
+      items: [
+        ...(perRound > 0 ? [{ icon: '🔁', text: `Nach jeder Runde: +${perRound} Druck` }] : []),
+        { icon: '⛰️', text: zoneSize > 1 ? `Gefahrenzone: die letzten ${zoneSize} Felder vorm Gipfel` : 'Gefahrenzone: der Gipfel', color: '#e5484d' },
+        { icon: '💥', text: `Ausbruch: Wer dort steht, fliegt ${kbText} ${kbMax === 1 ? 'Feld' : 'Felder'} zurück!` },
+      ],
+      meter: { value: pressure, max: threshold },
+    });
+    await beat('ex_pressure', async () => {
+      await run.wait(1200);
+      void flashZone();
+      // Runde um Runde bis der Balken voll ist
+      const step = perRound > 0 ? perRound : Math.max(1, perField);
+      while (pressure < threshold) {
+        await run.wait(1100);
+        boardAudio.play('rumble', { volume: 0.5 + (pressure / threshold) * 0.5 });
+        s.rig.shake(0.1 + (pressure / threshold) * 0.2, 1);
+        setPressure(pressure + step, `+${step} ${perRound > 0 ? 'Rundenende' : 'Vulkanfeld'}`);
+      }
+      s.pieces.setMode(DEMO_B, 'shock');
+      await run.wait(600);
+    });
+    await beat('ex_eruption', async () => {
+      await run.wait(900);
+      boardAudio.play('jingle-alarm');
+      boardAudio.play('vulkan');
+      boardAudio.play('rumble', { volume: 0.7, rate: 0.8 });
+      s.volcano.erupt();
+      s.rig.shake(0.6, 2);
+      await run.wait(700);
+      await s.pieces.fly(DEMO_B, victimTo, { height: 9, duration: 2.1, spin: Math.PI * 4 });
+      run.check();
+      boardAudio.play('land');
+      s.pieces.setMode(DEMO_B, 'sad');
+      setPressure(0, 'Druck wieder 0');
+      await run.wait(900);
+    });
+  } else {
+    section += 1;
+    ui.setStep(section);
+  }
 
   // 12) Schluss
   await goOverview();

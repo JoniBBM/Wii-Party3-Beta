@@ -206,10 +206,18 @@ export class Director {
 
   private stageField: number | null = null;
 
+  /** Läuft gerade ein Zug oder Auftritt? */
+  get busy() {
+    return this.running;
+  }
+
   /** Kamera, wenn gerade nichts passiert. */
   private idleCamera() {
     const st = this.state;
     if (!st || this.paused) return;
+    // Regie schaut gerade bewusst ins Vulkan-Innere: dort bleiben, bis wieder gewürfelt wird
+    if (this.s.visiting && st.phase.name !== 'dice') return;
+    this.s.visiting = false;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (st.phase.name === 'dice' && !st.phase.dice.fieldGame) {
       const ch = st.phase.dice.challenge;
@@ -274,6 +282,8 @@ export class Director {
 
   private async run() {
     this.running = true;
+    // ein Zug beendet einen Besuch der Regie im Vulkan-Inneren
+    this.s.visiting = false;
     this.updateTalk();
     while (this.queue.length && !this.disposed) {
       const e = this.queue.shift()!;
@@ -565,11 +575,9 @@ export class Director {
             A.play('land');
           } else {
             const t = this.team(e.teamId);
-            // Blockwelt: Knaller statt Flugzeug (eigene Geräusche im Auftritt)
-            if (s.theme !== 'blocks') {
-              A.play('flugzeug', { volume: 0.8 });
-              this.voice('plane', { delay: 900 });
-            }
+            // Blockwelt: Knaller statt Flugzeug (eigene Geräusche im Auftritt, eigene Sprüche)
+            if (s.theme !== 'blocks') A.play('flugzeug', { volume: 0.8 });
+            this.voice('plane', { delay: 900 });
             await s.stunts.plane(e.teamId, e.to, teamColor(t?.color ?? 'red').hex);
             if (stale()) return;
           }
@@ -670,7 +678,7 @@ export class Director {
         const a = this.teamCaption(e.a);
         const b = this.teamCaption(e.b);
         this.say({ icon: '🔄', title: 'Platztausch!', sub: `${a.name} ⇄ ${b.name}`, tone: 'info' }, 3200);
-        if (s.theme !== 'blocks') this.voice('ufo', { delay: 800 });
+        this.voice('ufo', { delay: 800 });
         // Kamera begleitet das UFO
         const pa = s.pieces.worldPos(e.a) ?? new THREE.Vector3();
         const last = pa.clone();

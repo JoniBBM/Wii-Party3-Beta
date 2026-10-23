@@ -17,6 +17,20 @@ Alle Assets sind frei verwendbar. Die meisten stehen unter **CC0 1.0 (Public Dom
 | `audio/jingle-*` | Kenney – Music Jingles |
 | `hdri/sky.hdr` | Poly Haven – „Kloofendal 48d Partly Cloudy (Pure Sky)“ von Greg Zaal (https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky) |
 
+## Musik der Blockwelt (`audio/music/block-*.m4a`)
+
+**CC0 1.0 (Public Domain)** – https://creativecommons.org/publicdomain/zero/1.0/ – alle von OpenGameArt, Lizenz jeweils auf der Seite des Stücks geprüft. Eigene Stücke der Urheber im ruhigen „Minecraft-Geist“, keine Bearbeitungen von Minecraft-Musik. Für dieses Projekt als AAC (160 kbit/s) neu gespeichert; bei einzelnen Stücken Lautstärke angehoben bzw. Stille am Ende gekürzt, sonst unverändert. Namensnennung freiwillig – gern gegeben.
+
+| Datei | Stück | Urheber | Quelle |
+|---|---|---|---|
+| `audio/music/block-lobby.m4a` | „Yoiyami Core Theme – Deep Blue Ambient Piano“ | Yoiyami | https://opengameart.org/content/yoiyami-core-theme-%E2%80%93-deep-blue-ambient-piano |
+| `audio/music/block-overworld-1.m4a` | „Infinite World“ | Umplix | https://opengameart.org/content/infinite-world |
+| `audio/music/block-overworld-2.m4a` | „Crickets - General calm ambient music“ (`crickets.mp3`; auch CC BY 3.0 angeboten, genutzt als CC0) | SpringySpringo | https://opengameart.org/content/crickets-general-calm-ambient-music |
+| `audio/music/block-overworld-3.m4a` | „Minecraft Clone Music“ (`crafting_game_music.mp3`) | Alex McCulloch (Pro Sensory) | https://opengameart.org/content/minecraft-clone-music |
+| `audio/music/block-spannung.m4a` | „Lonely Night“ (`night_tune3.ogg`) | Centurion_of_war | https://opengameart.org/content/lonely-night |
+| `audio/music/block-nether-1.m4a` | „Entering the Volcano“ aus „Ambience of a Fallen Age“ | Umplix | https://opengameart.org/content/ambience-of-a-fallen-age |
+| `audio/music/block-nether-2.m4a` | „The Abyss“ aus „Ambience of a Fallen Age“ | Umplix | https://opengameart.org/content/ambience-of-a-fallen-age |
+
 ## Ultra-Grafik (`ultra/`)
 
 Texturen und Himmel für den Grafikmodus „Ultra“. Jeder Material-Ordner enthält `albedo.jpg` (Farbe, sRGB), `normal.jpg` (Normalen, OpenGL-Konvention), `rough.jpg` (Rauheit) und `ao.jpg` (Umgebungsverdeckung). Für dieses Projekt als JPG (Qualität 85) neu gespeichert; bei den 2K-Sätzen sind Rauheit und AO auf 1K verkleinert. Inhalt sonst unverändert.
@@ -63,4 +77,4 @@ Lizenztext: https://creativecommons.org/licenses/by/3.0/ – Modelle unveränder
 | `models/animals/turtle.glb` | „Turtle“ | Poly by Google | https://poly.pizza/m/2LCcq8vhqJ3 |
 | `models/animals/turtle2.glb` | „Turtle“ (Meeresschildkröte) | Poly by Google | https://poly.pizza/m/fklSEvGm1Q8 |
 
-Danke an ElevenLabs, Kenney (www.kenney.nl), Quaternius (quaternius.com), Isa Lousberg, Poly Haven (polyhaven.com), ambientCG (ambientcg.com), die three.js-Autoren, Poly by Google und alle Urheber auf Poly Pizza (poly.pizza)!
+Danke an ElevenLabs, Kenney (www.kenney.nl), Quaternius (quaternius.com), Isa Lousberg, Poly Haven (polyhaven.com), ambientCG (ambientcg.com), die three.js-Autoren, Poly by Google, alle Urheber auf Poly Pizza (poly.pizza) sowie Yoiyami, Umplix, SpringySpringo, Alex McCulloch und Centurion_of_war auf OpenGameArt (opengameart.org)!

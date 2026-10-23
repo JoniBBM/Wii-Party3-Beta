@@ -5,10 +5,10 @@
  * „Sprüche pro Minute“ es vorgibt; der Quatschkopf lästert dabei über Führende und Letzte und
  * reißt dumme Witze.
  */
-import type { CommentaryLevel } from '@insel/shared';
+import type { CommentaryLevel, Theme } from '@insel/shared';
 import type { SightKind } from './animals.ts';
 import type { BoardAudio } from './audio.ts';
-import { VOICE_LINES, voiceUrl, type VoiceCategory } from './voice-lines.ts';
+import { BLOCK_VOICE_LINES, VOICE_LINES, voiceUrl, type VoiceCategory } from './voice-lines.ts';
 
 /** Grundwahrscheinlichkeit je Anlass bei „ab und zu“ (bei „viel“ deutlich höher). */
 const CHANCE: Partial<Record<VoiceCategory, number>> = {
@@ -92,6 +92,8 @@ const pickOne = <T>(list: readonly T[]) => list[Math.floor(Math.random() * list.
 
 export class Commentator {
   level: CommentaryLevel = 'some';
+  /** Welt: in der Blockwelt eigene Sprüche, wo es sie gibt */
+  theme: Theme = 'island';
   /** Sprüche zwischendurch je Minute (0 = nur zu Ereignissen) */
   chatter = 0;
   /** z. B. während der Spielerklärung: kein Kommentar */
@@ -180,7 +182,7 @@ export class Commentator {
     if (now - this.lastAt < gap - 500) return;
     if (now - this.contextSince < Math.min(ctx === 'waiting' ? 6000 : 4000, gap / 2)) return;
     // Tier im Bild? Dann gern darüber reden (je Art höchstens alle 90 s)
-    const animals = SIGHTS.filter(([k, cat]) => VOICE_LINES[cat].length > 0 && now - (this.sightAt.get(k) ?? -1e9) > 90_000 && this.sight?.(k));
+    const animals = SIGHTS.filter(([k, cat]) => this.linesOf(cat).length > 0 && now - (this.sightAt.get(k) ?? -1e9) > 90_000 && this.sight?.(k));
     if (animals.length && Math.random() < 0.6) {
       const [k, cat] = pickOne(animals);
       const id = this.pick(cat);
@@ -201,7 +203,7 @@ export class Commentator {
     } else if (ctx === 'thinking') cats = crazy ? ['thinking', 'thinking', 'dumb', 'joke'] : ['thinking', 'thinking', 'chat'];
     else cats = crazy ? ['chat', 'dumb', 'joke', 'joke', 'leader', 'last'] : ['chat', 'chat', 'joke'];
     // nur Kategorien mit Sprüchen
-    cats = cats.filter((c) => VOICE_LINES[c].length > 0);
+    cats = cats.filter((c) => this.linesOf(c).length > 0);
     if (!cats.length) return;
     const cat = pickOne(cats);
     const id = this.pick(cat);
@@ -210,8 +212,13 @@ export class Commentator {
     void this.audio.say(voiceUrl(id));
   }
 
+  private linesOf(cat: VoiceCategory): readonly (readonly [string, string])[] {
+    const own = this.theme === 'blocks' ? BLOCK_VOICE_LINES[cat] : undefined;
+    return own?.length ? own : VOICE_LINES[cat];
+  }
+
   private pick(cat: VoiceCategory): string | null {
-    const lines = VOICE_LINES[cat];
+    const lines = this.linesOf(cat);
     if (!lines.length) return null;
     const used = this.recent.get(cat) ?? [];
     const fresh = lines.filter(([id]) => !used.includes(id));

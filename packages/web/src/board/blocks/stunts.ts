@@ -5,9 +5,10 @@
  * Leuchtfeuer, eckige Falltür und Portal-Strahl.
  */
 import * as THREE from 'three';
-import { RIVER, RIVER_FORD, VOLCANO, type RiverChoice } from '@insel/shared';
+import { VOLCANO, type RiverChoice } from '@insel/shared';
 import { ease } from '../tweens.ts';
 import { Stunts, type LaneItem } from '../stunts.ts';
+import { fordLanes, vineTree } from '../views.ts';
 import { blockAtlas, type Tile } from './atlas.ts';
 import { atlasMat, boxGeo, cross, cube } from './cube.ts';
 import { buildMob, type MobKind } from './mobs.ts';
@@ -90,13 +91,13 @@ export class BlockStunts extends Stunts {
   // Liane: Eiche mit Ast über den Weg, Ranke hängt daran
   // ---------------------------------------------------------------------------------------
   protected override buildVineTree() {
-    const { f, dir, side } = this.vineFrame();
-    const pivot = new THREE.Vector3(f.x, f.y + this.lianaLen + 2.9, f.z);
-    const sx = this.field.height(f.x + side.x * 4, f.z + side.z * 4) >= this.field.height(f.x - side.x * 4, f.z - side.z * 4) ? 1 : -1;
-    this.treeSide = sx;
+    const { dir } = this.vineFrame();
+    const spot = vineTree(this.layout, this.field);
+    const pivot = spot.pivot;
+    this.treeSide = spot.sx;
     const snap = (v: number) => (Math.floor(v / B) + 0.5) * B;
-    const tx = snap(f.x + side.x * sx * 4.6 - dir.x * 0.6);
-    const tz = snap(f.z + side.z * sx * 4.6 - dir.z * 0.6);
+    const tx = snap(spot.tx);
+    const tz = snap(spot.tz);
     const ty = this.groundAt(tx, tz);
     const tree = new THREE.Group();
     const log = { top: 'log_top', side: 'log_side' } as const;
@@ -184,12 +185,7 @@ export class BlockStunts extends Stunts {
     if (!ff.length) return;
     const fr = this.layout.fieldRadius;
     const top = this.layout.ford.raftY - 0.08;
-    const basin = this.layout.fordBasin;
-    const a = RIVER[RIVER_FORD - 1]!;
-    const b = RIVER[RIVER_FORD + 1]!;
-    const flow = basin ? new THREE.Vector3(basin.along.x, 0, basin.along.z) : new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
-    const up = flow.clone().negate();
-    const gap = Math.min(fr * 2.3 + 0.5, (basin?.halfAlong ?? 6) - fr * 0.95 - 0.35);
+    const { flow, up, gap } = fordLanes(this.layout);
     const size = Math.max(B * 1.5, fr * 1.7);
     ff.forEach((i, k) => {
       const f = this.layout.fields[i]!;

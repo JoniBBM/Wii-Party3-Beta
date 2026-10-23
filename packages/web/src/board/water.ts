@@ -413,13 +413,13 @@ export function createRiver(heightTex: THREE.Texture, opts: { mist: boolean; cre
     }
   }
   group.add(riverRibbon(lower, material));
-  // Bach hinter der Liane (schmal, mit Gefälle → schnellere Strömung im Shader)
+  // Bach hinter der Liane (am Weg ruhig, mit Gefälle → Stromschnellen im Shader)
   const creek = opts.creek ?? [];
   if (creek.length > 2) {
     const samples: RiverSample[] = creek.map((p, i) => {
       const q = creek[Math.min(creek.length - 1, i + 1)]!;
       const len = Math.hypot(q.x - p.x, q.z - p.z) || 1;
-      return { x: p.x, z: p.z, y: p.y, w: Math.max(0.05, p.w - 0.5), slope: Math.min(0.6, Math.max(0, (p.y - q.y) / len) * 2 + 0.05) };
+      return { x: p.x, z: p.z, y: p.y, w: Math.max(0.05, p.w - 0.5), slope: Math.min(0.6, Math.max(0, (p.y - q.y) / len) * 2 + 0.012) };
     });
     group.add(riverRibbon(samples, material));
   }
