@@ -168,6 +168,9 @@ export interface VoxelWorld {
   flowers: THREE.Vector3[];
   /** Lava im Krater (Oberkante) */
   lavaY: number;
+  /** für Wetter: Blöcke (Schnee), Laub (Herbst), Pflanzen (unter Schnee verborgen) */
+  materials: { solid: THREE.Material; leaf: THREE.Material };
+  plants: THREE.Object3D | null;
   update: (t: number, dt: number) => void;
   dispose: () => void;
 }
@@ -515,6 +518,7 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
   }
 
   // Pflanzen: gekreuzte Flächen
+  let plantMesh: THREE.Mesh | null = null;
   {
     const pos: number[] = [];
     const uvs: number[] = [];
@@ -541,6 +545,7 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
       geos.push(g);
       const m = new THREE.Mesh(g, plantMat);
       group.add(m);
+      plantMesh = m;
     }
   }
 
@@ -603,6 +608,8 @@ export function buildVoxelWorld(layout: IslandLayout, field: Heightfield): Voxel
     crowns,
     flowers,
     lavaY: lavaK * B - 0.12,
+    materials: { solid: solidMat, leaf: leafMat },
+    plants: plantMesh,
     update() {},
     dispose() {
       for (const g of geos) g.dispose();

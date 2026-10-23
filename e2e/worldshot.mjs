@@ -1,6 +1,6 @@
 // Beamer-Bilder einer Welt aus festen Blickwinkeln (Dev-Server, Passwort aus .env):
 //   node e2e/worldshot.mjs <ordner> [welt=blocks] [blicke=overview,harbor,volcano,river,field]
-// Ein Blick ist auch als x,y,z>x,y,z angebbar (Kamera > Ziel).
+// Ein Blick ist auch als x,y,z>x,y,z angebbar (Kamera > Ziel). Wetter: ATMO='weather=snow&festive=christmas'.
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -28,7 +28,7 @@ const page = await browser.newPage({ viewport: { width: Number(process.env.W ?? 
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
 page.on('console', (m) => m.type() === 'error' && console.log('CONSOLE', m.text().slice(0, 300)));
 await page.addInitScript((t) => localStorage.setItem('insel.token.beamer', t), beamer);
-await page.goto(`${base}/beamer?world=${world}&debug${process.env.Q ? `&quality=${process.env.Q}` : ''}`);
+await page.goto(`${base}/beamer?world=${world}&debug${process.env.Q ? `&quality=${process.env.Q}` : ''}${process.env.ATMO ? `&${process.env.ATMO}` : ''}`);
 await page.waitForFunction(() => !!window.__board, null, { timeout: 120_000 });
 await page.waitForTimeout(2500);
 for (const name of which.split(',')) {
@@ -47,7 +47,9 @@ for (const name of which.split(',')) {
       portal: () => (b.setView('inside'), b.inside?.portalShot()),
       island: () => (b.setView('island'), b.rig.fieldShot(5, 9, 6)),
     };
-    const shot = typeof v === 'string' ? named[v]?.() : { position: new THREE_V(...v[0]), lookAt: new THREE_V(...v[1]) };
+    // f12 = Feld 12 aus der Nähe
+    const field = typeof v === 'string' && /^f\d+$/.test(v) ? () => b.rig.fieldShot(Number(v.slice(1)), 7, 4.2) : null;
+    const shot = typeof v === 'string' ? (field ?? named[v])?.() : { position: new THREE_V(...v[0]), lookAt: new THREE_V(...v[1]) };
     if (shot) b.rig.manualShot(shot, 120);
   }, v);
   await page.waitForTimeout(Number(process.env.WAIT ?? 2200));

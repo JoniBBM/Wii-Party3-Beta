@@ -70,6 +70,7 @@ const OCEAN_FRAGMENT = /* glsl */ `
   uniform vec3 uFogColor;
   uniform float uFogNear;
   uniform float uFogFar;
+  uniform float uDim;
   uniform float uUltra;
   uniform sampler2D uWaterNormal;
   varying vec3 vWorld;
@@ -148,6 +149,8 @@ const OCEAN_FRAGMENT = /* glsl */ `
     alpha = max(alpha, fresnel * 0.9);
     alpha = max(alpha, foam * 0.95);
 
+    // Wetter/Nacht dunkeln das Wasser ab
+    col *= uDim;
     // Dunst zum Horizont
     float dist = length(cameraPosition - vWorld);
     float fog = smoothstep(uFogNear, uFogFar, dist);
@@ -199,6 +202,7 @@ export function createWater(heightTex: THREE.Texture, opts: { segments: number; 
       uFogColor: { value: opts.fog.clone() },
       uFogNear: { value: opts.fogNear },
       uFogFar: { value: opts.fogFar },
+      uDim: { value: 1 },
       uUltra: { value: 0 },
       uWaterNormal: { value: FLAT_NORMAL },
       uFxTime: fx.uTime,

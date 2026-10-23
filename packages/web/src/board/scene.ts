@@ -19,7 +19,7 @@ import {
   VignetteEffect,
 } from 'postprocessing';
 import { N8AOPostPass } from 'n8ao';
-import type { Effect, GameState, RenderQuality, Resolution, Theme } from '@insel/shared';
+import { atmosphereFor, type Effect, type Festive, type GameState, type RenderQuality, type Resolution, type ShowSettings, type Theme } from '@insel/shared';
 import { windUniforms } from './assets.ts';
 import { BoardAudio } from './audio.ts';
 import { CameraRig } from './camera.ts';
@@ -52,6 +52,8 @@ import { buildBlockVolcano } from './blocks/volcano.ts';
 import { BlockStunts } from './blocks/stunts.ts';
 import { NetherInside } from './blocks/nether.ts';
 import { buildBlockAnimals } from './blocks/animals.ts';
+import { AtmosphereFx } from './atmosphere.ts';
+import { buildFestive, type FestiveFx } from './festive.ts';
 
 export type Quality = RenderQuality;
 
@@ -140,6 +142,13 @@ export class BoardScene {
   /** Welt dieser Szene (wechselt nur mit Neuaufbau) */
   theme: Theme = 'island';
   private voxel: VoxelWorld | null = null;
+  private hemi!: THREE.HemisphereLight;
+  /** Wetter, Jahreszeit, Festzeit */
+  private atmosphere: AtmosphereFx | null = null;
+  private festive: FestiveFx | null = null;
+  private festiveKind: Festive = 'off';
+  private atmoSettings: Pick<ShowSettings, 'weather' | 'season' | 'festive'> = { weather: 'auto', season: 'auto', festive: 'auto' };
+  private groundAt: (x: number, z: number) => number = () => 0;
   private shadowEvery = 1;
   /** Bildrate (gleitend über ~2 s) */
   fps = 60;
@@ -220,6 +229,7 @@ export class BoardScene {
     this.scene.fog = blocks ? new THREE.Fog(BLOCK_SKY.horizon, 110, 360) : new THREE.Fog(HORIZON, 140, 420);
     const hemi = blocks ? new THREE.HemisphereLight('#e8f0ff', '#8a9a70', 1.15) : new THREE.HemisphereLight('#dff2ff', '#86b06a', 0.9);
     this.scene.add(hemi);
+    this.hemi = hemi;
     this.sun = new THREE.DirectionalLight('#fff1d6', blocks ? 2.1 : 3.1);
     this.sun.position.set(-44, 46, 36);
     this.sun.castShadow = true;
@@ -384,6 +394,7 @@ export class BoardScene {
       for (const fn of this.captionListeners) fn(c);
     });
 
+    this.setupAtmosphere(field);
     if (!PERF.has('nopost')) this.setupPost(preset);
     this.applyUltra(!!preset.ultra);
     this.resize();
@@ -454,6 +465,57 @@ export class BoardScene {
     return composer;
   }
 
+  /** Wetter und Festzeit: Materialien für Schnee/Herbst anmelden, Bodenhöhe für Dekoration */
+  private setupAtmosphere(field: ReturnType<typeof buildHeightfield>) {
+    const fx = new AtmosphereFx({ scene: this.scene, sun: this.sun, hemi: this.hemi, camera: this.camera, theme: this.theme, audio: this.audio, water: this.voxel ? undefined : this.water.mesh });
+    this.atmosphere = fx;
+    this.scene.add(fx.group);
+    if (this.voxel) {
+      const v = this.voxel;
+      this.groundAt = (x, z) => v.topAt(x, z);
+      fx.addSnow(v.materials.solid, v.materials.leaf);
+      fx.addLeaves(v.materials.leaf);
+      fx.addHideInSnow(v.plants);
+    } else {
+      this.groundAt = (x, z) => field.height(x, z);
+      if (this.terrainBase) fx.addSnow(this.terrainBase);
+      fx.addHideInSnow(this.grass);
+      // Laub der Insel (Kenney-Blätter) färbt sich im Herbst
+      const leaves = new Set<THREE.Material>();
+      this.props?.group.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+        if (m && !Array.isArray(m) && /^leafs/.test(m.name)) leaves.add(m);
+      });
+      fx.addLeaves(...leaves);
+    }
+    this.updateAtmosphere();
+  }
+
+  /** Wetter-/Jahreszeit-/Fest-Einstellungen aus der Beamer-Show */
+  setAtmosphereSettings(s: Pick<ShowSettings, 'weather' | 'season' | 'festive'>) {
+    this.atmoSettings = { weather: s.weather, season: s.season, festive: s.festive };
+    this.updateAtmosphere();
+  }
+
+  private updateAtmosphere() {
+    if (!this.atmosphere) return;
+    const a = atmosphereFor(this.atmoSettings, this.lastState);
+    this.atmosphere.set(a);
+    if (a.festive !== this.festiveKind) {
+      this.festiveKind = a.festive;
+      if (this.festive) {
+        this.festive.group.removeFromParent();
+        this.festive.dispose();
+        this.festive = null;
+      }
+      if (a.festive !== 'off') {
+        this.festive = buildFestive(a.festive, this.theme, this.layout, this.groundAt);
+        this.scene.add(this.festive.group);
+      }
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+  }
+
   /** Ultra-Grafik an/aus: Gelände-Materialien, Wellen, schärferes Umgebungslicht (lädt beim ersten Mal). */
   private applyUltra(on: boolean) {
     if (!on || this.theme === 'blocks') {
@@ -468,6 +530,7 @@ export class BoardScene {
         if (this.disposed || !PRESETS[this.quality].ultra) return;
         if (this.terrain && this.terrainBase) {
           this.terrainUltra ??= createUltraTerrainMaterial(this.terrainBase as THREE.MeshStandardMaterial, tex);
+          this.atmosphere?.addSnow(this.terrainUltra);
           this.terrain.material = this.terrainUltra;
         }
         this.water.setUltra(tex.water);
@@ -752,6 +815,7 @@ export class BoardScene {
     for (const c of this.composers.values()) c.setSize(w, h);
     this.dice?.resize(w / h);
     this.effects.setScale(h * this.renderer.getPixelRatio());
+    this.atmosphere?.setViewport(h * this.renderer.getPixelRatio());
     this.ambient?.setScale((h * this.renderer.getPixelRatio()) / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
     this.renderer.shadowMap.needsUpdate = true;
   }
@@ -779,6 +843,8 @@ export class BoardScene {
       this.props?.update(t, dt);
       this.ambient?.update(t);
       this.animals?.update(t, dt, this.camera);
+      this.atmosphere?.update(t, dt);
+      this.festive?.update(t, dt);
     }
     this.rig.update(dt);
     this.pieces.updateTags(this.camera, t);
@@ -836,6 +902,7 @@ export class BoardScene {
   setState(state: GameState) {
     const prev = this.lastState;
     this.lastState = state;
+    this.updateAtmosphere();
     const rules = state.config.rules;
     // Ausgeschaltete Inselgefahren wie normale Felder zeigen
     this.fields.setFields(
@@ -887,6 +954,8 @@ export class BoardScene {
     this.dissolve.remove();
     this.inside?.dispose();
     this.water.dispose();
+    this.atmosphere?.dispose();
+    this.festive?.dispose();
     this.effects.dispose();
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;

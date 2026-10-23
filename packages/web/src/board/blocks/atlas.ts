@@ -358,6 +358,38 @@ const PAINTERS: Record<string, Painter> = {
         p.set(x, y, v > 1.2 ? '#d68cff' : v > 0.2 ? '#9a3cf0' : '#5a14b0', 210);
       }
   },
+  pumpkin_side(p, n) {
+    const rng = rngFor(n);
+    for (let x = 0; x < T; x++) {
+      const rib = x % 4 === 0 ? '#b8560f' : x % 4 === 2 ? '#e8851f' : '#d8701a';
+      for (let y = 0; y < T; y++) p.set(x, y, rng.next() < 0.1 ? '#c8641a' : rib);
+    }
+  },
+  pumpkin_top(p, n) {
+    PAINTERS.pumpkin_side!(p, n);
+    p.rect(6, 6, 4, 4, '#5a7a2a');
+    p.rect(7, 7, 2, 2, '#3f5a1c');
+  },
+  pumpkin_face(p, n) {
+    PAINTERS.pumpkin_side!(p, n);
+    const glow = '#ffd34d';
+    const hot = '#ff9a1f';
+    // Augen
+    p.rect(3, 4, 3, 3, hot);
+    p.rect(10, 4, 3, 3, hot);
+    p.rect(4, 5, 1, 1, glow);
+    p.rect(11, 5, 1, 1, glow);
+    // Mund mit Zähnen
+    p.rect(3, 10, 10, 3, hot);
+    p.rect(4, 11, 8, 1, glow);
+    p.set(5, 10, '#d8701a');
+    p.set(9, 12, '#d8701a');
+  },
+  spruce_leaves(p, n) {
+    const rng = rngFor(n);
+    p.speckle(0, 0, T, T, ['#2f5a34', '#264d2c', '#3a6a3e', '#1f4024'], rng, [4, 3, 2, 1]);
+    for (let i = 0; i < 20; i++) p.set(Math.floor(rng.next() * T), Math.floor(rng.next() * T), '#000000', 0);
+  },
   cobweb(p, n) {
     const rng = rngFor(n);
     for (let y = 0; y < T; y++)

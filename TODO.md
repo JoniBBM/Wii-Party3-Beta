@@ -21,9 +21,11 @@
 
 - [x] **Zweite Welt „Blockwelt“** (Minecraft-Stil, pro Spiel wählbar): Block-Insel, Block-Figuren, Tiere und Mobs, Sonderfelder als Mobs, Nether im Vulkan, Pixel-Oberfläche auf Handys/Beamer.
 
+- [x] **Wetter, Jahreszeiten, Halloween und Weihnachten** für beide Welten (Beamer → Wetter & Stimmung, jeweils mit Automatik).
+
 ## Offen
 
-- [ ] **Blockwelt-Kommentator**: eigene Sprüche (Knaller, Nether, Ranke, Mobs …) vertonen – Kosten vorher nennen, OK abwarten.
+- [ ] **Blockwelt-Kommentator vertonen** (Nutzer will später daran erinnert werden): Entwurf mit 28 Sprüchen in `voice-lines-new.ts` (≈ 1.700–1.800 Credits), Blockwelt-Spielerklärung ≈ 2.800 Credits – Kosten vorher nennen, OK abwarten.
 
 - [ ] Auf einem echten iPhone (Safari) gegenprüfen – getestet wurde in der Browser-Emulation bei 375 und 390 px.
 - [ ] **SSH-Zugang für Claude auf den VPS einrichten** (Schlüssel auf dem Mac, Adresse + Benutzer nennen) – dann kann Claude den Container selbst aktualisieren und prüfen. Bis dahin gibt Claude nach jedem Update die fertigen Befehle für den VPS aus.

@@ -77,6 +77,18 @@ Jedes Spiel hat eine **Welt** (*Spiel einrichten* → erste Folie bzw. *Alle Ein
   - Handys und Beamer-Einblendungen bekommen den Pixel-Look (Pixelschrift, graue Menü-Kästen, Erd-Hintergrund). Die Regie bleibt wie gewohnt.
   - Die Kommentator-Sprüche sind noch die der Insel (eigene Blockwelt-Sprüche folgen).
 
+## Wetter, Jahreszeit und Festzeit
+
+Unter *Beamer → Wetter & Stimmung* (gilt für beide Welten, live):
+
+- **Wetter**: *Automatisch* oder fest Sonne, Wolken, Regen, Gewitter (Blitze mit Donner), Schnee, Nebel.
+- **Jahreszeit**: *Nach Datum* oder fest. Herbst färbt das Laub, im Winter liegt Schnee.
+- **Festzeit**: *Nach Datum* (Halloween 17.10.–2.11., Weihnachten 1.–26.12.) oder fest Normal/Halloween/Weihnachten.
+  - *Halloween*: Dämmerung und Nebel, Kürbislaternen am Weg, kleiner Friedhof am Start, Gespenster am Vulkanhang, Fledermäuse um den Gipfel, Mond.
+  - *Weihnachten*: Schneefall und Schneedecke, geschmückte Tannen am Weg, bunte Lichterkette entlang des Wegs, Geschenke an Start und Ziel, Schneemann.
+
+Die Automatik passt sich dem Spiel an: Die Jahreszeit bestimmt die Grundstimmung, alle paar Runden wechselt das Wetter (auf allen Beamern gleich). Hoher Vulkandruck zieht dunkle Wolken auf, im Finale wird es dramatisch (Gewitter bzw. Schneetreiben), beim Sieg reißt der Himmel auf. Die Karte zeigt, was gerade auf dem Beamer zu sehen ist. Zum Ausprobieren am Beamer: `?weather=snow&season=winter&festive=christmas`.
+
 ## Spielleiter-Konten und mehrere Spiele
 
 Auf einem Server können mehrere Spielleiter gleichzeitig eigene Spiele leiten:

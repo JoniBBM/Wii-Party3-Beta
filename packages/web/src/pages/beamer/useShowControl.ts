@@ -3,7 +3,7 @@
  * Ton und Musik, Kommentator, Kamera, Vollbild, Neu laden. Meldet Bildrate & Co. zurück.
  */
 import { useEffect, useRef, useState } from 'react';
-import { effectiveChatter, MUSIC_TRACKS, type GameState, type MusicMood, type RenderQuality, type ShowSettings } from '@insel/shared';
+import { effectiveChatter, MUSIC_TRACKS, parseShow, type GameState, type MusicMood, type RenderQuality, type ShowSettings } from '@insel/shared';
 import type { MusicTrack } from '../../board/audio.ts';
 import type { BoardScene } from '../../board/scene.ts';
 import { beamerReport, onShowCommand, onShowTest, useLive } from '../../lib/live.ts';
@@ -99,6 +99,12 @@ export function useShowControl(scene: BoardScene | null, state: GameState | null
     scene.setQuality(qualityOverride() ?? (settings.quality === 'auto' ? autoLevel.current : settings.quality));
   }, [scene, settings.quality]);
   useEffect(() => scene?.setResolution(settings.resolution), [scene, settings.resolution]);
+  useEffect(() => {
+    // zum Ausprobieren: ?weather=snow&season=winter&festive=christmas
+    const q = new URLSearchParams(window.location.search);
+    const parsed = parseShow({ ...settings, weather: q.get('weather') ?? settings.weather, season: q.get('season') ?? settings.season, festive: q.get('festive') ?? settings.festive });
+    scene?.setAtmosphereSettings(parsed);
+  }, [scene, settings]);
 
   // Freie Kamera melden; Ansicht Vulkan-Inneres (für die Musik)
   useEffect(() => {

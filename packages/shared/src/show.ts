@@ -68,6 +68,131 @@ export const CHATTER_PRESET: Record<CommentaryLevel, number> = { off: 0, some: 0
 export const CAMERA_STYLES = ['calm', 'lively'] as const;
 export type CameraStyle = (typeof CAMERA_STYLES)[number];
 
+/** Wetter auf dem Beamer (beide Welten) */
+export const WEATHER_KINDS = ['clear', 'cloudy', 'rain', 'storm', 'snow', 'fog'] as const;
+export type WeatherKind = (typeof WEATHER_KINDS)[number];
+export const WEATHER_INFO: Record<WeatherKind, { label: string; icon: string }> = {
+  clear: { label: 'Sonne', icon: '☀️' },
+  cloudy: { label: 'Wolken', icon: '☁️' },
+  rain: { label: 'Regen', icon: '🌧️' },
+  storm: { label: 'Gewitter', icon: '⛈️' },
+  snow: { label: 'Schnee', icon: '❄️' },
+  fog: { label: 'Nebel', icon: '🌫️' },
+};
+export const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
+export type Season = (typeof SEASONS)[number];
+export const SEASON_INFO: Record<Season, { label: string; icon: string }> = {
+  spring: { label: 'Frühling', icon: '🌸' },
+  summer: { label: 'Sommer', icon: '🌻' },
+  autumn: { label: 'Herbst', icon: '🍂' },
+  winter: { label: 'Winter', icon: '⛄' },
+};
+export const FESTIVE_MODES = ['off', 'halloween', 'christmas'] as const;
+export type Festive = (typeof FESTIVE_MODES)[number];
+export const FESTIVE_INFO: Record<Festive, { label: string; icon: string }> = {
+  off: { label: 'Normal', icon: '🏝️' },
+  halloween: { label: 'Halloween', icon: '🎃' },
+  christmas: { label: 'Weihnachten', icon: '🎄' },
+};
+
+/** Jahreszeit nach Datum (Nordhalbkugel) */
+export function seasonFor(date: Date): Season {
+  const m = date.getMonth() + 1;
+  return m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter';
+}
+
+/** Festzeit nach Datum: Halloween 17.10.–2.11., Weihnachten 1.–26.12. */
+export function festiveFor(date: Date): Festive {
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  if ((m === 10 && d >= 17) || (m === 11 && d <= 2)) return 'halloween';
+  if (m === 12 && d <= 26) return 'christmas';
+  return 'off';
+}
+
+/** Wie wahrscheinlich welches Wetter je Jahreszeit ist (Automatik) */
+const WEATHER_ODDS: Record<Season, Partial<Record<WeatherKind, number>>> = {
+  spring: { clear: 40, cloudy: 30, rain: 25, storm: 5 },
+  summer: { clear: 60, cloudy: 18, rain: 10, storm: 12 },
+  autumn: { clear: 12, cloudy: 33, rain: 30, fog: 17, storm: 8 },
+  winter: { snow: 50, cloudy: 22, fog: 15, clear: 13 },
+};
+
+export interface WeatherContext {
+  season: Season;
+  festive: Festive;
+  /** gleicher Startwert = gleiches Wetter auf allen Beamern (z. B. aus der Spiel-ID) */
+  seed: string;
+  round: number;
+  status: 'lobby' | 'running' | 'finished';
+  /** Vulkandruck 0 … 1 */
+  pressure: number;
+  /** Ein Team ist kurz vor dem Gipfel – Finale */
+  finale: boolean;
+}
+
+/**
+ * Wetter-Automatik, passend zum Spiel: Jahreszeit bestimmt die Grundstimmung, das Wetter wechselt
+ * alle paar Runden (für alle Beamer gleich), hoher Vulkandruck zieht dunkle Wolken auf, im Finale
+ * wird es dramatisch (Gewitter bzw. Schneetreiben), beim Sieg reißt der Himmel auf.
+ */
+export function autoWeather(c: WeatherContext): WeatherKind {
+  if (c.festive === 'christmas') return c.status === 'finished' ? 'snow' : c.round % 5 === 4 ? 'cloudy' : 'snow';
+  if (c.status === 'finished') return c.season === 'winter' ? 'snow' : 'clear';
+  if (c.finale) return c.season === 'winter' ? 'snow' : c.festive === 'halloween' ? 'storm' : c.season === 'summer' || c.season === 'autumn' ? 'storm' : 'rain';
+  if (c.festive === 'halloween') return c.round % 3 === 2 ? 'cloudy' : 'fog';
+  if (c.pressure >= 0.75) return c.season === 'winter' ? 'snow' : 'cloudy';
+  if (c.status === 'lobby') return c.season === 'winter' ? 'snow' : c.season === 'autumn' ? 'cloudy' : 'clear';
+  // alle drei Runden neu würfeln – deterministisch aus Spiel und Rundenblock
+  const block = Math.floor(Math.max(0, c.round - 1) / 3);
+  let h = 2166136261;
+  for (const ch of `${c.seed}:${block}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const roll = ((h >>> 0) % 1000) / 1000;
+  const odds = Object.entries(WEATHER_ODDS[c.season]) as [WeatherKind, number][];
+  const sum = odds.reduce((a, [, w]) => a + w, 0);
+  let r = roll * sum;
+  for (const [k, w] of odds) {
+    r -= w;
+    if (r < 0) return k;
+  }
+  return odds[0]![0];
+}
+
+/** Was der Beamer gerade zeigt (Automatik aufgelöst) */
+export interface Atmosphere {
+  weather: WeatherKind;
+  season: Season;
+  festive: Festive;
+}
+
+/** Ausschnitt des Spielstands, den die Wetter-Automatik braucht */
+interface AtmosphereGame {
+  id: string;
+  round: number;
+  status: 'lobby' | 'running' | 'finished';
+  volcano: { pressure: number };
+  teams: { position: number }[];
+  config: { board: { fields: unknown[] }; rules: { volcano: { threshold: number } } };
+}
+
+export function atmosphereFor(s: Pick<ShowSettings, 'weather' | 'season' | 'festive'>, game: AtmosphereGame | null, now = new Date()): Atmosphere {
+  const season = s.season === 'auto' ? seasonFor(now) : s.season;
+  const festive = s.festive === 'auto' ? festiveFor(now) : s.festive;
+  if (s.weather !== 'auto') return { weather: s.weather, season, festive };
+  const goal = game ? game.config.board.fields.length - 1 : 72;
+  const lead = game ? Math.max(0, ...game.teams.map((t) => t.position)) : 0;
+  const weather = autoWeather({
+    season,
+    festive,
+    seed: game?.id ?? 'lobby',
+    round: game?.round ?? 0,
+    status: game?.status ?? 'lobby',
+    pressure: game ? game.volcano.pressure / Math.max(1, game.config.rules.volcano.threshold) : 0,
+    finale: !!game && game.status === 'running' && lead >= goal - 6,
+  });
+  return { weather, season, festive };
+}
+
 const volume = z.number().min(0).max(1);
 
 /** Felder ohne Vorgaben (für Teil-Änderungen aus der Regie). */
@@ -104,6 +229,12 @@ const SHOW_FIELDS = {
   fullscreen: z.boolean(),
   /** Rangliste und Kopfzeile auf dem Beamer zeigen. */
   hud: z.boolean(),
+  /** Wetter: Automatik (Jahreszeit + Spielverlauf) oder fest */
+  weather: z.union([z.literal('auto'), z.enum(WEATHER_KINDS)]),
+  /** Jahreszeit: Automatik nach Datum oder fest */
+  season: z.union([z.literal('auto'), z.enum(SEASONS)]),
+  /** Halloween/Weihnachten: Automatik nach Datum oder fest */
+  festive: z.union([z.literal('auto'), z.enum(FESTIVE_MODES)]),
 };
 
 export type ShowSettings = { [K in keyof typeof SHOW_FIELDS]: z.infer<(typeof SHOW_FIELDS)[K]> };
@@ -131,6 +262,9 @@ export const DEFAULT_SHOW: ShowSettings = {
   fps: false,
   fullscreen: true,
   hud: true,
+  weather: 'auto',
+  season: 'auto',
+  festive: 'auto',
 };
 
 export const showSettingsSchema = z.object(SHOW_FIELDS);
