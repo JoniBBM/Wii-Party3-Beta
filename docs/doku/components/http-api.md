@@ -33,7 +33,7 @@ uses:
   - datenbank: call "Spiele, Vorlagen, Sammlungen, Inhalte, Einstellungen, Befehlsprotokoll"
   - spielmodell: call "Schemas und Standardwerte für Spiele, Vorlagen und Inhalte, Vorlesetext einer Frage"
   - engine: call "isPrivileged – wer Fotos anderer Spieler ändern darf"
-  - cloudflare: http "Adresse des Schnell-Tunnels abfragen (Metrics, /quicktunnel)" [plain, port=2000, intern]
+  - cloudflared: http "Adresse des Schnell-Tunnels abfragen (Metrics, /quicktunnel)" [plain, port=2000, nur im Docker-Netz]
 files:
   - http/common.ts: Gemeinsame Bausteine aller Routen – Fehlerklasse, „angemeldetes Konto nötig“, „nur Admins“, „nur eigenes Spiel“, „nur Spielleitung“, Leserechte des Moderators, Erkennung von Internet-Anfragen, zweistufige Anmeldebremse und Datei-Download.
   - http/game-routes.ts: Spiele anlegen (aus Vorlage, Einstellung oder Standard), wählen, schließen, löschen, übergeben und exportieren; Spielverlauf; alle Fotos eines Spiels löschen; Vorlagen verwalten. Spielleiter sehen nur eigene Spiele, Admins alle. Solange das eigene Spiel läuft, lässt sich kein neues anlegen.

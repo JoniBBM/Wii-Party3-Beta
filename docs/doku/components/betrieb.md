@@ -12,7 +12,7 @@ provides:
 uses:
   - server: exec "node packages/server/dist/main.js im Container (Benutzer node)" [port=8080, intern]
   - sqlite: file "Datenordner ./data als /data eingehängt"
-  - cloudflare: http "Schnell-Tunnel im Profil online (cloudflared 2026.10.0) leitet an http://insel:8080" [tls]
+  - cloudflared: exec "startet den Schnell-Tunnel als Container tunnel (Profil online, cloudflared 2026.10.0)"
   - web-grundlage: exec "npm run build – Weboberfläche mit Vite bauen"
 files:
   - Dockerfile: Baut das Abbild in Stufen – Weboberfläche (Vite) und Server-Bundle (tsup) bauen, nur die Laufzeit-Abhängigkeiten des Servers übernehmen, schlankes Node-22-Abbild mit Datenordner /data, Port 8080 und Gesundheitscheck auf /api/health alle 30 Sekunden.
