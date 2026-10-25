@@ -44,6 +44,8 @@
 
 ## Offen
 
+- [ ] **QR-Code eines noch nicht gekoppelten Beamers**: zeigt in der Lobby seine eigene Adresse statt der eingestellten Beitritts-Adresse (Einstellungen → Beitritts-Adresse) – soll immer die eingestellte Adresse zeigen.
+
 ### Weitere Welten (Plan vom 2026-10-23, je mit Figuren, Handy-/Beamer-Look, Musik und eigenen Sprüchen)
 - [x] **🚀 Weltall / Alien-Planet** – fertig (2026-10-23): Planet, Himmel, Mondbasis, Raketenrampe, Alien-Vulkan mit Meteoriten, Alien-Höhle, Astronauten, Energiekäfig, Jetpack/Schwarzes Loch/Teleporter/Wurmloch, Greifhaken, Kapseln oder Kisten, Kristallhöhle, Bewohner, Wetter/Feste, Oberfläche, Musik (8 × CC0), Sprüche und Erklärung vertont.
 - [ ] **🏰 Ritterburg & Drache** – Burgberg mit Drachenhorst; der Drache speit Feuer statt Ausbruch, Drachenhöhle als Inneres, Seil über den Burggraben, Zugbrücke/Flöße, echtes Katapult, Pranger als Sperre.

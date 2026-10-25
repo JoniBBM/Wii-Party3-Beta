@@ -2,7 +2,7 @@
 title: Betrieb (VPS, Cloudflare-Tunnel, Spielabend)
 order: 20
 audience: Betrieb
-summary: Wie die Insel auf dem VPS hinter dem Cloudflare-Tunnel läuft, wie man einen Server neu einrichtet und absichert und was am Spielabend zu tun ist.
+summary: Wie die Insel auf dem VPS hinter dem Cloudflare-Tunnel läuft, wie man prüft, dass alles stimmt, und was am Spielabend zu tun ist.
 ---
 # Betrieb (VPS, Cloudflare-Tunnel, Spielabend)
 
@@ -17,7 +17,7 @@ Die Insel läuft dauerhaft auf einem eigenen Server (VPS) und ist über einen Cl
 | Start | `docker compose up -d --build` – **nur** mit `docker-compose.yml` |
 | Container | `insel` (Abbild `insel-der-abenteuer:latest`), startet nach einem Neustart des Servers von selbst (`restart: unless-stopped`) |
 | Port | `127.0.0.1:9534` am VPS → 8080 im Container; von außen nicht erreichbar |
-| Tunnel | cloudflared als **systemd-Dienst** `cloudflared` direkt auf dem VPS („Variante B“), Ziel `http://127.0.0.1:9534` |
+| Tunnel | cloudflared als **systemd-Dienst** `cloudflared` direkt auf dem VPS, Ziel `http://127.0.0.1:9534` (eingerichtet und gepflegt außerhalb dieses Projekts) |
 | Daten | `~/party/Wii-Party3-Beta/data` |
 | Geheimnisse | `~/party/Wii-Party3-Beta/.env` (nur auf dem VPS, nie im Git) |
 
@@ -27,112 +27,24 @@ Einträge in der `.env` auf dem VPS (Werte hier bewusst nicht aufgeführt):
 - `HOST_BIND=127.0.0.1` – Port nur lokal,
 - `TRUST_PROXY=172.16.0.0/12` – damit die Insel die echten Absender hinter dem Tunnel erkennt.
 
-> **Wichtig:** Auf dem VPS **nicht** mit `-f docker-compose.server.yml` starten. Diese Datei entfernt den Port vollständig (gedacht für Variante A mit cloudflared im Docker-Netz); der Tunnel auf `127.0.0.1:9534` findet die Insel dann nicht, und Cloudflare meldet **Fehler 502**.
+> **Wichtig:** Auf dem VPS **nicht** mit `-f docker-compose.server.yml` starten. Diese Datei entfernt den Port vollständig (gedacht für cloudflared im Docker-Netz); der Tunnel auf `127.0.0.1:9534` findet die Insel dann nicht, und Cloudflare meldet **Fehler 502**.
 
 Auf demselben Server läuft auch eine (Beta-)Nextcloud. Die Insel teilt mit ihr weder Netz noch Ordner und ist in Speicher und Prozessen begrenzt, damit ein Ansturm die Nextcloud nicht ausbremst.
 
 Aktualisieren: Anleitung **Aktualisieren**. Störungen: Anleitung **Notfall**.
 
-## Neu einrichten: Server mit cloudflared als Systemdienst (Variante B)
-
-Ziel: Die Insel ist **nur über den Tunnel** erreichbar, und echte Absenderadressen kommen an.
-
-**1. Projekt holen** (auf dem Server):
-
-```bash
-mkdir -p ~/party && cd ~/party
-git clone https://github.com/JoniBBM/Wii-Party3-Beta.git
-cd Wii-Party3-Beta
-```
-
-**2. `.env` anlegen:**
-
-```bash
-cp .env.example .env
-chmod 600 .env
-openssl rand -base64 24        # Ausgabe als ADMIN_PASSWORD verwenden
-nano .env
-```
-
-```ini
-# .env auf dem Server
-ADMIN_PASSWORD=…        # lang und zufällig
-PUBLIC_URL=https://party.example.org
-HOST_BIND=127.0.0.1
-TRUST_PROXY=172.16.0.0/12
-```
-
-Mit `PUBLIC_URL` gelten die Regeln für den Internet-Betrieb: Die Insel startet nur mit sicherem Passwort, und die QR-Codes enthalten die Domain.
-
-**3. Starten:**
-
-```bash
-docker compose up -d --build
-curl -s http://127.0.0.1:9534/api/health      # {"ok":true,"version":"2.0.0"}
-```
-
-**4. Tunnel einrichten:** In Cloudflare unter *Zero Trust → Networks → Tunnels* einen Tunnel anlegen und den angezeigten Befehl zum Installieren von cloudflared als Systemdienst auf dem Server ausführen (er enthält ein geheimes Tunnel-Token – nirgends ablegen). Dann unter *Public Hostname* die Domain auf **`http://127.0.0.1:9534`** zeigen lassen. Ohne `TRUST_PROXY` sähen alle Gäste gleich aus (es greifen dann nur die globalen Bremsen).
-
-**5. Prüfen** (siehe unten).
-
-## Variante A: cloudflared läuft als Docker-Container
-
-Läuft cloudflared bereits als Docker-Container (z. B. für andere Dienste), kann die Insel ganz ohne Port betrieben werden. Sie hängt dann nur im internen Netz `insel-tunnel`, kommt selbst nicht ins Internet und teilt kein Netz mit anderen Diensten.
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --build
-```
-
-cloudflared **zusätzlich** in dieses Netz hängen (in der Compose-Datei von cloudflared; bisherige Netze behalten, sonst verliert der Tunnel seine Verbindung):
-
-```yaml
-services:
-  cloudflared:
-    networks: [default, insel-tunnel]   # bisherige Netze + insel-tunnel
-networks:
-  insel-tunnel:
-    external: true
-```
-
-In Cloudflare (*Zero Trust → Networks → Tunnels → Public Hostname*) die Domain auf **`http://insel:8080`** zeigen lassen. Nextcloud & Co. **nicht** in `insel-tunnel` hängen. `TRUST_PROXY` bleibt leer (cloudflared im Docker-Netz wird automatisch erkannt). Für den E-Mail-Versand braucht die Insel hier ein zusätzliches Netz mit Internet (siehe Kommentar in `docker-compose.server.yml`). Stoppen: `docker compose -f docker-compose.yml -f docker-compose.server.yml down`.
-
 ## Prüfen
 
-- `ss -tlnp | grep 9534` auf dem Server: bei Variante B nur `127.0.0.1:9534`, bei Variante A nichts – **nie** `0.0.0.0:9534`.
+- `ss -tlnp | grep 9534` auf dem Server: nur `127.0.0.1:9534` – **nie** `0.0.0.0:9534`.
 - Aus einem anderen Netz (z. B. Handy ohne WLAN) `http://<Server-IP>:9534` aufrufen: darf **nicht** laden.
 - `curl -s https://party.jonas-leonie.com/api/health` liefert `{"ok":true,"version":"2.0.0"}`.
 - Regie über die Domain öffnen: Es darf **kein gelber Sicherheitshinweis** erscheinen. Er meldet abgeschaltete Anmeldung, schwache Passwörter, einen nicht erkannten Tunnel („Geräte hinter dem Tunnel nicht einzeln erkannt“ → `TRUST_PROXY` fehlt) oder `TRUST_PROXY` bei offenem Port (→ `HOST_BIND=127.0.0.1`).
-
-## Empfohlen: Cloudflare Access vor die Regie
-
-Unter *Zero Trust → Access → Applications* eine *Self-hosted*-Anwendung mit drei Pfaden anlegen: `party.example.org/regie`, `party.example.org/api/auth/admin` und `party.example.org/api/auth/moderator`. Regel: nur die eigene(n) E-Mail-Adresse(n). Dann kommt ohne Cloudflare-Login niemand auch nur bis zur Passwortabfrage. Teams, Spieler, Beamer und Moderator-QR-Links bleiben frei; Moderatoren mit Passwort-Login brauchen dann ebenfalls einen Zugang. (Ob das auf dem VPS eingerichtet ist, ist im Repository nicht vermerkt.)
 
 ## Was die Insel zusätzlich absichert
 
 - Container ohne Root, schreibgeschützt, ohne Zusatzrechte, höchstens 1 GB Speicher und 256 Prozesse, Protokolle rotieren (höchstens 30 MB). Ein Ansturm kann andere Dienste weder ausbremsen noch die Platte füllen.
 - Daten liegen nur in `./data` der Insel. Niemals den Docker-Socket oder Ordner anderer Dienste einhängen.
 - Echte Absenderadressen werden nur vom eigenen Tunnel übernommen – direkt am Port gefälschte Kopfzeilen zählen nicht.
-
-## Ohne Tunnel: eigener Vorschaltserver (Caddy)
-
-Statt des Tunnels geht auch ein Vorschaltserver mit eigenem Zertifikat, z. B. Caddy im selben Docker-Netz:
-
-```yaml
-# docker-compose.override.yml
-services:
-  insel:
-    environment:
-      PUBLIC_URL: https://insel.example.org
-  caddy:
-    image: caddy:2
-    ports: ["80:80", "443:443"]
-    command: caddy reverse-proxy --from insel.example.org --to insel:8080
-    volumes: [caddy-data:/data]
-volumes:
-  caddy-data:
-```
-
-WebSockets reicht Caddy automatisch durch; die echten Absender kommen über `X-Forwarded-For` (Caddy läuft als Container im Docker-Netz und wird damit als eigener Vorschaltserver erkannt).
 
 ## Konten, Einladungen und E-Mail
 
@@ -147,8 +59,6 @@ Spielleiter sehen und steuern nur ihre eigenen Spiele und Sammlungen; Admins all
 **E-Mail-Versand einrichten:** *Einstellungen → E-Mail-Versand* – Mailserver, Port, Verschlüsselung (meist STARTTLS auf 587 oder SSL/TLS auf 465), Benutzer, Passwort und Absender eintragen, speichern, **Testmail** schicken. Das SMTP-Passwort liegt nur in der Datenbank auf dem Server und wird nie wieder an den Browser geschickt.
 
 Wichtig: Links in E-Mails brauchen eine **feste Adresse** – `PUBLIC_URL` in `.env` oder die *Beitritts-Adresse* in den Einstellungen. Ohne sie verschickt „Passwort vergessen“ keine Mails (sonst ließe sich der Link über eine gefälschte Server-Adresse auf eine fremde Seite umbiegen). Auf dem VPS ist `PUBLIC_URL` gesetzt.
-
-Bei Variante A hat die Insel absichtlich **keinen Internetzugang** – dort für den E-Mail-Versand ein Netz mit Internet anhängen oder Variante B nehmen.
 
 ## Am Spielabend
 
@@ -169,7 +79,7 @@ Bei Variante A hat die Insel absichtlich **keinen Internetzugang** – dort für
 **Danach**
 - *Einstellungen → Alle Fotos dieses Spiels löschen* (Datenschutz). Beim Löschen eines Spiels werden seine Fotos ebenfalls gelöscht.
 - Spiel beenden bzw. schließen; Handys und Beamer kommen dann nicht mehr hinein, der Spielstand bleibt gespeichert.
-- Wer mag, stoppt die Insel ganz (`docker compose down` bzw. bei Variante A mit beiden Compose-Dateien).
+- Wer mag, stoppt die Insel ganz (`docker compose down`).
 
 ## Sicherheit im Überblick
 
