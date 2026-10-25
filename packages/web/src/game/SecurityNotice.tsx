@@ -39,7 +39,7 @@ export function SecurityNotice() {
   const passwordProblems = problems.length > 0;
   if (sec.unknownClients) {
     problems.push(
-      'Die Insel erkennt die Geräte hinter dem Cloudflare-Tunnel nicht einzeln – Sperren gegen Rateversuche greifen nur insgesamt. Lösung: cloudflared ins Netz „insel-tunnel“ hängen oder TRUST_PROXY setzen (docs/betrieb.md, Abschnitt „Eigener Server“).',
+      'Die Insel erkennt die Geräte hinter dem Cloudflare-Tunnel nicht einzeln – Sperren gegen Rateversuche greifen nur insgesamt. Lösung: cloudflared ins Netz „insel-tunnel“ hängen oder TRUST_PROXY setzen (Anleitung „Betrieb“ in docs/doku/guides/serverbetrieb.md).',
     );
   }
   if (sec.trustUnsafe) problems.push('TRUST_PROXY ist gesetzt, aber der Port ist von außen erreichbar. Bitte HOST_BIND=127.0.0.1 in .env eintragen.');

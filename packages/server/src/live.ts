@@ -73,7 +73,7 @@ function errorMessage(err: unknown): Ack {
 
 const CODE = /^[A-Za-z0-9]{4,8}$/;
 const room = (gameId: string) => `g:${gameId}`;
-/** Spielcodes durchprobieren bremsen (gemeinsam mit /api/join, siehe join-routes.ts) */
+/** Spielcodes durchprobieren bremsen (gemeinsam mit /api/join, siehe auth-routes.ts) */
 export const CODE_LIMITS = { perMinute: 30, perHour: 300 };
 
 export function createLive(httpServer: HttpServer, hub: GameHub, database: DB) {

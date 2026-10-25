@@ -1,10 +1,16 @@
-# Spielregeln
+---
+title: Spielregeln
+order: 55
+audience: Alle
+summary: Ziel, Ablauf einer Runde, Platzierung, Bonuswürfel, Sonderfelder, Mutproben, Vulkan-Inneres, Kraterloch, Vulkanausbruch und Sieg – mit Standardwerten.
+---
+Die Regeln gelten in allen drei Welten gleich – nur die Namen und Bilder wechseln (siehe „Namen in Blockwelt und Weltall“ unten). Gerechnet werden sie in der [[engine]]; die Werte lassen sich je Spiel einstellen.
 
 ## Ziel
 
 Alle Teams starten im **Hafendorf** (Feld 0). Der Weg führt über den Strand, durch die Tempelruinen, an der Lagune vorbei in den Dschungel und am Fluss entlang, über die **Fässer in der Furt**, hinauf zum Leuchtturm, über die **Hängebrücke** an der Schlucht, an der Steilküste entlang über die Hochebene mit den Steinköpfen und in **Serpentinen den Vulkan** hinauf. Oben geht es am **Kraterrand** entlang zum **Gipfel** (Standard: Feld 72). Wer ihn erreicht und dann noch den **Siegeswurf** schafft, gewinnt.
 
-![Die Insel](bilder/insel-gesamt.webp)
+![Die Insel](../bilder/insel-gesamt.webp)
 
 ## Ablauf einer Runde
 
@@ -13,6 +19,8 @@ Alle Teams starten im **Hafendorf** (Feld 0). Der Weg führt über den Strand, d
 3. **Bonuswürfel**: Die besten Teams bekommen einen Zusatzwürfel für die Würfelrunde (Standard: 1. Platz W6, 2. Platz W4, 3. Platz W2).
 4. **Würfelrunde**: Alle Teams würfeln **in der Reihenfolge ihrer Platzierung** (Gleichstände werden ausgelost). Gezogen wird um *Würfel + Bonuswürfel*.
 
+Was dabei zwischen Regie, Handys und Beamer passiert: [[spielrunde]].
+
 ## Inhalte und Platzierung
 
 | Art | Wie wird platziert? |
@@ -20,7 +28,7 @@ Alle Teams starten im **Hafendorf** (Feld 0). Der Weg führt über den Strand, d
 | 🎯 **Spiel** | Die Spielleitung trägt die Platzierung ein (Gleichstand möglich). |
 | 🔤 **Auswahlfrage** | Richtige Antworten nach Schnelligkeit, dann falsche nach Schnelligkeit, dann ohne Antwort. |
 | ✍️ **Freitextfrage** | Wie Auswahlfrage. Tolerant: Groß-/Kleinschreibung, Umlaute (ä = ae), Artikel und kleine Tippfehler werden akzeptiert. Die Spielleitung kann per Hand werten. |
-| 📏 **Schätzfrage** | Kleinster Abstand zum richtigen Wert gewinnt; gleicher Abstand = gleicher Platz. |
+| 📏 **Schätzfrage** | Kleinster Abstand zum richtigen Wert gewinnt; gleicher Abstand = gleicher Platz. Wer nicht schätzt, landet hinten. |
 | 🔔 **Buzzer-Frage** | Wer zuerst drückt, antwortet mündlich. Richtig → Platz 1. Falsch → das nächste Team ist dran. |
 
 Bei Fragen gibt es Bonuswürfel standardmäßig **nur für richtige Antworten** (einstellbar).
@@ -29,6 +37,7 @@ Bei Fragen gibt es Bonuswürfel standardmäßig **nur für richtige Antworten** 
 
 - Gezogen wird Feld für Feld. Am Gipfel endet der Weg (mehr Augen verfallen).
 - Ein Sonderfeld wirkt nur, wenn ein Team **darauf stehen bleibt**. Wird ein Team durch ein Sonderfeld bewegt, löst das Zielfeld **nichts** aus (keine Kettenreaktionen).
+- Ausnahme sind die **Mutproben** (siehe unten): Dort hält jedes Team an, das vorbeikommt.
 
 ## Sonderfelder
 
@@ -36,17 +45,17 @@ Bei Fragen gibt es Bonuswürfel standardmäßig **nur für richtige Antworten** 
 |---|---|
 | 🚀 **Katapult vorwärts** (grün) | Das Team fliegt 3–5 Felder nach vorne. |
 | 💥 **Katapult rückwärts** (rot) | Das Team fliegt 3–6 Felder zurück. |
-| 🔄 **Platztausch** (lila) | Tauscht die Position mit einem zufälligen Team, bevorzugt mindestens 3 Felder entfernt. |
+| 🔄 **Platztausch** (lila) | Tauscht die Position mit einem zufälligen Team, bevorzugt mindestens 3 Felder entfernt. Teams im Vulkan-Inneren sind sicher. |
 | 🚧 **Sperre** (orange) | Das Team sitzt im Käfig fest. Zum Befreien muss der **normale Würfel** eine **4, 5 oder 6** zeigen – dann wird sofort um die ganze Augenzahl gezogen. Nach **3 Fehlversuchen** öffnet sich die Sperre von selbst (Zug verfällt). |
 | 🎮 **Minispiel-Feld** (pink) | Ein kurzes Feld-Minispiel: *allein gegen alle* oder *Duell* gegen ein Team. Gewinnt das Team, zieht es **5 Felder** vor. |
 | 🌋 **Vulkanfeld** (dunkelrot) | Heizt den Vulkan an: **+2 Druck**. |
 | 💀 **Totenkopf** (dunkelviolett) | Der Boden bricht ein – das Team fällt **ins Innere des Vulkans** (siehe unten). Standard: 2 Totenkopf-Felder in der Mitte der Strecke (bei kurzen Brettern 1 oder keins). |
 
-Alle Werte lassen sich unter *Spiel einrichten → Alle Einstellungen* in den Bereichen *Würfel & Sieg*, *Sonderfelder*, *Mutproben*, *Vulkan* und *Fragen & Antworten* ändern (oder oben in der Regie danach suchen).
+Wie oft jedes Sonderfeld vorkommt, stellt die Spielleitung je Spiel ein (*Aus, Selten, Normal, Oft, Sehr oft*). Alle Werte lassen sich unter *Spiel einrichten → Alle Einstellungen* in den Bereichen *Würfel & Sieg*, *Sonderfelder*, *Mutproben*, *Vulkan* und *Fragen & Antworten* ändern (oder oben in der Regie danach suchen).
 
 ## Mutproben und besondere Orte
 
-Vier Stellen gehören fest zur Insel. Sie liegen immer an derselben Stelle der Karte, egal wie viele Felder das Brett hat, und lassen sich im Editor nicht verschieben. Drei davon sind **Mutproben** wie im Original (Wii Party U, „Board Game Island“): Hier hält **jedes Team an, das vorbeikommt** – auch mitten im Wurf. Was vom Wurf übrig ist, wird gemerkt. In den Regeln kann man jede Mutprobe abschalten oder anpassen.
+Vier Stellen gehören fest zur Insel. Sie liegen immer an derselben Stelle der Karte, egal wie viele Felder das Brett hat, und lassen sich im Editor nicht verschieben ([[spielfeld]]). Drei davon sind **Mutproben** wie im Original (Wii Party U, „Board Game Island“): Hier hält **jedes Team an, das vorbeikommt** – auch mitten im Wurf. Was vom Wurf übrig ist, wird gemerkt. In den Regeln kann man jede Mutprobe abschalten oder anpassen.
 
 | Ort | Wirkung (Standardwerte) |
 |---|---|
@@ -64,13 +73,13 @@ Wer an der Lavahöhle zu klein würfelt oder auf einem Totenkopf landet, fällt 
 - Danach bringt es ein grünes Portal **zurück an die Stelle, an der es hineingefallen ist**.
 - Im Vulkan ist man vor **UFO-Platztausch** und **Vulkanausbruch** sicher.
 
-Länge des Strafwegs und Lage des Ausgangsfelds lassen sich unter *Regeln → Vulkan-Inneres* einstellen (0 = ohne Ausgangsfeld).
+Länge des Strafwegs und Lage des Ausgangsfelds lassen sich unter *Spiel einrichten → Alle Einstellungen → Vulkan* einstellen (0 = ohne Ausgangsfeld). Ist das Vulkan-Innere abgeschaltet, gibt es auch keine Lavahöhlen-Mutprobe und Totenköpfe wirken nicht.
 
-Die Regie kann ein Team jederzeit aus dem Krater oder aus dem Vulkan-Inneren holen (*Teams → Team antippen → Aus dem Krater holen* bzw. *Aus dem Vulkan holen*), genau wie aus einer Sperre.
+Die Regie kann ein Team jederzeit aus dem Krater, aus dem Vulkan-Inneren oder aus einer Sperre holen (*Rangliste → Team antippen → Aus dem Krater holen*, *Aus dem Vulkan holen* bzw. *Aus der Sperre befreien*).
 
 ## Was auf dem Beamer passiert
 
-Jedes Sonderfeld hat seinen eigenen Auftritt:
+Jedes Sonderfeld hat seinen eigenen Auftritt (hier für die Insel; Blockwelt und Weltall haben eigene Bilder, siehe unten):
 
 | Feld | Auftritt |
 |---|---|
@@ -93,14 +102,14 @@ Mitgespielt wird mit **Handy, Tablet oder Laptop** – jedes Gerät mit Browser 
 
 | | |
 |---|---|
-| ![Reaktion nach dem Zug](bilder/beamer-reaktion.webp) | ![Foto-Blasen beim Ziehen](bilder/beamer-fotoblasen.webp) |
-| ![Spielerklärung mit Vorführung](bilder/beamer-erklaerung.webp) | ![Siegerpodest im Krater](bilder/beamer-siegerpodest.webp) |
+| ![Reaktion nach dem Zug](../bilder/beamer-reaktion.webp) | ![Foto-Blasen beim Ziehen](../bilder/beamer-fotoblasen.webp) |
+| ![Spielerklärung mit Vorführung](../bilder/beamer-erklaerung.webp) | ![Siegerpodest im Krater](../bilder/beamer-siegerpodest.webp) |
 
 | | |
 |---|---|
-| ![Sprungfeder](bilder/beamer-feder.webp) | ![Doppeldecker mit Strickleiter](bilder/beamer-flugzeug.webp) |
-| ![UFO-Platztausch](bilder/beamer-ufo.webp) | ![An der Liane](bilder/beamer-liane.webp) |
-| ![Fässer oder Kisten](bilder/beamer-furt.webp) | ![Im Inneren des Vulkans](bilder/beamer-vulkan-innen.webp) |
+| ![Sprungfeder](../bilder/beamer-feder.webp) | ![Doppeldecker mit Strickleiter](../bilder/beamer-flugzeug.webp) |
+| ![UFO-Platztausch](../bilder/beamer-ufo.webp) | ![An der Liane](../bilder/beamer-liane.webp) |
+| ![Fässer oder Kisten](../bilder/beamer-furt.webp) | ![Im Inneren des Vulkans](../bilder/beamer-vulkan-innen.webp) |
 
 ## Der Vulkan
 
@@ -118,3 +127,20 @@ Alternativ einstellbar:
 - **Genau treffen**: Der Gipfel muss exakt getroffen werden, sonst prallt die Figur zurück.
 
 Die Spielleitung kann das Spiel auch jederzeit beenden – dann gewinnt das Team, das am weitesten oben steht.
+
+## Namen in Blockwelt und Weltall
+
+Regeln, Werte und Lage der Felder sind in allen Welten gleich ([[0003-welten-teilen-regeln-und-spielfeld]]). Nur die Namen und Auftritte wechseln:
+
+| Insel | Blockwelt | Weltall |
+|---|---|---|
+| 🌿 Liane über den Bach | 🌿 Ranke über den Bach | 🪝 Greifhaken über den Plasma-Bach |
+| 🛢️ Fässer oder Kisten am Wasserfall | 🛢️ Fässer oder Kisten am Wasserfall | 💊 Kapseln oder Kisten am Plasmafall |
+| 🦇 Lavahöhle | 🦇 Lavahöhle | 💎 Kristallhöhle |
+| 🌋 Vulkan-Inneres (Lava-Inseln, Ausgang) | 🔥 Nether (Netherziegel, Portal) | 👽 Alien-Höhle (Kristallinseln, Teleporter) |
+| 🚀 Katapult vorwärts (Sprungfeder) | 🟩 Schleimblock | 🚀 Jetpack |
+| 💥 Katapult rückwärts (Doppeldecker) | 💥 Knaller | 🕳️ Schwarzes Loch |
+| 🔄 Platztausch (UFO) | 🔮 Teleport-Perle | 🌀 Teleporter |
+| 🚧 Sperre (Käfig) | 🕸️ Spinnennetz | ⚡ Energiekäfig |
+| 💀 Totenkopf | 💀 Boden bricht weg | 🌀 Wurmloch |
+| Herrscher der Insel | Herrscher der Blockwelt | Herrscher des Planeten |

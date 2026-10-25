@@ -20,7 +20,7 @@ services:
       HOST_IP: ${HOST_IP:-}
       HOST_PORT: ${HOST_PORT:-9534}
       HOST_BIND: ${HOST_BIND:-127.0.0.1}
-      # Eigener cloudflared direkt auf dem Server (nicht im Docker-Netz): siehe docs/betrieb.md
+      # Eigener cloudflared direkt auf dem Server (nicht im Docker-Netz): siehe docs/doku/guides/serverbetrieb.md
       TRUST_PROXY: ${TRUST_PROXY:-}
       TUNNEL_METRICS: http://tunnel:2000
       # ./start.sh online setzt das: dann startet der Server nur mit sicherem Passwort

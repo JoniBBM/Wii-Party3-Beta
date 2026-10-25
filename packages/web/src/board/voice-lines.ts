@@ -1,7 +1,7 @@
 /**
  * Texte des Kommentators (Stimme: „DiMario – Moderator“, ElevenLabs, Modell eleven_v3; [..] = Regieanweisung). Die Sprachdateien liegen
  * unter /assets/voice/<id>.mp3 und wurden einmalig aus genau diesen Texten erzeugt –
- * wer einen Text ändert, muss die Datei neu erzeugen (siehe docs/entwicklung.md).
+ * wer einen Text ändert, muss die Datei neu erzeugen (siehe docs/doku/guides/entwicklung.md).
  */
 
 export const VOICE_LINES = {

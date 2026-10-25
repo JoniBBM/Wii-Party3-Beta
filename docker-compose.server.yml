@@ -7,7 +7,7 @@
 #   - kein Port am Server (nur über den Tunnel erreichbar, nicht an Cloudflare vorbei),
 #   - kein Internetzugang aus dem Container heraus,
 #   - kein gemeinsames Netz mit Nextcloud oder anderen Diensten.
-# cloudflared wird zusätzlich in dieses Netz gehängt (siehe docs/betrieb.md) und leitet
+# cloudflared wird zusätzlich in dieses Netz gehängt (siehe docs/doku/guides/serverbetrieb.md) und leitet
 # https://party.example.org → http://insel:8080 weiter.
 services:
   insel:

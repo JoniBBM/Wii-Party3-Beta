@@ -1,6 +1,10 @@
-# Inhalte erstellen
-
-Alle Spiele und Fragen liegen in der **Bibliothek** (Regie → *Bibliothek*), gegliedert in **Sammlungen** (z. B. „Sommerfreizeit 2026“, „Quiz Allgemeinwissen“). Ein Spiel verwendet eine oder mehrere Sammlungen (Regie → *Spiel einrichten → Inhalte*).
+---
+title: Inhalte erstellen
+order: 60
+audience: Spielleitung
+summary: Spiele und Fragen in der Bibliothek anlegen, Feld-Minispiele, Ablaufplan, Vorlagen, Sprachaufnahmen sowie Import und Export.
+---
+Alle Spiele und Fragen liegen in der **Bibliothek** (Regie → *Bibliothek*), gegliedert in **Sammlungen** (z. B. „Sommerfreizeit 2026“, „Quiz Allgemeinwissen“). Ein Spiel verwendet eine oder mehrere Sammlungen – gewählt im Assistenten auf der Folie *Sammlungen* bzw. unter *Spiel einrichten → Alle Einstellungen → Was kommt dran?*. Technik: [[regie]] (Bibliothek und Editor), Speicherung über [[http-api]].
 
 Beim ersten Start sind bereits vorhanden:
 
@@ -9,6 +13,13 @@ Beim ersten Start sind bereits vorhanden:
 - **Feld-Minispiele (Beispiel)** – kurze Duelle und „allein gegen alle“-Spiele
 - **Default (Import)**, **Teenie 2025 (Import)**, **Feld-Minispiele (Import)** – aus der alten Version übernommen
 - **Wissensmix** – 100 geprüfte Fragen in fünf Sammlungen (*Tiere & Natur*, *Welt & Länder*, *Körper & Wissenschaft*, *Kurioses & Rekorde*, *Alltag, Sport & Erfindungen*). Bestehende Installationen bekommen sie beim nächsten Start einmalig dazu; wer eine Sammlung löscht, bekommt sie nicht wieder.
+- Vorlagen **Standard (72 Felder)**, **Kurzes Spiel (40 Felder)** und **Teenie 2025**.
+
+## Wem gehört was
+
+- Eigene Sammlungen sieht nur ihr Besitzer – bis er sie mit dem Schalter **für alle veröffentlicht**.
+- Gemeinsame Sammlungen (vom Admin oder veröffentlicht) kann jeder in seine Spiele nehmen; ändern lassen sie sich erst nach **„Als eigene Kopie übernehmen“**.
+- Der Admin pflegt alle Sammlungen.
 
 ## Inhaltsarten
 
@@ -23,26 +34,38 @@ Beim ersten Start sind bereits vorhanden:
 Für alle Arten gibt es außerdem:
 
 - **Countdown** in Sekunden (leer = ohne). Läuft er ab, werden die Antworten automatisch geschlossen.
-- **Notiz für Regie & Moderator** – erscheint nur bei der Spielleitung (z. B. „Beide Antworten zählen“).
+- **Notiz für Regie & Moderator** – erscheint nur bei der Spielleitung (z. B. „Beide Antworten zählen“). Nach der Auflösung steht sie dort als „Zum Vorlesen“. Handys und Beamer bekommen weder Notiz noch Lösung vor der Auflösung.
 - **In normalen Runden spielbar** / **Als Feld-Minispiel nutzbar** (*allein gegen alle* und/oder *Duell*) – nur bei Spielen.
-- **Audio erstellen** – nur bei Fragen: Die Frage (bei Auswahlfragen samt Antworten A, B, C …) wird mit der Stimme des Kommentators aufgenommen und auf dem Beamer vorgelesen, solange sie groß in der Mitte steht. Das Häkchen ist ein Wunsch an die Technik; die Liste der Wünsche gibt `npm run audio -- list` aus (siehe [Entwicklung](entwicklung.md)). In der Bibliothek zeigt ein Abzeichen den Stand (🎙️ angefordert, 🔊 vorhanden), im Editor kann man probehören. Ändert sich die Frage, wird die Aufnahme automatisch neu angefordert.
+- **Audio erstellen** – nur bei Fragen: Die Frage (bei Auswahlfragen samt Antworten A, B, C …) wird mit der Stimme des Kommentators aufgenommen und auf dem Beamer vorgelesen, solange sie groß in der Mitte steht. Das Häkchen ist ein Wunsch an die Technik; die Liste der Wünsche gibt ein Werkzeug aus (siehe [[entwicklung]]):
+
+  ```bash
+  npm run audio -- list
+  ```
+
+  In der Bibliothek zeigt ein Abzeichen den Stand (🎙️ angefordert, 🔊 vorhanden), im Editor kann man probehören. Ändert sich die Frage, wird die Aufnahme automatisch neu angefordert.
+
+**Grenzen:** Titel bis 160 Zeichen, Fragen bis 1000, Antworten bis 300, Regeln/Beschreibung bis 4000, Countdown 5 Sekunden bis 1 Stunde. Die Regie prüft das schon beim Speichern, der Server noch einmal.
 
 ## Feld-Minispiele
 
 Feld-Minispiele sind ganz normale *Spiele*, bei denen „Als Feld-Minispiel nutzbar“ angehakt ist. Typisch sind kurze Spiele mit 1 Spieler pro Team. Wenn ein Team auf ein Minispiel-Feld kommt, schlägt die Regie passende Spiele vor (Modus *allein gegen alle* oder *Duell*). Soll ein Spiel **nur** als Feld-Minispiel vorkommen, „In normalen Runden spielbar“ abwählen.
 
+## Was per Zufall drankommt
+
+Unter *Was kommt dran?* (Assistent bzw. *Alle Einstellungen*) wählt die Spielleitung, welche Arten der **Zufall** zieht (Spiele, Auswahl-, Freitext-, Schätz-, Buzzer-Fragen). Der Ablaufplan und die Auswahl von Hand sind davon nicht betroffen. Sind alle passenden Inhalte gespielt, wird der Stapel neu gemischt.
+
 ## Ablaufplan
 
-Unter *Spiel einrichten → Alle Einstellungen → Ablaufplan* lässt sich eine feste Reihenfolge zusammenstellen (Drag & Drop, Inhalte dürfen mehrfach vorkommen). In der Live-Ansicht startet der Reiter *Plan* immer den nächsten Punkt. Zufall und freie Auswahl bleiben jederzeit möglich.
+Unter *Spiel einrichten → Alle Einstellungen → Ablaufplan* lässt sich eine feste Reihenfolge zusammenstellen (Ziehen und Ablegen, Inhalte dürfen mehrfach vorkommen). In der Live-Ansicht startet der Reiter *Plan* immer den nächsten Punkt. Zufall und freie Auswahl bleiben jederzeit möglich.
 
 ## Vorlagen
 
-Eine **Vorlage** speichert Sammlungen, Ablaufplan, Spielfeld und Regeln (ohne Teams). *Spiel einrichten → Als Vorlage* – beim nächsten Abend wählt man die Vorlage beim Anlegen des Spiels.
+Eine **Vorlage** speichert Sammlungen, Ablaufplan, Spielfeld und Regeln (ohne Teams). Speichern: *Spiel einrichten → Als Vorlage*. Beim nächsten Abend nach **Neues Spiel erstellen** im Assistenten auf der ersten Folie *Von einer gespeicherten Vorlage starten* wählen – danach geht es wie gewohnt mit der Welt weiter ([[spiel-einrichten]]). Vorlagen lassen sich unter *Spiele* löschen.
 
 ## Import und Export
 
-- **Exportieren**: *Bibliothek → Alles exportieren* oder das Download-Symbol einer Sammlung → JSON-Datei.
-- **Importieren**: *Bibliothek → Importieren* → JSON-Datei auswählen. Unterstützt werden
+- **Exportieren**: *Bibliothek → Alles exportieren* (Admins) bzw. *Eigene exportieren* (Spielleiter) oder das Download-Symbol einer Sammlung → JSON-Datei.
+- **Importieren**: *Bibliothek → Importieren* → JSON-Datei auswählen. Importierte Inhalte landen in eigenen Sammlungen. Unterstützt werden
   - das eigene Exportformat (siehe unten) und
   - die `minigames.json` der alten Version (`legacy/app/static/minigame_folders/<Ordner>/minigames.json`).
 
@@ -69,7 +92,7 @@ Eine **Vorlage** speichert Sammlungen, Ablaufplan, Spielfeld und Regeln (ohne Te
 }
 ```
 
-`playerCount`: `"1"`, `"2"`, `"3"`, `"4"` oder `"all"`. `fieldModes`: `"vs_all"` und/oder `"duel"`. Fehlende Felder bekommen Standardwerte.
+`playerCount`: `"1"`, `"2"`, `"3"`, `"4"` oder `"all"`. `fieldModes`: `"vs_all"` und/oder `"duel"`. Fehlende Felder bekommen Standardwerte. Die Prüfregeln stehen im [[spielmodell]].
 
 ## Tipps für gute Inhalte
 
@@ -77,3 +100,4 @@ Eine **Vorlage** speichert Sammlungen, Ablaufplan, Spielfeld und Regeln (ohne Te
 - Abwechseln: Bewegungsspiel → Quiz → Schätzfrage → Buzzer.
 - Für große Gruppen „Ganzes Team“-Spiele einplanen, damit alle mitmachen.
 - Lange Regeln in die **Beschreibung** schreiben – sie steht groß beim Moderator und auf dem Beamer.
+- Eine kurze Erklärung in die **Notiz** schreiben – der Moderator kann sie nach der Auflösung vorlesen.

@@ -1,5 +1,5 @@
 /**
- * Wetter, Jahreszeit und Festzeit auf dem Beamer (beide Welten), jeweils mit Automatik. Gehört zur
+ * Wetter, Jahreszeit und Festzeit auf dem Beamer (alle Welten), jeweils mit Automatik. Gehört zur
  * Beamer-Show des Kontos und wirkt sofort – steht in der Regie bei „Spiel einrichten › Welt & Stimmung“.
  */
 import { CloudSun } from 'lucide-react';
@@ -44,7 +44,7 @@ export function AtmosphereCard() {
   const set = (p: ShowPatch) => void patch(p);
   return (
     <Card>
-      <CardHeader title="Wetter & Stimmung" icon={<CloudSun className="size-5 text-accent" />} sub="Für beide Welten. Gilt für deine Beamer, auch in anderen Spielen." actions={<Badge tone="good">wirkt sofort</Badge>} />
+      <CardHeader title="Wetter & Stimmung" icon={<CloudSun className="size-5 text-accent" />} sub="Für alle Welten. Gilt für deine Beamer, auch in anderen Spielen." actions={<Badge tone="good">wirkt sofort</Badge>} />
       <div className="flex flex-col gap-4 p-5">
         <ChoiceChips
           id="g.weather"

@@ -24,7 +24,7 @@ const shot = async (page, name) => {
   console.log('Foto', name);
 };
 // Testbild als „Selfie“ (ein Bild aus der Doku)
-const selfie = join(process.cwd(), 'docs/bilder/handy-figur.webp');
+const selfie = join(process.cwd(), 'docs/doku/bilder/handy-figur.webp');
 try {
   const { token } = await post('/api/auth/admin', { password: 'st' });
   const templates = (await (await fetch(`${base}/api/templates`, { headers: { authorization: `Bearer ${token}` } })).json()).templates;
