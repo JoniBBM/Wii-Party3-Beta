@@ -1,6 +1,6 @@
 ---
-id: jonibbm-wii-party3-beta
-name: Jonibbm Wii Party3 Beta
+id: wii-party3-beta
+name: Wii-Party3-Beta
 summary: TODO Ein Satz, was diese App macht.
 tech: []
 # repo: https://github.com/org/repo
