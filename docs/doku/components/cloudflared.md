@@ -6,7 +6,7 @@ tech: [cloudflared]
 provides:
   - http Metrics auf Port 2000 im Docker-Netz (nur Schnell-Tunnel) – verrät die aktuelle trycloudflare-Adresse
 uses:
-  - server: http "reicht jede Anfrage samt WebSocket an die Insel weiter (VPS an http://127.0.0.1:9534, Schnell-Tunnel an http://insel:8080)" [plain, nur auf demselben Rechner, Cf-Connecting-Ip]
+  - server: http "reicht jede Anfrage samt WebSocket an die Insel weiter (VPS an http://127.0.0.1:9534, Schnell-Tunnel an http://insel:8080)" [local, port=9534 bzw. 8080, Cf-Connecting-Ip]
 zone: intern
 exposure: local
 security:

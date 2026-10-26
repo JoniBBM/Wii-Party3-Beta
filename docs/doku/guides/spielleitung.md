@@ -50,7 +50,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 
    Die Namen richten sich nach der Welt – Blockwelt: Ranke, Nether, Schleimblock, Knaller, Teleport-Perle, Spinnennetz; Weltall: Greifhaken, Kapseln oder Kisten, Kristallhöhle, Alien-Höhle, Jetpack, Schwarzes Loch, Teleporter, Energiekäfig, Wurmloch. Änderungen merkt sich die Seite, auch beim Wechsel zwischen den Bereichen (Punkt an geänderten Bereichen). Sobald etwas geändert ist, erscheint unten eine Leiste **Ungespeichert · … – Verwerfen / Speichern**; erst *Speichern* ändert das Spiel. Ausnahme: Wetter & Stimmung und Spieldauer wirken sofort (so markiert). Mit **Als Vorlage** lässt sich alles für spätere Abende sichern.
 
-   ![Spielfeld-Editor](../bilder/regie-spielfeld.webp)
+   ![Spielfeld-Editor](../assets/regie-spielfeld.webp)
 
 7. **Beamer**: Am besten mit dem Kiosk-Start öffnen – das startet Chrome/Edge im Vollbild, Ton läuft sofort, und der Beamer ist gleich freigegeben:
 
@@ -66,7 +66,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 
 1. Der Beamer zeigt automatisch die **Lobby** mit großem QR-Code.
 
-   ![Beamer in der Lobby](../bilder/beamer-lobby-teams.webp)
+   ![Beamer in der Lobby](../assets/beamer-lobby-teams.webp)
 
 2. Alle scannen den QR-Code mit dem Handy (er enthält den Spielcode – wer ohne QR-Code auf die Seite kommt, tippt den Spielcode ein), geben ihren **Vornamen** ein, wählen ein **Emoji** und machen optional ein **Selfie**. (Die Fotos erscheinen später, wenn jemand für ein Spiel ausgelost wird.) Ablauf im Hintergrund: [[beitritt]].
 3. In der Regie unter *Live* die **Anzahl Teams** wählen (2–10) und **Teams bilden** klicken. Die Spieler werden zufällig und gleichmäßig verteilt. *Neu mischen* geht jederzeit vor Spielbeginn.
@@ -77,7 +77,7 @@ Beide arbeiten gleichzeitig am selben Spiel. Wer zuerst klickt, gewinnt – die 
 7. **Spielerklärung** (empfohlen): Regie → *Beamer* → **Spielerklärung starten**. Der Kommentator erklärt in gut drei Minuten das ganze Spiel – Mitspielen mit Handy, Tablet oder Laptop, Doppeltipp zum Abschicken, Sonderfelder, Mutproben und das Vulkan-Innere – mit Kamerafahrt, Vorführungen genau zum gesprochenen Satz und Untertiteln. Jede Welt hat ihre eigene, vertonte Erklärung.
 8. **Spiel starten**. Die Anmeldung schließt sich automatisch; Nachzügler kommen mit der Team-PIN rein.
 
-![Regie in der Lobby](../bilder/regie-lobby.webp)
+![Regie in der Lobby](../assets/regie-lobby.webp)
 
 ## Wer sieht was
 
@@ -167,7 +167,7 @@ Wähle den nächsten Inhalt:
 
 Bei Spielen werden sofort die **Spieler ausgelost** (fair: wer seltener dran war, kommt zuerst). Mit „neu“ kann pro Team neu gelost werden.
 
-![Regie: nächsten Inhalt wählen](../bilder/regie-auswahl.webp)
+![Regie: nächsten Inhalt wählen](../assets/regie-auswahl.webp)
 
 ### 2. Spielen
 
@@ -179,7 +179,7 @@ Bei Spielen werden sofort die **Spieler ausgelost** (fair: wer seltener dran war
 
 | Regie | Moderator | Handy | Beamer |
 |---|---|---|---|
-| ![Regie während einer Frage](../bilder/regie-frage-live.webp) | ![Moderator](../bilder/moderator-frage.webp) | ![Handy](../bilder/handy-frage.webp) | ![Beamer](../bilder/beamer-frage.webp) |
+| ![Regie während einer Frage](../assets/regie-frage-live.webp) | ![Moderator](../assets/moderator-frage.webp) | ![Handy](../assets/handy-frage.webp) | ![Beamer](../assets/beamer-frage.webp) |
 
 **Auflösen:** Der Beamer zeigt die richtige Antwort ein paar Sekunden groß in der Mitte – mit den Teams, die richtig lagen (bei Schätzfragen: wer am nächsten dran war). Auf den Handys erscheint groß „Richtig!“ (grün) oder „Leider falsch“ (rot) mit der richtigen und der eigenen Antwort. Regie und Moderator sehen oben **Zum Vorlesen** – die Erklärung aus der Notiz der Frage (die Wissensmix-Fragen haben dort einen kurzen Hintergrund).
 
@@ -204,7 +204,7 @@ Bei Spielen werden sofort die **Spieler ausgelost** (fair: wer seltener dran war
 - **Minispiel-Feld**: Die Würfelrunde pausiert. Wähle Modus (*allein gegen alle* oder *Duell*), Gegner und Minispiel (oder Zufall), *Minispiel starten*, danach *gewinnt*/*verliert* antippen.
 - **Aussetzen** überspringt ein Team.
 
-![Regie in der Würfelrunde](../bilder/regie-wuerfelrunde.webp)
+![Regie in der Würfelrunde](../assets/regie-wuerfelrunde.webp)
 
 Nach dem letzten Wurf zeigt der Beamer die Rundenbilanz, der Vulkandruck steigt – und die nächste Runde beginnt mit der Auswahl. Alle Regeln im Detail: [[spielregeln]].
 
@@ -212,7 +212,7 @@ Nach dem letzten Wurf zeigt der Beamer die Rundenbilanz, der Vulkandruck steigt 
 
 Gewinnt ein Team (Standard: auf dem Gipfel stehen und dann mindestens eine 6 würfeln), steigt ein **Siegerpodest aus dem Krater**: Die drei Besten fliegen aufs Treppchen, der Sieger tanzt und schlägt Saltos, Scheinwerfer, Feuerwerk, Finale-Musik und Applaus – die Kamera umkreist das Podest. Daneben steht die Endwertung. In der Regie: *Gleiche Teams, neue Partie* für eine Revanche.
 
-![Siegerpodest im Krater](../bilder/beamer-siegerpodest.webp)
+![Siegerpodest im Krater](../assets/beamer-siegerpodest.webp)
 
 **Nach dem Abend**: *Einstellungen → Alle Fotos dieses Spiels löschen* (Datenschutz – Fotos liegen nur auf diesem Server und werden nie exportiert). Das Spiel selbst bleibt gespeichert und kann unter *Spiele* gelöscht oder exportiert werden.
 
@@ -266,7 +266,7 @@ Beim **Quatschkopf** erscheint der Regler **Zwischendurch plaudern**: Er stellt 
 
 **Grafikstufe Ultra**: echte Materialien fürs Gelände (Sand, Gras, Fels, Weg, Vulkangestein, Kiesel – freie CC0-Texturen), Wellen-Normalen und breiter Sonnenglanz auf dem Meer, doppelt so viel Gras, Tiefenschärfe auf den Punkt, auf den die Kamera schaut, feinere Umgebungsverdeckung und schärferes Himmelslicht. Die Texturen (~28 MB) werden erst geladen, wenn Ultra gewählt wird. Nur für sehr starke Grafikkarten – *Automatisch* nimmt nie Ultra; wer Ultra fest wählt, bleibt dabei. Ruckelt es, auf *Schön* oder *Automatisch* zurückstellen (die Bildrate steht in der Regie).
 
-![Regie: Beamer fernsteuern](../bilder/regie-beamer.webp)
+![Regie: Beamer fernsteuern](../assets/regie-beamer.webp)
 
 ## Am Beamer selbst
 

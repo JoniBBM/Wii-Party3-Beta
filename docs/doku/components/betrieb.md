@@ -11,7 +11,7 @@ provides:
   - http Port 9534 am Rechner (HOST_PORT) → 8080 im Container
 uses:
   - server: exec "node packages/server/dist/main.js im Container (Benutzer node)" [port=8080, intern]
-  - sqlite: file "Datenordner ./data als /data eingehängt"
+  - sqlite: file "Datenordner ./data als /data eingehängt" [local]
   - cloudflared: exec "startet den Schnell-Tunnel als Container tunnel (Profil online, cloudflared 2026.10.0)"
   - web-grundlage: exec "npm run build – Weboberfläche mit Vite bauen"
 files:

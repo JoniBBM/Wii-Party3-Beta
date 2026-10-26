@@ -22,9 +22,9 @@ provides:
   - call Oberflächen-Bausteine (Knöpfe, Karten, Dialoge, Meldungen, Teamfarben, Würfel, Countdown, QR-Code, Vulkananzeige)
   - call Verzeichnis und Suche aller Regie-Einstellungen
 uses:
-  - echtzeit: ws "Verbindung mit Zugang bzw. Spielcode; sendet Befehle, Rückgängig, Show-Befehle, Beamer-Kopplung und Rückmeldungen; empfängt Spielstand, Effekte, Show, Anwesenheit, Änderungs-Hinweise" [auth=token, tls über Tunnel]
-  - konten: http "Eigene Sitzung abfragen (/api/auth/me), Link prüfen und Passwort setzen (/api/auth/link-info, /api/auth/set-password)" [auth=token]
-  - http-api: http "Systeminfo und Beitritts-Adressen (/api/system/info), Bibliothek und Vorlagen (/api/library, /api/templates), Foto hochladen (/api/media/photo)" [auth=token]
+  - echtzeit: ws "Verbindung mit Zugang bzw. Spielcode; sendet Befehle, Rückgängig, Show-Befehle, Beamer-Kopplung und Rückmeldungen; empfängt Spielstand, Effekte, Show, Anwesenheit, Änderungs-Hinweise" [auth=token, tls, tunnel, im WLAN-Betrieb http]
+  - konten: http "Eigene Sitzung abfragen (/api/auth/me), Link prüfen und Passwort setzen (/api/auth/link-info, /api/auth/set-password)" [auth=token, tls, tunnel, im WLAN-Betrieb http]
+  - http-api: http "Systeminfo und Beitritts-Adressen (/api/system/info), Bibliothek und Vorlagen (/api/library, /api/templates), Foto hochladen (/api/media/photo)" [auth=token, tls, tunnel, im WLAN-Betrieb http]
   - spielmodell: call "Typen, Kataloge, Prüfung im Browser"
   - show: call "Standardwerte der Beamer-Show"
   - engine: call "Restzeit des Countdowns"

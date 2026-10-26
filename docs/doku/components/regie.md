@@ -16,9 +16,9 @@ provides:
   - http GET /regie/konten – Spielleiter-Konten (nur Admins)
   - http GET /regie/einstellungen – Konto, Beitritts-Adresse, Moderator-Zugang, Datenschutz, Server
 uses:
-  - echtzeit: ws "Befehle und Rückgängig, Beamer-Show und Beamer freigeben; empfängt den vollen Spielstand, Anwesenheit der Team-Geräte, Beamer-Rückmeldungen und Online-Status der Konten" [auth=token (Konto)]
-  - konten: http "Anmelden (E-Mail + Passwort bzw. Haupt-Admin-Passwort), Passwort vergessen, eigenes Konto und Passwort, Konten verwalten, Moderator- und Beamer-Link erzeugen" [auth=passwort, dann token]
-  - http-api: http "Spiele und Vorlagen anlegen/wählen/schließen/exportieren, Bibliothek inkl. Import/Export, Fotos löschen, Server-Einstellungen, E-Mail-Versand, Sicherheitsprüfung" [auth=token]
+  - echtzeit: ws "Befehle und Rückgängig, Beamer-Show und Beamer freigeben; empfängt den vollen Spielstand, Anwesenheit der Team-Geräte, Beamer-Rückmeldungen und Online-Status der Konten" [auth=token (Konto), tls, tunnel, im WLAN-Betrieb http]
+  - konten: http "Anmelden (E-Mail + Passwort bzw. Haupt-Admin-Passwort), Passwort vergessen, eigenes Konto und Passwort, Konten verwalten, Moderator- und Beamer-Link erzeugen" [auth=passwort, dann token, tls, tunnel, im WLAN-Betrieb http]
+  - http-api: http "Spiele und Vorlagen anlegen/wählen/schließen/exportieren, Bibliothek inkl. Import/Export, Fotos löschen, Server-Einstellungen, E-Mail-Versand, Sicherheitsprüfung" [auth=token, tls, tunnel, im WLAN-Betrieb http]
   - web-grundlage: call "Live-Verbindung, Bausteine, Einstellungsverzeichnis"
   - spielmodell: call "Kataloge, Prüfung der Konfiguration vor dem Speichern, Begriffe je Welt"
   - spielfeld: call "Brett erzeugen, Inselplan für die Karte im Brett-Editor"

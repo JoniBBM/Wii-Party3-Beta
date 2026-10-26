@@ -16,7 +16,7 @@ uses:
   - auftritte: call "Grundklasse der Auftritte (Stunts), Partikel"
   - tiere: call "Schnittstelle der Tierwelt (AnimalWorld)"
   - stimmung: call "Plätze und Schnittstelle der Fest-Deko"
-  - medien: http "GET /assets/models/space (Alien-Pflanzen, Felsen, Mondbasis, Raketen, Raumschiffe)" [auth=none]
+  - medien: http "GET /assets/models/space (Alien-Pflanzen, Felsen, Mondbasis, Raketen, Raumschiffe)" [auth=none, tls, tunnel, im WLAN-Betrieb http]
   - spielfeld: call "Lage von Vulkan, Fluss und Lagune"
   - spielmodell: call "Feldarten und -farben"
 files:

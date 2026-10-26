@@ -2,7 +2,7 @@
 
 Ein Partyspiel für Gruppen im Stil von **Wii Party**: Die Teams wandern über eine 3D-Spielwelt bis zum Gipfel eines Vulkans. Wer welche Strecke würfeln darf, entscheiden Minispiele und Quizfragen, die live vor Ort gespielt werden. Gedacht für Jugendgruppen, Freizeiten, Klassenfahrten und Familienfeste mit **2–10 Teams** – gespielt wird mit **Handy, Tablet oder Laptop**, die Spielwelt läuft auf dem **Beamer**.
 
-![Die Insel der Abenteuer](docs/doku/bilder/insel-gesamt.webp)
+![Die Insel der Abenteuer](docs/doku/assets/insel-gesamt.webp)
 
 ## Drei Welten – gleiche Regeln
 
@@ -10,7 +10,7 @@ Pro Spiel wählbar: Regeln und Spielfeld sind überall gleich, Optik, Figuren, M
 
 | 🏝️ Insel der Abenteuer | 🧱 Blockwelt | 🚀 Weltall |
 |---|---|---|
-| ![Insel](docs/doku/bilder/insel-vulkan.webp) | ![Blockwelt](docs/doku/bilder/welt-blockwelt.webp) | ![Weltall](docs/doku/bilder/welt-weltall.webp) |
+| ![Insel](docs/doku/assets/insel-vulkan.webp) | ![Blockwelt](docs/doku/assets/welt-blockwelt.webp) | ![Weltall](docs/doku/assets/welt-weltall.webp) |
 | Tropische Vulkaninsel mit Dschungel, Wasserfall, Liane und Tieren | Alles aus Blöcken im Minecraft-Stil (eigene Pixel-Texturen), Mobs und der Nether im Vulkan | Bunter Alien-Planet mit Plasma-Meer, Mondbasis, Raketenrampe und Astronauten |
 
 Unterwegs warten Sonderfelder mit eigenem Auftritt, Mutproben (über den Bach schwingen, Fässer oder Kisten, Lavahöhle, Kraterloch), das Innere des Vulkans und ein Vulkanausbruch. Ein gesprochener **Kommentator** begleitet das Spiel, die Musik wechselt je nach Phase, Wetter, Jahreszeit sowie Halloween und Weihnachten färben die Welt, und eine **Spielerklärung** mit Sprecher zeigt in gut drei Minuten, wie alles funktioniert.
@@ -26,7 +26,7 @@ Unterwegs warten Sonderfelder mit eigenem Auftritt, Mutproben (über den Bach sc
 
 | Beamer | Regie | Handy |
 |---|---|---|
-| ![Frage auf dem Beamer](docs/doku/bilder/beamer-frage.webp) | ![Regie während einer Frage](docs/doku/bilder/regie-frage-live.webp) | ![Antworten am Handy](docs/doku/bilder/handy-frage.webp) |
+| ![Frage auf dem Beamer](docs/doku/assets/beamer-frage.webp) | ![Regie während einer Frage](docs/doku/assets/regie-frage-live.webp) | ![Antworten am Handy](docs/doku/assets/handy-frage.webp) |
 
 ## Schnellstart
 

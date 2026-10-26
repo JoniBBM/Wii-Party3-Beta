@@ -10,7 +10,7 @@ Die Regeln gelten in allen drei Welten gleich – nur die Namen und Bilder wechs
 
 Alle Teams starten im **Hafendorf** (Feld 0). Der Weg führt über den Strand, durch die Tempelruinen, an der Lagune vorbei in den Dschungel und am Fluss entlang, über die **Fässer in der Furt**, hinauf zum Leuchtturm, über die **Hängebrücke** an der Schlucht, an der Steilküste entlang über die Hochebene mit den Steinköpfen und in **Serpentinen den Vulkan** hinauf. Oben geht es am **Kraterrand** entlang zum **Gipfel** (Standard: Feld 72). Wer ihn erreicht und dann noch den **Siegeswurf** schafft, gewinnt.
 
-![Die Insel](../bilder/insel-gesamt.webp)
+![Die Insel](../assets/insel-gesamt.webp)
 
 ## Ablauf einer Runde
 
@@ -102,14 +102,14 @@ Mitgespielt wird mit **Handy, Tablet oder Laptop** – jedes Gerät mit Browser 
 
 | | |
 |---|---|
-| ![Reaktion nach dem Zug](../bilder/beamer-reaktion.webp) | ![Foto-Blasen beim Ziehen](../bilder/beamer-fotoblasen.webp) |
-| ![Spielerklärung mit Vorführung](../bilder/beamer-erklaerung.webp) | ![Siegerpodest im Krater](../bilder/beamer-siegerpodest.webp) |
+| ![Reaktion nach dem Zug](../assets/beamer-reaktion.webp) | ![Foto-Blasen beim Ziehen](../assets/beamer-fotoblasen.webp) |
+| ![Spielerklärung mit Vorführung](../assets/beamer-erklaerung.webp) | ![Siegerpodest im Krater](../assets/beamer-siegerpodest.webp) |
 
 | | |
 |---|---|
-| ![Sprungfeder](../bilder/beamer-feder.webp) | ![Doppeldecker mit Strickleiter](../bilder/beamer-flugzeug.webp) |
-| ![UFO-Platztausch](../bilder/beamer-ufo.webp) | ![An der Liane](../bilder/beamer-liane.webp) |
-| ![Fässer oder Kisten](../bilder/beamer-furt.webp) | ![Im Inneren des Vulkans](../bilder/beamer-vulkan-innen.webp) |
+| ![Sprungfeder](../assets/beamer-feder.webp) | ![Doppeldecker mit Strickleiter](../assets/beamer-flugzeug.webp) |
+| ![UFO-Platztausch](../assets/beamer-ufo.webp) | ![An der Liane](../assets/beamer-liane.webp) |
+| ![Fässer oder Kisten](../assets/beamer-furt.webp) | ![Im Inneren des Vulkans](../assets/beamer-vulkan-innen.webp) |
 
 ## Der Vulkan
 

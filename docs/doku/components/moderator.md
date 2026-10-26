@@ -7,9 +7,9 @@ tech: [react]
 provides:
   - http GET /moderator – Vorlese- und Steueransicht für die Person auf der Bühne
 uses:
-  - echtzeit: ws "Befehle im Rahmen der Moderator-Rechte, Beamer-Show; empfängt den Spielstand mit Lösungen (ohne PINs und Beitritts-Schlüssel)" [auth=token (Moderator, 24 h)]
-  - konten: http "Anmeldung mit Spielcode + Moderator-Passwort (/api/auth/moderator), eigene Sitzung (/api/auth/me)" [auth=passwort bzw. token]
-  - http-api: http "Bibliothek und Vorlagen lesen (mit den Rechten des Spielbesitzers), Systeminfo" [auth=token]
+  - echtzeit: ws "Befehle im Rahmen der Moderator-Rechte, Beamer-Show; empfängt den Spielstand mit Lösungen (ohne PINs und Beitritts-Schlüssel)" [auth=token (Moderator, 24 h), tls, tunnel, im WLAN-Betrieb http]
+  - konten: http "Anmeldung mit Spielcode + Moderator-Passwort (/api/auth/moderator), eigene Sitzung (/api/auth/me)" [auth=passwort bzw. token, tls, tunnel, im WLAN-Betrieb http]
+  - http-api: http "Bibliothek und Vorlagen lesen (mit den Rechten des Spielbesitzers), Systeminfo" [auth=token, tls, tunnel, im WLAN-Betrieb http]
   - regie: call "Gemeinsame Steuer-Panels: Anmeldung, Phase, Inhalt, Würfeln, Tempo, Rangliste, Ticker, Beamer-Kurzfassung"
   - web-grundlage: call "Live-Verbindung, Bildschirm wach halten, Hell/Dunkel"
 files:

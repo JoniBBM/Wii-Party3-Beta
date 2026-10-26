@@ -7,7 +7,7 @@ provides:
   - http https://party.jonas-leonie.com – feste Adresse des VPS (benannter Tunnel)
   - http https://<zufall>.trycloudflare.com – wechselnde Adresse des Schnell-Tunnels (./start.sh online)
 uses:
-  - cloudflared: http "schickt jede Anfrage samt WebSocket durch den Tunnel zum cloudflared auf dem Rechner der Insel" [tls, Tunnel von innen aufgebaut (QUIC bzw. HTTP/2), port=7844]
+  - cloudflared: http "schickt jede Anfrage samt WebSocket durch den Tunnel zum cloudflared auf dem Rechner der Insel" [tls, tunnel, port=7844, von innen aufgebaut]
 zone: edge
 exposure: public
 security:

@@ -8,8 +8,8 @@ provides:
   - cli npm run audio -- list | attach <id> <datei.mp3> | remove <id> – Sprachaufnahmen der Fragen verwalten
   - cli npm run import:legacy – Inhalte der alten Version neu nach seed/legacy-content.json übernehmen
 uses:
-  - konten: http "POST /api/auth/admin – Anmeldung mit ADMIN_PASSWORD aus .env" [auth=passwort, port=9534]
-  - http-api: http "Audio-Wünsche lesen, Aufnahme anhängen oder entfernen" [auth=token, port=9534]
+  - konten: http "POST /api/auth/admin – Anmeldung mit ADMIN_PASSWORD aus .env" [auth=passwort, port=9534, local]
+  - http-api: http "Audio-Wünsche lesen, Aufnahme anhängen oder entfernen" [auth=token, port=9534, local]
   - datenbank: call "Umwandlung alter Inhalte (legacy.ts)"
 files:
   - audio.ts: Verwaltet die Sprachaufnahmen der Fragen über die Schnittstelle des laufenden Servers – zeigt offene Wünsche („Audio erstellen“ angehakt) mit Vorlesetext und Zeichenzahl, hängt eine MP3-Datei an eine Frage oder entfernt sie. Meldet sich dafür mit ADMIN_PASSWORD aus .env an; Adresse per --url bzw. INSEL_URL, sonst http://localhost mit HOST_PORT (Standard 9534).

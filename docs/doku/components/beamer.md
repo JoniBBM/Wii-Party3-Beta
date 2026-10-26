@@ -8,9 +8,9 @@ provides:
   - http GET /beamer – 3D-Spielwelt mit allen Einblendungen, ohne Menü
   - http GET /beamer#bt=… – Beamer mit fertigem Zugang (z. B. aus dem Kiosk-Start)
 uses:
-  - echtzeit: ws "Spielstand (Beamer-Sicht), Effekte, Show-Einstellungen, Erklärung und Fernbefehle der Regie; meldet Bildrate, Grafikstufe, Auflösung, Ton, Vollbild, freie Kamera und „Erklärung fertig“ zurück; Kopplung per Code" [auth=token (Beamer) bzw. Kopplungscode]
-  - konten: http "Beamer-Zugang vom Regie-Login auf demselben Rechner holen (/api/auth/beamer-link)" [auth=token]
-  - http-api: http "Systeminfo mit Beitritts-Adresse für den Lobby-QR-Code (nur freigegebene Beamer)" [auth=token]
+  - echtzeit: ws "Spielstand (Beamer-Sicht), Effekte, Show-Einstellungen, Erklärung und Fernbefehle der Regie; meldet Bildrate, Grafikstufe, Auflösung, Ton, Vollbild, freie Kamera und „Erklärung fertig“ zurück; Kopplung per Code" [auth=token (Beamer) bzw. Kopplungscode, tls, tunnel, im WLAN-Betrieb http]
+  - konten: http "Beamer-Zugang vom Regie-Login auf demselben Rechner holen (/api/auth/beamer-link)" [auth=token, tls, tunnel, im WLAN-Betrieb http]
+  - http-api: http "Systeminfo mit Beitritts-Adresse für den Lobby-QR-Code (nur freigegebene Beamer)" [auth=token, tls, tunnel, im WLAN-Betrieb http]
   - szene: call "3D-Szene erzeugen, Effekte abspielen (Director), Kamera, Ortswechsel ins Vulkan-Innere"
   - stimmung: call "Ton – Musik, Effekte, Sprache, Umgebung; Kommentator; Sätze der Spielerklärung"
   - figuren: call "Figuren-Vorschau in Rangliste und Einblendungen"

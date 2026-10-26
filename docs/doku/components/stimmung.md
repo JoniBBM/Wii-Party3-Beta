@@ -13,7 +13,7 @@ provides:
   - call VOICE_LINES, EXPLAINER_LINES – Texte des Kommentators und der Spielerklärung je Welt
 uses:
   - show: call "Wetter, Jahreszeit und Fest (Automatik), Musikstücke und Stimmungen, Lautstärken, Kommentator-Stufe"
-  - medien: http "GET /assets/audio, /assets/voice (Geräusche, Musik, Umgebungsschleifen, Sprachdateien)" [auth=none]
+  - medien: http "GET /assets/audio, /assets/voice (Geräusche, Musik, Umgebungsschleifen, Sprachdateien)" [auth=none, tls, tunnel, im WLAN-Betrieb http]
   - tiere: call "Welche Tierart ist gerade im Bild?"
   - insel: call "Inselplan und Bodenhöhe für die Fest-Deko"
   - blockwelt: call "Pixel-Kacheln für die Fest-Deko der Blockwelt"

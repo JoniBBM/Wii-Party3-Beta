@@ -12,9 +12,9 @@ provides:
   - http GET /join/m#t=… – Moderator-QR-Code, leitet zur Moderator-Ansicht weiter
   - http GET /team – Team-Ansicht (Spiel, Rangliste, Team)
 uses:
-  - echtzeit: ws "Befehle des eigenen Teams (antworten, buzzern, würfeln, Mutprobe, Name und Figur); empfängt die Team-Sicht des Spielstands und Effekte" [auth=token (Team/Spieler) bzw. Spielcode]
-  - konten: http "Spielcode prüfen (/api/join/check), als Spieler anmelden (/api/auth/register), Team-PIN (/api/auth/pin), Team-QR-Code (/api/auth/team-link), „Ich bin einer davon“ (/api/auth/become-player)" [auth=token bzw. PIN, ratelimit]
-  - http-api: http "Selfie hochladen und löschen (/api/media/photo)" [auth=token]
+  - echtzeit: ws "Befehle des eigenen Teams (antworten, buzzern, würfeln, Mutprobe, Name und Figur); empfängt die Team-Sicht des Spielstands und Effekte" [auth=token (Team/Spieler) bzw. Spielcode, tls, tunnel, im WLAN-Betrieb http]
+  - konten: http "Spielcode prüfen (/api/join/check), als Spieler anmelden (/api/auth/register), Team-PIN (/api/auth/pin), Team-QR-Code (/api/auth/team-link), „Ich bin einer davon“ (/api/auth/become-player)" [auth=token bzw. PIN, ratelimit, tls, tunnel, im WLAN-Betrieb http]
+  - http-api: http "Selfie hochladen und löschen (/api/media/photo)" [auth=token, tls, tunnel, im WLAN-Betrieb http]
   - web-grundlage: call "Live-Verbindung, Speicher für den Mitspieler-Zugang, Schütteln, Bausteine"
   - spielmodell: call "Begriffe je Welt, Rangliste, Emojis"
   - engine: call "Dauer der Effekte (Hinweise passend zur Animation)"

@@ -18,7 +18,7 @@ uses:
   - tiere: call "Tiere der Insel"
   - auftritte: call "Auftritte der Sonderfelder und Mutproben, Partikel"
   - stimmung: call "Ton, Kommentator, Wetter, Jahreszeit, Festzeit"
-  - medien: http "GET /assets/hdri, /assets/ultra, /assets/models (Himmelslicht, Ultra-Texturen, Modelle)" [auth=none]
+  - medien: http "GET /assets/hdri, /assets/ultra, /assets/models (Himmelslicht, Ultra-Texturen, Modelle)" [auth=none, tls, tunnel, im WLAN-Betrieb http]
   - show: call "atmosphereFor – Wetter, Jahreszeit und Fest aus den Beamer-Einstellungen"
   - spielmodell: call "Spielstand- und Effekt-Typen, FIELD_INFO, worldWords, Rangliste, Teamfarben"
   - spielfeld: call "Lage von Fluss und Furt (Kamerablicke der Mutproben)"

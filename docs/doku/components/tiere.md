@@ -11,7 +11,7 @@ uses:
   - insel: call "Höhenmodell, Inselplan, Baumkronen, Blumen und Sitzplätze als Aufenthaltsorte"
   - szene: call "Sichtprüfung der Kamera, Modelle laden, Rauschen"
   - spielfeld: call "Lage von Lagune und Fluss"
-  - medien: http "GET /assets/models/animals (Delfin, Wal, Manta, Krabbe, Frosch, Schildkröten)" [auth=none]
+  - medien: http "GET /assets/models/animals (Delfin, Wal, Manta, Krabbe, Frosch, Schildkröten)" [auth=none, tls, tunnel, im WLAN-Betrieb http]
 files:
   - animals.ts: Baut und steuert alle Tiere der Insel – Delfine, Wal, Mantas, Schildkröten, Krabben, Frösche (Modelle mit Animationen), Flamingos, Möwen, Papageien, Tukane, Affen, Fische und Schmetterlinge; Tiere außerhalb des Bildes werden seltener bewegt. Mit der Beamer-Adresse „?zoo“ stehen alle Arten zur Kontrolle nebeneinander.
   - birds.ts: Vögel aus Grundkörpern (Papagei, Tukan, Möwe) und Flamingos – sitzende Vögel drehen den Kopf, putzen sich, fliegen ab und zu weiter; fliegende schlagen mit den Flügeln und legen sich in die Kurve.

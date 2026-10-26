@@ -15,7 +15,7 @@ uses:
   - spielmodell: call "Feldarten, Farben und Symbole der Felder (FIELD_INFO)"
   - szene: call "Modelle laden, Rauschen, Sichtachsen der Mutproben, statische Teile zusammenfassen"
   - auftritte: call "Partikel für Glut, Rauch, Lava und Ausbruch"
-  - medien: http "GET /assets/models (Pflanzen, Felsen, Hafen- und Piraten-Teile)" [auth=none]
+  - medien: http "GET /assets/models (Pflanzen, Felsen, Hafen- und Piraten-Teile)" [auth=none, tls, tunnel, im WLAN-Betrieb http]
 files:
   - layout.ts: Inselplan in 3D – der gemeinsame 2D-Plan plus Höhen; Lage, Höhe und Richtung jedes Feldes, Weg auf Fässern, Brücke und Kraterrand, Bach hinter der Liane, Flussstufen. Grundlage aller drei Welten.
   - ground.ts: Natürliche Form der Insel ohne Weg als reine Mathematik – Abstand zur Küste, Strände, Riff, Hochebenen und Klippen, Lagune, Inselchen, Vulkan mit Graten, Krater und Lavastrom.

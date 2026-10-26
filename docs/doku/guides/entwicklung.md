@@ -65,6 +65,7 @@ Den Überblick über alle Bausteine liefert `node .claude/doku/doku.mjs summary`
   - Die übrigen Skripte geben ihrem Beamer einen Zugang über `/api/auth/beamer-link` und `/beamer#bt=…` – ohne zeigt ein Beamer nur die Insel und einen Kopplungscode.
   - `node e2e/beamer.mjs [ordner]` – steuert ein Spiel per WebSocket und fotografiert den Beamer in allen Phasen (Lobby, Frage, Würfel, Ausbruch, Sieg).
   - `node e2e/screens.mjs [ordner]` – Galerie aller Oberflächen in typischen Größen (auch für die Doku).
+  - `node e2e/doku-screens.mjs` – erneuert die Bildschirme im Tab „Oberfläche“ der Doku (Fotos und anklickbare Bereiche in `docs/doku/screens`). Nach Änderungen an Regie, Handy, Moderator oder Beamer laufen lassen; Titel und Texte der Bildschirme bleiben erhalten.
   - `node e2e/shot.mjs <pfad> <bild.png> [breite] [höhe] [admin|moderator]` – schnelles Bildschirmfoto einer Seite.
   - `node e2e/hazards.mjs [ordner]` – spielt die Inselgefahren durch (Kisten brechen ein, Schwimmen, Kraterloch, Klettern, Herauskommen) und fotografiert den Beamer.
   - `node e2e/stunts.mjs [ordner] [szenen]` – alle Feld-Auftritte als Bildfolgen (`feder, flugzeug, ufo, kaefig, buehne, geysir, liane, fluss, hoehle, totenkopf`; die Höhle führt durchs Vulkan-Innere bis zum Ausgang) und Rückgängig mitten im Auftritt.

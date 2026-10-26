@@ -10,7 +10,7 @@ provides:
   - call seedIfEmpty(), seedExtras() – Startinhalte und Zusatzpakete
   - call convertLegacyFolder() – alte Inhalte der Flask-Version umwandeln
 uses:
-  - sqlite: sql "settings, collections, items, templates, games, game_log, users, user_tokens" [intern, datei=data/insel.db]
+  - sqlite: sql "settings, collections, items, templates, games, game_log, users, user_tokens" [datei=data/insel.db, local]
   - spielmodell: call "ältere Spielstände und Vorlagen beim Laden ergänzen (upgradeState, upgradeConfig), Standard-Einrichtung"
   - http-api: call "importCollections – Startinhalte wie einen Import einspielen"
 files:

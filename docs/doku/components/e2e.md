@@ -9,12 +9,12 @@ provides:
   - cli node e2e/<skript>.mjs – einzelne Prüfungen und Bildserien
 uses:
   - server: exec "startet einen eigenen Server mit leerer Datenbank in einem Temp-Ordner"
-  - konten: http "Anmeldung, Team-PIN, Beamer-Link (/api/auth/beamer-link)"
-  - echtzeit: ws "steuert Spiele wie die Regie, liest den Spielstand"
-  - regie: http "echter Browser (Chromium über Playwright)"
-  - handy: http "echte Browser als Team-Handys"
-  - moderator: http "echter Browser als Moderator"
-  - beamer: http "echter Browser als Beamer, Fotos und Messwerte"
+  - konten: http "Anmeldung, Team-PIN, Beamer-Link (/api/auth/beamer-link)" [local]
+  - echtzeit: ws "steuert Spiele wie die Regie, liest den Spielstand" [local]
+  - regie: http "echter Browser (Chromium über Playwright)" [local]
+  - handy: http "echte Browser als Team-Handys" [local]
+  - moderator: http "echter Browser als Moderator" [local]
+  - beamer: http "echter Browser als Beamer, Fotos und Messwerte" [local]
 files:
   - flow.mjs: Kompletter Durchlauf mit echten Browsern – Regie, 4 Handys, Moderator und Beamer spielen eine Runde; Bildschirmfotos und Prüfung der Browser-Konsolen; der Beamer wird per Code aus der Regie freigegeben.
   - logout.mjs: Prüft „Überall abmelden“ – ein Spielleiter in der Regie muss sofort (ohne Neuladen) zur Anmeldung springen, wenn der Admin ihn abmeldet.
@@ -23,6 +23,7 @@ files:
   - wizard.mjs: Geführte Spieleinrichtung im Browser komplett durchklicken und prüfen, was im Spiel ankommt; jede Folie wird auf Überstand geprüft und fotografiert.
   - station.mjs: Gruppenmodus – mehrere Personen melden sich nacheinander an einer Anmeldestation an (mit Selfie), Teams bilden, Team-Gerät per PIN verbinden.
   - screens.mjs: Galerie aller Oberflächen in typischen Größen (für Endkontrolle und die Bilder der Doku).
+  - doku-screens.mjs: Bildschirme für den Tab „Oberfläche“ der Doku – spielt bis zur ersten Frage, fotografiert die wichtigsten Seiten und misst die anklickbaren Bereiche aus (docs/doku/screens, Bilder in docs/doku/assets/screens).
   - shot.mjs: Schnelles Bildschirmfoto einer Seite, auf Wunsch vorher als Regie oder Moderator angemeldet (Passwort aus .env).
   - beamer.mjs: Steuert ein Spiel per WebSocket und fotografiert den Beamer in allen Phasen (Lobby, Frage, Würfel, Ausbruch, Sieg).
   - show.mjs: Beamer-Show – Fernsteuerung aus der Regie (Grafik, Kamera, Neu laden), Spielerklärung, Foto-Blasen, Reaktion nach dem Zug, Vulkan-Inneres, Siegerehrung.
